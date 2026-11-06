@@ -48,7 +48,6 @@ const TodayLog: React.FC = () => {
                 {line(e)}
                 {e.kind === 'catch' && e.newSpecies && <span className="today-new">NEW</span>}
                 {e.attendance && <span className="today-tag">출석</span>}
-                {e.pity && <span className="today-tag">천장</span>}
               </span>
               {(e.kind === 'catch' || e.kind === 'flee') && (
                 <span className="today-sub">

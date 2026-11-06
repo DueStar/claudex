@@ -12,7 +12,7 @@ import { ballName, levelOf, usePokedex, useViewed, markViewed, TIER_LABEL, TIER_
 
 const GENS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 const TIERS: Tier[] = ['common', 'rare', 'sub', 'legendary', 'mythical']
-const HOW: Record<string, string> = { starter: '스타팅 포켓몬', gift: '여행의 시작부터 함께', wild: '야생에서 포획', evolve: '진화로 획득', pity: '천장 보상', attendance: '출석 보상' }
+const HOW: Record<string, string> = { starter: '스타팅 포켓몬', gift: '여행의 시작부터 함께', wild: '야생에서 포획', evolve: '진화로 획득', pity: '야생에서 포획', attendance: '출석 보상' }
 
 type Entry = PokemonEntry & { genus?: string; flavor?: string; tier?: Tier; gen?: number; heightDm?: number; weightHg?: number }
 
@@ -53,8 +53,6 @@ const PokedexView: React.FC = () => {
           <span><b>{seenCount}</b> 발견</span>
           <span><b>{shinyCount}</b> 이로치</span>
           <span title="박스에 넣을 수 있는 개체 수 (파티 6마리 별도). 꽉 차면 새로 잡은 개체는 박사님께 가요">박스 <b>{state?.box.length ?? 0}</b> / {state?.boxLimit ?? 1200}</span>
-          <span title="이만큼 만나도 전설이 안 나오면 다음은 확정 전설">전설 천장 <b>{state?.sinceLegend ?? 0}</b> / {state?.pity ?? 150}</span>
-          <span title="이만큼 만나도 환상이 안 나오면 다음은 확정 환상">환상 천장 <b>{state?.sinceMythical ?? 0}</b> / {state?.pityMythical ?? 300}</span>
         </div>
         <div className="dex-filters">
           <button className={gen === null ? 'on' : ''} onClick={() => setGen(null)}>전체</button>
@@ -107,7 +105,7 @@ const PokedexView: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-              <p className="dex-fine">이로치 1/4096 · 아직 못 잡은 종은 8배 잘 나와요 · 전설 {state?.pity ?? 150}회, 환상 {state?.pityMythical ?? 300}회 천장(포획 확정)</p>
+              <p className="dex-fine">이로치 1/4096 · 아직 못 잡은 종은 더 잘 나와요</p>
             </div>
           )}
           {detail && (

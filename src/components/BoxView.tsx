@@ -12,7 +12,7 @@ import { PokeBall } from './Icons'
 
 type Sort = 'recent' | 'dex' | 'tier' | 'steps'
 const TIER_RANK: Record<Tier, number> = { mythical: 0, legendary: 1, sub: 2, rare: 3, common: 4 }
-const HOW: Record<string, string> = { starter: '스타팅', gift: '여행의 시작', attendance: '출석 조우', pity: '천장', wild: '야생' }
+const HOW: Record<string, string> = { starter: '스타팅', gift: '여행의 시작', attendance: '출석 조우', pity: '야생', wild: '야생' }
 
 function tierOf(dex: number): Tier {
   return ((pokemonById(dex) as { tier?: Tier } | undefined)?.tier ?? 'common') as Tier

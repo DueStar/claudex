@@ -32,7 +32,7 @@ const SAMPLES: { title: string; note: string; e: DexEvent }[] = [
   { title: '포획 · 희귀', note: '포획률 45 이하', e: catchOf(147, 'rare', { ball: 'dusk-ball', level: 15, place: 'pokemon-office 동굴 (밤)' }) },
   { title: '포획 · 준전설', note: '보라 테두리', e: catchOf(144, 'sub', { ball: 'timer-ball', level: 50, gender: 'none' }) },
   { title: '포획 · 전설 (마스터볼)', note: '금색 빛, 10초', e: catchOf(150, 'legendary', { ball: 'master-ball', level: 55, gender: 'none' }) },
-  { title: '포획 · 환상 (천장)', note: '분홍 빛, 10초', e: catchOf(151, 'mythical', { ball: 'quick-ball', level: 48, gender: 'none', pity: true }) },
+  { title: '포획 · 환상', note: '분홍 빛, 10초', e: catchOf(151, 'mythical', { ball: 'quick-ball', level: 48, gender: 'none', pity: true }) },
   { title: '포획 · 이로치', note: '✦ 빛나는', e: catchOf(25, 'common', { shiny: true, ball: 'luxury-ball', level: 22, gender: 'female', via: via('Edit(Widget.tsx)') }) },
   { title: '포획 · 출석 조우', note: '하루 첫 세션', e: catchOf(133, 'common', { attendance: true, place: 'pokemon-office (오늘의 출석)', ball: 'great-ball', via: via('세션 시작'), level: 9 }) },
   { title: '포획 · 울트라비스트', note: '울트라볼', e: catchOf(793, 'sub', { ball: 'beast-ball', level: 55, gender: 'none', via: via('Grep 검색') }) },

@@ -28,7 +28,7 @@ export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; onClick?: () 
     <div className="w-toast-text">
       {t.attendance && <span className="w-toast-badge">오늘의 출석 조우!</span>}
       <span className="w-toast-line">
-        {t.kind === 'catch' && <><b>{t.shiny ? '✦ 빛나는 ' : ''}{t.name}{genderMark(t.gender)}</b>을(를) 잡았다!{t.pity ? ' (천장)' : ''}</>}
+        {t.kind === 'catch' && <><b>{t.shiny ? '✦ 빛나는 ' : ''}{t.name}{genderMark(t.gender)}</b>을(를) 잡았다!</>}
         {t.kind === 'flee' && <>야생의 <b>{t.name}</b>이(가) 도망쳤다…</>}
         {t.kind === 'evolve' && <><b>{t.fromName}</b>이(가) <b>{t.name}</b>(으)로 진화했다!</>}
         {t.kind === 'levelup' && <><b>{t.shiny ? '✦ ' : ''}{t.name}</b>의 레벨이 <b>{t.level}</b>(으)로 올랐다!</>}
