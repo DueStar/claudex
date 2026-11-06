@@ -6,9 +6,10 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 - 수집이 중심이고 배틀은 없다. 비영리이고, 사용자 5만 명 이내를 목표로 한다.
 
 ## 작업 원칙
-- **push**: gh에 로그인된 DueStar 계정 토큰으로 한다. 기본 활성 계정(chanho-byte)은 바꾸지 않는다.
-  `T=$(gh auth token -u DueStar); git -c credential.helper= -c "credential.helper=!f() { echo username=x-access-token; echo password=$T; }; f" push`
-- **커밋 작성자**: DueStar / hoo2031@gmail.com. 커밋 끝에 Claude-Session 줄을 붙인다.
+- **push**: DueStar 계정으로만 한다. chanho-byte는 이 프로젝트에 쓰지 않는다. 토큰을 직접 꺼내지 말고 gh를 자격 증명 도우미로 쓴다.
+  `git -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin main`
+- **커밋 작성자**: DueStar / hoo2031@gmail.com(저장소 로컬 설정). 커밋 끝에 Co-Authored-By 줄을 붙인다.
+- **테스트 판단 기준**: Windows에서는 원래 실패하는 테스트가 있다(파일권한·심링크·uid). 2c9b529 기준 449 통과 / 55 실패이고, "새 실패 0"이면 통과로 본다.
 - **포켓몬·볼 그림은 저장소에 넣지 않는다**(DMCA 대비, .gitignore).
   - 포켓몬: 처음 볼 때 `server/sprites.js`가 PokeAPI HOME 그림을 받아 128px로 맞추고 `~/.agent-office/sprites`에 저장한다.
   - 볼: 빌드할 때 넣는다. 원본은 사용자가 손으로 받은 `~/Downloads/pokeball`이고 `node tools/import-balls.mjs <폴더>`로 가져온다. 결과는 `public/sprites/balls/`이며 gitignore 대상이다.
