@@ -72,6 +72,10 @@ export const MASTER_FOR_LEGENDS = 0.01
 // minutes left out.
 // ---------------------------------------------------------------------------
 export const MAX_LEVEL = 100
+/** Levels a trainer raises a Pokémon to max its friendship (friendship evolutions, Luxury/Friend Balls) */
+export const BOND_LEVELS = 20
+const EEVEE = 133
+const isNight = (t) => { const h = new Date(t).getHours(); return h >= 20 || h < 5 }
 export const WILD_MAX_LEVEL = 55
 /**
  * Minutes of work from level L to L+1: 20 at the start, rising on a curve to
@@ -129,7 +133,7 @@ export function ballBoosts(ctx) {
   if (p) {
     // Luxury and Friend Balls: levels the trainer has raised the working Pokémon
     const raised = (p.level ?? 0) - (p.metLevel ?? p.level ?? 0)
-    const bond = raised >= 20 ? 2 : raised >= 10 ? 1.5 : 1
+    const bond = raised >= BOND_LEVELS ? 2 : raised >= BOND_LEVELS / 2 ? 1.5 : 1
     b['luxury-ball'] = bond
     b['friend-ball'] = bond
     // Level Ball: the working Pokémon out-levels the wild one
@@ -544,19 +548,56 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
   }
 
   /**
+   * Which form a Pokémon evolves into at this level-up, if any. Like the games,
+   * kept simple:
+   *  - level evolutions at their level (Charmander 16)
+   *  - friendship and other level-up conditions: once the trainer has raised it
+   *    BOND_LEVELS levels ("friendship maxed"), at the next level-up
+   *  - trade evolutions: after it was traded (a swap onto a session, or a
+   *    box ↔ party exchange), at the next level-up
+   *  - stones and the rest: level 30 (first evolution) / 40 (second)
+   *  - Eevee from level 30: friendship maxed → Espeon by day, Umbreon at night;
+   *    working in the forest (Read) → Leafeon; in a cave (Bash) at night →
+   *    Glaceon; otherwise one of the three stone forms
+   */
+  function evolutionFor(mon, where) {
+    const level = levelOf(mon)
+    const raised = level - (mon.metLevel ?? STARTER_LEVEL)
+    const bonded = raised >= BOND_LEVELS
+    if (mon.dex === EEVEE) {
+      if (level < 30) return null
+      if (bonded) return where.night ? 197 : 196
+      if (where.terrain === '숲') return 470
+      if (where.terrain === '동굴' && where.night) return 471
+      return [134, 135, 136][Math.floor(random() * 3)]
+    }
+    const ok = (nextOf.get(mon.dex) ?? []).filter((id) => {
+      const sp = byId.get(id)
+      const at = sp?.evolveLevel ?? 30
+      switch (sp?.evolveHow) {
+        case 'level': return level >= at
+        case 'level-up': return bonded
+        case 'trade': return !!mon.traded
+        default: return level >= at
+      }
+    })
+    if (!ok.length) return null
+    return ok[Math.floor(random() * ok.length)]
+  }
+
+  /**
    * Evolve at the games' level: the next forms whose evolveLevel (from PokeAPI;
    * stone, trade and friendship evolutions get 30 / 40) the Pokémon has reached.
    * A branch (Eevee) picks one of the forms it qualifies for.
    */
-  function evolveIfDue(sessionId, mon) {
+  function evolveIfDue(sessionId, mon, where = {}) {
     if (isFinal(mon.dex)) return null
-    const level = levelOf(mon)
-    const options = (nextOf.get(mon.dex) ?? []).filter(id => level >= (byId.get(id)?.evolveLevel ?? 30))
-    if (!options.length) return null
-    const next = options[Math.floor(random() * options.length)]
+    const next = evolutionFor(mon, where)
+    if (!next) return null
     const from = mon.dex
     mon.dex = next
     mon.evos += 1
+    delete mon.traded
     markSeen(next)
     recordSpecies(next, { place: `${state.projects[sessionId] || '어딘가'} (진화)`, sessionId, project: state.projects[sessionId], how: 'evolve', shiny: mon.shiny })
     const event = { kind: 'evolve', id: next, from, name: byId.get(next)?.ko, fromName: byId.get(from)?.ko, sessionId, uid: mon.uid, shiny: mon.shiny, at: now() }
@@ -601,7 +642,7 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
         mon.steps += 1
         // Evolution comes with a level-up, at the games' level for it
         if (event?.kind === 'levelup') {
-          const evo = evolveIfDue(sessionId, mon)
+          const evo = evolveIfDue(sessionId, mon, { terrain: terrainFor(ev.tool).name, night: isNight(now()) })
           if (evo) event = evo
         }
       }
@@ -635,6 +676,7 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
       state.box.push(current)
     }
     state.assign[sessionId] = uid
+    next.traded = true // a trade: trade evolutions happen at its next level-up
     const event = { kind: 'swap', id: next.dex, from: cur.dex, name: byId.get(next.dex)?.ko, fromName: byId.get(cur.dex)?.ko, sessionId, uid, shiny: next.shiny, at: now() }
     pushLog(event)
     save()
@@ -676,6 +718,7 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     if (busyUids().has(partyUid)) return { ok: false, reason: 'busy' }
     state.box.splice(b, 1)
     state.party[p] = boxUid
+    state.mons[boxUid].traded = true
     state.box.push(partyUid)
     const mon = state.mons[boxUid]
     const event = { kind: 'exchange', id: mon.dex, name: byId.get(mon.dex)?.ko, uid: boxUid, from: state.mons[partyUid].dex, at: now() }

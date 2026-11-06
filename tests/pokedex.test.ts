@@ -385,6 +385,49 @@ describe('pokedex', () => {
     expect(isFullMoon(Date.UTC(2026, 10, 9, 12))).toBe(false)
   })
 
+  it('friendship, trade and Eevee evolutions follow the games, simply', () => {
+    let t = new Date('2026-11-06T14:00:00').getTime() // daytime
+    const species = [
+      { id: 1, ko: '이상해씨', types: ['grass'], tier: 'rare', captureRate: 45, evolvesFrom: null },
+      { id: 4, ko: '파이리', types: ['fire'], tier: 'rare', captureRate: 45, evolvesFrom: null },
+      { id: 7, ko: '꼬부기', types: ['water'], tier: 'rare', captureRate: 45, evolvesFrom: null },
+      { id: 172, ko: '피츄', types: ['electric'], tier: 'common', captureRate: 190, evolvesFrom: null },
+      { id: 25, ko: '피카츄', types: ['electric'], tier: 'common', captureRate: 190, evolvesFrom: 172, evolveLevel: 30, evolveHow: 'level-up' },
+      { id: 64, ko: '윤겔라', types: ['psychic'], tier: 'common', captureRate: 100, evolvesFrom: null },
+      { id: 65, ko: '후딘', types: ['psychic'], tier: 'common', captureRate: 50, evolvesFrom: 64, evolveLevel: 40, evolveHow: 'trade' },
+      { id: 133, ko: '이브이', types: ['normal'], tier: 'common', captureRate: 45, evolvesFrom: null },
+      ...[134, 135, 136].map(id => ({ id, ko: `돌${id}`, types: ['normal'], tier: 'common', captureRate: 45, evolvesFrom: 133, evolveLevel: 30, evolveHow: 'use-item' })),
+      ...[196, 197, 470, 471, 700].map(id => ({ id, ko: `이브이${id}`, types: ['normal'], tier: 'common', captureRate: 45, evolvesFrom: 133, evolveLevel: 30, evolveHow: 'level-up' })),
+    ]
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const dex = createPokedex({ file: join(dir, 'p.json'), species, broadcast: () => {}, random: () => 0.99, now: () => t })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    const st = (dex as any)._state()
+    const grow = (uid: string, sid: string, tool = 'Edit', minutes = 2000) => {
+      st.assign[sid] = uid
+      for (let i = 0; i < minutes; i++) { t += 60_000; dex.noteEvent({ type: 'agent_working', sessionId: sid, tool }, {}) }
+    }
+    const add = (uid: string, dex: number, metLevel: number) => { st.mons[uid] = { uid, dex, steps: 0, evos: 0, shiny: false, how: 'wild', place: 'x', at: 0, metLevel, workMs: 0 }; st.box.push(uid) }
+    // Pichu: met at 40, no evolution until raised 20 levels, then Pikachu
+    add('pichu', 172, 40)
+    grow('pichu', 'a', 'Edit', 200)
+    expect(st.mons.pichu.dex).toBe(172)
+    grow('pichu', 'a', 'Edit', 900)
+    expect(st.mons.pichu.dex).toBe(25)
+    // Kadabra: level alone never does it; after a trade, the next level-up does
+    add('kad', 64, 50)
+    grow('kad', 'b', 'Edit', 200)
+    expect(st.mons.kad.dex).toBe(64)
+    st.mons.kad.traded = true
+    grow('kad', 'b', 'Edit', 200)
+    expect(st.mons.kad.dex).toBe(65)
+    // Eevee from 30 in the forest (Read), not yet bonded: Leafeon
+    add('eevee', 133, 29)
+    grow('eevee', 'c', 'Read', 60)
+    expect(st.mons.eevee.dex).toBe(470)
+  })
+
   it('keeps the game on disk', async () => {
     const { dex, file } = setup([0])
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'x' })
