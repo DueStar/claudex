@@ -156,6 +156,11 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 사용자가 원한 그림은 pokemondb.net/pokedex/all의 아이콘이다: `img.pokemondb.net/sprites/scarlet-violet/icon/<slug>.png`(스칼렛·바이올렛 박스 아이콘, 120×112, 왼쪽을 살짝 보는 외곽선 그림). 1025종이 다 있다.
    - 지금 앱은 `server/sprites.js`가 PokeAPI의 Pokémon HOME 그림(`sprites/pokemon/other/home`, 512px 정면 3D 렌더)을 받는다. `tools/fetch-pokemon-art.py`도 pokemondb의 `sprites/home`을 받는다.
    - 차이: SV 아이콘에는 이로치 버전이 없고(`icon/shiny/` 404), 실제 그림이 40~90px로 작아서 128px로 키우면 흐려진다. PokeAPI에는 SV 아이콘이 없어서 출처가 pokemondb로 바뀐다.
+7-4. **푸시 권한과 남은 정리(2026-11-07)**
+   - gh 로그인 토큰에 `workflow` 권한이 없어서 `.github/workflows/`를 바꾼 커밋은 GitHub가 거절한다. 사용자가 `gh auth refresh -h github.com -s workflow`를 한 번 실행해야 한다.
+   - 그래서 1.3.7에서 `ci.yml` 정리(지운 `office.config.example.json` 복사 단계와 `check-assets` 단계 빼기)는 빠졌다. 패치는 `tools/_cache/ci-yml-1.3.7.patch`(gitignore)에 있다. 그 전까지 GitHub CI는 이 두 단계에서 실패한다.
+   - v1.3.7 태그는 릴리스를 만들 때 푸시가 실패해서 한 커밋 전(`ce97fd7`)에 붙었다. 앱 업데이트 파일은 1.3.7 코드로 빌드돼서 업데이트에는 문제가 없다. 태그를 `5dffd22`로 옮기려면 태그 강제 푸시가 필요해서 사용자 확인을 기다린다.
+   - 교훈: `release.mjs --publish` 전에 `git push`가 성공했는지(`git status -sb`가 ahead 0인지) 꼭 확인한다.
 8. **나중에**
    - 클라우드 동기화를 합집합 병합으로 바꾼다(지금은 잡은 종이 많은 쪽이 통째로 덮어쓴다).
    - 설정 페이지, 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명
