@@ -126,7 +126,7 @@ const Widget: React.FC = () => {
   useEffect(() => {
     if (!lastEvent || !bridge) return
     const rareFlee = lastEvent.kind === 'flee' && (lastEvent.tier === 'sub' || lastEvent.tier === 'legendary' || lastEvent.tier === 'mythical')
-    if (lastEvent.kind === 'catch' || lastEvent.kind === 'evolve' || rareFlee) bridge.toast.show(lastEvent)
+    if (lastEvent.kind === 'catch' || lastEvent.kind === 'evolve' || lastEvent.kind === 'levelup' || rareFlee) bridge.toast.show(lastEvent)
   }, [lastEvent])
   useEffect(() => {
     bridge?.widget.getMode().then(setModeState).catch(() => {})

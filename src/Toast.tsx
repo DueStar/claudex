@@ -12,6 +12,7 @@ import { TIER_LABEL, genderMark, sourceText, ballName, NATURE_BY_ID, type DexEve
 import { PokeBall } from './components/Icons'
 
 function durationOf(e: DexEvent): number {
+  if (e.kind === 'levelup') return 3500 // small news: a short visit
   const rare = e.tier === 'legendary' || e.tier === 'mythical' || e.shiny
   return rare ? 10000 : 5500
 }
@@ -61,6 +62,7 @@ const Toast: React.FC = () => {
             {t.kind === 'catch' && <><b>{t.shiny ? '✦ 빛나는 ' : ''}{t.name}{genderMark(t.gender)}</b>을(를) 잡았다!{t.pity ? ' (천장)' : ''}</>}
             {t.kind === 'flee' && <>야생의 <b>{t.name}</b>이(가) 도망쳤다…</>}
             {t.kind === 'evolve' && <><b>{t.fromName}</b>이(가) <b>{t.name}</b>(으)로 진화했다!</>}
+            {t.kind === 'levelup' && <><b>{t.shiny ? '✦ ' : ''}{t.name}</b>의 레벨이 <b>{t.level}</b>(으)로 올랐다!</>}
           </span>
           <span className="w-toast-sub">
             {t.kind === 'catch' && t.level && <span className="w-toast-lv">Lv.{t.level}</span>}

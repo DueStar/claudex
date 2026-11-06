@@ -646,7 +646,11 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
           if (evo) event = evo
         }
       }
-      if ((!event || event.kind === 'sendout' || event.kind === 'levelup') && random() < ENCOUNTER_PER_STEP) event = encounter(sessionId, mon, ev.tool, false, catchSource(ev, session))
+      if ((!event || event.kind === 'sendout' || event.kind === 'levelup') && random() < ENCOUNTER_PER_STEP) {
+        // A level-up on the same step is told first, so neither news is lost
+        if (event?.kind === 'levelup') publish(event)
+        event = encounter(sessionId, mon, ev.tool, false, catchSource(ev, session))
+      }
     }
     if (fresh || event) {
       save()
