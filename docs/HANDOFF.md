@@ -148,7 +148,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 7-1. **세션 그림은 SV 박스 아이콘** — 1.3.5에서 적용(사용자 결정, 2026-11-07: 도감·박스는 HOME 그림, 터미널 옆 패널과 위 세션 탭은 SV 아이콘). 1.3.6에서 파티 줄과 도감 카드의 최근 잡은 포켓몬도 SV 아이콘으로 바꿨다. 교체·던지기 창과 알림은 HOME 그림 그대로다.
 7-2. **1.3.6 추가**: 업데이트 후 첫 실행에 패치노트 창(`src/patchNotes.ts`, `PatchNotes.tsx`: CHANGELOG의 Claudex 부분을 앱에 넣고, 마지막으로 본 버전은 localStorage `claudex-seen-version`). 처음 보는 PC는 현재 버전만 보여준다. **그래서 CHANGELOG는 사용자에게 보이는 글이다: 릴리스마다 `### x.y.z`를 한글로 쓴다**(테스트가 package.json 버전 항목이 있는지 확인한다). 1.3.6의 직접 만든 스냅은 1.3.7에서 지웠다(아래 7-3).
 7-3. **창 두 종류**(1.3.7, 사용자 결정 2026-11-07: "창 모드면 창이 떠 있는 걸 생각하지, 위젯 모드만 위젯"): 위젯 모드는 투명·항상 위·작업표시줄 없음, 창·전체 화면 모드는 불투명한 일반 창(`frame: false`라도 투명이 아니면 Windows 스냅·미리보기·크기 조절 테두리가 된다). 전체 화면 = 최대화(`maximize`/`unmaximize` 이벤트로 모드를 맞춘다). 투명 여부는 만든 뒤 못 바꾸므로 종류가 바뀌면 `swapAppWindow`가 새 창을 숨긴 채 만들어 첫 그림(`ready-to-show`)+120ms를 기다린 뒤 크로스페이드(옛 창 140ms, 새 창 200ms)하고 옛 창을 없앤다. 터미널은 main의 버퍼(세션당 20만 자)에서 다시 그려지고, 보던 탭·고른 세션·쓰던 지시는 `src/carry.ts`(localStorage `claudex-carry`)로 넘긴다. 페이지 주소의 `?widget&mode=<모드>`로 첫 그림부터 맞는 모드로 그린다. 창 최소 크기는 560×400(1/4 스냅용), 위젯은 300×540, 위젯 너비 상한 640(1.3.6이 스냅된 창 크기를 위젯 크기로 저장하던 것을 무시).
-   - 개발 실행으로 확인하는 법: `AGENT_OFFICE_PORT=3344 npx vite --port 3333 --strictPort`를 띄우고 `AGENT_OFFICE_HOME=<임시> AGENT_OFFICE_PORT=3344 POKEMON_OFFICE_AUTOTEST_EXPAND=1 AGENT_OFFICE_SCREENSHOT=<png> npx electron .`. 창 캡처는 불투명한 창이면 Claudex 터미널 안에서도 된다(투명 위젯은 흰 화면). 개발 실행도 `%APPDATA%\Claudex\window-state.json`을 같이 쓰므로 먼저 백업하고 끝나면 되돌린다.
+   - 개발 실행으로 확인하는 법: `AGENT_OFFICE_PORT=3344 npx vite --port 3333 --strictPort`를 띄우고 `AGENT_OFFICE_HOME=<임시> AGENT_OFFICE_PORT=3344 POKEMON_OFFICE_AUTOTEST_EXPAND=1 AGENT_OFFICE_SCREENSHOT=<png> npx electron .`. 창 캡처는 불투명한 창이면 Claudex 터미널 안에서도 된다(투명 위젯은 흰 화면). 개발 실행(`app.isPackaged`가 false)은 이제 `%APPDATA%\Claudex-dev`를 따로 쓴다(설치본의 창 상태·세션 이름·페이지 저장소를 건드리지 않는다).
    - `theme.ts`의 `iconUrl()`과 `sessionSprite()` → `/sprites/pokemon/icon/<id>.png` → `server/sprites.js`가 pokemondb에서 처음 쓸 때 받아 `<runtime dir>/sprites/icon/`에 둔다(잘라내기만 하고 키우지 않는다). 받지 못하면 HOME 그림으로 넘긴다. 그림은 각 PC가 직접 받으므로 Supabase 사용량과는 관계없다.
    - 종 번호 → 아이콘 이름은 `server/pokemon-icons.json`(`tools/fetch-pokemon-icons.py`로 생성). 폼이 있는 40종은 기본 폼 이름이다(`deoxys-normal` 등).
    - 이로치 아이콘은 없다. 이름의 ✨로 구분한다(`sessionName`).
@@ -160,6 +160,27 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - gh 로그인 토큰에 `workflow` 권한이 없어서 `.github/workflows/`를 바꾼 커밋이 거절됐다. 사용자가 `gh auth refresh -h github.com -s workflow`를 실행해 해결했고(2026-11-07), 빠졌던 `ci.yml` 정리는 e13c130으로 올렸다.
    - v1.3.7 태그는 릴리스를 만들 때 푸시가 실패해서 한 커밋 전(`ce97fd7`)에 붙었다. 앱 업데이트 파일은 1.3.7 코드로 빌드돼서 업데이트에는 문제가 없다. 사용자 승인을 받아 태그를 `5dffd22`로 옮겼다(태그 강제 푸시, 2026-11-07).
    - 교훈: `release.mjs --publish` 전에 `git push`가 성공했는지(`git status -sb`가 ahead 0인지) 꼭 확인한다.
+7-5. **2026-11-07 밤 작업(1.3.7 뒤, 아직 릴리스 안 함)**
+   - 도감을 대시보드로: 포획·발견·이로치·박스 칸(막대와 %), 등급별 포획 칸, 필터는 이름 붙은 묶음(세대 1~9 / 등급 / 보기 전체·잡은 것·못 잡은 것)과 이름·번호 검색(만난 종만 이름으로 찾힌다). 오른쪽 안내와 상세 정보도 칸으로. 박스 화면도 같은 필터·칸.
+   - 왼쪽 패널의 최근 잡은 포켓몬과 파티 아이콘을 같은 크기(28px)·간격(6px)으로.
+   - 안 쓰는 것 정리: 옛 위젯 CSS 약 150줄(하늘에 떠 있던 포켓몬, 통계 칸, 칩, 볼 그림 등)과 keyframes 6개, `GET /sprites/items`, `terminalForSession`, office 시절 이벤트 종류(agent_spawned 등 6개, 보내는 훅이 없다), 낡은 주석.
+   - 개발 실행은 `%APPDATA%\Claudex-dev`를 쓴다.
+   - 교훈: 서버 JS는 타입체크가 없어서 함수를 지울 때 `return { ... }` 같은 참조가 남아도 빌드가 통과한다. 전체 테스트를 기준선과 꼭 비교한다(이번에 20개가 새로 실패해서 잡았다).
+
+## 개선점 (2026-11-07 전체 점검, 중요한 순서)
+1. **Python 의존성 없애기**: 훅(`agent-tracker.py`/`.sh`)과 상태 줄이 Git Bash와 `python3`를 요구한다. Windows에는 `python3.exe`가 없어서 셔임을 만들어야 했다(이 PC도 그랬다). 훅을 Node로 옮기고 Claudex.exe를 `ELECTRON_RUN_AS_NODE=1`로 부르면 설치할 것이 Claude Code 하나로 줄어든다. 사용자에게 가장 큰 개선이다.
+2. **클라우드 동기화 병합**: 지금은 잡은 종이 많은 쪽이 통째로 덮어쓴다(`server/cloud.js`). 두 PC에서 따로 잡은 개체가 사라질 수 있다. 개체 uid 기준 합집합, 도감은 종별 최초 포획일·횟수 합치기로 바꾼다.
+3. **업데이트 진위 확인**: `latest.json`의 sha256은 같은 릴리스에서 오므로 무결성만 보장한다. 릴리스 계정이 털리면 그대로 통과한다. minisign 같은 서명 키로 `latest.json`을 서명하고 앱에 공개 키를 넣는다(코드 서명이 없을 때의 최소한).
+4. **office 잔재 3단계·이름 바꾸기**(위 1·2번): 플러그인·설치기·doctor, `X-Office-*`·`agent-office` 프로토콜, `~/.agent-office` → `~/.claudex` 이전. `doctor.test`·`install-hooks.test`·`plugin.test`·`open-office.test`가 같이 사라진다.
+5. **Windows 테스트 기준선 51개 실패**: 파일 권한(0600)·심링크·uid·`sleep` 같은 Unix 전제 테스트다. `process.platform === 'win32'`에서 이유를 적고 건너뛰게 하면 "새 실패 0" 비교 없이 `npm test`가 초록이 된다. CI에 windows-latest도 추가한다.
+6. **큰 파일 나누기**: `server/index.js` 1800줄(세션·main 상태 / 이벤트 처리 / 저장 / 라우트), `electron/main.cjs` 1000줄(창 관리는 `windows.cjs`로), `src/Widget.tsx` 690줄(사이드바·지시 입력·교체/던지기 창을 컴포넌트로). 지금 구조에서 실수가 잘 난다(이번 obtainItem처럼).
+7. **번들 1MB 한 덩어리**: 도감 데이터(`pokedex.json`)가 첫 화면에 같이 실린다. 도감·박스 화면과 데이터를 `import()`로 나누면 위젯 첫 표시가 빨라진다.
+8. **로그 파일**: 업데이트(`update.log`) 말고는 앱·서버 로그가 남지 않는다. Claudex 터미널 안에서는 Electron 출력도 안 보인다. `userData/logs/`에 크기 제한을 둔 로그를 남기고 트레이에 "로그 폴더 열기"를 둔다. 사용자 문의 대응이 쉬워진다.
+9. **창 전환 다듬기**: 위젯↔창 전환 중 패치노트 창이 새 창에서 다시 뜰 수 있다(확인 전이면). 스크롤 위치도 맨 아래로 간다. 지시 입력 저장(`claudex-carry`)은 글자마다 localStorage에 쓴다(가볍게 묶어 쓰기).
+10. **도감 그리드 성능**: 1025칸을 한 번에 그린다. 아직 문제는 없지만 이미지가 늘면 가상 스크롤(보이는 줄만)로 바꾼다. 키보드로 칸을 옮겨 다니는 접근성도 없다.
+11. **릴리스 자동 점검**: `release.mjs --publish` 앞에 "push가 끝났는지(ahead 0)", "CHANGELOG에 이 버전이 있는지", "볼 그림 27종"을 한 번에 확인하고 하나라도 아니면 멈추게 한다(v1.3.7 태그 사고 재발 방지).
+12. **낡은 주석·이름**: `server/index.js`의 Host 헤더 설명(`GET /agents`), 곳곳의 "office" 표현은 2번 이름 바꾸기 때 같이 정리한다.
+
 8. **나중에**
    - 클라우드 동기화를 합집합 병합으로 바꾼다(지금은 잡은 종이 많은 쪽이 통째로 덮어쓴다).
    - 설정 페이지, 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명

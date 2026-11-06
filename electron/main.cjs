@@ -31,6 +31,9 @@ const { createTerminalManager } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
+// A dev run (`electron .`) keeps its own window state, session names and page
+// storage, so trying a change never touches the installed app's
+if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'Claudex-dev'))
 // An update staged by the last run goes in before anything else loads; then start again on the new code
 if (applyPendingUpdate(app)) { app.relaunch(); app.exit(0) }
 let updater = null
