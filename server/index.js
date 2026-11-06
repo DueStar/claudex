@@ -33,7 +33,7 @@ import { mountStatus } from './status.js'
 import { mountRegistry, pidAlive } from './sessions.js'
 import { mountSprites } from './sprites.js'
 import { mountTasks } from './tasks.js'
-import { createPokedex } from './pokedex.js'
+import { createPokedex, STEP_SPACING_MS } from './pokedex.js'
 import { createCloud } from './cloud.js'
 import { mountPermissions, sanitiseSuggestions, redactPermission } from './permissions.js'
 import { mountHealth, readVersion } from './health.js'
@@ -1724,7 +1724,12 @@ const pokedex = createPokedex({
   // A session that ended hands its Pokémon back to the party
   isActive: (sessionId) => { const s = sessions.get(sessionId); return !!s && s.state !== 'ended' },
   onChange: () => cloud?.noteGameChanged(),
+  // Steps wait their turn (a burst of tool calls is met one step at a time), and
+  // a working session with no tool call for a minute takes a thinking step
+  stepSpacingMs: STEP_SPACING_MS,
+  sessionOf: (sessionId) => sessions.get(sessionId),
 })
+setInterval(() => { try { pokedex.tick() } catch (err) { console.error('[pokedex] tick:', err.message) } }, 2000).unref()
 
 // Google sign-in (Supabase Auth) and the cloud copy of the game (server/cloud.js)
 const CLOUD_CONFIG = join(dirname(fileURLToPath(import.meta.url)), 'cloud-config.json')

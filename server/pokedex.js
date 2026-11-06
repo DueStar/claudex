@@ -64,6 +64,11 @@ export const PITY_MYTHICAL = 300
 export const RECATCH_DECAY = 0.9
 /** A legendary or mythical catch comes in a Master Ball this often */
 export const MASTER_FOR_LEGENDS = 0.01
+/** Working with no tool call for this long is a step too (Claude thinking or writing) */
+export const THINK_STEP_MS = 60 * 1000
+/** A session's waiting steps are taken this far apart at most (the server's setting) */
+export const STEP_SPACING_MS = 8 * 1000
+const MAX_PENDING_STEPS = 300
 
 // ---------------------------------------------------------------------------
 // Levels: 1 to 100 like the games. A wild Pokémon is met at level 1–55 (by
@@ -221,7 +226,7 @@ function emptyState() {
   }
 }
 
-export function createPokedex({ file, species, natures = [], balls = [], broadcast, isActive = () => true, onChange = () => {}, now = () => Date.now(), random = Math.random }) {
+export function createPokedex({ file, species, natures = [], balls = [], stepSpacingMs = 0, sessionOf = () => null, broadcast, isActive = () => true, onChange = () => {}, now = () => Date.now(), random = Math.random }) {
   const byId = new Map(species.map(s => [s.id, s]))
   const byTier = {}
   for (const s of species) (byTier[s.tier] ??= []).push(s)
@@ -539,6 +544,75 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
   const sessionOpenedAt = new Map()
   const lastWorkAt = new Map()
   const encounteredIn = new Set()
+  // Steps: each session's queue, when its last step was taken, and its last activity (tool call or thinking step)
+  const pendingSteps = new Map()
+  const lastStepAt = new Map()
+  const lastActivityAt = new Map()
+
+  /** A step's growth: work time since the last one (a break over 5 minutes is left out), level-up, evolution */
+  function workStep(sessionId, mon, tool) {
+    if (!mon) return null
+    let grown = null
+    const last = lastWorkAt.get(sessionId)
+    if (last !== undefined && now() - last <= WORK_GAP_MS && now() > last) {
+      const before = levelOf(mon)
+      mon.workMs = (mon.workMs ?? 0) + (now() - last)
+      if (levelOf(mon) > before) grown = pushLog({ kind: 'levelup', id: mon.dex, name: byId.get(mon.dex)?.ko, level: levelOf(mon), sessionId, uid: mon.uid, shiny: mon.shiny, at: now() })
+    }
+    lastWorkAt.set(sessionId, now())
+    mon.steps += 1
+    // Evolution comes with a level-up, at the games' level for it
+    if (grown) {
+      const evo = evolveIfDue(sessionId, mon, { terrain: terrainFor(tool).name, night: isNight(now()) })
+      if (evo) { publish(grown); grown = evo }
+    }
+    return grown
+  }
+
+  function queueStep(sessionId, step) {
+    const q = pendingSteps.get(sessionId) ?? []
+    if (q.length < MAX_PENDING_STEPS) q.push(step)
+    pendingSteps.set(sessionId, q)
+  }
+
+  /** Take the session's next waiting step, if STEP_SPACING has passed since its last: maybe a wild encounter */
+  function drainStep(sessionId) {
+    const q = pendingSteps.get(sessionId)
+    if (!q?.length) return null
+    const last = lastStepAt.get(sessionId)
+    if (last !== undefined && now() - last < stepSpacingMs) return null
+    const step = q.shift()
+    if (!q.length) pendingSteps.delete(sessionId)
+    lastStepAt.set(sessionId, now())
+    if (random() >= ENCOUNTER_PER_STEP) return null
+    const uid = state.assign[sessionId]
+    return encounter(sessionId, uid ? state.mons[uid] : null, step.tool, false, step.via)
+  }
+
+  /**
+   * The server calls this every couple of seconds: a session that is working
+   * (Claude thinking or writing) with no tool call for THINK_STEP_MS takes a
+   * thinking step, and every session's waiting steps are taken in turn.
+   */
+  function tick() {
+    if (species.length === 0) return
+    let changed = false
+    for (const sessionId of new Set([...pendingSteps.keys(), ...lastActivityAt.keys()])) {
+      const session = sessionOf(sessionId)
+      if (session?.main?.state === 'working' && now() - (lastActivityAt.get(sessionId) ?? now()) >= THINK_STEP_MS) {
+        lastActivityAt.set(sessionId, now())
+        const uid = state.assign[sessionId]
+        const grown = workStep(sessionId, uid ? state.mons[uid] : null, null)
+        if (grown) { publish(grown); changed = true }
+        const prompt = String(session?.main?.lastPrompt ?? '').replace(/\s+/g, ' ').trim()
+        queueStep(sessionId, { tool: null, via: { tool: null, label: '생각하는 중', prompt: prompt ? (prompt.length > 40 ? `${prompt.slice(0, 40)}…` : prompt) : null } })
+        changed = true
+      }
+      const met = drainStep(sessionId)
+      if (met) { publish(met); changed = true }
+    }
+    if (changed) save()
+  }
 
   function pushLog(event) {
     state.log.push(event)
@@ -633,27 +707,13 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     }
     if (!sessionOpenedAt.has(sessionId)) sessionOpenedAt.set(sessionId, now())
     if (ev.type === 'agent_working' && !ev.failed) {
-      if (mon) {
-        // Work time: the gap since this session's last tool call, unless it was a break
-        const last = lastWorkAt.get(sessionId)
-        if (last !== undefined && now() - last <= WORK_GAP_MS && now() > last) {
-          const before = levelOf(mon)
-          mon.workMs = (mon.workMs ?? 0) + (now() - last)
-          if (levelOf(mon) > before && !event) event = pushLog({ kind: 'levelup', id: mon.dex, name: byId.get(mon.dex)?.ko, level: levelOf(mon), sessionId, uid: mon.uid, shiny: mon.shiny, at: now() })
-        }
-        lastWorkAt.set(sessionId, now())
-        mon.steps += 1
-        // Evolution comes with a level-up, at the games' level for it
-        if (event?.kind === 'levelup') {
-          const evo = evolveIfDue(sessionId, mon, { terrain: terrainFor(ev.tool).name, night: isNight(now()) })
-          if (evo) event = evo
-        }
-      }
-      if ((!event || event.kind === 'sendout' || event.kind === 'levelup') && random() < ENCOUNTER_PER_STEP) {
-        // A level-up on the same step is told first, so neither news is lost
-        if (event?.kind === 'levelup') publish(event)
-        event = encounter(sessionId, mon, ev.tool, false, catchSource(ev, session))
-      }
+      lastActivityAt.set(sessionId, now())
+      const grown = workStep(sessionId, mon, ev.tool)
+      if (grown) { if (event) publish(event); event = grown }
+      // The step waits its turn: a burst of tool calls is met one step at a time
+      queueStep(sessionId, { tool: ev.tool, via: catchSource(ev, session) })
+      const met = drainStep(sessionId)
+      if (met) { if (event) publish(event); event = met }
     }
     if (fresh || event) {
       save()
@@ -764,5 +824,5 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     return true
   }
 
-  return { noteEvent, swap, throwBall, release, exchange, publicState, exportState, importState, _state: () => state }
+  return { noteEvent, tick, swap, throwBall, release, exchange, publicState, exportState, importState, _state: () => state }
 }

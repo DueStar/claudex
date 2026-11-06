@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { createPokedex, catchSource, STARTERS, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel } from '../server/pokedex.js'
+import { createPokedex, catchSource, STARTERS, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel, THINK_STEP_MS } from '../server/pokedex.js'
 
 const S = (id: number, ko: string, tier: string, evolvesFrom: number | null, types = ['normal'], captureRate = 255) =>
   ({ id, ko, types, tier, captureRate, evolvesFrom })
@@ -426,6 +426,46 @@ describe('pokedex', () => {
     add('eevee', 133, 29)
     grow('eevee', 'c', 'Read', 60)
     expect(st.mons.eevee.dex).toBe(470)
+  })
+
+  it('steps wait their turn: a burst of tool calls is met one step at a time', () => {
+    let t = new Date('2026-11-06T14:00:00').getTime()
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const sent: any[] = []
+    // every roll meets and catches
+    const dex = createPokedex({ file: join(dir, 'p.json'), species: SPECIES, broadcast: (m: any) => sent.push(m), random: () => 0, now: () => t, stepSpacingMs: 8000 })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    for (let i = 0; i < 5; i++) dex.noteEvent(work('s1', 'Bash'), {}) // five calls in the same instant
+    const met = () => sent.map(m => m.event).filter(e => e && (e.kind === 'catch' || e.kind === 'flee')).length
+    expect(met()).toBe(1) // only the first step so far
+    for (let i = 0; i < 4; i++) { t += 8000; dex.tick() }
+    expect(met()).toBe(5) // the rest, eight seconds apart, none lost
+  })
+
+  it('a working session with no tool call for a minute takes a thinking step', () => {
+    let t = new Date('2026-11-06T14:00:00').getTime()
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const sent: any[] = []
+    let working = true
+    const dex = createPokedex({
+      file: join(dir, 'p.json'), species: SPECIES, broadcast: (m: any) => sent.push(m), random: () => 0, now: () => t,
+      stepSpacingMs: 8000, sessionOf: () => ({ main: { state: working ? 'working' : 'idle', lastPrompt: '설계 문서 다듬어줘' } }),
+    })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    dex.noteEvent(work('s1', 'Read'), {})
+    const met = () => sent.map(m => m.event).filter(e => e && (e.kind === 'catch' || e.kind === 'flee'))
+    expect(met()).toHaveLength(1)
+    t += THINK_STEP_MS; dex.tick()
+    expect(met()).toHaveLength(2)
+    expect(met()[1].via).toMatchObject({ label: '생각하는 중', prompt: '설계 문서 다듬어줘' })
+    // idle (the turn ended): no more thinking steps
+    working = false
+    t += THINK_STEP_MS * 3; dex.tick()
+    expect(met()).toHaveLength(2)
   })
 
   it('keeps the game on disk', async () => {
