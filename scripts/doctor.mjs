@@ -5,7 +5,7 @@
  * One PASS / WARN / FAIL line per check, the install / uninstall / start
  * commands at the end, exit 1 when anything FAILed. Nothing here writes.
  *
- *   node         a version the server and better-sqlite3 run on (20+)
+ *   node         a version the server runs on (20+)
  *   hooks        ~/.claude/settings.json — or $CLAUDE_CONFIG_DIR/settings.json —
  *                runs hooks/agent-tracker.sh for every event the installer
  *                registers, from a file that exists. Same rule as
@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TRACKER_NAME = 'agent-tracker.sh'
 const STATUS_NAME = 'status-line.sh'
-// better-sqlite3 12 (package.json) ships builds for Node 20.x and up
+// The server and its dependencies need Node 20 or later
 export const MIN_NODE_MAJOR = 20
 export const DEFAULT_PORT = 3334
 const PLUGIN_NAME = 'agent-office'
@@ -180,7 +180,7 @@ export function expectedEvents(root = ROOT) {
 export function checkNode(version = process.versions.node) {
   const major = Number(version.split('.')[0])
   if (major >= MIN_NODE_MAJOR) return result(PASS, `node v${version}`)
-  return result(FAIL, `node v${version} — the server (better-sqlite3) needs Node ${MIN_NODE_MAJOR}+; install a current LTS`)
+  return result(FAIL, `node v${version} — the server needs Node ${MIN_NODE_MAJOR}+; install a current LTS`)
 }
 
 /**

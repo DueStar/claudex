@@ -1,20 +1,14 @@
 /**
- * Agent Office - WebSocket + HTTP Event Server
+ * Claudex server — the local HTTP + WebSocket server behind the app.
  *
- * Runs on port 3334, or AGENT_OFFICE_PORT (server/config.js).
- * - React frontend connects via ws://localhost:<port>/ws
- * - Claude Code hook script POSTs to http://localhost:<port>/event
- * - GET /config tells the page the port and the boss from office.config.json
- * - GET /roster returns discovered MCP servers
- * - GET /agents lists agents in the office; POST /chat/reply with a recipient
- *   sends a directed agent-to-agent message
- * - GET /sessions lists the Claude Code sessions (terminals) the agents belong to,
- *   hooked ones and the ones only Claude Code's session registry knows about
- * - GET /registry shows that registry as the roster reads it (server/sessions.js)
- * - GET /signals lists the last deploy / build / test / push signals the
- *   hook classified out of the sessions' Bash commands
- * - GET /tasks shows each session's task list, the board on the office's
- *   kanban whiteboard (server/tasks.js)
+ * Runs on 127.0.0.1:3334, or AGENT_OFFICE_PORT (server/config.js).
+ * - The app's page connects via ws://127.0.0.1:<port>/ws
+ * - The Claude Code hook (hooks/agent-tracker.sh) POSTs to /event, the status
+ *   line (hooks/status-line.sh) to /status
+ * - GET /sessions lists the Claude Code sessions, hooked ones and the ones only
+ *   Claude Code's session registry knows about (server/sessions.js)
+ * - The game (server/pokedex.js), the Pokémon artwork (server/sprites.js) and
+ *   the cloud copy of the game (server/cloud.js)
  */
 
 import express from 'express'
@@ -24,32 +18,18 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync, realpathSync, chmod
 import { homedir } from 'os'
 import { join, basename } from 'path'
 import { randomBytes, timingSafeEqual, createHmac } from 'crypto'
-import { execFile } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
-import { addMessage, getMessages, markSeen, addReaction, markInboxRead } from './chat-db.js'
-import db from './chat-db.js'
 import { mountStatus } from './status.js'
 import { mountRegistry, pidAlive } from './sessions.js'
 import { mountSprites } from './sprites.js'
-import { mountTasks } from './tasks.js'
 import { createPokedex, STEP_SPACING_MS } from './pokedex.js'
 import { createCloud } from './cloud.js'
-import { mountPermissions, sanitiseSuggestions, redactPermission } from './permissions.js'
 import { mountHealth, readVersion } from './health.js'
-import { readPort, readUiPort, readHost, loadOfficeConfig, bossFromConfig } from './config.js'
-import { agentTranscriptPath, readTranscript, isTranscriptPath, clampLine } from './transcript.js'
+import { readPort, readUiPort, readHost } from './config.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const NOTIFY_SCRIPT = join(__dirname, '..', 'scripts', 'notify.sh')
-
-function sendNotification(title, msg) {
-  try {
-    const child = execFile('bash', [NOTIFY_SCRIPT, title, msg], { timeout: 3000 })
-    child.unref()
-  } catch {}
-}
 
 // The port and the Vite dev port come from AGENT_OFFICE_PORT /
 // AGENT_OFFICE_UI_PORT (server/config.js); the bind host is read in start().
@@ -59,12 +39,12 @@ const UI_DEV_PORT = readUiPort()
 // ---------------------------------------------------------------------------
 // Runtime dir + auth token
 //
-// Everything the server writes (auth token, agents.json, chat.db, inbox/...)
-// lives in ~/.agent-office, or AGENT_OFFICE_HOME when set (tests point it at
-// a temp dir). The token is read or generated here but only written to disk
-// by start(), once the port is bound, so importing this module has no side
-// effects outside RUNTIME_DIR and a second instance that loses the port race
-// never clobbers the running instance's token.
+// Everything the server writes (auth token, agents.json, pokedex.json, the
+// cloud session) lives in ~/.agent-office, or AGENT_OFFICE_HOME when set
+// (tests point it at a temp dir). The token is read or generated here but
+// only written to disk by start(), once the port is bound, so importing this
+// module has no side effects outside RUNTIME_DIR and a second instance that
+// loses the port race never clobbers the running instance's token.
 //
 // Threat model. The server only listens on loopback (127.0.0.1;
 // AGENT_OFFICE_HOST may spell it 127.0.0.1 or localhost, anything else is
@@ -76,50 +56,27 @@ const UI_DEV_PORT = readUiPort()
 // and send any Origin it likes (Origin only binds browsers). So the one
 // secret that separates this user from the rest is the bearer token in
 // ~/.agent-office/auth-token, the 0600 file only this user can read: the
-// hook, the office scripts and A2A clients send it as
-// `Authorization: Bearer <token>`, and the office page gets it through the
-// link the server prints at start (see "The office link" below) and
-// presents it when it opens the WebSocket. Everything that acts *as an
-// agent*, answers for the person or destroys state needs it, and so does
-// conversation text; reads of what the office shows, a person's plain chat
-// line (POST /chat), the typing indicator and the chat-monitor pause toggle
-// stay open.
+// hook, the status line and the desktop app send it (the hook signs with it,
+// see "Request signing"), and the app's page gets it in its URL fragment and
+// presents it when it opens the WebSocket. Everything that reports a session,
+// changes the game or signs in needs it, and so does conversation text.
 //
-//   token required   POST /event, /chat/reply, /a2a, /chat/inbox/read,
-//                    /chat/seen, /chat/react, /chat/video-mode,
-//                    GET /permission/:id (the hook's long-poll),
-//                    and POST /chat for a destructive slash command (/clear)
-//   UI token or token  POST /permission/:id (answer a permission dialog) and
-//                    POST /settings — the two things the office page itself
-//                    may change; see UI_TOKEN below
-//   open             every GET, POST /chat (plain lines + read-only /status,
-//                    /agents, /help and the incident toggles), /chat/typing,
-//                    POST /chat/cron-state (the UI's pause button); the
-//                    WebSocket without the token (read-only, see below)
-//
-// GET /roster and GET /agents do show each agent's task text and the names of
-// the configured MCP servers; that is the office's purpose, and anything on
-// this machine can already read ~/.claude/settings.json. GET /tasks shows each
-// session's task subjects the same way. Prompts, replies, transcript tails, a
-// permission dialog's command line and a task's description are conversation:
-// they go only to a caller with the token (GET /chat, GET /sessions,
-// GET /agents/:id, GET /permissions, GET /tasks, the WebSocket).
+//   token required   POST /event, /status, /pokedex/*, /auth/start|signout|sync
+//   open             every GET; the WebSocket without the token (no
+//                    conversation text, see below)
 //
 // The token is stable across restarts: a start reuses the one in the file
 // when the file is still safe to trust (readTokenFile), so a page that
-// remembered it keeps working after the office restarts. `npm run
+// remembered it keeps working after the server restarts. `npm run
 // rotate-token` deletes the file, and the next start writes a new one.
 // ---------------------------------------------------------------------------
 
 const RUNTIME_DIR = process.env.AGENT_OFFICE_HOME || join(homedir(), '.agent-office')
 try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }) } catch {}
-// mkdirSync's mode is ignored when the dir already exists, so a dir the
-// installer or an older build left group/world-readable keeps those bits.
-// Tighten it to 0700 unconditionally (the prompts in chat.db and the A2A
-// inbox under here must not be readable by other local users).
+// mkdirSync's mode is ignored when the dir already exists, so a dir an older
+// build left group/world-readable keeps those bits. Tighten it to 0700.
 try { chmodSync(RUNTIME_DIR, 0o700) } catch {}
 const TOKEN_FILE = join(RUNTIME_DIR, 'auth-token')
-
 // What the server writes: 32 random bytes as 64 lowercase hex digits
 const TOKEN_PATTERN = /^[0-9a-f]{64}$/
 
@@ -162,19 +119,12 @@ function writePrivate(path, data) {
 }
 
 /**
- * Repair the runtime dir and the chat database so another local user cannot
- * read them. mkdirSync's mode and SQLite's own file-create mode apply only
- * when they create the entry, so a dir left 0755 by the installer /
- * start-office.sh, or chat.db* left 0644 by an older build or the process
- * umask, keeps those bits. Fix them on every start. No-op on Windows.
+ * Repair the runtime dir so another local user cannot read it: mkdirSync's
+ * mode applies only when it creates the dir. No-op on Windows.
  */
 function repairPrivateModes() {
   if (process.platform === 'win32') return
   try { chmodSync(RUNTIME_DIR, 0o700) } catch {}
-  for (const name of ['chat.db', 'chat.db-wal', 'chat.db-shm']) {
-    const file = join(RUNTIME_DIR, name)
-    try { if (existsSync(file)) chmodSync(file, 0o600) } catch {}
-  }
 }
 
 /**
@@ -285,11 +235,6 @@ function requireToken(req, res, next) {
 }
 
 /** Same, answering in the JSON-RPC envelope for the A2A endpoint. */
-function requireTokenRpc(req, res, next) {
-  if (tokenAuthed(req)) return next()
-  unauthorized(res, { jsonrpc: '2.0', id: req.body?.id ?? null, error: { code: -32001, message: 'Unauthorized: send the office auth token as Authorization: Bearer <token>' } })
-}
-
 // ---------------------------------------------------------------------------
 // Allowed origins
 //
@@ -347,46 +292,11 @@ function isAllowedHost(hostHeader) {
 }
 
 // ---------------------------------------------------------------------------
-// The UI token — how the office page gets to answer a permission dialog
-//
-// Answering "Do you want to run this command?" for a Claude Code session
-// must not be open to any local process the way POST /chat is. The server
-// mints a second secret per process, UI_TOKEN, and hands it out in exactly
-// one place: the WebSocket snapshot of a *trusted* connection — one that
-// presented the file token at the handshake (see "The WebSocket" below).
-// The Origin check alone cannot do this: it keeps web pages on other origins
-// out, but a local process sends whatever Origin it likes. So nobody without
-// the file token can obtain the UI token. It lives in memory only, changes
-// on every restart, is compared in constant time, and opens only the
-// routes the page needs: POST /permission/:id, POST /settings and the
-// transcript on GET /agents/:id. The hook's long-poll that *learns* a
-// decision stays behind the file token, the loopback bind is unchanged,
-// nothing is ever auto-allowed, and when the server is down the hook prints
-// nothing and the terminal dialog is in charge.
-// ---------------------------------------------------------------------------
-
-const UI_TOKEN = randomBytes(24).toString('hex')
-
-function uiTokenMatches(supplied) {
-  if (typeof supplied !== 'string' || supplied.length === 0) return false
-  const a = Buffer.from(supplied, 'utf8')
-  const b = Buffer.from(UI_TOKEN, 'utf8')
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-
-/** Express middleware: the office page (UI token from the snapshot) or a token holder. */
-function requireUi(req, res, next) {
-  const supplied = bearerToken(req)
-  if (uiTokenMatches(supplied) || tokenMatches(supplied)) return next()
-  unauthorized(res, { error: 'Unauthorized' })
-}
-
-// ---------------------------------------------------------------------------
 // Built UI
 //
 // `vite build` writes the React app, plus everything in public/, to dist/.
 // When that directory exists the server serves it from its root, so
-// http://127.0.0.1:<PORT>/ is the whole office on one port: the packaged
+// http://127.0.0.1:<PORT>/ is the whole app on one port: the packaged
 // Electron app loads this URL, and `npm run build && npm run server` works in
 // a plain browser. `npm run dev` keeps using Vite on 3333 instead. Tests point
 // AGENT_OFFICE_UI_DIR at a temp dir.
@@ -395,175 +305,18 @@ function requireUi(req, res, next) {
 const UI_DIR = process.env.AGENT_OFFICE_UI_DIR || join(__dirname, '..', 'dist')
 const UI_AVAILABLE = existsSync(join(UI_DIR, 'index.html'))
 
-// ---------------------------------------------------------------------------
-// office.config.json
-//
-// The boss character's name, sprite, colour and emoji. The file sits next to
-// package.json: the checkout root in dev, and resources/app/ in a packaged
-// desktop build (asar is off). Read on every GET /config rather than once,
-// so a rename shows up on the next page load with no restart; tests point
-// AGENT_OFFICE_CONFIG_DIR at a temp dir. The bundle keeps its own build-time
-// copy (src/config.ts) as the fallback for ?sim and for a server that is down.
-// ---------------------------------------------------------------------------
-
-const CONFIG_DIR = process.env.AGENT_OFFICE_CONFIG_DIR || join(__dirname, '..')
 const VERSION = readVersion()
 
-// ---------------------------------------------------------------------------
-// MCP server discovery
-// ---------------------------------------------------------------------------
-
-/**
- * Read ~/.claude/settings.json and any .claude.json in cwd to discover
- * configured MCP servers. Returns an array of server-name strings.
- */
-function discoverMcpServers() {
-  const servers = new Set()
-
-  const candidates = [
-    join(homedir(), '.claude', 'settings.json'),
-    join(homedir(), '.claude.json'),
-    join(process.cwd(), '.claude.json'),
-  ]
-
-  for (const filePath of candidates) {
-    if (!existsSync(filePath)) continue
-    try {
-      const raw = readFileSync(filePath, 'utf8')
-      const data = JSON.parse(raw)
-      const mcpServers = data.mcpServers ?? data.mcp_servers ?? {}
-      for (const name of Object.keys(mcpServers)) {
-        servers.add(name)
-      }
-    } catch {
-      // Malformed JSON or unreadable file — skip silently
-    }
-  }
-
-  return Array.from(servers)
-}
-
-// ---------------------------------------------------------------------------
-// Agent state tracking
-// ---------------------------------------------------------------------------
-
-/** @type {Map<string, object>} agentId -> agent object */
-const activeAgents = new Map()
-
-/**
- * Claude Code subagent id (the `agent_id` in hook payloads) -> office agent id.
- * Tool calls made inside a subagent and the SubagentHandback of a background
- * agent only know the subagent id, so this is how they find their agent.
- * @type {Map<string, string>}
- */
-const subagentAliases = new Map()
-
-/**
- * SubagentStart events that arrived before the agent_spawned they belong to.
- * The hook POSTs from backgrounded curls, so the order is a race: such a start
- * is parked here (subagentId -> { agentType, parentId, sessionId, at }) and
- * consumed by the next spawn of that agentType (from the same session, when
- * both say which), or dropped after PENDING_START_MS.
- * @type {Map<string, {agentType: string, parentId?: string, sessionId?: string, at: number}>}
- */
-const pendingStarts = new Map()
-const PENDING_START_MS = 15_000
-
-// How long after its spawn an agent can still be bound by guess (see
-// guessAgentForSubagent). A SubagentStart follows its PreToolUse(Agent) by
-// ~50 ms; the gap only grows while something holds the call between the two,
-// such as another plugin's PreToolUse hook or a permission prompt (the Agent
-// tool asks only under an `ask` rule), and a minute covers that. A subagent's
-// first tool call comes a whole model turn after its start, so the fallback
-// that binds on it waits longer. Anything older is a launch whose start never
-// came (cancelled, or lost), and binding it would hand it someone else's work.
-const START_BIND_MS = 60_000
-const FIRST_TOOL_BIND_MS = 5 * 60_000
-
-// Agents with no activity for this long are assumed gone (missed hand-back,
-// Claude Code killed mid-task) and are walked out of the office.
-const STALE_AGENT_MS = (Number(process.env.AGENT_OFFICE_STALE_MINUTES) || 120) * 60_000
-
-// ---------------------------------------------------------------------------
-// Activity — what each character has done, for the inspector card
-//
-// GET /agents/:id answers "what is it doing and what has it done": the last
-// ACTIVITY_MAX things an agent did (its tool calls from agent_working, the
-// failed ones marked, its completion line, the directed messages it sent)
-// and a count per tool. The session's own Claude is kept the same way under
-// the id the office gives it, `main-<sessionId>`: its tool calls reach the
-// server as agent_working without an agentId and as mcp_call, and every
-// change of its main state is one 'status' line.
-//
-// The buffers live in their own Map, off the agent records, so agents.json
-// (which saveAgents writes whole on every event) stays a few hundred bytes
-// per agent. A restart starts them afresh: a worker's record is gone ten
-// seconds after it finishes anyway, and the transcript tail covers the rest.
-// ---------------------------------------------------------------------------
-
-const ACTIVITY_MAX = 50
-const ACTIVITY_TEXT_MAX = 160
-const MAIN_ID_PREFIX = 'main-'
-
-/** @type {Map<string, {history: object[], toolCounts: Record<string, number>}>} office id or main-<sessionId> -> activity */
-const activity = new Map()
-
-/** The office id of a session's own Claude (what the frontend's mainId() gives it). */
-function mainActivityId(sessionId) {
-  return `${MAIN_ID_PREFIX}${sessionId}`
-}
-
-function activityOf(id) {
-  let entry = activity.get(id)
-  if (!entry) {
-    entry = { history: [], toolCounts: {} }
-    activity.set(id, entry)
-  }
-  return entry
-}
-
-/**
- * Append one entry { at, kind: 'tool' | 'failed' | 'status' | 'completed' | 'message', tool?, text }
- * to an agent's history (the oldest falls off past ACTIVITY_MAX) and count
- * the tool. The text is one line clamped to ACTIVITY_TEXT_MAX.
- */
-function recordActivity(id, { kind, tool, text }, now = Date.now()) {
-  if (!id) return
-  const entry = activityOf(id)
-  const row = { at: now, kind, text: clampLine(text, ACTIVITY_TEXT_MAX) }
-  if (tool) {
-    row.tool = tool
-    // A failed call was already counted by its PreToolUse; the failure only marks it
-    if (kind === 'tool') entry.toolCounts[tool] = (entry.toolCounts[tool] ?? 0) + 1
-  }
-  entry.history.push(row)
-  if (entry.history.length > ACTIVITY_MAX) entry.history.splice(0, entry.history.length - ACTIVITY_MAX)
-}
-
-// The tracker's own status phrasings, for a hook that sends no `tool`
-// (an older agent-tracker.sh): "reading x" is a Read, "running: ..." a Bash,
-// "using WebFetch" a WebFetch, "failed: Bash — ..." a Bash that errored.
-const STATUS_TOOLS = [
-  ['reading ', 'Read'], ['writing ', 'Write'], ['editing ', 'Edit'], ['running: ', 'Bash'],
-  ['searching for ', 'Grep'], ['finding files: ', 'Glob'], ['using /', 'Skill'],
-]
-
-function toolFromStatus(status) {
-  if (typeof status !== 'string') return undefined
-  for (const [prefix, tool] of STATUS_TOOLS) if (status.startsWith(prefix)) return tool
-  const m = /^(?:using|failed:) (\S+)/.exec(status)
-  return m ? m[1] : undefined
-}
+// Sessions nothing has been heard from for this long are assumed gone (a
+// missed SessionEnd, Claude Code killed) and are ended by the stale sweep.
+const STALE_SESSION_MS = (Number(process.env.AGENT_OFFICE_STALE_MINUTES) || 120) * 60_000
 
 // ---------------------------------------------------------------------------
 // Session tracking — one Claude Code session (terminal) per session_id
 //
 // Every hook payload carries session_id / cwd / transcript_path, which the
 // tracker forwards as sessionId / project / cwd / transcriptPath on every
-// event. Agents are filed under the session that spawned them, so two
-// terminals never share workers, and main-thread tool calls (agent_working
-// without an agentId) are attributed to their session instead of to a random
-// worker. A session the office has not seen is created implicitly by its
+// event. A session the server has not seen is created implicitly by its
 // first event (hooks installed mid-session, server restarted).
 //
 // Sessions without hooks. Claude Code's own session registry
@@ -585,9 +338,6 @@ const sessions = new Map()
 // tests point AGENT_OFFICE_REGISTRY_DIR at a temp dir
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 const REGISTRY_DIR = process.env.AGENT_OFFICE_REGISTRY_DIR || join(CLAUDE_DIR, 'sessions')
-// ...and each session's task list (server/tasks.js); tests point
-// AGENT_OFFICE_TASKS_DIR at a temp dir
-const TASKS_DIR = process.env.AGENT_OFFICE_TASKS_DIR || join(CLAUDE_DIR, 'tasks')
 
 /** @type {Map<string, ReturnType<typeof setTimeout>>} sessionId -> timer that forgets an ended session */
 const sessionTimers = new Map()
@@ -598,16 +348,15 @@ const SESSION_FORGET_MS = 60_000
 // ---------------------------------------------------------------------------
 // The session's own Claude — `main` on every session record
 //
-// Besides its workers, each session has the Claude the boss talks to. The
-// tracker reports its turn from the main-thread hooks (UserPromptSubmit,
+// Each session has the Claude the trainer talks to. The tracker reports its turn from the main-thread hooks (UserPromptSubmit,
 // PreToolUse, Stop, PermissionRequest, Notification, StopFailure,
 // Pre/PostCompact) and the server keeps one record per session:
 //
 //   main: {
 //     state:       'working' | 'waiting' | 'idle' | 'needs-you' | 'error' | 'compacting',
 //     since:       when it entered that state,
-//     lastPrompt,  lastPromptAt,     the boss's last prompt (clamped to 2000 chars)
-//     lastReply,   lastReplyAt,      Claude's last reply (Stop.last_assistant_message)
+//     lastPrompt,  lastPromptAt,     the trainer's last prompt (PROMPT_TEXT_MAX chars)
+//     lastReply,   lastReplyAt,      Claude's last reply (Stop.last_assistant_message, as clamped)
 //     waitingOn:   background tasks still running when the turn ended,
 //     needsYou?:   { kind, toolName?, summary?, message?, notificationType?, since, promptId? },
 //     error?:      { error, detail, since },
@@ -672,16 +421,10 @@ const waitCalls = new WeakMap()
 
 const callOf = wait => (wait && waitCalls.get(wait)) || {}
 
-/**
- * Whether two raw thread ids name the same thread: both absent is the main
- * thread; a subagent id and an office id match through the alias map.
- */
+/** Whether two raw thread ids name the same thread: both absent is the main thread. */
 function sameThread(a, b) {
   if (!a && !b) return true
-  if (!a || !b) return false
-  if (a === b) return true
-  const id = lookupAgentId(a)
-  return !!id && id === lookupAgentId(b)
+  return a === b
 }
 
 /** The same call by callKey, when both sides have one (an older hook sends none). */
@@ -735,8 +478,6 @@ function setMainState(session, state, reason, now = Date.now()) {
   console.log(`[main] ${sessionName(session)}: ${main.state} -> ${state}${reason ? ` (${reason})` : ''}`)
   main.state = state
   main.since = now
-  // One line per transition in Claude's own history (the inspector card)
-  recordActivity(mainActivityId(session.id), { kind: 'status', text: `${state}${reason ? ` — ${reason}` : ''}` }, now)
   return true
 }
 
@@ -761,7 +502,7 @@ function armNeedsYouTimeout(session, delayMs = NEEDS_YOU_TIMEOUT_MS) {
     if (!current || current.main?.state !== 'needs-you' || current.main.needsYou?.since !== since) return
     delete current.main.needsYou
     setMainState(current, 'idle', `needs-you unanswered for ${NEEDS_YOU_TIMEOUT_MS / 60_000} min`)
-    saveAgents()
+    saveSessions()
     broadcast(mainEvent(current, 'needs-you timed out'))
   }, Math.max(0, delayMs))
   timer.unref?.()
@@ -789,9 +530,9 @@ function applyNeedsYou(sessionId) {
   const label = needsYouLabel(wait)
   if (!setMainState(session, 'needs-you', label, now)) console.log(`[main] ${sessionName(session)}: needs-you again (${label})`)
   armNeedsYouTimeout(session)
-  saveAgents()
-  // A request raised inside a subagent names it; resolved to the office agent when known
-  const agentId = pending.agentId ? (lookupAgentId(pending.agentId) ?? pending.agentId) : undefined
+  saveSessions()
+  // A request raised inside a subagent names it
+  const agentId = pending.agentId
   broadcast({
     type: 'session_needs_you',
     sessionId: session.id,
@@ -845,14 +586,14 @@ function lowerPermissionHand(session, answers, what, to) {
   const back = to ?? (['working', 'waiting', 'idle'].includes(call.before) ? call.before : 'working')
   delete main.needsYou
   setMainState(session, back, what)
-  saveAgents()
+  saveSessions()
   return mainEvent(session, 'permission answered')
 }
 
 /**
  * One tool call of a thread finished (PostToolUse; an MCP call's mcp_done) or
  * a whole batch of its calls did (PostToolBatch): the permission waits it
- * answers come down — the pending office card, a parked wait, the hand (see
+ * answers come down — a parked wait, the hand (see
  * "Which call a permission wait belongs to" above). `done` is { toolName?,
  * callKey?, agentId?, batch?, count? }. Returns the session_main broadcast
  * when the hand came down, else null.
@@ -861,7 +602,6 @@ function toolDone(session, done) {
   const answers = (toolName, agentId, callKey) => sameThread(agentId, done.agentId)
     && (done.batch === true || (!!done.toolName && toolName === done.toolName && sameCallKey(callKey, done.callKey)))
   const what = done.batch === true ? `tool batch of ${done.count ?? '?'} done` : `${done.toolName ?? 'tool'} ran`
-  releasePermissions(session.id, what, p => answers(p.toolName, p.agentId, p.callKey))
   // The main thread goes back to work; a worker's hand returns to where it was raised from
   return lowerPermissionHand(session, (w, call) => answers(w.toolName, call.agentId, call.callKey), what, done.agentId ? undefined : 'working')
 }
@@ -876,7 +616,6 @@ function toolDone(session, done) {
  */
 function threadMovedOn(session, agentId, what, { finished = false, now = Date.now() } = {}) {
   const settled = since => finished || now - since >= PERMISSION_RACE_MS
-  releasePermissions(session.id, what, p => !!p.agentId && sameThread(p.agentId, agentId) && settled(p.createdAt))
   const main = mainOf(session, now)
   if (main.state !== 'needs-you' || main.needsYou?.kind !== 'permission') return null
   const call = callOf(main.needsYou)
@@ -896,31 +635,24 @@ function projectName(project, cwd) {
   return basename(cwd.replace(/\/+$/, '')) || cwd
 }
 
-/** Session record -> persistable object (the agentIds Set becomes an array). */
+/** Session record -> persistable object. */
 function sessionToRecord(session) {
-  return { ...session, agentIds: Array.from(session.agentIds) }
+  return { ...session }
 }
 
 /**
- * Session record -> API/WS shape: the record plus live agent counts. Without
- * `withText` the prompt and reply text is left out of `main` (GET /sessions
- * and the WebSocket without the office token; with it, they carry it).
+ * Session record -> API/WS shape. Without `withText` the prompt and reply
+ * text is left out of `main` (GET /sessions and the WebSocket without the
+ * token; with it, they carry it).
  */
 function sessionToJSON(session, { withText = true } = {}) {
-  const live = Array.from(activeAgents.values())
-    .filter(a => a.sessionId === session.id && !a.server && a.state !== 'completed')
   const record = sessionToRecord(session)
   if (!withText && record.main) {
     const { lastPrompt, lastReply, ...rest } = record.main
     record.main = rest
   }
-  return {
-    ...record,
-    // Sessions restored from an older agents.json predate the flag: hooks made them
-    hooked: session.hooked !== false,
-    agentCount: live.length,
-    workingCount: live.filter(a => a.state === 'working').length,
-  }
+  // Sessions restored from an older agents.json predate the flag: hooks made them
+  return { ...record, hooked: session.hooked !== false }
 }
 
 /** Broadcast shape of a session lifecycle event. */
@@ -939,12 +671,10 @@ function createSession({ id, project, cwd, source, model, title, transcriptPath,
     state: 'active',
     startedAt: now,
     lastActivityAt: now,
-    agentIds: new Set(),
     main: newMain(now),
   }
   if (model) session.model = model
   if (title) session.title = title
-  // The session's own transcript; a worker's file is derived from it (server/transcript.js)
   if (transcriptPath) session.transcriptPath = transcriptPath
   sessions.set(id, session)
   console.log(`[session] ${session.source}: ${session.project ?? id} (${id})`)
@@ -953,7 +683,7 @@ function createSession({ id, project, cwd, source, model, title, transcriptPath,
 
 /**
  * A session the registry put here (hooked: false) has sent its first hook
- * event — hooks installed mid-session, or the office only now hearing them:
+ * event — hooks installed mid-session, or the server only now hearing them:
  * from here on the hooks are the truth. The registry-derived main state is
  * dropped for a fresh one (the event about to be applied sets it), the
  * registry entry stays attached as presence. Returns whether it flipped; the
@@ -971,7 +701,7 @@ function hookSession(session, source, now = Date.now()) {
 
 /**
  * The session an event belongs to, created on the fly (source 'implicit')
- * when the office has not seen it. Bumps the session's activity clock. A
+ * when the server has not seen it. Bumps the session's activity clock. A
  * straggling event does not revive an ended session — only session_started
  * (a resume) does that.
  */
@@ -981,12 +711,12 @@ function touchSession(body, now = Date.now()) {
   let session = sessions.get(id)
   if (!session) {
     session = createSession({ id, project: body.project, cwd: body.cwd, source: 'implicit', transcriptPath: body.transcriptPath, now })
-    saveAgents()
+    saveSessions()
     broadcast(sessionEvent(session))
     return session
   }
   if (hookSession(session, 'implicit', now)) {
-    saveAgents()
+    saveSessions()
     broadcast(sessionEvent(session))
   }
   if (session.state === 'active') session.lastActivityAt = now
@@ -994,17 +724,6 @@ function touchSession(body, now = Date.now()) {
   if (!session.cwd && body.cwd) session.cwd = body.cwd
   if (body.transcriptPath && session.transcriptPath !== body.transcriptPath) session.transcriptPath = body.transcriptPath
   return session
-}
-
-/** File an agent under a session (and show the session's project on its nameplate). */
-function attachAgentToSession(agent, session) {
-  if (!agent || !session) return
-  if (agent.sessionId && agent.sessionId !== session.id) {
-    sessions.get(agent.sessionId)?.agentIds.delete(agent.id)
-  }
-  agent.sessionId = session.id
-  agent.project = session.project
-  session.agentIds.add(agent.id)
 }
 
 function clearSessionTimer(id) {
@@ -1018,19 +737,16 @@ function forgetSession(id) {
   clearSessionTimer(id)
   cancelPendingNeedsYou(id)
   clearNeedsYouTimer(id)
-  sessionSignals.delete(id)
   const session = sessions.get(id)
   if (!session) return
   sessions.delete(id)
-  activity.delete(mainActivityId(id))
-  saveAgents()
+  saveSessions()
   console.log(`[session] forgot ${session.project ?? id} (${id})`)
 }
 
 /**
- * Mark a session ended (SessionEnd hook, or no events for STALE_AGENT_MS):
- * its still-active agents clock out through the usual agent_completed path
- * (10 s grace), and the session itself is forgotten after SESSION_FORGET_MS.
+ * Mark a session ended (SessionEnd hook, or no events for STALE_SESSION_MS):
+ * it is forgotten after SESSION_FORGET_MS.
  */
 function endSession(session, reason, now = Date.now()) {
   session.state = 'ended'
@@ -1039,15 +755,9 @@ function endSession(session, reason, now = Date.now()) {
   session.lastActivityAt = now
   cancelPendingNeedsYou(session.id)
   clearNeedsYouTimer(session.id)
-  releasePermissions(session.id, 'session ended')
   if (session.main?.state !== 'idle') console.log(`[main] ${sessionName(session)}: ${session.main?.state ?? 'idle'} -> idle (session ended)`)
   session.main = newMain(now)
-  for (const agentId of Array.from(session.agentIds)) {
-    const agent = activeAgents.get(agentId)
-    if (!agent || agent.server || agent.state === 'completed') continue
-    broadcast(processEvent({ type: 'agent_completed', agentId, result: 'session ended' }))
-  }
-  saveAgents()
+  saveSessions()
   clearSessionTimer(session.id)
   const timer = setTimeout(() => forgetSession(session.id), SESSION_FORGET_MS)
   timer.unref?.()
@@ -1055,194 +765,37 @@ function endSession(session, reason, now = Date.now()) {
   console.log(`[session] ended (${reason}): ${session.project ?? session.id} (${session.id})`)
 }
 
-/**
- * Generate a stable agent ID from the event payload.
- * Uses the provided id, or derives one from name+role.
- */
-function resolveAgentId(agent) {
-  if (agent.id) return agent.id
-  const slug = `${agent.name ?? 'agent'}-${agent.role ?? 'worker'}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
-  // A derived id must not collide with an agent still in the office, or the
-  // second spawn would be taken for a replay of the first and its task dropped
-  let id = slug
-  for (let n = 2; activeAgents.has(id); n++) id = `${slug}-${n}`
-  return id
-}
-
-/** Map an office id or a subagent id to the office agent id, if known. */
-function lookupAgentId(id) {
-  if (!id) return null
-  if (activeAgents.has(id)) return id
-  const aliased = subagentAliases.get(id)
-  return aliased && activeAgents.has(aliased) ? aliased : null
-}
-
-function linkSubagent(officeId, subagentId) {
-  const agent = activeAgents.get(officeId)
-  if (!agent || !subagentId) return
-  // A guessed binding may have attached this subagent to another agent first
-  for (const other of activeAgents.values()) {
-    if (other !== agent && other.subagentId === subagentId) delete other.subagentId
-  }
-  // Relinking: the subagent this agent was guessed onto before is somebody
-  // else's — drop its alias, or its tool calls and its SubagentStop would
-  // keep landing here and walk this agent out while its own subagent runs
-  if (agent.subagentId && agent.subagentId !== subagentId && subagentAliases.get(agent.subagentId) === officeId) {
-    subagentAliases.delete(agent.subagentId)
-  }
-  agent.subagentId = subagentId
-  subagentAliases.set(subagentId, officeId)
-}
-
-/** Both unknown, or the same: an event and an agent may belong together. */
-function sameSession(a, b) {
-  return !a || !b || a === b
-}
-
-/**
- * The office agent a subagent id we have not seen most likely belongs to,
- * when all the event says is its agent type: the earliest-spawned unbound,
- * not-completed, non-MCP agent of that type, spawned within `withinMs` before
- * the event, and from the same session when the event names one (so a start
- * in one terminal never binds to a spawn in another). Earliest first keeps
- * parallel launches of one type in launch order. Agents restored from
- * agents.json never qualify: their start did not arrive before the restart,
- * so it either never will or it was lost while the server was down, and the
- * subagent's own tool calls then get an agent of their own.
- */
-function guessAgentForSubagent(agentType, sessionId, withinMs) {
-  const now = Date.now()
-  return Array.from(activeAgents.values())
-    .filter(a => !a.server && !a.subagentId && !a.restored && a.state !== 'completed' && a.agentType === agentType)
-    .filter(a => sameSession(a.sessionId, sessionId) && now - a.spawnedAt <= withinMs)
-    .sort((a, b) => a.spawnedAt - b.spawnedAt)[0] ?? null
-}
-
-/** Record who spawned an agent: the parent's subagent id and, when known, its office id. */
-function setLineage(agent, parentSubagentId) {
-  if (!parentSubagentId) return
-  agent.parentSubagentId = parentSubagentId
-  const parentId = lookupAgentId(parentSubagentId)
-  if (parentId && parentId !== agent.id) agent.parentId = parentId
-}
-
-function prunePendingStarts(now = Date.now()) {
-  for (const [subagentId, pending] of pendingStarts) {
-    if (now - pending.at > PENDING_START_MS) {
-      pendingStarts.delete(subagentId)
-      console.log(`[~] Dropped parked SubagentStart ${subagentId} (${pending.agentType}): no spawn within ${PENDING_START_MS / 1000}s`)
-    }
-  }
-}
-
-/** Link a freshly spawned agent to the oldest parked SubagentStart of its type, if any. */
-function adoptPendingStart(agent) {
-  let oldest = null
-  for (const [subagentId, pending] of pendingStarts) {
-    if (pending.agentType !== agent.agentType || !sameSession(pending.sessionId, agent.sessionId)) continue
-    if (!oldest || pending.at < oldest.at) oldest = { subagentId, ...pending }
-  }
-  if (!oldest) return false
-  pendingStarts.delete(oldest.subagentId)
-  linkSubagent(agent.id, oldest.subagentId)
-  setLineage(agent, oldest.parentId)
-  console.log(`[~] Agent ${agent.id} linked to parked subagent ${oldest.subagentId} (${agent.agentType}) by SubagentStart`)
-  return true
-}
-
-/**
- * The agents a client should draw: not the transient MCP records, not an
- * agent in its completed grace window (still in the map so late events find
- * it, but already announced as gone — a client that first sees it now would
- * seat a ghost that never leaves).
- */
-function liveAgents() {
-  return Array.from(activeAgents.values()).filter(a => !a.server && a.state !== 'completed')
-}
-
-function forgetAgent(id) {
-  const agent = activeAgents.get(id)
-  if (agent?.subagentId && subagentAliases.get(agent.subagentId) === id) {
-    subagentAliases.delete(agent.subagentId)
-  }
-  if (agent?.sessionId) sessions.get(agent.sessionId)?.agentIds.delete(id)
-  activeAgents.delete(id)
-  activity.delete(id)
-  saveAgents()
-}
-
-// Roles whose sprites differ from each other. General-purpose agents are
-// spread across these so a busy office isn't full of identical clones.
-const GENERAL_SPRITE_POOL = [
-  'general-purpose',
-  'code-reviewer',
-  'test-engineer',
-  'debugger',
-  'fullstack-developer',
-  'frontend-developer',
-  'security-auditor',
-]
-
-function leastUsedGeneralRole() {
-  const counts = new Map(GENERAL_SPRITE_POOL.map(r => [r, 0]))
-  for (const a of activeAgents.values()) {
-    if (counts.has(a.role) && a.state !== 'completed') counts.set(a.role, counts.get(a.role) + 1)
-  }
-  let best = GENERAL_SPRITE_POOL[0]
-  for (const role of GENERAL_SPRITE_POOL) {
-    if (counts.get(role) < counts.get(best)) best = role
-  }
-  return best
-}
-
 // ---------------------------------------------------------------------------
-// Agent + session persistence — survive a server restart while agents are
-// still working. agents.json holds { agents, sessions }.
+// Session persistence — survive a server restart while sessions run.
+// agents.json holds { sessions } (an older file also has `agents`, ignored).
 // ---------------------------------------------------------------------------
 
 const AGENTS_FILE = join(RUNTIME_DIR, 'agents.json')
 
-function saveAgents() {
+function saveSessions() {
   try {
-    // MCP entries are transient (one per call), only persist real agents;
-    // ended sessions are on their way out and are not kept either, nor are
+    // Ended sessions are on their way out and are not kept, nor are
     // registry-only sessions (the registry rebuilds them on the next start)
-    const agents = liveAgents()
     const saved = Array.from(sessions.values()).filter(s => s.state === 'active' && s.hooked !== false).map(sessionToRecord)
-    writePrivate(AGENTS_FILE, JSON.stringify({ agents, sessions: saved }))
+    writePrivate(AGENTS_FILE, JSON.stringify({ sessions: saved }))
   } catch (err) {
-    console.warn('[agents] Could not save agent state:', err.message)
+    console.warn('[sessions] Could not save the sessions:', err.message)
   }
 }
 
-function loadAgents() {
+function loadSessions() {
   if (!existsSync(AGENTS_FILE)) return
   try {
-    const { agents = [], sessions: saved = [] } = JSON.parse(readFileSync(AGENTS_FILE, 'utf8'))
-    const cutoff = Date.now() - STALE_AGENT_MS
-    for (const agent of agents) {
-      if (!agent?.id || agent.state === 'completed') continue
-      if ((agent.lastActivityAt ?? agent.spawnedAt ?? 0) < cutoff) continue
-      // Never a guess-binding candidate again (guessAgentForSubagent)
-      agent.restored = true
-      activeAgents.set(agent.id, agent)
-      if (agent.subagentId) subagentAliases.set(agent.subagentId, agent.id)
-    }
-    if (activeAgents.size > 0) console.log(`[agents] Restored ${activeAgents.size} agent(s) from ${AGENTS_FILE}`)
-
-    // Sessions come back with the same stale cutoff; their agent lists are
-    // rebuilt from the agents that survived
+    const { sessions: saved = [] } = JSON.parse(readFileSync(AGENTS_FILE, 'utf8'))
+    const cutoff = Date.now() - STALE_SESSION_MS
     for (const session of Array.isArray(saved) ? saved : []) {
       if (!session?.id || session.state === 'ended' || session.hooked === false) continue
       if ((session.lastActivityAt ?? session.startedAt ?? 0) < cutoff) continue
       // Its Claude Code process is gone (the app was closed or killed without a
       // session_ended): never bring it back, or its Pokémon stays "busy" forever
       if (session.registry?.pid && !pidAlive(session.registry.pid)) continue
-      const agentIds = (Array.isArray(session.agentIds) ? session.agentIds : []).filter(id => activeAgents.has(id))
-      sessions.set(session.id, { ...session, state: 'active', agentIds: new Set(agentIds), main: restoredMain(session.main) })
-    }
-    for (const agent of activeAgents.values()) {
-      if (agent.sessionId) sessions.get(agent.sessionId)?.agentIds.add(agent.id)
+      const { agentIds, ...record } = session
+      sessions.set(session.id, { ...record, state: 'active', main: restoredMain(session.main) })
     }
     if (sessions.size > 0) console.log(`[sessions] Restored ${sessions.size} session(s) from ${AGENTS_FILE}`)
 
@@ -1263,22 +816,19 @@ function loadAgents() {
       setMainState(session, 'idle', `needs-you unanswered for ${NEEDS_YOU_TIMEOUT_MS / 60_000} min, across a restart`, now)
     }
   } catch (err) {
-    console.warn('[agents] Could not restore agent state:', err.message)
+    console.warn('[sessions] Could not restore the sessions:', err.message)
   }
 }
 
-loadAgents()
+loadSessions()
 
 // ---------------------------------------------------------------------------
 // Input validation helpers
 // ---------------------------------------------------------------------------
 
 const KNOWN_EVENT_TYPES = new Set([
-  'agent_spawned',
-  'agent_working',
-  'agent_completed',
-  'agent_linked',
-  'agent_started',
+  'agent_working',   // a tool call: the main thread's, or a subagent's (agentId)
+  'agent_completed', // a subagent finished (agentId)
   'mcp_call',
   'mcp_done',
   'session_started',
@@ -1292,16 +842,20 @@ const KNOWN_EVENT_TYPES = new Set([
   'session_compact',
   'session_cwd',
   'session_model',
-  // A Bash call's signals when the call sends no other event (see Signals below)
+  // Sent by older hooks: the session is alive, nothing else follows from them
+  'agent_spawned',
+  'agent_linked',
+  'agent_started',
   'signal',
-  // TaskCreated / TaskCompleted: the task board looks at the session's list now (server/tasks.js)
   'task_created',
   'task_completed',
 ])
 
 const MAX_STRING_LEN = 200
-// A prompt or a reply: the same room POST /chat gives a chat line
+// A prompt or a reply as the hook sends it
 const MAX_TEXT_LEN = 2000
+// How much of a prompt or reply the server keeps (the catch log quotes the prompt)
+const PROMPT_TEXT_MAX = 200
 
 function clampString(val, max = MAX_STRING_LEN) {
   if (typeof val !== 'string') return undefined
@@ -1313,118 +867,10 @@ function clampCount(val, max = Number.MAX_SAFE_INTEGER) {
   return Number.isInteger(val) && val >= 0 ? Math.min(val, max) : undefined
 }
 
-// ---------------------------------------------------------------------------
-// Settings — $AGENT_OFFICE_HOME/settings.json
-//
-// logPrompts says how much of the boss's prompts and Claude's replies (the
-// session_prompt / session_turn_end text) the office keeps and shows:
-//   off      state transitions only; no text is stored or broadcast
-//   summary  the first 200 characters (default)
-//   full     the whole 2000-character clamp
-// The file is written by POST /settings (UI token or token) and read at
-// startup; GET /settings is open.
-//
-// answerPermissions (default true) says whether a Claude Code permission
-// dialog may be answered from the office (server/permissions.js). The hook
-// must know this before it decides to wait, without a round trip, so the
-// server mirrors it as a marker file: $AGENT_OFFICE_HOME/answer-permissions
-// exists while the setting is on and is removed when it is off. Without the
-// marker the hook's PermissionRequest branch behaves as it always did.
-// ---------------------------------------------------------------------------
-
-const SETTINGS_FILE = join(RUNTIME_DIR, 'settings.json')
-const ANSWER_MARKER_FILE = join(RUNTIME_DIR, 'answer-permissions')
-const LOG_PROMPTS_LEVELS = new Map([['off', 0], ['summary', 200], ['full', MAX_TEXT_LEN]])
-const settings = { logPrompts: 'summary', answerPermissions: true }
-
-function loadSettings() {
-  if (!existsSync(SETTINGS_FILE)) return
-  try {
-    const saved = JSON.parse(readFileSync(SETTINGS_FILE, 'utf8'))
-    if (saved && typeof saved === 'object') {
-      if (LOG_PROMPTS_LEVELS.has(saved.logPrompts)) settings.logPrompts = saved.logPrompts
-      if (typeof saved.answerPermissions === 'boolean') settings.answerPermissions = saved.answerPermissions
-    }
-  } catch (err) {
-    console.warn('[settings] Could not read settings:', err.message)
-  }
-}
-
-function saveSettings() {
-  try {
-    writePrivate(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n')
-  } catch (err) {
-    console.warn('[settings] Could not save settings:', err.message)
-  }
-}
-
-/** The marker file the hook checks follows the answerPermissions setting (0600 like the token). */
-function syncAnswerMarker() {
-  try {
-    if (settings.answerPermissions) writePrivate(ANSWER_MARKER_FILE, 'The office may answer permission dialogs (settings.answerPermissions).\n')
-    else if (existsSync(ANSWER_MARKER_FILE)) unlinkSync(ANSWER_MARKER_FILE)
-  } catch (err) {
-    console.warn('[settings] Could not update the answer-permissions marker:', err.message)
-  }
-}
-
-/**
- * Remove the answer-permissions marker. Called when the office stops (close /
- * SIGINT / SIGTERM / exit): the hook waits for an office answer only while the
- * marker is there, so a stopped office must not leave it behind, or every
- * later PermissionRequest would park on whatever now holds the port (a
- * squatter) instead of falling back to the terminal dialog at once.
- */
-function removeAnswerMarker() {
-  try { if (existsSync(ANSWER_MARKER_FILE)) unlinkSync(ANSWER_MARKER_FILE) } catch {}
-}
-
-/** Prompt / reply text at the configured logPrompts level: '' when off, else its first N characters. */
+/** Prompt / reply text as kept: its first PROMPT_TEXT_MAX characters. */
 function transcriptText(text) {
-  const max = LOG_PROMPTS_LEVELS.get(settings.logPrompts) ?? 0
-  return max ? String(text ?? '').slice(0, max) : ''
+  return String(text ?? '').slice(0, PROMPT_TEXT_MAX)
 }
-
-/**
- * Bring the text the sessions already hold (main.lastPrompt / lastReply, in
- * memory and in agents.json) down to the current logPrompts level — or to
- * nothing (`clear`, the /clear command). Lowering the level is a promise about
- * what the office keeps from now on and about what it holds now: without this
- * an earlier prompt would ride on every later session_* broadcast. Returns
- * the sessions it changed; the caller saves and announces them.
- */
-function retrimTranscripts({ clear = false } = {}) {
-  const changed = []
-  for (const session of sessions.values()) {
-    const main = session.main
-    if (!main) continue
-    let touched = false
-    for (const key of ['lastPrompt', 'lastReply']) {
-      if (typeof main[key] !== 'string') continue
-      const kept = clear ? '' : transcriptText(main[key])
-      if (kept === main[key]) continue
-      main[key] = kept
-      touched = true
-    }
-    if (touched) changed.push(session)
-  }
-  return changed
-}
-
-/** retrimTranscripts, saved and broadcast (each changed session's main, as session_main). */
-function retrimAndAnnounce(reason, opts) {
-  const changed = retrimTranscripts(opts)
-  if (!changed.length) return 0
-  saveAgents()
-  for (const session of changed) broadcast(mainEvent(session, reason))
-  console.log(`[settings] ${reason}: text trimmed on ${changed.length} session(s)`)
-  return changed.length
-}
-
-loadSettings()
-syncAnswerMarker()
-// agents.json was written under whatever level was set then; settings.json may say less now
-if (retrimTranscripts().length) saveAgents()
 
 /** Stop.background_tasks as forwarded by the tracker: at most 10, four clamped strings each. */
 function sanitiseTasks(list) {
@@ -1437,132 +883,10 @@ function sanitiseTasks(list) {
   }))
 }
 
-// ---------------------------------------------------------------------------
-// Signals — what a session's Bash commands mean
-//
-// The tracker classifies Bash commands that deploy, build, test or push
-// (hooks/agent-tracker.sh, "Signals") and sends their start, success or
-// failure as `signals: [...]` on the event the call sends anyway (or alone,
-// as a `signal` event). The server checks them, keeps the last
-// SIGNAL_RING_SIZE in memory — for the whole office and per session — and
-// broadcasts one `signal` event per signal right after the event that
-// carried it, so the office has already applied that call's tool status
-// when the signal lands. GET /signals and the WS snapshot read the ring.
-// Nothing is persisted: signals are about the last few minutes.
-//
-//   { kind, target?, detail?, error?, exitCode?, branch?, toDefault?,
-//     interrupted?, sessionId?, project?, agentId?, agentName?, at, seq }
-//
-// agentId is the office id of the worker that ran the command (a subagent
-// id the office knows is resolved), absent on the main thread. The command
-// itself (clamped to 160) stays in the ring and is shown only to a caller
-// with the office token, the way GET /sessions treats prompt text.
-// ---------------------------------------------------------------------------
-
-const SIGNAL_KINDS = new Set([
-  'deploy_start', 'deploy_success', 'deploy_fail',
-  'build_start', 'build_ok', 'build_failed',
-  'test_start', 'test_ok', 'test_failed',
-  'push', 'push_done', 'push_failed',
-])
-const MAX_SIGNALS_PER_EVENT = 8
-const SIGNAL_RING_SIZE = 100
-const SNAPSHOT_SIGNALS = 20
-
-/** @type {object[]} the last SIGNAL_RING_SIZE signals, oldest first */
-const signalRing = []
-/** @type {Map<string, object[]>} sessionId -> that session's last SIGNAL_RING_SIZE signals */
-const sessionSignals = new Map()
-let signalSeq = 0
-
-/** A tracker's signal list, checked and clamped: unknown kinds and non-objects are dropped. */
-function sanitiseSignals(list) {
-  if (!Array.isArray(list)) return []
-  return list.filter(s => s && typeof s === 'object' && SIGNAL_KINDS.has(s.kind)).map(s => {
-    const out = { kind: s.kind }
-    const strings = { target: 80, command: 160, error: 200, detail: 120, branch: 120 }
-    for (const [key, max] of Object.entries(strings)) {
-      const value = clampString(s[key], max)
-      if (value) out[key] = value
-    }
-    if (Number.isInteger(s.exitCode) && s.exitCode >= 0 && s.exitCode <= 255) out.exitCode = s.exitCode
-    if (typeof s.toDefault === 'boolean') out.toDefault = s.toDefault
-    if (s.interrupted === true) out.interrupted = true
-    return out
-  })
-}
-
-function pushRing(ring, record) {
-  ring.push(record)
-  if (ring.length > SIGNAL_RING_SIZE) ring.splice(0, ring.length - SIGNAL_RING_SIZE)
-}
-
-/** A ring record as the office page sees it: everything but the command. */
-function publicSignal(record) {
-  const { command, ...rest } = record
-  return rest
-}
-
-/**
- * A ring record for a caller without the office token (GET /signals, a
- * read-only WebSocket): also without `error` (a line of the command's
- * output) and `detail` (what the tracker read from it). The kind, target
- * (a project or path name, as GET /sessions shows project and cwd), branch
- * and exit code stay: they are what the office draws.
- */
-function readOnlySignal(record) {
-  const { command, error, detail, ...rest } = record
-  return rest
-}
-
-/**
- * Record and broadcast the signals an event carried. Called after the event
- * itself was processed and broadcast, so a subagent the event just bound is
- * known by its office id here.
- */
-function relaySignals(body, signals) {
-  if (!signals.length) return
-  const session = body.sessionId ? sessions.get(body.sessionId) : undefined
-  const project = session?.project ?? body.project
-  const agentId = lookupAgentId(body.agentId) ?? undefined
-  const agentName = agentId ? activeAgents.get(agentId)?.name : undefined
-  for (const signal of signals) {
-    const at = Date.now()
-    const record = {
-      ...signal,
-      ...(body.sessionId ? { sessionId: body.sessionId } : {}),
-      ...(project ? { project } : {}),
-      ...(agentId ? { agentId } : {}),
-      ...(agentName ? { agentName } : {}),
-      at,
-      seq: ++signalSeq,
-    }
-    pushRing(signalRing, record)
-    if (body.sessionId) {
-      if (!sessionSignals.has(body.sessionId)) sessionSignals.set(body.sessionId, [])
-      pushRing(sessionSignals.get(body.sessionId), record)
-    }
-    const what = [record.target, record.branch && `→ ${record.branch}`, record.detail, record.error && `— ${logText(record.error, 80)}`].filter(Boolean).join(' ')
-    console.log(`[signal] ${project ?? body.sessionId ?? 'unknown session'}: ${record.kind}${what ? ` ${what}` : ''}${record.interrupted ? ' (interrupted)' : ''}${agentName ? ` [${agentName}]` : ''}`)
-    // The inspector card of whoever ran the command shows it in its history.
-    // That history is served without a token (GET /agents/:id), so the line
-    // is built only from what readOnlySignal keeps: never the error line or
-    // the detail, which are command output and can carry credentials
-    const shown = [record.target, record.branch && `→ ${record.branch}`, Number.isInteger(record.exitCode) && `(exit ${record.exitCode})`].filter(Boolean).join(' ')
-    recordActivity(agentId ?? (body.sessionId ? mainActivityId(body.sessionId) : null), { kind: 'status', text: `${record.kind}${shown ? ` ${shown}` : ''}` }, at)
-    broadcast({ type: 'signal', ...publicSignal(record), timestamp: at })
-  }
-}
-
 function validateEvent(body) {
   if (!body || typeof body !== 'object') return 'Missing body'
   if (!body.type || typeof body.type !== 'string') return 'Missing event type'
   if (!KNOWN_EVENT_TYPES.has(body.type)) return `Unknown event type: ${body.type}`
-  if (body.signals !== undefined) {
-    if (!Array.isArray(body.signals)) return 'signals must be an array'
-    if (body.signals.length > MAX_SIGNALS_PER_EVENT) return `At most ${MAX_SIGNALS_PER_EVENT} signals per event`
-  }
-  if (body.type === 'signal' && sanitiseSignals(body.signals).length === 0) return 'A signal event needs at least one known signal'
   return null
 }
 
@@ -1572,7 +896,7 @@ function validateEvent(body) {
 
 const app = express()
 
-// JSON bodies: 10 KiB is plenty for a chat line or a tool event, but a
+// JSON bodies: 10 KiB is plenty for a tool event or a status line, but a
 // session_prompt / session_turn_end carries up to MAX_TEXT_LEN characters of
 // text (JSON-escaped, several bytes each) plus the background-task list, so
 // /event alone takes more. Its sanitiser clamps every field it keeps.
@@ -1612,61 +936,15 @@ app.use((req, res, next) => {
 
 app.options('*', (_req, res) => res.sendStatus(204))
 
-// Payroll / electricity / memory: POST /status + GET /status (server/status.js),
-// fed by the Claude Code status line and keyed by the same session ids as `sessions`
-const status = mountStatus(app, { requireToken, broadcast, staleMs: STALE_AGENT_MS, sessions })
+// Each session's context window and the usage limits: POST /status + GET /status
+// (server/status.js), fed by the Claude Code status line, keyed like `sessions`
+const status = mountStatus(app, { requireToken, broadcast, staleMs: STALE_SESSION_MS })
 
-/**
- * A permission was answered from the office: the session's hand comes down
- * the way a PostToolUse would lower it (the call is about to run, or Claude
- * is about to hear the denial and carry on), and the UI is told.
- */
-function onOfficeDecision(permission) {
-  const session = sessions.get(permission.sessionId)
-  if (!session) return
-  const isPermission = w => w && w.kind === 'permission'
-  const pending = pendingNeedsYou.get(session.id)
-  if (pending && isPermission(pending.wait)) cancelPendingNeedsYou(session.id)
-  const main = mainOf(session)
-  if (main.state !== 'needs-you' || !isPermission(main.needsYou)) return
-  delete main.needsYou
-  setMainState(session, 'working', `${permission.toolName} ${permission.status} from the office`)
-  saveAgents()
-  broadcast(mainEvent(session, 'permission answered from the office'))
-}
-
-// Answer a permission dialog from the office: GET /permissions, the hook's
-// long-poll GET /permission/:id (token) and the page's POST /permission/:id
-// (UI token). Pending records are created in POST /event below and released
-// by the session's later activity in processEvent. GET /permissions shows a
-// dialog's command line and suggestions only to a token holder.
-const permissions = mountPermissions(app, {
-  requireToken,
-  requireUi,
-  broadcast,
-  onDecided: onOfficeDecision,
-  canSeeDetail: req => { const supplied = bearerToken(req); return tokenMatches(supplied) || uiTokenMatches(supplied) },
-  // The hook trusts a decision only when the office proves it holds the token:
-  // HMAC(token, nonce + permissionId + decision) over the nonce the hook made.
-  // A squatter has never seen the token, so it cannot forge this.
-  proof: (nonce, id, decision) => createHmac('sha256', AUTH_TOKEN).update(`${nonce}${id}${decision}`).digest('hex'),
-})
-
-/**
- * The session showed activity after a PermissionRequest: whatever permission
- * was pending for it was answered in the terminal (see server/permissions.js).
- * `filter` narrows it, e.g. to records older than the PreToolUse race window.
- */
-function releasePermissions(sessionId, reason, filter) {
-  if (!sessionId) return
-  permissions.resolveSession(sessionId, reason, filter)
-}
-
-// Pipeline health: GET /health + the throttled `health` broadcast (server/health.js);
-// POST /event stamps it, the WS snapshot carries it, the status strip and `npm run doctor` read it.
-// `sessions` counts every active session, registry-only ones included: "2 sessions, 0 hooks seen"
-// is exactly the picture the doctor needs when the hooks are not installed.
-const health = mountHealth(app, { broadcast, uiAvailable: UI_AVAILABLE, prove: challenge => officeProof(AUTH_TOKEN, challenge), counts: () => ({ agents: activeAgents.size, clients: wss?.clients.size ?? 0, sessions: Array.from(sessions.values()).filter(s => s.state === 'active').length }) })
+// Pipeline health: GET /health (server/health.js); POST /event stamps it, the desktop
+// app and `npm run doctor` read it. `sessions` counts every active session, registry-only
+// ones included: "2 sessions, 0 hooks seen" is the picture the doctor needs when the
+// hooks are not installed.
+const health = mountHealth(app, { broadcast, uiAvailable: UI_AVAILABLE, prove: challenge => officeProof(AUTH_TOKEN, challenge), counts: () => ({ clients: wss?.clients.size ?? 0, sessions: Array.from(sessions.values()).filter(s => s.state === 'active').length }) })
 
 // The registry roster (server/sessions.js): Claude Code's own session registry
 // adds the sessions nothing has hooks for, and ends them when their process
@@ -1685,32 +963,18 @@ const registry = mountRegistry(app, {
 /**
  * A hooked session's registry entry left "waiting": the permission dialog
  * that was on screen is gone — answered Yes (busy), rejected with Esc (idle;
- * no hook fires for that at all), or the process exited. Whatever office card
- * was pending for it is released as answered in the terminal, so a late click
- * is a 409 and the hook's poll ends silently, and a permission hand comes
- * down with it — only cards and hands from before the dialog closed (the
- * entry's statusUpdatedAt), so the next dialog's request, already in, stays.
- * The one time the registry touches a hooked session's main state.
+ * no hook fires for that at all), or the process exited. A permission hand
+ * from before the dialog closed (the entry's statusUpdatedAt) comes down; the
+ * next dialog's request, already in, stays. The one time the registry
+ * touches a hooked session's main state.
  */
 function registryStatusChanged(session, before, after, entry, t) {
   if (before !== 'waiting' || after === 'waiting' || session.hooked === false || session.state !== 'active') return
   const closedAt = entry?.statusUpdatedAt ?? t
   const what = `the dialog closed in the terminal (registry: waiting -> ${after ?? 'gone'})`
-  releasePermissions(session.id, what, p => p.createdAt <= closedAt)
   const lowered = lowerPermissionHand(session, w => w.since <= closedAt, what, after === 'busy' || after === 'shell' ? 'working' : 'idle')
   if (lowered) broadcast({ ...lowered, reason: 'answered in the terminal' })
 }
-
-// The task board (server/tasks.js): each known session's task list, read from
-// ~/.claude/tasks/<session id>/ and broadcast as `task_board` when it changes.
-// GET /tasks is open; the task descriptions on it need the office token.
-// Started with the server, like the registry roster.
-const tasks = mountTasks(app, {
-  sessions,
-  broadcast,
-  tasksDir: TASKS_DIR,
-  hasToken: req => tokenMatches(bearerToken(req)),
-})
 
 // The Pokémon game (server/pokedex.js): partners, encounters, the Pokédex.
 // Species data comes from tools/fetch-pokemon.py; GET /pokedex is open (no secrets in it).
@@ -1785,57 +1049,17 @@ app.post('/pokedex/swap', requireToken, (req, res) => {
 })
 
 /**
- * GET /config — what the page needs to know about this server before it
- * renders: the port and host it is bound to, the boss from
- * office.config.json (the file's fields over the defaults; `configFile` is
- * the path that was read, or null when there is none and `boss` is all
- * defaults, so the page keeps its bundled values then) and the version.
- * Open, like GET /health: nothing here that http://127.0.0.1:<port>/ does
- * not already show.
- */
-app.get('/config', (_req, res) => {
-  const { config, file } = loadOfficeConfig(CONFIG_DIR)
-  const address = httpServer.address()
-  const bound = address && typeof address === 'object' ? address : null
-  res.json({
-    port: bound?.port || PORT,
-    host: bound?.address || '127.0.0.1',
-    boss: bossFromConfig(config),
-    configFile: file,
-    version: VERSION,
-  })
-})
-
-// MCP server roster + the agents in the office (same view as the WS snapshot)
-app.get('/roster', (_req, res) => {
-  const mcpServers = discoverMcpServers()
-  res.json({
-    mcpServers,
-    activeAgents: liveAgents(),
-  })
-})
-
-/**
- * POST /event — receives hook events from agent-tracker.sh
+ * POST /event — receives hook events from hooks/agent-tracker.sh
  *
- * Requires Authorization: Bearer <token> (the token in ~/.agent-office/auth-token).
- * Answers { ok: true, agentId? } — agentId is the office id of a spawned agent,
- * which matters when the spawn carried no id and one was derived.
+ * Requires the token (a bearer token, or the hook's request signature).
+ * Answers { ok: true }.
  *
- * Accepted body shapes:
- *   { type: "agent_spawned",   agent: { name, role, task, id? } }
- *   { type: "agent_working",   agentId?, status, agentType?, role?, name?, failed? }
- *   { type: "agent_completed", agentId, result }
- *   { type: "agent_linked",    agentId, subagentId }
- *   { type: "agent_started",   subagentId, agentType, parentId? }   (SubagentStart)
- *
- * agentId on working/completed may be either the office id or a Claude Code
- * subagent id (from the hook payload's agent_id). agent.parentSubagentId on a
- * spawn is the subagent that made the Agent call (a nested spawn).
- *   { type: "mcp_call",        server, tool, agentId? }
- *   { type: "mcp_done",        server, tool?, callKey?, agentId? }
- *   { type: "session_started", sessionId, project, cwd, source, model?, title? }   (SessionStart)
- *   { type: "session_ended",   sessionId, reason }                                 (SessionEnd)
+ *   { type: "agent_working",     status, tool?, agentId?, agentType?, failed? }  (PreToolUse, PostToolUseFailure)
+ *   { type: "agent_completed",   agentId, result }                               (SubagentStop)
+ *   { type: "mcp_call",          server, tool, agentId? }
+ *   { type: "mcp_done",          server, tool?, callKey?, agentId? }
+ *   { type: "session_started",   sessionId, project, cwd, source, model?, title? } (SessionStart)
+ *   { type: "session_ended",     sessionId, reason }                              (SessionEnd)
  *
  * The session's own Claude (its `main` record; all carry sessionId, promptId?):
  *   { type: "session_prompt",    text, isWakeup, wakeupAgentId?, wakeupStatus? }  (UserPromptSubmit)
@@ -1845,55 +1069,31 @@ app.get('/roster', (_req, res) => {
  *   { type: "session_error",     error, detail }                                   (StopFailure)
  *   { type: "session_compact",   phase: "pre" | "post", trigger }                  (Pre/PostCompact)
  *   { type: "session_tool_done", toolName?, callKey? | batch: true, count; agentId? }
- *                                                           (PostToolUse / PostToolBatch; agentId inside a worker)
+ *                                                           (PostToolUse / PostToolBatch; agentId inside a subagent)
  *   { type: "session_cwd",       cwd, project, oldCwd? }                           (CwdChanged)
  *   { type: "session_model",     model, fromModel?, switchSource? }                (PostModelSwitch)
- *   { type: "task_created" | "task_completed", taskId, subject }        (TaskCreated, TaskCompleted)
- * A foreground agent's agent_completed may add tokens, durationMs, toolUses, model.
  *
- * What a Bash call meant (see Signals): agent_working (PreToolUse,
- * PostToolUseFailure) and session_tool_done (PostToolUse) may carry
- *   signals: [{ kind, target?, command?, error?, exitCode?, detail?, branch?, toDefault?, interrupted? }]
- * (at most 8; kinds outside SIGNAL_KINDS are dropped), and a call that sends
- * nothing else sends them alone:
- *   { type: "signal", signals: [...], agentId? }
- *
- * Every event may carry sessionId, project, cwd and transcriptPath — the
- * Claude Code session the hook fired in. Agents are filed under it.
+ * agentId is Claude Code's subagent id (the hook payload's agent_id): a call
+ * made inside a subagent. Every event may carry sessionId, project, cwd and
+ * transcriptPath — the Claude Code session the hook fired in.
  */
 app.post('/event', requireToken, (req, res) => {
   const body = req.body
 
-  // Validate event type
   const validationError = validateEvent(body)
   if (validationError) {
     return res.status(400).json({ error: validationError })
   }
 
-  // Clamp string fields to prevent oversized payloads reaching the frontend
+  // Clamp the fields kept, so nothing oversized reaches the page or agents.json
   const sanitised = {
-    ...body,
-    agent: body.agent ? {
-      ...body.agent,
-      name:   clampString(body.agent.name),
-      role:   clampString(body.agent.role),
-      task:   clampString(body.agent.task),
-      id:     clampString(body.agent.id),
-      agentType:  clampString(body.agent.agentType),
-      background: !!body.agent.background,
-      parentSubagentId: clampString(body.agent.parentSubagentId),
-    } : undefined,
-    agentId: clampString(body.agentId),
-    subagentId: clampString(body.subagentId),
-    parentId: clampString(body.parentId),
-    failed: body.failed === true || undefined,
-    agentType:  clampString(body.agentType),
-    role:       clampString(body.role),
-    name:       clampString(body.name),
-    status:  clampString(body.status),
-    result:  clampString(body.result),
-    server:  clampString(body.server),
-    tool:    clampString(body.tool),
+    type: body.type,
+    agentId:  clampString(body.agentId),
+    failed:   body.failed === true || undefined,
+    status:   clampString(body.status),
+    result:   clampString(body.result),
+    server:   clampString(body.server),
+    tool:     clampString(body.tool),
     // Session identity (on every event) + session lifecycle fields
     sessionId:      clampString(body.sessionId),
     project:        clampString(body.project),
@@ -1903,8 +1103,7 @@ app.post('/event', requireToken, (req, res) => {
     model:   clampString(body.model),
     title:   clampString(body.title),
     reason:  clampString(body.reason),
-    // The session's own Claude: prompt / reply text gets the chat-line clamp,
-    // labels the usual 200, enums are checked, the task list is rebuilt
+    // The session's own Claude
     promptId:         clampString(body.promptId, 80),
     text:             clampString(body.text, MAX_TEXT_LEN),
     isWakeup:         body.isWakeup === true || undefined,
@@ -1917,17 +1116,8 @@ app.post('/event', requireToken, (req, res) => {
     summary:          clampString(body.summary),
     message:          clampString(body.message),
     notificationType: clampString(body.notificationType, 40),
-    // A PermissionRequest the office may answer (server/permissions.js): the
-    // detail is the command or the path (400), the suggestions go back to
-    // Claude Code verbatim, so their shape is kept and their sizes bounded
-    answerable:       body.answerable === true || undefined,
-    // The per-request nonce the hook signs the server's proof over (hex, kept
-    // out of the broadcast event and the public permission record)
-    nonce:            clampString(body.nonce, 64),
-    permissionMode:   clampString(body.permissionMode, 40),
-    suggestions:      body.type === 'session_needs_you' ? sanitiseSuggestions(body.suggestions) : undefined,
     error:            clampString(body.error, 40),
-    detail:           clampString(body.detail, body.type === 'session_needs_you' ? 400 : MAX_STRING_LEN),
+    detail:           clampString(body.detail),
     phase:            body.phase === 'pre' || body.phase === 'post' ? body.phase : undefined,
     trigger:          clampString(body.trigger, 20),
     backgroundTasks:  sanitiseTasks(body.backgroundTasks),
@@ -1938,1125 +1128,78 @@ app.post('/event', requireToken, (req, res) => {
     oldCwd:           clampString(body.oldCwd, 400),
     fromModel:        clampString(body.fromModel, 80),
     switchSource:     clampString(body.switchSource, 20),
-    // What a foreground agent cost (agent_completed)
-    tokens:           clampCount(body.tokens),
-    durationMs:       clampCount(body.durationMs),
-    toolUses:         clampCount(body.toolUses),
-    // The worker's own transcript file (SubagentStop.agent_transcript_path), for the inspector's tail
-    agentTranscriptPath: clampString(body.agentTranscriptPath, 400),
-    // TaskCreated / TaskCompleted: which task, and its subject (open, like an agent's task)
-    taskId:           clampString(body.taskId, 40),
-    subject:          clampString(body.subject, 120),
-    // What the Bash call meant (see Signals): relayed below, not by processEvent
-    signals:          undefined,
   }
-  const signals = sanitiseSignals(body.signals)
 
   const event = processEvent(sanitised)
-  if (event) {
-    broadcast(event)
-  }
-  // After the event that carried them, so the office has its tool status first
-  relaySignals(sanitised, signals)
-  // The task board: a session's first event starts the watch on its task list,
-  // its end stops it, TaskCreated / TaskCompleted make it look now
-  tasks.noteEvent(sanitised)
+  if (event) broadcast(event)
   // The game: a session's partner, and a step through tall grass per tool call
   try { pokedex.noteEvent(sanitised, sanitised.sessionId ? sessions.get(sanitised.sessionId) : undefined) } catch (err) { console.error('[pokedex]', err.message) }
-  health.markHook()  // a hook reached us: what the strip's "last seen" counts (after the event, so its counts include it)
-  status.noteHook(sanitised)  // MEMORY from the transcript for a session with no status line (throttled, read after we answer)
-
-  // A PermissionRequest the hook will wait on: the response names the pending
-  // record and how to poll it (server/permissions.js). Only while the setting
-  // is on and the session is known; otherwise the hook gets the usual {ok} and
-  // exits without printing, leaving the terminal dialog in charge.
-  if (sanitised.type === 'session_needs_you' && sanitised.kind === 'permission' && sanitised.answerable && settings.answerPermissions && sanitised.sessionId) {
-    const session = sessions.get(sanitised.sessionId)
-    const { permission, wait } = permissions.create({
-      sessionId: sanitised.sessionId,
-      project: session?.project,
-      cwd: session?.cwd ?? sanitised.cwd,
-      sessionTitle: session?.title,
-      toolName: sanitised.toolName,
-      summary: sanitised.summary,
-      detail: sanitised.detail,
-      suggestions: sanitised.suggestions,
-      permissionMode: sanitised.permissionMode,
-      promptId: sanitised.promptId,
-      agentId: sanitised.agentId,
-      nonce: sanitised.nonce,
-      callKey: sanitised.callKey,
-    })
-    return res.json({ ok: true, permissionId: permission.id, wait })
-  }
-
-  res.json({ ok: true, ...(event?.type === 'agent_spawned' ? { agentId: event.agent.id } : {}) })
-})
-
-// ---------------------------------------------------------------------------
-// Slash commands
-// ---------------------------------------------------------------------------
-
-function handleSlashCommand(cmd) {
-  switch (cmd) {
-    case '/status': {
-      const agentCount = activeAgents.size
-      const working = Array.from(activeAgents.values()).filter(a => a.state === 'working').length
-      const clients = wss?.clients?.size ?? 0
-      return `📊 ${agentCount} agents active, ${working} working, ${clients} clients connected`
-    }
-    case '/agents': {
-      const agents = Array.from(activeAgents.values())
-      if (agents.length === 0) return '🏢 Office is quiet — no agents active'
-      return agents.map(a => `${a.name} (${a.role}) — ${a.state}`).join(', ')
-    }
-    case '/clear': {
-      db.prepare('DELETE FROM messages').run()
-      // The last prompt and reply on each session are the same conversation
-      retrimAndAnnounce('chat cleared', { clear: true })
-      return '🧹 Chat cleared'
-    }
-    // Incident mode ("Prod Is Down"): relayed to every connected office as a
-    // variant_change so all tabs switch together. Nothing is persisted server-side.
-    // Sent after the reply lines below so the office's own postmortem card lands
-    // under the all-clear line rather than above it.
-    case '/incident': {
-      setImmediate(() => broadcast({ type: 'variant_change', variant: 'incident', reason: 'manual', timestamp: Date.now() }))
-      return '🔴 INCIDENT DECLARED — prod is down. Everyone to the war room. (/all-clear when it is over)'
-    }
-    case '/all-clear': {
-      setImmediate(() => broadcast({ type: 'variant_change', variant: 'none', reason: 'manual', timestamp: Date.now() }))
-      return '✅ ALL CLEAR — incident over. Postmortem at 10, blameless, bring pizza.'
-    }
-    case '/help':
-      return '📋 Commands: /status — office stats, /agents — list agents, /incident — declare an incident, /all-clear — end it, /clear — wipe chat history (needs the auth token), /help — this message'
-    default:
-      return null
-  }
-}
-
-// Slash commands that destroy state need the office token. POST /chat itself
-// is open because the office UI (a person typing) has no token — but so does
-// any other local process, and it must not be able to truncate the chat.
-const PRIVILEGED_COMMANDS = new Set(['/clear'])
-
-// ---------------------------------------------------------------------------
-// Chat — user messages from the office UI
-// ---------------------------------------------------------------------------
-
-/**
- * POST /chat — receives a message typed in the office Slack panel
- * No auth required for a plain line or a read-only slash command (comes from
- * the UI, not hooks); a privileged command (/clear) needs the bearer token.
- */
-app.post('/chat', (req, res) => {
-  const { sender, text } = req.body ?? {}
-  if (!sender || !text) {
-    return res.status(400).json({ error: 'Missing sender or text' })
-  }
-
-  // Slash command detection — handle before saving as normal message
-  if (typeof text === 'string' && text.startsWith('/')) {
-    const parts = text.split(' ')
-    const cmd = parts[0]
-    if (PRIVILEGED_COMMANDS.has(cmd) && !tokenMatches(bearerToken(req))) {
-      // Tell the person in the chat panel why nothing happened (the UI ignores
-      // the HTTP status), and the caller through the status
-      const sysMsg = addMessage({ sender: 'system', text: `🔒 ${cmd} needs the office auth token — run python3 scripts/chat-post.py ${cmd} from the office checkout, which sends it (see README › Chat)`, isSystem: true })
-      broadcast({ type: 'chat_message', ...sysMsg, isSystem: true })
-      console.warn(`[chat] Refused ${cmd} from ${clampString(sender)}: no auth token`)
-      return unauthorized(res, { error: `${cmd} needs the office auth token` })
-    }
-    const cmdResult = handleSlashCommand(cmd)
-    if (cmdResult) {
-      const userMsg = addMessage({ sender: clampString(sender), text: clampString(text, 2000) })
-      broadcast({ type: 'chat_message', ...userMsg })
-      const sysMsg = addMessage({ sender: 'system', text: cmdResult, isSystem: true })
-      broadcast({ type: 'chat_message', ...sysMsg, isSystem: true })
-      return res.json({ ok: true })
-    }
-  }
-
-  const msg = addMessage({
-    sender: clampString(sender),
-    text: clampString(text, 2000),
-  })
-
-  // Broadcast to all WS clients
-  broadcast({ type: 'chat_message', ...msg })
-
-  // Smart notification — ping when "claude" or "@claude" is mentioned
-  if (/claude/i.test(text)) {
-    sendNotification('Office Chat', clampString(sender) + ': ' + text.slice(0, 50))
-  }
-
-  // Write to webhook file so Claude can detect new messages
-  try {
-    writePrivate(join(RUNTIME_DIR, 'last-chat'), JSON.stringify(msg))
-  } catch {}
-
-  console.log(`[chat] ${msg.sender}: ${msg.text}`)
+  health.markHook()  // a hook reached us (after the event, so its counts include it)
   res.json({ ok: true })
 })
 
-// ---------------------------------------------------------------------------
-// Video mode — when enabled, GET /chat filters out scripted video messages
-// so external Claude sessions only see real agent messages.
-// Toggle via POST /chat/video-mode  { enabled: true/false }  (needs the token:
-// it hides messages from every polling session)
-// ---------------------------------------------------------------------------
-let videoPaused = false
-let videoPausedSince = 0
-
-app.post('/chat/video-mode', requireToken, (req, res) => {
-  videoPaused = !!req.body?.enabled
-  videoPausedSince = videoPaused ? Date.now() : 0
-  console.log(`[video-mode] chat polling ${videoPaused ? 'PAUSED' : 'RESUMED'}`)
-  res.json({ ok: true, videoPaused })
-})
-
 /**
- * GET /chat — read recent chat messages (for Claude to read via terminal)
- * ?since=<timestamp> returns only messages after that time
- * ?recipient=<name> returns only messages directed at that agent
- * When video mode is active, only returns messages from before video started
- * (i.e. hides the scripted video messages but keeps old real ones)
- */
-app.get('/chat', (req, res) => {
-  const since = parseInt(req.query.since) || 0
-  const recipient = typeof req.query.recipient === 'string' ? req.query.recipient : null
-  // The Boss / Claude transcript rows only for a caller with the office token
-  // (the chat watcher and any other local process never see them)
-  let messages = getMessages({ since, limit: 50, recipient, transcript: tokenMatches(bearerToken(req)) })
-  if (videoPaused && videoPausedSince) {
-    // Hide any messages created after video mode was enabled (scripted messages)
-    messages = messages.filter(m => m.timestamp < videoPausedSince)
-  }
-  res.json({ messages })
-})
-
-// ---------------------------------------------------------------------------
-// Agent-to-agent (A2A) messaging
-// ---------------------------------------------------------------------------
-
-const A2A_TYPES = new Set(['message', 'question', 'review_request', 'task_handoff'])
-
-// Loop budget: two agents can't trade more than this many directed messages
-// (in either direction) per window, so a pair of bots can't chat forever.
-const A2A_PAIR_LIMIT = Number(process.env.AGENT_OFFICE_A2A_LIMIT) || 10
-const A2A_WINDOW_MS = 60_000
-/** @type {Map<string, number[]>} "a|b" (sorted, lowercase) -> send timestamps */
-const a2aPairLog = new Map()
-
-function a2aBudgetLeft(a, b) {
-  const key = [a.toLowerCase(), b.toLowerCase()].sort().join('|')
-  const now = Date.now()
-  const recent = (a2aPairLog.get(key) ?? []).filter(t => now - t < A2A_WINDOW_MS)
-  a2aPairLog.set(key, recent)
-  if (recent.length >= A2A_PAIR_LIMIT) return false
-  recent.push(now)
-  return true
-}
-
-/** Find an active agent by office id, subagent id, name or role (case-insensitive). */
-function findAgent(ref) {
-  if (!ref) return null
-  const byId = lookupAgentId(ref)
-  if (byId) return activeAgents.get(byId)
-  const want = ref.toLowerCase()
-  const live = Array.from(activeAgents.values()).filter(a => !a.server && a.state !== 'completed')
-  return live.find(a => a.name?.toLowerCase() === want)
-    ?? live.find(a => a.role?.toLowerCase() === want)
-    ?? null
-}
-
-function inboxSlug(name) {
-  return name.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown'
-}
-
-/** The names a directed message to this agent may have been addressed by. */
-function agentAddresses(agent) {
-  return [agent.id, agent.subagentId, agent.name, agent.role].filter(Boolean)
-}
-
-/**
- * Send a directed (agent-to-agent) or plain reply message. Shared by
- * POST /chat/reply and the A2A JSON-RPC endpoint.
- * @returns {{ error?: string, status?: number, msg?: object, to?: string|null, recipientAgent?: object|null }}
- */
-function sendAgentMessage({ sender, role, text, recipient, type, replyTo, senderId }) {
-  if (!text || typeof text !== 'string') return { error: 'Missing text', status: 400 }
-
-  let to = clampString(recipient)?.trim() || null
-  let body = text
-  if (!to) {
-    // "@Debugger can you look at this" — only counts if Debugger is in the office
-    const mention = /^@([\w-]+)[:,]?\s+/.exec(text)
-    if (mention && findAgent(mention[1])) {
-      to = mention[1]
-      body = text.slice(mention[0].length)
-    }
-  }
-
-  const from = clampString(sender || 'Claude')
-  const senderAgent = findAgent(senderId) ?? findAgent(from)
-  let msgType = null
-  let recipientAgent = null
-  if (to) {
-    msgType = A2A_TYPES.has(type) ? type : 'message'
-    recipientAgent = findAgent(to)
-    const sameAgent = recipientAgent && senderAgent && recipientAgent.id === senderAgent.id
-    if (sameAgent || to.toLowerCase() === from.toLowerCase()) {
-      return { error: 'An agent cannot message itself', status: 400 }
-    }
-    if (!a2aBudgetLeft(from, to)) {
-      return { error: `Loop budget hit: ${from} and ${to} have exchanged ${A2A_PAIR_LIMIT} messages in the last minute`, status: 429 }
-    }
-  }
-
-  const msg = addMessage({
-    sender: from,
-    role: clampString(role || 'default'),
-    text: clampString(body, 2000),
-    threadId: Number.isInteger(replyTo) ? replyTo : null,
-    recipient: to,
-    msgType,
-  })
-
-  // The sender's own history (inspector card) remembers what it said
-  if (senderAgent) recordActivity(senderAgent.id, { kind: 'message', text: to ? `to ${to}: ${msg.text}` : msg.text })
-
-  // Broadcast as a chat message — the frontend will attribute it to an agent
-  broadcast({
-    type: 'chat_message',
-    ...msg,
-    senderId: senderAgent?.id ?? null,
-    recipientId: recipientAgent?.id ?? null,
-  })
-
-  if (to) {
-    try {
-      const inboxDir = join(RUNTIME_DIR, 'inbox')
-      mkdirSync(inboxDir, { recursive: true, mode: 0o700 })
-      writePrivate(join(inboxDir, `${inboxSlug(to)}.json`), JSON.stringify(msg))
-    } catch {}
-    if (recipientAgent) {
-      recipientAgent.unread = (recipientAgent.unread ?? 0) + 1
-      saveAgents()
-      broadcast({ type: 'inbox_update', agentId: recipientAgent.id, unread: recipientAgent.unread })
-    }
-    console.log(`[a2a] ${msg.sender} -> ${to} (${msgType}): ${msg.text}`)
-  } else {
-    console.log(`[reply] ${msg.sender}: ${msg.text}`)
-  }
-  return { msg, to, recipientAgent }
-}
-
-/**
- * GET /agents — directory of who is in the office right now, so agents can
- * discover each other before sending a directed message.
- */
-app.get('/agents', (_req, res) => {
-  const agents = Array.from(activeAgents.values())
-    .filter(a => !a.server && a.state !== 'completed')
-    .map(({ id, name, role, task, state, status, lastError, background, spawnedAt, lastActivityAt, unread, parentId, parentSubagentId, sessionId, project }) => ({
-      id, name, role, task, state, status, lastError, background, spawnedAt, lastActivityAt, unread: unread ?? 0,
-      // Lineage: the subagent that spawned this one and, once that parent is linked, its office id
-      parentId: parentId ?? lookupAgentId(parentSubagentId) ?? undefined,
-      parentSubagentId,
-      // The Claude Code session (terminal) this agent works for
-      sessionId,
-      project,
-    }))
-  res.json({ agents })
-})
-
-// ---------------------------------------------------------------------------
-// GET /agents/:id — the inspector card
-// ---------------------------------------------------------------------------
-
-/**
- * A character's transcript, read from its end once: `section` is what of the
- * tail the card may show at the current logPrompts level (or why nothing),
- * `usage` the last message's { tokens, model } — numbers, not conversation,
- * so they are read whatever logPrompts says.
- */
-function transcriptFor(path, { withText }) {
-  const maxChars = LOG_PROMPTS_LEVELS.get(settings.logPrompts) ?? 0
-  const readable = !!path && isTranscriptPath(path) && existsSync(path)
-  // Without a token the entries are dropped, so they need not be built at length
-  const read = readable ? readTranscript(path, { maxChars: (withText && maxChars) || 1 }) : null
-  let section
-  if (!maxChars) section = { transcriptAvailable: false, transcriptReason: 'prompts off' }
-  // What an agent said is conversation: only for the office page (UI token)
-  // or a token holder, like the prompt / reply text on GET /sessions
-  else if (!withText) section = { transcriptAvailable: false, transcriptReason: 'needs the office token' }
-  else if (!path) section = { transcriptAvailable: false, transcriptReason: 'no transcript path yet' }
-  else if (!readable) section = { transcriptAvailable: false, transcriptReason: 'transcript file not found' }
-  else section = { transcriptAvailable: true, transcript: read.entries }
-  return { section, usage: read?.usage ?? null }
-}
-
-function activityFor(id) {
-  const entry = activity.get(id)
-  return { history: entry ? entry.history.slice() : [], toolCounts: { ...(entry?.toolCounts ?? {}) } }
-}
-
-/** A worker's inspection: its GET /agents fields, its activity, its stats and its transcript tail. */
-function inspectAgent(agent, { withText }) {
-  const parentId = agent.parentId ?? lookupAgentId(agent.parentSubagentId) ?? null
-  const session = agent.sessionId ? sessions.get(agent.sessionId) : null
-  // The file SubagentStop named, else the one its session transcript and Claude agent id imply
-  const path = agent.transcriptPath ?? agentTranscriptPath(session?.transcriptPath, agent.sessionId, agent.subagentId)
-  const { section, usage } = transcriptFor(path, { withText })
-  const activityNow = activityFor(agent.id)
-  // What Claude Code reported (a foreground agent's PostToolUse(Agent)) wins;
-  // a background agent's SubagentStop carries none of it, so the office
-  // fills the gaps itself and lists the fields it filled in `derived`:
-  // tokens and model from its transcript's last message (the same sum Claude
-  // Code reports), once finished the duration from spawn to completion and
-  // the tool uses the hook saw
-  const derived = []
-  const fill = (key, reported, value) => {
-    if (reported !== undefined && reported !== null) return { [key]: reported }
-    if (value === undefined || value === null) return {}
-    derived.push(key)
-    return { [key]: value }
-  }
-  const toolsSeen = Object.values(activityNow.toolCounts).reduce((sum, n) => sum + n, 0)
-  const finished = typeof agent.completedAt === 'number'
-  const stats = {
-    spawnedAt: agent.spawnedAt,
-    lastActivityAt: agent.lastActivityAt,
-    ...(finished ? { completedAt: agent.completedAt } : {}),
-    ...fill('tokens', agent.tokens, usage?.tokens),
-    ...fill('durationMs', agent.durationMs, finished && typeof agent.spawnedAt === 'number' ? agent.completedAt - agent.spawnedAt : undefined),
-    ...fill('toolUses', agent.toolUses, finished ? toolsSeen : undefined),
-    ...fill('model', agent.model || undefined, usage?.model),
-    parent: parentId ? { id: parentId, name: activeAgents.get(parentId)?.name ?? parentId } : null,
-    unread: agent.unread ?? 0,
-  }
-  if (derived.length) stats.derived = derived
-  return {
-    id: agent.id,
-    kind: 'worker',
-    name: agent.name,
-    role: agent.role,
-    task: agent.task,
-    agentType: agent.agentType,
-    background: !!agent.background,
-    // Back from agents.json after a server restart: its history starts at the restart
-    restored: !!agent.restored,
-    state: agent.state,
-    status: agent.status,
-    lastError: agent.lastError,
-    spawnedAt: agent.spawnedAt,
-    lastActivityAt: agent.lastActivityAt,
-    unread: agent.unread ?? 0,
-    parentId: parentId ?? undefined,
-    parentSubagentId: agent.parentSubagentId,
-    subagentId: agent.subagentId,
-    sessionId: agent.sessionId,
-    project: agent.project,
-    ...activityNow,
-    stats,
-    ...section,
-  }
-}
-
-/**
- * A session's own Claude: its main record (the prompt / reply text only with
- * the token, as GET /sessions), the model and crons, the session, its
- * activity and the tail of the session transcript.
- */
-function inspectMain(session, { withText }) {
-  const json = sessionToJSON(session, { withText })
-  const main = json.main ?? newMain()
-  // The session transcript's last message: its usage is how full the context
-  // window is (the meters' MEMORY), its model a fallback for the session's
-  const { section, usage } = transcriptFor(session.transcriptPath, { withText })
-  const model = session.model ?? usage?.model
-  return {
-    id: mainActivityId(session.id),
-    kind: 'main',
-    name: 'Claude',
-    role: 'assistant',
-    state: main.state,
-    status: session.lastStatus,
-    lastStatusAt: session.lastStatusAt,
-    sessionId: session.id,
-    project: session.project,
-    cwd: session.cwd,
-    title: session.title,
-    model,
-    crons: main.crons ?? 0,
-    // false: the session is known from Claude Code's registry only, no hook has reported yet
-    hooked: session.hooked !== false,
-    main,
-    session: {
-      id: session.id,
-      project: session.project,
-      cwd: session.cwd,
-      title: session.title,
-      source: session.source,
-      state: session.state,
-      hooked: session.hooked !== false,
-      startedAt: session.startedAt,
-      lastActivityAt: session.lastActivityAt,
-      ...(session.endedAt ? { endedAt: session.endedAt, reason: session.reason } : {}),
-      agentCount: json.agentCount,
-      workingCount: json.workingCount,
-    },
-    ...activityFor(mainActivityId(session.id)),
-    stats: {
-      spawnedAt: session.startedAt,
-      since: main.since,
-      lastActivityAt: session.lastActivityAt,
-      ...(model ? { model } : {}),
-      ...(usage ? { contextTokens: usage.tokens } : {}),
-      ...(!session.model && usage?.model ? { derived: ['model'] } : {}),
-      parent: null,
-      unread: 0,
-    },
-    ...section,
-  }
-}
-
-/**
- * GET /agents/:id — one character for the inspector card: the agent's record
- * plus `history` (its last ACTIVITY_MAX tool calls, failures, completion and
- * messages), `toolCounts`, `stats` (spawnedAt, completedAt, tokens, duration,
- * tool uses and model when it has finished, its parent, unread) and the tail
- * of its own transcript. :id is an office id, a Claude subagent id, or
- * `main-<sessionId>` for a session's own Claude (its main record, model and
- * crons). Open on loopback like GET /agents, but conversation text — the
- * transcript tail and the main record's prompt / reply — goes only to the
- * office page (UI token) or a token holder, as on GET /sessions and
- * GET /chat; without one the card says `transcriptReason: 'needs the office
- * token'`. With one the tail follows logPrompts (off: none; summary: 200
- * characters per entry; full: 2000). The history, counts and stats stay open:
- * tool names, status lines and the completion line are what GET /agents,
- * GET /sessions and the agent broadcasts already show. An agent in its
- * completed grace window still answers; anything else is a 404.
- */
-app.get('/agents/:id', (req, res) => {
-  // The route stays open; a missing or wrong token only means no conversation text
-  const supplied = bearerToken(req)
-  const withText = tokenMatches(supplied) || uiTokenMatches(supplied)
-  const ref = req.params.id
-  if (ref.startsWith(MAIN_ID_PREFIX)) {
-    const session = sessions.get(ref.slice(MAIN_ID_PREFIX.length))
-    if (!session) return res.status(404).json({ error: 'Unknown agent' })
-    return res.json(inspectMain(session, { withText }))
-  }
-  const id = lookupAgentId(ref)
-  const agent = id ? activeAgents.get(id) : null
-  if (!agent || agent.server) return res.status(404).json({ error: 'Unknown agent' })
-  res.json(inspectAgent(agent, { withText }))
-})
-
-/**
- * GET /sessions — the Claude Code sessions (one per terminal) the office knows
- * about: project, cwd, how it started, its agent counts, the last main-thread
- * status and `main` — what the session's own Claude is doing (state, last
- * prompt and reply, what it waits on). Ended sessions stay listed for
- * SESSION_FORGET_MS.
+ * GET /sessions — the Claude Code sessions (one per terminal) the server knows
+ * about: project, cwd, how it started and `main` — what the session's own
+ * Claude is doing (state, last prompt and reply, what it waits on). Ended
+ * sessions stay listed for SESSION_FORGET_MS.
  */
 app.get('/sessions', (req, res) => {
-  // The prompt / reply text in `main` only for a caller with the office token
+  // The prompt / reply text in `main` only for a caller with the token
   const withText = tokenMatches(bearerToken(req))
   res.json({ sessions: Array.from(sessions.values()).map(s => sessionToJSON(s, { withText })) })
 })
 
-/**
- * GET /signals?since=<ms>&sessionId=<id> — the last signals (see Signals),
- * oldest first: those after `since` (a timestamp, exclusive), from one
- * session's ring when sessionId names one. Open like GET /sessions; the
- * command each came from, and the output it printed (`error`, `detail`),
- * only for a caller with the office token (readOnlySignal).
- */
-app.get('/signals', (req, res) => {
-  const since = Number(req.query.since)
-  const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : undefined
-  const ring = sessionId ? (sessionSignals.get(sessionId) ?? []) : signalRing
-  const withCommand = tokenMatches(bearerToken(req))
-  const signals = ring.filter(s => !Number.isFinite(since) || s.at > since).map(s => (withCommand ? { ...s } : readOnlySignal(s)))
-  res.json({ signals, now: Date.now() })
-})
-
-/**
- * GET /settings — the office settings (see Settings above). Open.
- * POST /settings — change them: { logPrompts: "off" | "summary" | "full",
- * answerPermissions: boolean }. Needs the UI token (the office page) or the
- * bearer token: it decides what of the conversation is kept and whether a
- * permission dialog may be answered from here.
- */
-app.get('/settings', (_req, res) => {
-  res.json({ ...settings, logPromptsLevels: Array.from(LOG_PROMPTS_LEVELS.keys()) })
-})
-
-app.post('/settings', requireUi, (req, res) => {
-  const { logPrompts, answerPermissions } = req.body ?? {}
-  if (logPrompts !== undefined) {
-    if (typeof logPrompts !== 'string' || !LOG_PROMPTS_LEVELS.has(logPrompts)) {
-      return res.status(400).json({ error: `logPrompts must be one of ${Array.from(LOG_PROMPTS_LEVELS.keys()).join(', ')}` })
-    }
-  }
-  if (answerPermissions !== undefined && typeof answerPermissions !== 'boolean') {
-    return res.status(400).json({ error: 'answerPermissions must be true or false' })
-  }
-  if (logPrompts !== undefined) settings.logPrompts = logPrompts
-  if (answerPermissions !== undefined) settings.answerPermissions = answerPermissions
-  saveSettings()
-  syncAnswerMarker()
-  console.log(`[settings] logPrompts = ${settings.logPrompts}, answerPermissions = ${settings.answerPermissions}`)
-  // A lower level applies to the text already held too (rows in chat.db stay until /clear)
-  if (logPrompts !== undefined) retrimAndAnnounce(`logPrompts ${settings.logPrompts}`)
-  res.json({ ok: true, ...settings })
-})
-
-/**
- * POST /chat/reply — Claude replies as an agent in the office Slack
- * Body: { sender: "AgentName", role: "code-reviewer", text: "message",
- *         recipient?: "Debugger", type?: "question", replyTo?: <messageId> }
- *
- * With a recipient (or a leading "@Name" in the text) the message is directed:
- * it is stored with the recipient, readable via GET /chat?recipient=<name>, and
- * the latest one is written to ~/.agent-office/inbox/<recipient>.json so the
- * recipient's session can pick it up like last-chat.
- * Needs the bearer token: this speaks as an agent and writes to another agent's inbox.
- */
-app.post('/chat/reply', requireToken, (req, res) => {
-  const result = sendAgentMessage(req.body ?? {})
-  if (result.error) return res.status(result.status).json({ error: result.error })
-  res.json({ ok: true, id: result.msg.id, recipient: result.to, delivered: !!result.recipientAgent })
-})
-
-/**
- * POST /chat/inbox/read — the recipient has read its directed messages.
- * Body: { recipient: "Debugger" }  (office id, subagent id, name or role)
- * Clears the unread badge on the agent's desk. Needs the bearer token.
- */
-app.post('/chat/inbox/read', requireToken, (req, res) => {
-  const recipient = clampString(req.body?.recipient)?.trim()
-  if (!recipient) return res.status(400).json({ error: 'Missing recipient' })
-  const agent = findAgent(recipient)
-  markInboxRead(agent ? [recipient, ...agentAddresses(agent)] : [recipient])
-  if (agent && agent.unread) {
-    agent.unread = 0
-    saveAgents()
-    broadcast({ type: 'inbox_update', agentId: agent.id, unread: 0 })
-  }
-  res.json({ ok: true })
-})
-
 // ---------------------------------------------------------------------------
-// A2A protocol surface — a subset of the Agent2Agent (A2A) spec so agents that
-// speak A2A can reach office agents without learning the office's own API.
-//
-//   GET  /.well-known/agent-card.json   card for the office as a whole
-//   GET  /a2a/agents                    one agent card per agent in the office
-//   POST /a2a                           JSON-RPC 2.0, method "message/send"
-//
-// Office agents are addressed through message.metadata.to (id, name or role);
-// the sender is message.metadata.from. Replies thread via referenceTaskIds or
-// metadata.replyTo (an office message id). Tasks/streaming aren't supported —
-// every message is delivered as-is and answered with the stored message.
-// POST /a2a needs the office bearer token; the cards advertise it.
-// ---------------------------------------------------------------------------
-
-const A2A_PROTOCOL_VERSION = '0.3.0'
-const A2A_URL = `http://127.0.0.1:${PORT}/a2a`
-const A2A_SECURITY = {
-  securitySchemes: {
-    bearer: { type: 'http', scheme: 'bearer', description: 'The office auth token — the contents of ~/.agent-office/auth-token' },
-  },
-  security: [{ bearer: [] }],
-}
-
-function officeAgentCard(agent) {
-  const cfgTitle = agent.name ?? 'Agent'
-  return {
-    protocolVersion: A2A_PROTOCOL_VERSION,
-    name: cfgTitle,
-    description: agent.task || `${agent.role} agent in Agent Office`,
-    url: A2A_URL,
-    version: '1.0.0',
-    capabilities: { streaming: false, pushNotifications: false },
-    defaultInputModes: ['text/plain'],
-    defaultOutputModes: ['text/plain'],
-    ...A2A_SECURITY,
-    skills: [{ id: agent.role, name: agent.role, description: agent.task || agent.role, tags: [agent.role] }],
-    // Office-specific: how to address this agent in message.metadata.to
-    metadata: { officeId: agent.id, state: agent.state, unread: agent.unread ?? 0 },
-  }
-}
-
-/** Office chat row -> A2A Message object */
-function toA2AMessage(msg) {
-  return {
-    kind: 'message',
-    messageId: String(msg.id),
-    role: 'agent',
-    parts: [{ kind: 'text', text: msg.text }],
-    ...(msg.thread_id ? { referenceTaskIds: [String(msg.thread_id)] } : {}),
-    metadata: { from: msg.sender, to: msg.recipient, type: msg.msg_type, timestamp: msg.timestamp },
-  }
-}
-
-app.get('/.well-known/agent-card.json', (_req, res) => {
-  res.json({
-    protocolVersion: A2A_PROTOCOL_VERSION,
-    name: 'Agent Office',
-    description: 'Shared office for Claude Code agents. Send a message to any agent in the office; set metadata.to to its name, role or id (see GET /a2a/agents).',
-    url: A2A_URL,
-    version: '1.0.0',
-    capabilities: { streaming: false, pushNotifications: false },
-    defaultInputModes: ['text/plain'],
-    defaultOutputModes: ['text/plain'],
-    ...A2A_SECURITY,
-    skills: [{
-      id: 'office-message',
-      name: 'Message an office agent',
-      description: 'Deliver a message, question, review request or task handoff to an agent in the office.',
-      tags: ['message', 'question', 'review_request', 'task_handoff'],
-    }],
-  })
-})
-
-app.get('/a2a/agents', (_req, res) => {
-  const cards = Array.from(activeAgents.values())
-    .filter(a => !a.server && a.state !== 'completed')
-    .map(officeAgentCard)
-  res.json({ agents: cards })
-})
-
-app.post('/a2a', requireTokenRpc, (req, res) => {
-  const rpc = req.body ?? {}
-  const id = rpc.id ?? null
-  const fail = (code, message) => res.json({ jsonrpc: '2.0', id, error: { code, message } })
-
-  if (rpc.jsonrpc !== '2.0' || typeof rpc.method !== 'string') return fail(-32600, 'Invalid Request')
-  if (rpc.method !== 'message/send') return fail(-32601, `Method not found: ${rpc.method}`)
-
-  const m = rpc.params?.message
-  const text = Array.isArray(m?.parts)
-    ? m.parts.filter(p => p?.kind === 'text' && typeof p.text === 'string').map(p => p.text).join('\n')
-    : ''
-  const meta = m?.metadata ?? {}
-  if (!text) return fail(-32602, 'Invalid params: message.parts needs at least one text part')
-  if (!meta.to) return fail(-32602, 'Invalid params: set message.metadata.to to the recipient agent')
-
-  const replyTo = Number.parseInt(meta.replyTo ?? m.referenceTaskIds?.[0], 10)
-  const result = sendAgentMessage({
-    sender: meta.from,
-    role: meta.role,
-    senderId: meta.fromId,
-    recipient: String(meta.to),
-    type: meta.type,
-    replyTo: Number.isInteger(replyTo) ? replyTo : undefined,
-    text,
-  })
-  if (result.error) return fail(-32000, result.error)
-  res.json({ jsonrpc: '2.0', id, result: toA2AMessage(result.msg) })
-})
-
-/**
- * A message id from a request body: a positive integer (or a string of
- * digits), else null. Anything else used to reach the prepared statement and
- * throw from inside better-sqlite3.
- */
-function parseMessageId(value) {
-  if (typeof value === 'string' && /^\d{1,15}$/.test(value)) value = Number(value)
-  return Number.isSafeInteger(value) && value > 0 ? value : null
-}
-
-/**
- * POST /chat/seen — mark a message as seen (the Claude watcher read it)
- * Body: { messageId: number }. Needs the bearer token.
- */
-app.post('/chat/seen', requireToken, (req, res) => {
-  const messageId = parseMessageId(req.body?.messageId)
-  if (!messageId) {
-    return res.status(400).json({ error: 'messageId must be a positive integer' })
-  }
-  markSeen(messageId)
-  broadcast({ type: 'chat_seen', messageId })
-  res.json({ ok: true })
-})
-
-/**
- * POST /chat/react — add or toggle an emoji reaction on a message
- * Body: { messageId: number, emoji: string }. Needs the bearer token.
- * A message holds at most MAX_REACTIONS distinct emoji (see chat-db.js).
- */
-app.post('/chat/react', requireToken, (req, res) => {
-  const messageId = parseMessageId(req.body?.messageId)
-  const emoji = clampString(req.body?.emoji, 10)
-  if (!messageId || !emoji) {
-    return res.status(400).json({ error: 'messageId must be a positive integer and emoji a non-empty string' })
-  }
-  const reactions = addReaction(messageId, emoji)
-  broadcast({ type: 'chat_reaction', messageId, reactions })
-  res.json({ ok: true, reactions })
-})
-
-/**
- * POST /chat/typing — broadcast a typing indicator
- * Body: { sender: string }
- */
-app.post('/chat/typing', (req, res) => {
-  const { sender } = req.body ?? {}
-  if (!sender) {
-    return res.status(400).json({ error: 'Missing sender' })
-  }
-  broadcast({ type: 'chat_typing', sender: clampString(sender) })
-  res.json({ ok: true })
-})
-
-// ---------------------------------------------------------------------------
-// Cron/chat-monitor state — toggle from the frontend UI
-// ---------------------------------------------------------------------------
-
-const cronStatePath = join(RUNTIME_DIR, 'chat-poll-state')
-
-app.get('/chat/cron-state', (_req, res) => {
-  try {
-    const data = readFileSync(cronStatePath, 'utf8')
-    res.json(JSON.parse(data))
-  } catch {
-    res.json({ paused: false, consecutive_idle_count: 0, last_seen_timestamp: 0 })
-  }
-})
-
-// Open on purpose: the office UI's pause button posts here with no token, and
-// all it can do is flip the chat monitor's `paused` flag.
-app.post('/chat/cron-state', (req, res) => {
-  try {
-    let state = {}
-    try { state = JSON.parse(readFileSync(cronStatePath, 'utf8')) } catch {}
-    state.paused = !!req.body?.paused
-    writePrivate(cronStatePath, JSON.stringify(state))
-    console.log(`[cron] Chat monitor ${state.paused ? 'PAUSED' : 'RESUMED'}`)
-    res.json({ ok: true, paused: state.paused })
-  } catch (err) {
-    console.error('[cron] Could not write chat monitor state:', err.message)
-    res.status(500).json({ error: 'Could not update chat monitor state' })
-  }
-})
-
-// ---------------------------------------------------------------------------
-// Event processing — normalise incoming hook payloads
+// Event processing — a hook event moves its session and its Claude
 // ---------------------------------------------------------------------------
 
 function processEvent(body) {
   switch (body.type) {
-    case 'agent_spawned': {
-      const agent = body.agent ?? {}
-      const id = resolveAgentId(agent)
-      prunePendingStarts()
-      const session = touchSession(body)
-      if (activeAgents.has(id)) {
-        // Replayed spawn (e.g. hook retry) — keep the existing record
-        const existing = activeAgents.get(id)
-        if (existing.state === 'completed') {
-          // ...unless it already clocked out: re-announcing it would seat a ghost
-          console.log(`[~] Ignoring replayed spawn of completed agent ${id}`)
-          return null
-        }
-        if (session && !existing.sessionId) attachAgentToSession(existing, session)
-        if (!existing.subagentId && adoptPendingStart(existing)) saveAgents()
-        return { type: 'agent_spawned', agent: existing, timestamp: Date.now() }
-      }
-      let role = agent.role ?? 'general-purpose'
-      if (role === 'general-purpose') role = leastUsedGeneralRole()
-      const now = Date.now()
-      const record = {
-        id,
-        name:   agent.name  ?? 'Agent',
-        role,
-        task:   agent.task  ?? agent.description ?? '',
-        agentType: agent.agentType ?? agent.role ?? 'general-purpose',
-        background: !!agent.background,
-        state:  'new-hire',
-        spawnedAt: now,
-        lastActivityAt: now,
-      }
-      setLineage(record, agent.parentSubagentId)
-      attachAgentToSession(record, session)
-      activeAgents.set(id, record)
-      // The Agent call is a tool use of whoever made it: the parent worker for
-      // a nested spawn, else the session's own Claude. Not for the stand-in
-      // the server makes for a subagent it never saw spawned (`recovered`).
-      const spawner = agent.parentSubagentId ? record.parentId : session ? mainActivityId(session.id) : null
-      if (spawner && !body.recovered) recordActivity(spawner, { kind: 'tool', tool: 'Agent', text: `spawned ${record.name}: ${record.task}` }, now)
-      console.log(`[+] Agent spawned: ${record.name} (${record.role}) — ${id}${record.parentId ? ` (parent ${record.parentId})` : ''}${session ? ` [${session.project ?? session.id}]` : ''}`)
-      // A SubagentStart that overtook this spawn on the way here is waiting for it
-      adoptPendingStart(record)
-      saveAgents()
-
-      // Proactive message — announce task in chat
-      const taskShort = (record.task ?? '').slice(0, 50)
-      if (taskShort) {
-        const chatMsg = addMessage({ sender: record.name, role: record.role, text: `starting: ${taskShort}` })
-        broadcast({ type: 'chat_message', ...chatMsg })
-      }
-
-      return { type: 'agent_spawned', agent: record, timestamp: Date.now() }
-    }
-
-    case 'agent_linked': {
-      touchSession(body)
-      const id = lookupAgentId(body.agentId)
-      if (id && body.subagentId) {
-        linkSubagent(id, body.subagentId)
-        pendingStarts.delete(body.subagentId)
-        activeAgents.get(id).lastActivityAt = Date.now()
-        saveAgents()
-        console.log(`[~] Agent ${id} linked to subagent ${body.subagentId} by PostToolUse(Agent)`)
-      }
-      return null
-    }
-
-    case 'agent_started': {
-      // SubagentStart: the subagent exists now. Tie it to the earliest recent
-      // unbound agent of the same type — the PreToolUse(Agent) that spawned it
-      // fired ~50 ms earlier, so that agent is normally in the office already.
-      // When the start overtook its spawn, park it until that spawn arrives.
-      const subagentId = body.subagentId
-      if (!subagentId) return null
-      touchSession(body)
-      prunePendingStarts()
-      const agentType = body.agentType || 'general-purpose'
-      const known = lookupAgentId(subagentId)
-      if (known) {
-        // agent_linked (the PostToolUse of a background launch) got here first
-        const agent = activeAgents.get(known)
-        setLineage(agent, body.parentId)
-        agent.lastActivityAt = Date.now()
-        saveAgents()
-        console.log(`[~] SubagentStart ${subagentId} (${agentType}) confirms agent ${known}`)
-        return null
-      }
-      const agent = guessAgentForSubagent(agentType, body.sessionId, START_BIND_MS)
-      if (agent) {
-        linkSubagent(agent.id, subagentId)
-        setLineage(agent, body.parentId)
-        agent.lastActivityAt = Date.now()
-        saveAgents()
-        console.log(`[~] Agent ${agent.id} linked to subagent ${subagentId} (${agentType}) by SubagentStart`)
-      } else {
-        pendingStarts.set(subagentId, { agentType, parentId: body.parentId, sessionId: body.sessionId, at: Date.now() })
-        console.log(`[~] SubagentStart ${subagentId} (${agentType}) arrived before its spawn — parked`)
-      }
-      return null
-    }
-
     case 'agent_working': {
+      // A tool call (PreToolUse, PostToolUseFailure). Inside a subagent
+      // (agentId): a dialog that subagent raised has been answered in the
+      // terminal, past the race window. On the main thread: Claude is
+      // working, and the broadcast names the session.
       const session = touchSession(body)
-      let id = lookupAgentId(body.agentId)
-
-      // A subagent id we haven't seen: no SubagentStart reached us (hook not
-      // registered, server was down), so fall back to binding it to the
-      // earliest recent unbound agent of the same type on its first tool call.
-      if (!id && body.agentId && body.agentType) {
-        const unbound = guessAgentForSubagent(body.agentType, body.sessionId, FIRST_TOOL_BIND_MS)
-        if (unbound) {
-          linkSubagent(unbound.id, body.agentId)
-          id = unbound.id
-          console.log(`[~] Agent ${id} bound to subagent ${body.agentId} by its first tool call (no SubagentStart seen)`)
-        } else {
-          pendingStarts.delete(body.agentId)
-          const spawned = processEvent({
-            type: 'agent_spawned',
-            recovered: true,
-            sessionId: body.sessionId,
-            project: body.project,
-            cwd: body.cwd,
-            agent: {
-              id:   `agent-${body.agentId}`,
-              name: body.name ?? 'Agent',
-              role: body.role ?? 'general-purpose',
-              task: 'Picking up where they left off',
-              agentType: body.agentType,
-            },
-          })
-          broadcast(spawned)
-          id = spawned.agent.id
-          linkSubagent(id, body.agentId)
-        }
+      if (!session) return null
+      const now = Date.now()
+      if (body.agentId) {
+        const lowered = threadMovedOn(session, body.agentId, `subagent: ${logText(body.status)}`, { now })
+        if (lowered) saveSessions()
+        return lowered
       }
-
-      if (id) {
-        const agent = activeAgents.get(id)
-        if (agent.state === 'completed') {
-          // A straggling tool event for an agent already announced as done
-          // and walking out (its forgetAgent timer is pending): a resurrected
-          // record would be dropped by that timer without a word, and the
-          // office would be told it is working while it stands at the door.
-          console.log(`[~] Ignoring ${body.type} for completed agent ${id}`)
-          return null
-        }
-        agent.state = 'working'
-        agent.status = body.status ?? ''
-        agent.lastActivityAt = Date.now()
-        if (body.failed) {
-          // A tool call errored (PostToolUseFailure); the agent carries on working
-          agent.lastError = agent.status
-          console.log(`[!] Agent ${id} ${agent.status}`)
-        }
-        recordActivity(id, { kind: body.failed ? 'failed' : 'tool', tool: body.tool ?? toolFromStatus(body.status), text: body.status }, agent.lastActivityAt)
-        // An agent spawned before the hook knew its session learns it here
-        if (session && !agent.sessionId) attachAgentToSession(agent, session)
-        // The worker moved on: a dialog it raised has been answered in the
-        // terminal (past the race window, as on the main thread below)
-        const home = session ?? (agent.sessionId ? sessions.get(agent.sessionId) : null)
-        const lowered = home ? threadMovedOn(home, body.agentId, `${agent.name ?? id}: ${logText(body.status)}`, { now: agent.lastActivityAt }) : null
-        saveAgents()
-        if (lowered) broadcast(lowered)
-        return {
-          type: 'agent_working',
-          agentId: id,
-          status: body.status,
-          ...(body.failed ? { failed: true } : {}),
-          ...(agent.sessionId ? { sessionId: agent.sessionId } : {}),
-          timestamp: Date.now(),
-        }
-      }
-      // Unknown or missing id is main-thread activity. It is remembered on the
-      // session (the last thing Claude itself did), moves the session's Claude
-      // to 'working', and the broadcast names the session, so the frontend can
-      // show it there instead of on a random worker.
-      if (session) {
-        const now = Date.now()
-        session.lastStatus = body.status ?? ''
-        session.lastStatusAt = now
-        mainWorking(session, body.status, now)
-        recordActivity(mainActivityId(session.id), { kind: body.failed ? 'failed' : 'tool', tool: body.tool ?? toolFromStatus(body.status), text: body.status }, now)
-        // PreToolUse / PostToolUseFailure on the main thread: a dialog the
-        // main thread raised has been answered — unless this is the PreToolUse
-        // of the very call that raised it, which can arrive after it
-        // (PERMISSION_RACE_MS). A worker's dialog is not the main thread's to settle.
-        releasePermissions(session.id, `tool call: ${logText(body.status)}`, p => !p.agentId && now - p.createdAt >= PERMISSION_RACE_MS)
-        saveAgents()
-      }
+      mainWorking(session, body.status, now)
+      saveSessions()
       return {
         type: 'agent_working',
-        agentId: undefined,
         status: body.status,
         ...(body.failed ? { failed: true } : {}),
-        ...(session ? { sessionId: session.id, project: session.project } : {}),
-        timestamp: Date.now(),
+        sessionId: session.id,
+        project: session.project,
+        main: { ...session.main },
+        timestamp: now,
       }
     }
 
     case 'agent_completed': {
-      const touched = touchSession(body)
-      const id = lookupAgentId(body.agentId)
-      if (id && activeAgents.get(id).state === 'completed') {
-        // Already announced and walking out — a foreground agent's SubagentStop
-        // and its PostToolUse(Agent) both report it; the second says nothing
-        console.log(`[-] Agent already completed: ${id}`)
-        return null
-      }
-      // What a foreground agent cost, when its result said (PostToolUse(Agent) totals)
-      const stats = {
-        ...(body.tokens !== undefined ? { tokens: body.tokens } : {}),
-        ...(body.durationMs !== undefined ? { durationMs: body.durationMs } : {}),
-        ...(body.toolUses !== undefined ? { toolUses: body.toolUses } : {}),
-        ...(body.model ? { model: body.model } : {}),
-      }
-      if (id) {
-        const agent = activeAgents.get(id)
-        agent.state = 'completed'
-        agent.completedAt = Date.now()
-        Object.assign(agent, stats)
-        // SubagentStop names the worker's own transcript; kept only when it looks like one
-        if (isTranscriptPath(body.agentTranscriptPath)) agent.transcriptPath = body.agentTranscriptPath
-        recordActivity(id, { kind: 'completed', text: body.result ?? 'done' }, agent.completedAt)
-        saveAgents()
-        // Remove after a short grace period so frontends can animate exit
-        setTimeout(() => forgetAgent(id), 10_000)
-
-        // Proactive message — announce completion in chat
-        const resultShort = (body.result ?? 'done').slice(0, 50)
-        const chatMsg = addMessage({ sender: agent.name, role: agent.role, text: `done: ${resultShort}` })
-        broadcast({ type: 'chat_message', ...chatMsg })
-
-        // Smart notification — alert on failure
-        if (/error|fail/i.test(body.result ?? '')) {
-          sendNotification('Agent Failed', agent.name + ' failed')
-        }
-      }
-      console.log(`[-] Agent completed: ${id ?? body.agentId}${stats.tokens !== undefined ? ` (${stats.tokens} tokens${stats.durationMs !== undefined ? `, ${stats.durationMs} ms` : ''})` : ''}`)
-      const sessionId = id ? activeAgents.get(id).sessionId : undefined
-      // The worker is done: whatever it was waiting on in the terminal is over
-      const home = (sessionId ? sessions.get(sessionId) : null) ?? touched
-      if (home && body.agentId) {
-        const lowered = threadMovedOn(home, body.agentId, `${id ? activeAgents.get(id).name ?? id : body.agentId} finished`, { finished: true })
-        if (lowered) broadcast(lowered)
-      }
-      return {
-        type: 'agent_completed',
-        agentId: id ?? body.agentId,
-        result: body.result,
-        ...stats,
-        ...(sessionId ? { sessionId } : {}),
-        timestamp: Date.now(),
-      }
-    }
-
-    case 'mcp_call': {
+      // SubagentStop: whatever that subagent was waiting on in the terminal is over
       const session = touchSession(body)
-      // Two calls to the same MCP in one millisecond (two terminals, say)
-      // must not share a record
-      let id = `mcp-${body.server}-${Date.now()}`
-      for (let n = Date.now() + 1; activeAgents.has(id); n++) id = `mcp-${body.server}-${n}`
-      const record = {
-        id,
-        name:   body.server ?? 'mcp',
-        role:   body.server ?? 'default',
-        server: body.server,
-        tool:   body.tool,
-        state:  'working',
-        spawnedAt: Date.now(),
-        ...(session ? { sessionId: session.id, project: session.project } : {}),
-      }
-      // Track MCP agents transiently
-      activeAgents.set(record.id, record)
-      console.log(`[mcp] ${body.server} / ${body.tool}`)
-      // An MCP call is the session's Claude at work (the hook sends them without an agent id)
-      if (session) {
-        recordActivity(mainActivityId(session.id), {
-          kind: 'tool',
-          tool: body.tool ? `mcp__${body.server}__${body.tool}` : `mcp__${body.server}`,
-          text: `${body.server ?? 'mcp'}${body.tool ? ` / ${body.tool}` : ''}`,
-        })
-      }
-      return {
-        type: 'mcp_call', server: body.server, tool: body.tool, agentId: record.id,
-        ...(session ? { sessionId: session.id } : {}),
-        timestamp: Date.now(),
-      }
+      if (!session || !body.agentId) return null
+      return threadMovedOn(session, body.agentId, `subagent finished: ${logText(body.result ?? 'done')}`, { finished: true })
     }
+
+    case 'mcp_call':
+      // An MCP tool call of the session's Claude: the session is alive
+      touchSession(body)
+      return null
 
     case 'mcp_done': {
-      const session = touchSession(body)
-      // Clean up the mcp agent entries for this server — only this session's
-      // when the event says which, so two terminals on the same MCP don't
-      // clear each other's workers
-      for (const [id, agent] of activeAgents.entries()) {
-        if (agent.server !== body.server || agent.state !== 'working') continue
-        if (session && agent.sessionId && agent.sessionId !== session.id) continue
-        activeAgents.delete(id)
-      }
       // The MCP call's own PostToolUse: the permission it asked for (as
       // mcp__<server>__<tool>) was granted, exactly as for any other tool
-      if (session && body.tool) {
-        const lowered = toolDone(session, { toolName: `mcp__${body.server}__${body.tool}`, callKey: body.callKey, agentId: body.agentId })
-        if (lowered) broadcast(lowered)
-      }
-      return { type: 'mcp_done', server: body.server, ...(session ? { sessionId: session.id } : {}), timestamp: Date.now() }
+      const session = touchSession(body)
+      if (!session || !body.tool) return null
+      return toolDone(session, { toolName: `mcp__${body.server}__${body.tool}`, callKey: body.callKey, agentId: body.agentId })
     }
 
     case 'session_started': {
@@ -3090,13 +1233,13 @@ function processEvent(body) {
         if (body.title) session.title = body.title
         if (body.transcriptPath) session.transcriptPath = body.transcriptPath
       }
-      saveAgents()
+      saveSessions()
       return sessionEvent(session)
     }
 
     case 'session_ended': {
       // SessionEnd hook (reason: other | prompt_input_exit | ...), or the
-      // stale sweep below. Agents still at their desks clock out.
+      // stale sweep below
       const id = body.sessionId
       if (!id) return null
       const reason = body.reason || 'other'
@@ -3109,8 +1252,8 @@ function processEvent(body) {
     // ── The session's own Claude (see `main` near the session tracking) ────
 
     case 'session_prompt': {
-      // UserPromptSubmit: the boss spoke (or a background worker woke Claude
-      // up — isWakeup, with the worker's subagent id in wakeupAgentId)
+      // UserPromptSubmit: the trainer spoke (or a background task woke Claude
+      // up — isWakeup, with its subagent id in wakeupAgentId)
       const session = touchSession(body)
       if (!session) return null
       const now = Date.now()
@@ -3121,18 +1264,12 @@ function processEvent(body) {
       main.lastPromptAt = now
       if (body.promptId) main.promptId = body.promptId
       cancelPendingNeedsYou(session.id)
-      releasePermissions(session.id, wakeup ? 'woken by a background task' : 'new prompt')
       delete main.needsYou
       delete main.error
       delete main.beforeCompact
       setMainState(session, 'working', wakeup ? `woken by ${body.wakeupAgentId ?? 'a background task'}` : 'prompt', now)
       console.log(`[main] ${sessionName(session)}: ${wakeup ? 'wake-up' : 'prompt'}: ${logText(text)}`)
-      // The boss's words become a chat row (role 'boss', msg_type 'prompt')
-      // for the transcript; the chat watcher only answers role 'default'
-      // rows, so it never replies to them. A wake-up is not the boss speaking.
-      const row = text && !wakeup ? addMessage({ sender: 'Boss', role: 'boss', text, msgType: 'prompt' }) : null
-      const wakeupOfficeId = wakeup ? lookupAgentId(body.wakeupAgentId) : null
-      saveAgents()
+      saveSessions()
       return {
         type: 'session_prompt',
         sessionId: session.id,
@@ -3141,9 +1278,7 @@ function processEvent(body) {
         text,
         isWakeup: wakeup,
         ...(body.wakeupAgentId ? { wakeupAgentId: body.wakeupAgentId } : {}),
-        ...(wakeupOfficeId ? { wakeupOfficeId } : {}),
         ...(body.wakeupStatus ? { wakeupStatus: body.wakeupStatus } : {}),
-        ...(row ? { messageId: row.id } : {}),
         main: { ...main },
         timestamp: now,
       }
@@ -3165,30 +1300,22 @@ function processEvent(body) {
       main.crons = body.crons ?? 0
       if (body.promptId) main.promptId = body.promptId
       cancelPendingNeedsYou(session.id)
-      releasePermissions(session.id, 'turn ended')
       delete main.needsYou
       delete main.error
       delete main.beforeCompact
       if (inFlight.length) setMainState(session, 'waiting', `turn ended, ${inFlight.length} background task(s) still running`, now)
       else setMainState(session, 'idle', 'turn ended', now)
       console.log(`[main] ${sessionName(session)}: reply: ${logText(text)}`)
-      // Claude's words become a chat row too (role 'assistant', msg_type 'reply')
-      const row = text ? addMessage({ sender: 'Claude', role: 'assistant', text, msgType: 'reply' }) : null
-      saveAgents()
+      saveSessions()
       return {
         type: 'session_turn_end',
         sessionId: session.id,
         project: session.project,
         ...(body.promptId ? { promptId: body.promptId } : {}),
         text,
-        // A subagent task is also given its office agent id when the office knows it
-        backgroundTasks: tasks.map(t => {
-          const officeId = lookupAgentId(t.id)
-          return officeId ? { ...t, officeId } : { ...t }
-        }),
+        backgroundTasks: tasks.map(t => ({ ...t })),
         crons: main.crons,
         stopHookActive: body.stopHookActive === true,
-        ...(row ? { messageId: row.id } : {}),
         main: { ...main },
         timestamp: now,
       }
@@ -3204,13 +1331,6 @@ function processEvent(body) {
       if (!session) return null
       const now = Date.now()
       const main = mainOf(session, now)
-      // Answering from the office (server/permissions.js): a Notification
-      // proves the session is interactive, so a pending permission of it may
-      // wait the full ten minutes; a new PermissionRequest (the hook's, not a
-      // Notification's) means the previous dialog was answered. Both happen
-      // before the dedupe below, which only concerns the hand.
-      if (body.notificationType) permissions.markInteractive(session.id)
-      else if (body.kind === 'permission') releasePermissions(session.id, 'a new permission request')
       // A Notification names no tool: it is the dialog already waited on. A
       // PermissionRequest is the same wait only from the same thread for the
       // same call (another call of that tool is another dialog)
@@ -3254,24 +1374,17 @@ function processEvent(body) {
       // (toolDone). Another call of the same tool says nothing about it.
       const session = touchSession(body)
       if (!session) return null
-      // A worker's call is activity of that worker too
-      const workerId = lookupAgentId(body.agentId)
-      if (workerId && activeAgents.get(workerId).state !== 'completed') activeAgents.get(workerId).lastActivityAt = Date.now()
       return toolDone(session, { toolName: body.toolName, callKey: body.callKey, agentId: body.agentId, batch: body.batch, count: body.count })
     }
 
     case 'session_cwd': {
-      // CwdChanged: the session moved; its project tag (and its workers') follows
+      // CwdChanged: the session moved; its project tag follows
       const session = touchSession(body)
       if (!session || !body.cwd) return null
       const oldCwd = body.oldCwd ?? session.cwd
       session.cwd = body.cwd
       session.project = projectName(body.project, body.cwd)
-      for (const agentId of session.agentIds) {
-        const agent = activeAgents.get(agentId)
-        if (agent) agent.project = session.project
-      }
-      saveAgents()
+      saveSessions()
       console.log(`[session] cwd: ${oldCwd ?? '?'} -> ${body.cwd} (${session.project ?? session.id})`)
       return { ...sessionEvent(session, 'session_cwd'), ...(oldCwd ? { oldCwd } : {}) }
     }
@@ -3282,7 +1395,7 @@ function processEvent(body) {
       if (!session || !body.model) return null
       const fromModel = body.fromModel ?? session.model
       session.model = body.model
-      saveAgents()
+      saveSessions()
       console.log(`[session] model: ${fromModel ?? '?'} -> ${body.model}${body.switchSource ? ` (${body.switchSource})` : ''} (${session.project ?? session.id})`)
       return {
         ...sessionEvent(session, 'session_model'),
@@ -3300,11 +1413,10 @@ function processEvent(body) {
       main.error = { error: body.error || 'unknown', detail: body.detail ?? '', since: now }
       if (body.promptId) main.promptId = body.promptId
       cancelPendingNeedsYou(session.id)
-      releasePermissions(session.id, 'turn failed')
       delete main.needsYou
       delete main.beforeCompact
       setMainState(session, 'error', `${main.error.error}${main.error.detail ? `: ${logText(main.error.detail, 80)}` : ''}`, now)
-      saveAgents()
+      saveSessions()
       return {
         type: 'session_error',
         sessionId: session.id,
@@ -3335,7 +1447,7 @@ function processEvent(body) {
         delete main.beforeCompact
         setMainState(session, back, 'compaction done', now)
       }
-      saveAgents()
+      saveSessions()
       return {
         type: 'session_compact',
         sessionId: session.id,
@@ -3348,29 +1460,15 @@ function processEvent(body) {
       }
     }
 
-    case 'signal': {
-      // A Bash call's signals with no event of their own (a worker's
-      // PostToolUse): the session is alive; POST /event relays the signals
-      const session = touchSession(body)
-      const id = lookupAgentId(body.agentId)
-      if (id) activeAgents.get(id).lastActivityAt = Date.now()
-      if (session || id) saveAgents()
-      return null
-    }
-
+    // Sent by older hooks: the session is alive, nothing else follows
+    case 'agent_spawned':
+    case 'agent_linked':
+    case 'agent_started':
+    case 'signal':
     case 'task_created':
-    case 'task_completed': {
-      // TaskCreated / TaskCompleted: the session is alive and its Claude's
-      // history gets a line. Nothing is broadcast from here — the board comes
-      // from the task files (POST /event has server/tasks.js rescan them)
-      const session = touchSession(body)
-      if (!session) return null
-      const label = `task ${body.type === 'task_created' ? 'created' : 'completed'}: ${body.subject || `#${body.taskId ?? '?'}`}`
-      recordActivity(mainActivityId(session.id), { kind: 'status', text: label })
-      console.log(`[tasks] ${sessionName(session)}: ${logText(label, 100)}`)
-      saveAgents()
+    case 'task_completed':
+      touchSession(body)
       return null
-    }
 
     default:
       console.warn(`[?] Unknown event type: ${body.type}`)
@@ -3378,19 +1476,13 @@ function processEvent(body) {
   }
 }
 
-// An MCP record lives for one call. When its mcp_done never arrives (the tool
-// was denied in PreToolUse, the session was interrupted, the hook's curl was
-// dropped) it is forgotten after this long instead of lingering until restart.
-const MCP_STALE_MS = (Number(process.env.AGENT_OFFICE_MCP_STALE_MINUTES) || 5) * 60_000
-
 /**
- * Walk out agents that went silent (lost hand-back, killed session, ...), end
- * sessions nothing has been heard from for as long (missed SessionEnd), and
- * drop MCP calls that never reported done. Runs every minute; `now` is a
- * parameter so tests can sweep a future.
+ * End the sessions nothing has been heard from for STALE_SESSION_MS (a
+ * missed SessionEnd). Runs every five minutes; `now` is a parameter so tests
+ * can sweep a future.
  */
 function sweepStale(now = Date.now()) {
-  const cutoff = now - STALE_AGENT_MS
+  const cutoff = now - STALE_SESSION_MS
   for (const session of Array.from(sessions.values())) {
     // A session with a live registry entry has a running process, however
     // quiet it is; the registry ends it when the process goes
@@ -3399,30 +1491,12 @@ function sweepStale(now = Date.now()) {
       broadcast(processEvent({ type: 'session_ended', sessionId: session.id, reason: 'stale' }))
     }
   }
-  for (const agent of Array.from(activeAgents.values())) {
-    if (agent.state === 'completed') continue
-    if (agent.server) {
-      if ((agent.spawnedAt ?? 0) < now - MCP_STALE_MS) {
-        activeAgents.delete(agent.id)
-        console.log(`[mcp] ${agent.server} / ${agent.tool} never reported done — dropped after ${MCP_STALE_MS / 60_000} min`)
-        broadcast({
-          type: 'mcp_done', server: agent.server, agentId: agent.id, reason: 'stale',
-          ...(agent.sessionId ? { sessionId: agent.sessionId } : {}),
-          timestamp: now,
-        })
-      }
-      continue
-    }
-    if ((agent.lastActivityAt ?? agent.spawnedAt) < cutoff) {
-      broadcast(processEvent({ type: 'agent_completed', agentId: agent.id, result: 'went quiet, clocking out' }))
-    }
-  }
 }
 
 setInterval(() => sweepStale(), 5 * 60_000).unref()
 
 // ---------------------------------------------------------------------------
-// Static UI — registered after every API route so /health, /chat, ... win
+// Static UI — registered after every API route so /health, /sessions, ... win
 // ---------------------------------------------------------------------------
 
 // Pokémon artwork: fetched from PokeAPI on first use, then a local file (server/sprites.js)
@@ -3433,7 +1507,7 @@ if (UI_AVAILABLE) {
 } else {
   app.get('/', (_req, res) => {
     res.status(404).json({
-      error: 'Office UI not built. Run `npm run build` to serve it from here, or `npm run dev` for the Vite dev server on port 3333.',
+      error: 'UI not built. Run `npm run build` to serve it from here, or `npm run dev` for the Vite dev server on port 3333.',
     })
   })
 }
@@ -3466,14 +1540,10 @@ function jsonErrorHandler(err, req, res, next) {
 app.use(jsonErrorHandler)
 
 // ---------------------------------------------------------------------------
-// WebSocket server
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // The WebSocket — trusted with the file token, read-only without it
 //
 // The Origin check keeps web pages on other origins out, but it cannot tell
-// the office page from another local process: anything on this machine can
+// the app's page from another local process: anything on this machine can
 // open ws://127.0.0.1:<port>/ws and send any Origin. So each connection is
 // authenticated at the handshake with the file token. Browsers cannot set
 // headers on a WebSocket, so the page sends it as a subprotocol value:
@@ -3484,12 +1554,10 @@ app.use(jsonErrorHandler)
 // logs). The server answers with plain `agent-office`, so the token is not
 // echoed back. src/officeToken.ts builds the same list.
 //
-// A connection that presents the token is trusted: the full snapshot, the
-// UI token, every broadcast as is. Any other connection — no token, a wrong
-// one — is not refused: the office stays viewable read-only (a bare
-// bookmark, a second browser), with no UI token and no conversation text.
-// redactForReadOnly says what that view leaves out. Each connection is told
-// which it is, first thing: { type: 'auth', trusted }.
+// A connection that presents the token is trusted: the full snapshot and
+// every broadcast as is. Any other connection is not refused, but gets no
+// conversation text (redactForReadOnly). Each connection is told which it
+// is, first thing: { type: 'auth', trusted }.
 // ---------------------------------------------------------------------------
 
 const WS_PROTOCOL = 'agent-office'
@@ -3511,9 +1579,6 @@ function handleProtocols(protocols) {
   return protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false
 }
 
-// The chat rows that are the conversation itself (see chat-db.js)
-const TRANSCRIPT_MSG_TYPES = new Set(['prompt', 'reply'])
-
 /** A copy of `obj` without `keys`. */
 function omit(obj, keys) {
   const out = { ...obj }
@@ -3529,45 +1594,17 @@ function withoutMainText(event) {
 }
 
 /**
- * What a read-only connection gets of a broadcast: the payload itself when
- * it carries no conversation text, a copy without the text, or null when
- * the whole event is conversation. The rule: what GET /agents and
- * GET /sessions show without the token stays; conversation text and command
- * lines go.
+ * What a read-only connection gets of a broadcast: the payload itself when it
+ * carries no conversation text, else a copy without it.
  *
- *   session_prompt, session_turn_end   `text` (the prompt, the reply) and the
- *                                      `messageId` of its chat row
+ *   session_prompt, session_turn_end   `text` (the prompt, the reply)
  *   every event with `main`            main.lastPrompt / main.lastReply
- *                                      (session_started, _ended, _registry,
- *                                      _cwd, _model, _needs_you, _error,
- *                                      _compact, _main)
- *   chat_message with msg_type prompt / reply   withheld (none is broadcast
- *                                      today; the page builds those rows
- *                                      from the two events above)
- *   permission_request                 permission.detail (the command, path
- *                                      or tool input) and .suggestions
- *   signal                             error and detail (command output;
- *                                      the command never travels), see
- *                                      readOnlySignal
- *
- * Kept: agent records and their status lines, the completion line of
- * agent_completed (it is the office's open `done:` chat line too), a
- * needs-you's tool name, one-line summary and notification message, an API
- * error line, permission_extended / _resolved, meters, health, chat lines,
- * task_board (subjects, activeForms and states, as open as an agent's task on
- * GET /agents; a task's description never travels, see server/tasks.js).
  */
 function redactForReadOnly(payload) {
   switch (payload.type) {
     case 'session_prompt':
     case 'session_turn_end':
-      return withoutMainText(omit(payload, ['text', 'messageId']))
-    case 'chat_message':
-      return TRANSCRIPT_MSG_TYPES.has(payload.msg_type) ? null : payload
-    case 'permission_request':
-      return payload.permission ? { ...payload, permission: redactPermission(payload.permission) } : payload
-    case 'signal':
-      return readOnlySignal(payload)
+      return withoutMainText(omit(payload, ['text']))
     default:
       return withoutMainText(payload)
   }
@@ -3599,33 +1636,19 @@ wss.on('connection', (ws, req) => {
   const trusted = tokenMatches(wsTokenFrom(req))
   if (trusted) trustedClients.add(ws)
   const ip = req.socket.remoteAddress ?? 'unknown'
-  console.log(`[ws] Client connected from ${ip}, ${trusted ? 'trusted' : 'read-only (no office token)'} (total: ${wss.clients.size})`)
+  console.log(`[ws] Client connected from ${ip}, ${trusted ? 'trusted' : 'read-only (no token)'} (total: ${wss.clients.size})`)
 
   // First: what this connection may see, so the page can say so
   ws.send(JSON.stringify({ type: 'auth', trusted }))
 
-  // Then the current state: the agents to draw (not MCP transients, not
-  // agents in their completed grace window — a client seats every entry, and
-  // nothing would ever walk those out). A read-only connection gets the same
-  // office without the conversation (redactForReadOnly) and no UI token.
-  const pending = permissions.pending()
+  // Then the current state: the sessions, their status-line numbers, the game
+  // and the cloud sign-in. A read-only connection gets the sessions without
+  // the conversation text.
   const snapshot = {
     type: 'snapshot',
-    activeAgents: liveAgents(),
     sessions: Array.from(sessions.values()).map(s => sessionToJSON(s, { withText: trusted })),
     statuses: status.summary(),
     health: health.snapshot(),
-    mcpServers: discoverMcpServers(),
-    // Permission dialogs waiting on the office, and the token that answers
-    // them — handed out here, to a trusted connection, and nowhere else (see UI_TOKEN)
-    pendingPermissions: trusted ? pending : pending.map(redactPermission),
-    ...(trusted ? { uiToken: UI_TOKEN } : {}),
-    // The last few signals (see Signals), oldest first, as their broadcasts carried them
-    signals: signalRing.slice(-SNAPSHOT_SIGNALS).map(trusted ? publicSignal : readOnlySignal),
-    // Each session's task board, the most recently changed first: subjects and
-    // states only, never a description, so read-only connections get it as is
-    taskBoards: tasks.boards(),
-    // The Pokédex and every session's partner (server/pokedex.js)
     pokedex: pokedex.publicState(),
     cloud: cloud.publicState(),
     timestamp: Date.now(),
@@ -3709,77 +1732,34 @@ export function start({ port = PORT, host = readHost() } = {}) {
   httpServer.on('error', onFatal)
   wss.on('error', onFatal)
 
-  // The answer-permissions marker must not outlive the office (see
-  // removeAnswerMarker): drop it when the process goes, however it goes.
-  // Registered once, before listen, so a failed bind still cleans up.
-  if (!start.cleanupRegistered) {
-    start.cleanupRegistered = true
-    process.once('exit', removeAnswerMarker)
-    for (const sig of ['SIGINT', 'SIGTERM']) {
-      process.once(sig, () => { removeAnswerMarker(); process.exit(0) })
-    }
-  }
-
   httpServer.listen(port, host, () => {
     writeTokenFile()
-    // Tighten the runtime dir and the chat database to 0600/0700 even when an
-    // installer, a start script or an older build created them world-readable
-    // first (mkdirSync's mode and SQLite's own create mode do not fix an
-    // existing file). The prompts and replies in chat.db must stay private.
     repairPrivateModes()
-    // The marker tracks the live office: (re)write it now, per the setting,
-    // and the shutdown handlers above remove it when we stop.
-    syncAnswerMarker()
     // The registry roster runs with the server (and stops with it, so a
     // test's closed server leaves no poll behind)
     registry.start()
-    httpServer.once('close', () => { registry.stop(); removeAnswerMarker() })
-    // So does the task board's watch on the sessions' task lists
-    tasks.start()
-    httpServer.once('close', () => tasks.stop())
+    httpServer.once('close', () => registry.stop())
     const bound = httpServer.address()?.port ?? port
-    const mcpServers = discoverMcpServers()
-    console.log(`
-╔═══════════════════════════════════════════╗
-║         Agent Office Server v1.0          ║
-╠═══════════════════════════════════════════╣
-║  HTTP  http://127.0.0.1:${bound}              ║
-║  WS    ws://127.0.0.1:${bound}/ws             ║
-║  POST  http://127.0.0.1:${bound}/event        ║
-║  GET   http://127.0.0.1:${bound}/roster       ║
-║  GET   http://127.0.0.1:${bound}/agents       ║
-║  GET   http://127.0.0.1:${bound}/sessions     ║
-║  POST  http://127.0.0.1:${bound}/a2a          ║
-╚═══════════════════════════════════════════╝`)
-
+    console.log(`[server] Claudex ${VERSION} on http://127.0.0.1:${bound} (WebSocket /ws, hooks POST /event)`)
     console.log(`  Auth token ${REUSED_TOKEN ? 'reused from' : 'written to'}: ${TOKEN_FILE}`)
     console.log(`  Session registry read from: ${REGISTRY_DIR}`)
-    console.log(`  Task lists read from: ${TASKS_DIR}`)
     if (UI_AVAILABLE) {
-      console.log(`  Office UI served from: ${UI_DIR}`)
+      console.log(`  UI served from: ${UI_DIR}`)
     } else {
-      console.log(`  Office UI not built (npm run build) — use the Vite dev server on port ${UI_DEV_PORT}`)
+      console.log(`  UI not built (npm run build) — use the Vite dev server on port ${UI_DEV_PORT}`)
     }
-
-    if (mcpServers.length > 0) {
-      console.log(`  MCP servers discovered: ${mcpServers.join(', ')}`)
-    } else {
-      console.log('  No MCP servers found in ~/.claude/settings.json')
-    }
-    console.log()
-    // The office link. Only whoever started the server sees this output;
+    // The page link. Only whoever started the server sees this output;
     // the page reads the token from the fragment, which a browser never
     // sends to a server, keeps it and strips it from the address bar.
     const address = httpServer.address()
     const linkHost = address && typeof address === 'object' && address.family === 'IPv6' ? `[${address.address}]` : '127.0.0.1'
     const base = UI_AVAILABLE ? `http://${linkHost}:${bound}` : `http://127.0.0.1:${UI_DEV_PORT}`
-    console.log(`  Agent Office: ${officeLink(base)}${UI_AVAILABLE ? '' : '  (the Vite dev server)'}`)
-    console.log('  Open that link once per browser (or run `npm run open`); a bare address shows the office read-only.')
+    console.log(`  Page: ${officeLink(base)}${UI_AVAILABLE ? '' : '  (the Vite dev server)'}`)
     console.log()
   })
 }
 
-/** The page URL with the office token in its fragment, the one way the page learns it. */
+/** The page URL with the token in its fragment, the one way the page learns it. */
 function officeLink(base) {
   return `${base.replace(/\/+$/, '')}/#token=${AUTH_TOKEN}`
 }
@@ -3803,7 +1783,6 @@ export {
   wss,
   AUTH_TOKEN,
   REUSED_TOKEN,
-  UI_TOKEN,
   RUNTIME_DIR,
   TOKEN_FILE,
   TOKEN_PATTERN,
@@ -3812,28 +1791,16 @@ export {
   WS_TOKEN_PROTOCOL_PREFIX,
   redactForReadOnly,
   officeLink,
-  ANSWER_MARKER_FILE,
   PORT,
   UI_DEV_PORT,
-  CONFIG_DIR,
   isAllowedOrigin,
   UI_DIR,
   UI_AVAILABLE,
-  activeAgents,
-  pendingStarts,
-  START_BIND_MS,
-  FIRST_TOOL_BIND_MS,
   sessions,
   registry,
   REGISTRY_DIR,
-  tasks,
-  TASKS_DIR,
   pendingNeedsYou,
-  permissions,
-  settings,
-  activity,
   processEvent,
-  sendAgentMessage,
   sweepStale,
   broadcast,
 }

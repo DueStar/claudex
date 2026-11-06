@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# status-line.sh — Claude Code statusLine → Agent Office meters bridge
+# status-line.sh — Claude Code statusLine → the Claudex server
 #
 # Claude Code runs the configured `statusLine.command` on every state change
 # of an interactive session (new assistant message, /compact, permission-mode
@@ -15,40 +15,21 @@
 #   (rate_limits only for Pro/Max subscribers, and only after the first API
 #   response; used_percentage may be null early in the session)
 #
-# This script POSTs a compact summary to the office (POST /status — the
-# payroll / electricity / memory wall panel) and prints the status line that
-# Claude Code displays:
-#   default   <model> · ctx <used>% · $<cost>
-#   chained   the output of the statusLine command that was configured before
-#             install-hooks.sh wrapped it (saved in
-#             $AGENT_OFFICE_HOME/statusline-prev); the default line is printed
-#             when that command prints nothing
-#
-# `--subagents` makes it the `subagentStatusLine` command. Claude Code then
-# sends {...base hook fields, columns, tasks:[{id, agentType, status,
-# description, label, startTime, model, effort, contextWindowSize, tokenCount,
-# tokenSamples, cwd}]} once per refresh tick while subagents are visible. The
-# per-worker token counts are forwarded as an agent_status and nothing is
-# printed, which keeps Claude Code's default rows (or the chained previous
-# command's rows, saved in $AGENT_OFFICE_HOME/subagent-statusline-prev).
+# This script POSTs a compact summary to the server (POST /status: the
+# context window and the 5-hour / weekly limits the app shows) and prints the
+# status line Claude Code displays:  <model> · ctx <used>% · $<cost>
+# The app's sessions get it through their --settings file
+# (electron/terminals.cjs).
 #
 # Bash 3.2 compatible; one python3 -I call (no cwd imports, no PYTHON* env);
 # curl runs in the background with a 1 s cap, so a stopped server costs
 # nothing and never blocks the status line.
 # =============================================================================
 
-# Where the office listens: AGENT_OFFICE_STATUS_URL wins, else the port from
-# AGENT_OFFICE_PORT (the same knob as agent-tracker.sh and the office
-# scripts), default 3334
+# Where the server listens: AGENT_OFFICE_STATUS_URL wins, else the port from
+# AGENT_OFFICE_PORT (the same knob as agent-tracker.sh), default 3334
 SERVER_URL="${AGENT_OFFICE_STATUS_URL:-http://127.0.0.1:${AGENT_OFFICE_PORT:-3334}/status}"
 OFFICE_HOME="${AGENT_OFFICE_HOME:-$HOME/.agent-office}"
-
-MODE="main"
-PREV_FILE="$OFFICE_HOME/statusline-prev"
-if [ "${1:-}" = "--subagents" ]; then
-    MODE="subagents"
-    PREV_FILE="$OFFICE_HOME/subagent-statusline-prev"
-fi
 
 PAYLOAD=$(cat)
 if [ -z "$PAYLOAD" ]; then
@@ -105,11 +86,13 @@ sign_headers() {
 # One Python pass. Line 1 is the event to POST (empty = nothing to send), the
 # rest is the default status line. The payload travels through the
 # environment, never through the Python source.
-OUT=$(STATUS_PAYLOAD="$PAYLOAD" STATUS_MODE="$MODE" python3 -I - <<'PYEOF'
+OUT=$(STATUS_PAYLOAD="$PAYLOAD" python3 -I - <<'PYEOF'
 import json, os, sys
 
 try:
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    # Windows: plain LF line ends, or the empty first line (nothing to post)
+    # would be a lone CR, which the shell then POSTs as the event
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace', newline='\n')
 except Exception:
     pass
 
@@ -133,41 +116,14 @@ try:
 except Exception:
     d = {}
 
-mode = os.environ.get('STATUS_MODE', 'main')
 session_id = text(d.get('session_id'), 200)
 
-# ── subagentStatusLine: one agent_status for every visible subagent row ─────
-if mode == 'subagents':
-    agents = []
-    tasks = d.get('tasks') if isinstance(d.get('tasks'), list) else []
-    for t in tasks[:32]:
-        if not isinstance(t, dict) or not t.get('id'):
-            continue
-        a = {
-            'id':     text(t['id'], 200),
-            'tokens': num(t.get('tokenCount')) or 0,
-            'status': text(t.get('status'), 40),
-        }
-        size = num(t.get('contextWindowSize'))
-        if size:
-            a['contextSize'] = size
-        for key in ('agentType', 'name', 'model', 'description'):
-            if t.get(key):
-                a[key] = text(t[key])
-        agents.append(a)
-    if session_id and agents:
-        print(json.dumps({'type': 'agent_status', 'sessionId': session_id, 'agents': agents}, separators=(',', ':')))
-    else:
-        print('')
-    print('')  # no row override: Claude Code keeps its default rendering
-    sys.exit(0)
-
-# ── statusLine: the session's cost, context window and rate limits ──────────
+# ── The session's context window and rate limits ────────────────────────────
 def obj(key):
     v = d.get(key)
     return v if isinstance(v, dict) else {}
 
-model, cost, ctx, rl, ws, effort = (obj(k) for k in ('model', 'cost', 'context_window', 'rate_limits', 'workspace', 'effort'))
+model, cost, ctx, rl, ws = (obj(k) for k in ('model', 'cost', 'context_window', 'rate_limits', 'workspace'))
 
 project_dir = text(ws.get('project_dir'), 400) or text(ws.get('current_dir'), 400) or text(d.get('cwd'), 400)
 project = os.path.basename(project_dir.rstrip('/')) or project_dir
@@ -182,20 +138,12 @@ event = {
     'project':      project,
     'model':        model_name,
     'modelId':      text(model.get('id')),
-    'cost':         total_cost,
-    'durationMs':   num(cost.get('total_duration_ms')) or 0,
-    'apiDurationMs': num(cost.get('total_api_duration_ms')) or 0,
-    'linesAdded':   num(cost.get('total_lines_added')) or 0,
-    'linesRemoved': num(cost.get('total_lines_removed')) or 0,
     'context': {
         'used':   used,
         'size':   num(ctx.get('context_window_size')),
         'input':  num(ctx.get('total_input_tokens')) or 0,
         'output': num(ctx.get('total_output_tokens')) or 0,
     },
-    'effort':      text(effort.get('level'), 20) or None,
-    'exceeds200k': bool(d.get('exceeds_200k_tokens')),
-    'version':     text(d.get('version'), 20) or None,
 }
 
 # Each window is independently absent; used_percentage runs 0-100 (spend_limit
@@ -248,23 +196,6 @@ EOF
             --data-binary @- \
             --max-time 1 \
             > /dev/null 2>&1 &
-    fi
-fi
-
-# Chain the status line that was configured before the office wrapped it:
-# same stdin, its output is what gets displayed
-PREV_CMD=""
-if [ "$MODE" = "main" ]; then
-    PREV_CMD="${AGENT_OFFICE_PREV_STATUSLINE:-}"
-fi
-if [ -z "$PREV_CMD" ] && [ -f "$PREV_FILE" ]; then
-    PREV_CMD=$(cat "$PREV_FILE" 2>/dev/null)
-fi
-if [ -n "$PREV_CMD" ]; then
-    CHAINED=$(printf '%s' "$PAYLOAD" | bash -c "$PREV_CMD" 2>/dev/null)
-    if [ -n "$CHAINED" ]; then
-        printf '%s\n' "$CHAINED"
-        exit 0
     fi
 fi
 

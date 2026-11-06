@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, postAuthed, postEvent, removeOffice, spawnAgent, type Office } from './helpers'
+import { listen, loadOffice, postEvent, removeOffice, type Office } from './helpers'
 
 type Message = Record<string, any>
 
@@ -49,7 +49,7 @@ describe('WebSocket /ws', () => {
 
   beforeAll(async () => {
     office = await loadOffice()
-    spawnAgent(office.server, { id: 'agent-ws-1', name: 'Debugger', role: 'debugger', task: 'fix it' })
+    office.server.processEvent({ type: 'session_started', sessionId: 's-ws-1', project: 'dex', cwd: '/home/me/dex', source: 'startup' })
     port = await listen(office.server.httpServer)
     url = `ws://127.0.0.1:${port}/ws`
   })
@@ -61,7 +61,7 @@ describe('WebSocket /ws', () => {
     removeOffice(office)
   })
 
-  it('sends a snapshot with activeAgents and mcpServers on connect', async () => {
+  it('sends a snapshot with the sessions and the game on connect', async () => {
     const client = await connect(url)
     clients.push(client.ws)
 
@@ -69,41 +69,31 @@ describe('WebSocket /ws', () => {
     expect(await client.next()).toEqual({ type: 'auth', trusted: false })
     const snapshot = await client.next()
     expect(snapshot.type).toBe('snapshot')
-    expect(snapshot.activeAgents).toEqual([expect.objectContaining({ id: 'agent-ws-1', name: 'Debugger', state: 'new-hire' })])
-    expect(Array.isArray(snapshot.mcpServers)).toBe(true)
+    expect(snapshot.sessions).toEqual([expect.objectContaining({ id: 's-ws-1', project: 'dex', state: 'active' })])
+    expect(snapshot.pokedex).toBeTypeOf('object')
     expect(snapshot.timestamp).toBeTypeOf('number')
 
     const health = await request(office.server.app).get('/health')
-    expect(health.body).toMatchObject({ status: 'ok', agents: 1, clients: 1 })
+    expect(health.body).toMatchObject({ status: 'ok', clients: 1, sessions: 1 })
     // The same record rides on the snapshot (server/health.js; tests/health.test.ts has the rest)
-    expect(snapshot.health).toMatchObject({ status: 'ok', agents: 1, hooksSeen: 0, lastHookAt: null })
+    expect(snapshot.health).toMatchObject({ status: 'ok', hooksSeen: 0, lastHookAt: null })
   })
 
-  it('broadcasts a POSTed event (and its chat announcement) to every connected client', async () => {
+  it('broadcasts a POSTed event to every connected client', async () => {
     const a = await connect(url)
     const b = await connect(url)
     clients.push(a.ws, b.ws)
     await a.next(m => m.type === 'snapshot')
     await b.next(m => m.type === 'snapshot')
 
-    const res = await postEvent(office.server, {
-      type: 'agent_spawned',
-      agent: { id: 'agent-ws-2', name: 'Tester', role: 'test-engineer', task: 'Write tests for parser' },
-    })
+    const res = await postEvent(office.server, { type: 'agent_working', sessionId: 's-ws-1', status: 'editing Widget.tsx', tool: 'Edit' })
     expect(res.status).toBe(200)
 
     for (const client of [a, b]) {
-      const spawned = await client.next(m => m.type === 'agent_spawned')
-      expect(spawned.agent).toMatchObject({ id: 'agent-ws-2', name: 'Tester', role: 'test-engineer', state: 'new-hire' })
-      expect(spawned.timestamp).toBeTypeOf('number')
-      const announced = await client.next(m => m.type === 'chat_message')
-      expect(announced).toMatchObject({ sender: 'Tester', text: 'starting: Write tests for parser' })
+      const working = await client.next(m => m.type === 'agent_working')
+      expect(working).toMatchObject({ sessionId: 's-ws-1', status: 'editing Widget.tsx', main: { state: 'working' } })
+      expect(working.timestamp).toBeTypeOf('number')
     }
-
-    // Directed messages fan out as chat_message + inbox_update
-    await postAuthed(office.server, '/chat/reply', { sender: 'Tester', recipient: 'Debugger', text: 'hi' })
-    const inbox = await a.next(m => m.type === 'inbox_update')
-    expect(inbox).toEqual({ type: 'inbox_update', agentId: 'agent-ws-1', unread: 1 })
   })
 
   it('closes connections from a disallowed origin with 1008', async () => {

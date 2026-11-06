@@ -1,9 +1,9 @@
 /**
  * Sessions: one Claude Code terminal per session_id. Created by SessionStart
  * (or implicitly by the first event that names an unknown session), listed by
- * GET /sessions and the WS snapshot, ended by SessionEnd — its agents clock
- * out and the session is forgotten after 60 s. Two terminals never share
- * workers.
+ * GET /sessions and the WS snapshot, ended by SessionEnd (or the stale sweep)
+ * and forgotten after 60 s; saved to agents.json and restored on a restart.
+ * POST /event needs the token and accepts the event types older hooks send.
  */
 
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, postEvent, removeOffice, spawnAgent, type Office } from './helpers'
+import { listen, loadOffice, officeProtocols, postEvent, removeOffice, type Office } from './helpers'
 
 // Two terminals: the fields the tracker puts on every event of each
 const ALPHA = {
@@ -28,40 +28,74 @@ const BETA = {
   transcriptPath: '/root/.claude/projects/-home-me-beta/bbbbbbbb-2222-4222-8222-222222222222.jsonl',
 }
 
-const gp = (id: string, task: string) => ({ id, name: 'Agent', role: 'general-purpose', task, agentType: 'general-purpose', background: true })
+describe('POST /event', () => {
+  let office: Office
+  beforeAll(async () => { office = await loadOffice() })
+  afterAll(() => removeOffice(office))
+
+  it('is 401 without the token or with a wrong one, and nothing happens', async () => {
+    const body = { type: 'session_started', ...ALPHA, source: 'startup' }
+    expect((await request(office.server.app).post('/event').send(body)).status).toBe(401)
+    expect((await postEvent(office.server, body, 'f'.repeat(64))).status).toBe(401)
+    expect(office.server.sessions.size).toBe(0)
+  })
+
+  it('refuses a body without a known type', async () => {
+    expect((await postEvent(office.server, {})).status).toBe(400)
+    expect((await postEvent(office.server, { type: 'chat_message', text: 'hi' })).body).toEqual({ error: 'Unknown event type: chat_message' })
+  })
+
+  it('answers { ok: true } and accepts the events older hooks still send, as signs of life only', async () => {
+    for (const type of ['agent_spawned', 'agent_linked', 'agent_started', 'signal', 'task_created', 'task_completed']) {
+      const res = await postEvent(office.server, { type, ...ALPHA })
+      expect(res.status, type).toBe(200)
+      expect(res.body).toEqual({ ok: true })
+    }
+    // They keep the session alive (created implicitly) and change nothing else
+    expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ source: 'implicit', main: { state: 'idle' } })
+  })
+
+  it('clamps the session strings (cwd and transcriptPath up to 400 characters)', async () => {
+    const long = '/x'.repeat(400)
+    await postEvent(office.server, { type: 'session_started', sessionId: 'clamp', cwd: long, transcriptPath: long, project: 'p'.repeat(300), source: 'startup' })
+    const session = office.server.sessions.get('clamp')
+    expect(session.cwd).toHaveLength(400)
+    expect(session.transcriptPath).toHaveLength(400)
+    expect(session.project).toHaveLength(200)
+  })
+})
 
 describe('session_started (SessionStart)', () => {
   let office: Office
   beforeAll(async () => { office = await loadOffice() })
   afterAll(() => removeOffice(office))
 
-  it('creates an active session and lists it in GET /sessions with agent counts', async () => {
+  it('creates an active session and lists it in GET /sessions', async () => {
     const res = await postEvent(office.server, { type: 'session_started', ...ALPHA, source: 'startup', model: 'claude-haiku-5-5' })
     expect(res.status).toBe(200)
 
     const session = office.server.sessions.get(ALPHA.sessionId)
     expect(session).toMatchObject({
       id: ALPHA.sessionId, project: 'alpha', cwd: ALPHA.cwd, source: 'startup', model: 'claude-haiku-5-5', state: 'active',
+      main: { state: 'idle' },
     })
     expect(session.startedAt).toBeTypeOf('number')
     expect(session.lastActivityAt).toBe(session.startedAt)
-    expect(session.agentIds).toBeInstanceOf(Set)
 
     const list = await request(office.server.app).get('/sessions')
     expect(list.status).toBe(200)
     expect(list.body).toEqual({
       sessions: [expect.objectContaining({
-        id: ALPHA.sessionId, project: 'alpha', cwd: ALPHA.cwd, source: 'startup', model: 'claude-haiku-5-5', state: 'active',
-        agentIds: [], agentCount: 0, workingCount: 0,
+        id: ALPHA.sessionId, project: 'alpha', cwd: ALPHA.cwd, source: 'startup', model: 'claude-haiku-5-5', state: 'active', hooked: true,
       })],
     })
+    expect(list.body.sessions[0]).not.toHaveProperty('agentCount')
   })
 
   it('returns the broadcast shape', () => {
     const ev = office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
     expect(ev).toEqual(expect.objectContaining({
-      type: 'session_started', sessionId: BETA.sessionId, project: 'beta', cwd: BETA.cwd, source: 'startup', state: 'active',
-      agentIds: [], agentCount: 0, workingCount: 0, timestamp: expect.any(Number),
+      type: 'session_started', sessionId: BETA.sessionId, project: 'beta', cwd: BETA.cwd, source: 'startup', state: 'active', timestamp: expect.any(Number),
     }))
     expect(ev).not.toHaveProperty('id')
   })
@@ -70,8 +104,8 @@ describe('session_started (SessionStart)', () => {
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'compact', model: 'claude-opus-4-1' })
     expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ source: 'startup', model: 'claude-opus-4-1' })
 
-    office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'resume', title: 'office refactor' })
-    expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ source: 'resume', model: 'claude-opus-4-1', title: 'office refactor' })
+    office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'resume', title: 'dex refactor' })
+    expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ source: 'resume', model: 'claude-opus-4-1', title: 'dex refactor' })
     expect(office.server.sessions.size).toBe(2)
   })
 
@@ -79,199 +113,49 @@ describe('session_started (SessionStart)', () => {
     expect(office.server.processEvent({ type: 'session_started', source: 'startup' })).toBeNull()
     expect(office.server.sessions.size).toBe(2)
   })
-
-  it('clamps the session strings (cwd and transcriptPath up to 400 characters)', async () => {
-    const long = 'x'.repeat(500)
-    await postEvent(office.server, { type: 'session_started', sessionId: 'clamp', project: long, cwd: `/${long}`, source: long, model: long, title: long })
-    const session = office.server.sessions.get('clamp')
-    expect(session.project).toHaveLength(200)
-    expect(session.cwd).toHaveLength(400)
-    expect(session.source).toHaveLength(200)
-    expect(session.model).toHaveLength(200)
-    expect(session.title).toHaveLength(200)
-  })
 })
 
-describe('implicit sessions (hooks that start mid-session)', () => {
+describe('tool calls (agent_working)', () => {
   let office: Office
   beforeAll(async () => { office = await loadOffice() })
   afterAll(() => removeOffice(office))
 
-  it('the first event naming an unknown session creates it with source "implicit" and files the agent under it', async () => {
-    await postEvent(office.server, { type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Count etc') })
-
-    const session = office.server.sessions.get(ALPHA.sessionId)
-    expect(session).toMatchObject({ id: ALPHA.sessionId, project: 'alpha', cwd: ALPHA.cwd, source: 'implicit', state: 'active' })
-    expect(Array.from(session.agentIds)).toEqual(['agent-a1'])
-    expect(office.server.activeAgents.get('agent-a1')).toMatchObject({ sessionId: ALPHA.sessionId, project: 'alpha' })
-  })
-
-  it('main-thread agent_working (no agentId) creates the session, remembers the status on it and names it in the broadcast', async () => {
-    const ev = office.server.processEvent({ type: 'agent_working', status: 'reading index.js', ...BETA })
+  it('the first event naming an unknown session creates it with source "implicit"', () => {
+    const ev = office.server.processEvent({ type: 'agent_working', status: 'reading App.tsx', tool: 'Read', ...ALPHA })
+    expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ id: ALPHA.sessionId, project: 'alpha', source: 'implicit', state: 'active' })
+    // A main-thread call: Claude is working, and the broadcast names the session
     expect(ev).toEqual({
-      type: 'agent_working', agentId: undefined, status: 'reading index.js',
-      sessionId: BETA.sessionId, project: 'beta', timestamp: expect.any(Number),
+      type: 'agent_working', status: 'reading App.tsx', sessionId: ALPHA.sessionId, project: 'alpha',
+      main: expect.objectContaining({ state: 'working' }), timestamp: expect.any(Number),
     })
-    const session = office.server.sessions.get(BETA.sessionId)
-    expect(session).toMatchObject({ source: 'implicit', lastStatus: 'reading index.js' })
-    expect(session.lastStatusAt).toBeTypeOf('number')
-    expect(office.server.activeAgents.size).toBe(1)  // no worker was invented for it
-
-    const list = await request(office.server.app).get('/sessions')
-    expect(list.body.sessions).toContainEqual(expect.objectContaining({ id: BETA.sessionId, lastStatus: 'reading index.js', agentCount: 0 }))
   })
 
-  it('derives the project from cwd when the event has none; a bare sessionId still makes a session', () => {
-    office.server.processEvent({ type: 'agent_working', status: 'x', sessionId: 'gamma-id', cwd: '/x/y/gamma/' })
-    expect(office.server.sessions.get('gamma-id')).toMatchObject({ project: 'gamma', cwd: '/x/y/gamma/' })
-    office.server.processEvent({ type: 'agent_working', status: 'x', sessionId: 'bare-id' })
-    expect(office.server.sessions.get('bare-id')).toMatchObject({ id: 'bare-id', source: 'implicit' })
-    expect(office.server.sessions.get('bare-id').project).toBeUndefined()
+  it('a call inside a subagent keeps the session alive but does not change what its Claude is doing', () => {
+    office.server.processEvent({ type: 'session_turn_end', ...BETA, text: '' })
+    expect(office.server.sessions.get(BETA.sessionId).main.state).toBe('idle')
+    const ev = office.server.processEvent({ type: 'agent_working', agentId: 'sub-1', agentType: 'Explore', status: 'reading x', ...BETA })
+    expect(ev).toBeNull()
+    expect(office.server.sessions.get(BETA.sessionId).main.state).toBe('idle')
   })
 
-  it('the agent auto-spawned for an unknown subagent id is filed under the event\'s session', () => {
-    const ev = office.server.processEvent({
-      type: 'agent_working', agentId: 'af4d4090b68ebb5f9', agentType: 'general-purpose', role: 'debugger', name: 'Debugger',
-      status: 'running: pytest', ...BETA,
-    })
-    expect(ev).toMatchObject({ agentId: 'agent-af4d4090b68ebb5f9', sessionId: BETA.sessionId })
-    expect(office.server.activeAgents.get('agent-af4d4090b68ebb5f9')).toMatchObject({ sessionId: BETA.sessionId, project: 'beta', state: 'working' })
-    expect(office.server.sessions.get(BETA.sessionId).agentIds.has('agent-af4d4090b68ebb5f9')).toBe(true)
-  })
-})
-
-describe('agents carry their session', () => {
-  let office: Office
-  beforeAll(async () => {
-    office = await loadOffice()
-    office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
-  })
-  afterAll(() => removeOffice(office))
-
-  it('agent records and /agents entries have sessionId and project', async () => {
-    spawnAgent(office.server, { ...gp('agent-a1', 'Write tests') })  // no session on the spawn itself
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a2', 'Review') })
-
-    const agents = await request(office.server.app).get('/agents')
-    expect(agents.body.agents).toEqual([
-      expect.objectContaining({ id: 'agent-a1' }),
-      expect.objectContaining({ id: 'agent-a2', sessionId: ALPHA.sessionId, project: 'alpha' }),
-    ])
-    expect(agents.body.agents[0]).not.toHaveProperty('sessionId')
-    expect(agents.body.agents[0]).not.toHaveProperty('project')
+  it('a failed main-thread call is flagged on the broadcast', () => {
+    const ev = office.server.processEvent({ type: 'agent_working', status: 'failed: Bash — Exit code 1', failed: true, tool: 'Bash', ...ALPHA })
+    expect(ev).toMatchObject({ type: 'agent_working', failed: true, sessionId: ALPHA.sessionId })
   })
 
-  it('an agent spawned before the hook knew its session learns it from its first working event (and never moves again)', () => {
-    office.server.processEvent({ type: 'agent_linked', agentId: 'agent-a1', subagentId: 'sub-a1' })
-    const ev = office.server.processEvent({ type: 'agent_working', agentId: 'sub-a1', status: 'running: make', ...ALPHA })
-    expect(ev).toMatchObject({ agentId: 'agent-a1', sessionId: ALPHA.sessionId })
-    expect(office.server.activeAgents.get('agent-a1')).toMatchObject({ sessionId: ALPHA.sessionId, project: 'alpha', state: 'working' })
-    expect(Array.from(office.server.sessions.get(ALPHA.sessionId).agentIds).sort()).toEqual(['agent-a1', 'agent-a2'])
-
-    // A later event claiming another session does not re-file it
-    office.server.processEvent({ type: 'agent_working', agentId: 'sub-a1', status: 'still here', ...BETA })
-    expect(office.server.activeAgents.get('agent-a1').sessionId).toBe(ALPHA.sessionId)
-    expect(office.server.sessions.get(BETA.sessionId).agentIds.size).toBe(0)
+  it('derives the project from cwd when the event has none; a bare sessionId still makes a session; no sessionId is ignored', () => {
+    office.server.processEvent({ type: 'agent_working', status: 'x', sessionId: 'cwd-only', cwd: '/srv/www/shop/' })
+    expect(office.server.sessions.get('cwd-only').project).toBe('shop')
+    office.server.processEvent({ type: 'agent_working', status: 'x', sessionId: 'bare' })
+    expect(office.server.sessions.get('bare')).toMatchObject({ id: 'bare', source: 'implicit' })
+    expect(office.server.processEvent({ type: 'agent_working', status: 'x' })).toBeNull()
   })
 
   it('every event with a sessionId bumps that session\'s activity clock', () => {
     const session = office.server.sessions.get(ALPHA.sessionId)
-    for (const body of [
-      { type: 'agent_linked', agentId: 'agent-a2', subagentId: 'sub-a2', ...ALPHA },
-      { type: 'agent_started', subagentId: 'sub-a2', agentType: 'general-purpose', ...ALPHA },
-      { type: 'agent_working', agentId: 'sub-a2', status: 'x', ...ALPHA },
-      { type: 'mcp_call', server: 'github', tool: 'get_me', ...ALPHA },
-      { type: 'mcp_done', server: 'github', ...ALPHA },
-      { type: 'agent_completed', agentId: 'ghost', result: 'done', ...ALPHA },
-    ]) {
-      session.lastActivityAt = 0
-      office.server.processEvent(body)
-      expect(session.lastActivityAt, body.type).toBeGreaterThan(0)
-    }
-  })
-
-  it('agent_completed and mcp_call broadcasts name the session too', () => {
-    const mcp = office.server.processEvent({ type: 'mcp_call', server: 'github', tool: 'get_me', ...ALPHA })
-    expect(mcp).toMatchObject({ type: 'mcp_call', sessionId: ALPHA.sessionId })
-    expect(office.server.activeAgents.get(mcp.agentId)).toMatchObject({ sessionId: ALPHA.sessionId, project: 'alpha' })
-    office.server.processEvent({ type: 'mcp_done', server: 'github', ...ALPHA })
-
-    const done = office.server.processEvent({ type: 'agent_completed', agentId: 'sub-a2', result: 'ok' })
-    expect(done).toMatchObject({ type: 'agent_completed', agentId: 'agent-a2', result: 'ok', sessionId: ALPHA.sessionId })
-  })
-})
-
-describe('two sessions are kept apart', () => {
-  let office: Office
-  beforeAll(async () => {
-    office = await loadOffice()
-    office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
-    office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
-  })
-  afterAll(() => removeOffice(office))
-
-  it('a SubagentStart binds to an unlinked agent of its own session, not to an older one in another terminal', () => {
-    // alpha spawned first; beta's SubagentStart arrives before alpha's
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'alpha work') })
-    office.server.processEvent({ type: 'agent_spawned', ...BETA, agent: gp('agent-b1', 'beta work') })
-    office.server.processEvent({ type: 'agent_started', subagentId: 'sub-b1', agentType: 'general-purpose', ...BETA })
-    office.server.processEvent({ type: 'agent_started', subagentId: 'sub-a1', agentType: 'general-purpose', ...ALPHA })
-
-    expect(office.server.activeAgents.get('agent-b1').subagentId).toBe('sub-b1')
-    expect(office.server.activeAgents.get('agent-a1').subagentId).toBe('sub-a1')
-  })
-
-  it('a first-tool-call binding (no SubagentStart seen) stays inside the session as well', () => {
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a2', 'alpha more') })
-    office.server.processEvent({ type: 'agent_spawned', ...BETA, agent: gp('agent-b2', 'beta more') })
-    const ev = office.server.processEvent({ type: 'agent_working', agentId: 'sub-b2', agentType: 'general-purpose', status: 'running: ls', ...BETA })
-    expect(ev.agentId).toBe('agent-b2')
-    expect(office.server.activeAgents.get('agent-a2').subagentId).toBeUndefined()
-  })
-
-  it('a parked SubagentStart is adopted by a spawn from the same session only', () => {
-    office.server.processEvent({ type: 'agent_started', subagentId: 'sub-b3', agentType: 'Explore', ...BETA })
-    expect(office.server.pendingStarts.has('sub-b3')).toBe(true)
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: { id: 'agent-a3', name: 'Explorer', role: 'Explore', agentType: 'Explore' } })
-    expect(office.server.activeAgents.get('agent-a3').subagentId).toBeUndefined()
-    expect(office.server.pendingStarts.has('sub-b3')).toBe(true)
-    office.server.processEvent({ type: 'agent_spawned', ...BETA, agent: { id: 'agent-b3', name: 'Explorer', role: 'Explore', agentType: 'Explore' } })
-    expect(office.server.activeAgents.get('agent-b3').subagentId).toBe('sub-b3')
-    expect(office.server.pendingStarts.has('sub-b3')).toBe(false)
-  })
-
-  it('working events land on their own session\'s agent and the sessions list counts them separately', async () => {
-    office.server.processEvent({ type: 'agent_working', agentId: 'sub-a1', status: 'alpha busy', ...ALPHA })
-    expect(office.server.activeAgents.get('agent-a1')).toMatchObject({ state: 'working', status: 'alpha busy' })
-    expect(office.server.activeAgents.get('agent-b1').state).toBe('new-hire')
-
-    const list = await request(office.server.app).get('/sessions')
-    const byId = Object.fromEntries(list.body.sessions.map((s: any) => [s.id, s]))
-    expect(byId[ALPHA.sessionId]).toMatchObject({ project: 'alpha', agentCount: 3, workingCount: 1 })
-    expect(byId[BETA.sessionId]).toMatchObject({ project: 'beta', agentCount: 3, workingCount: 1 })
-    expect(byId[ALPHA.sessionId].agentIds.sort()).toEqual(['agent-a1', 'agent-a2', 'agent-a3'])
-    expect(byId[BETA.sessionId].agentIds.sort()).toEqual(['agent-b1', 'agent-b2', 'agent-b3'])
-  })
-
-  it('main-thread activity in one terminal is attributed to that session, not painted on the other\'s worker', () => {
-    const ev = office.server.processEvent({ type: 'agent_working', status: 'editing App.tsx', ...BETA })
-    expect(ev).toMatchObject({ agentId: undefined, status: 'editing App.tsx', sessionId: BETA.sessionId, project: 'beta' })
-    expect(office.server.activeAgents.get('agent-a1').status).toBe('alpha busy')
-    expect(office.server.sessions.get(BETA.sessionId).lastStatus).toBe('editing App.tsx')
-    expect(office.server.sessions.get(ALPHA.sessionId).lastStatus).toBeUndefined()
-  })
-
-  it('mcp_done clears only its own session\'s MCP workers (all of them when the event names no session)', () => {
-    office.server.processEvent({ type: 'mcp_call', server: 'github', tool: 'get_me', ...ALPHA })
-    office.server.processEvent({ type: 'mcp_call', server: 'github', tool: 'get_me', ...BETA })
-    const mcps = () => Array.from(office.server.activeAgents.values()).filter(a => a.server === 'github')
-    expect(mcps()).toHaveLength(2)
-
-    office.server.processEvent({ type: 'mcp_done', server: 'github', ...ALPHA })
-    expect(mcps().map(a => a.sessionId)).toEqual([BETA.sessionId])
-
-    office.server.processEvent({ type: 'mcp_done', server: 'github' })
-    expect(mcps()).toHaveLength(0)
+    session.lastActivityAt = 1
+    office.server.processEvent({ type: 'mcp_call', server: 'github', tool: 'search', ...ALPHA })
+    expect(session.lastActivityAt).toBeGreaterThan(1)
   })
 })
 
@@ -287,49 +171,22 @@ describe('session_ended (SessionEnd)', () => {
     removeOffice(office)
   })
 
-  it('marks the session ended, walks its still-active agents out ("session ended"), and forgets it after 60 s', async () => {
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Long job') })
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a2', 'Done already') })
-    office.server.processEvent({ type: 'agent_spawned', ...BETA, agent: gp('agent-b1', 'Other terminal') })
-    office.server.processEvent({ type: 'agent_working', agentId: 'agent-a1', status: 'running: make', ...ALPHA })
-
+  it('marks the session ended and forgets it after 60 s', () => {
     // Only fake setTimeout so Date.now() and the HTTP stack stay real
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    office.server.processEvent({ type: 'agent_completed', agentId: 'agent-a2', result: 'lgtm' })
-
     const ev = office.server.processEvent({ type: 'session_ended', ...ALPHA, reason: 'other' })
     expect(ev).toEqual(expect.objectContaining({
       type: 'session_ended', sessionId: ALPHA.sessionId, project: 'alpha', state: 'ended', reason: 'other',
       endedAt: expect.any(Number), timestamp: expect.any(Number),
     }))
-    const session = office.server.sessions.get(ALPHA.sessionId)
-    expect(session).toMatchObject({ state: 'ended', reason: 'other' })
+    expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ state: 'ended', reason: 'other', main: { state: 'idle' } })
 
-    // Its agents clocked out; the other terminal's agent did not
-    expect(office.server.activeAgents.get('agent-a1').state).toBe('completed')
-    expect(office.server.activeAgents.get('agent-b1').state).toBe('new-hire')
-
-    // Agents leave after the usual 10 s grace; the session is listed as ended until 60 s
-    vi.advanceTimersByTime(10_000)
-    expect(office.server.activeAgents.has('agent-a1')).toBe(false)
-    expect(office.server.activeAgents.has('agent-a2')).toBe(false)
-    expect(office.server.activeAgents.has('agent-b1')).toBe(true)
-    expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ state: 'ended' })
-    expect(office.server.sessions.get(ALPHA.sessionId).agentIds.size).toBe(0)
-
-    vi.advanceTimersByTime(49_999)
+    vi.advanceTimersByTime(59_999)
     expect(office.server.sessions.has(ALPHA.sessionId)).toBe(true)
     vi.advanceTimersByTime(1)
     expect(office.server.sessions.has(ALPHA.sessionId)).toBe(false)
     expect(office.server.sessions.has(BETA.sessionId)).toBe(true)
     vi.useRealTimers()
-
-    const chat = await request(office.server.app).get('/chat')
-    const done = chat.body.messages.filter((m: any) => m.text.startsWith('done:'))
-    expect(done).toEqual([
-      expect.objectContaining({ text: 'done: lgtm' }),
-      expect.objectContaining({ text: 'done: session ended' }),
-    ])
   })
 
   it('a straggling event does not revive an ended session, but a SessionStart (resume) with the same id does', () => {
@@ -362,12 +219,6 @@ describe('session_ended (SessionEnd)', () => {
     office.server.processEvent({ type: 'session_ended', ...BETA, reason: 'later' })
     expect(office.server.sessions.get(BETA.sessionId)).toMatchObject({ state: 'ended', reason: 'other', endedAt })
   })
-
-  it('POST /event accepts session_ended and session_started', async () => {
-    const res = await postEvent(office.server, { type: 'session_ended', sessionId: 'nobody', reason: 'other' })
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ ok: true })
-  })
 })
 
 describe('stale sessions', () => {
@@ -378,20 +229,15 @@ describe('stale sessions', () => {
     office = undefined
   })
 
-  it('a session with no events for AGENT_OFFICE_STALE_MINUTES ends on the sweep, taking its agents with it', async () => {
+  it('a session with no events for AGENT_OFFICE_STALE_MINUTES ends on the sweep', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
     office = await loadOffice({ env: { AGENT_OFFICE_STALE_MINUTES: '1' } })
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Quiet job') })
     office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
-
-    const stale = Date.now() - 2 * 60_000
-    office.server.sessions.get(ALPHA.sessionId).lastActivityAt = stale
-    office.server.activeAgents.get('agent-a1').lastActivityAt = stale
+    office.server.sessions.get(ALPHA.sessionId).lastActivityAt = Date.now() - 2 * 60_000
 
     vi.advanceTimersByTime(5 * 60_000)
     expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ state: 'ended', reason: 'stale' })
-    expect(office.server.activeAgents.get('agent-a1').state).toBe('completed')
     expect(office.server.sessions.get(BETA.sessionId).state).toBe('active')
   })
 })
@@ -402,62 +248,54 @@ describe('persistence', () => {
     while (offices.length) removeOffice(offices.pop())
   })
 
-  it('sessions are saved next to the agents and restored on a fresh import of the same runtime dir (ended ones are not)', async () => {
+  it('sessions are saved to agents.json and restored on a fresh import of the same runtime dir (ended ones are not)', async () => {
     const first = await loadOffice()
     offices.push(first)
     first.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup', model: 'claude-haiku-5-5' })
-    first.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Long job') })
-    first.server.processEvent({ type: 'agent_linked', agentId: 'agent-a1', subagentId: 'sub-a1', ...ALPHA })
-    first.server.processEvent({ type: 'agent_working', status: 'reading x', ...ALPHA })
+    first.server.processEvent({ type: 'session_prompt', ...ALPHA, text: 'fix the dex' })
     first.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
     first.server.processEvent({ type: 'session_ended', ...BETA, reason: 'other' })
 
     const saved = JSON.parse(readFileSync(join(first.dir, 'agents.json'), 'utf8'))
-    expect(saved.agents.map((a: any) => a.id)).toEqual(['agent-a1'])
+    expect(Object.keys(saved)).toEqual(['sessions'])
     expect(saved.sessions).toEqual([expect.objectContaining({
       id: ALPHA.sessionId, project: 'alpha', cwd: ALPHA.cwd, source: 'startup', model: 'claude-haiku-5-5', state: 'active',
-      agentIds: ['agent-a1'], lastStatus: 'reading x',
+      main: expect.objectContaining({ state: 'working', lastPrompt: 'fix the dex' }),
     })])
 
     const second = await loadOffice({ dir: first.dir })
+    offices.push(second)
     expect(Array.from(second.server.sessions.keys())).toEqual([ALPHA.sessionId])
-    const session = second.server.sessions.get(ALPHA.sessionId)
-    expect(session).toMatchObject({ project: 'alpha', source: 'startup', model: 'claude-haiku-5-5', state: 'active', lastStatus: 'reading x' })
-    expect(Array.from(session.agentIds)).toEqual(['agent-a1'])
-    expect(second.server.activeAgents.get('agent-a1')).toMatchObject({ sessionId: ALPHA.sessionId, project: 'alpha' })
-
-    const list = await request(second.server.app).get('/sessions')
-    expect(list.body.sessions).toEqual([expect.objectContaining({ id: ALPHA.sessionId, agentCount: 1, agentIds: ['agent-a1'] })])
+    expect(second.server.sessions.get(ALPHA.sessionId)).toMatchObject({ project: 'alpha', model: 'claude-haiku-5-5', main: { state: 'working', lastPrompt: 'fix the dex' } })
   })
 
-  it('drops sessions quiet for longer than AGENT_OFFICE_STALE_MINUTES on load; an older agents.json without sessions still loads', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'agent-office-test-'))
+  it('drops sessions quiet for too long on load, and reads an older agents.json (with agents) all the same', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'claudex-test-'))
     const now = Date.now()
     const minutes = 60_000
     writeFileSync(join(dir, 'agents.json'), JSON.stringify({
-      agents: [{ id: 'fresh-agent', name: 'Fresh', role: 'debugger', state: 'working', spawnedAt: now, lastActivityAt: now, sessionId: 'fresh' }],
+      agents: [{ id: 'old-worker', name: 'Worker', role: 'debugger', state: 'working', spawnedAt: now, lastActivityAt: now, sessionId: 'fresh' }],
       sessions: [
-        { id: 'fresh', project: 'fresh', state: 'active', startedAt: now - 5 * minutes, lastActivityAt: now - 5 * minutes, agentIds: ['fresh-agent', 'gone-agent'] },
-        { id: 'stale', project: 'stale', state: 'active', startedAt: now - 180 * minutes, lastActivityAt: now - 180 * minutes, agentIds: [] },
+        { id: 'fresh', project: 'fresh', state: 'active', startedAt: now - 5 * minutes, lastActivityAt: now - 5 * minutes, agentIds: ['old-worker'] },
+        { id: 'stale', project: 'stale', state: 'active', startedAt: now - 180 * minutes, lastActivityAt: now - 180 * minutes },
         { id: 'stale-no-activity', project: 'old', state: 'active', startedAt: now - 180 * minutes },
-        { id: 'ended', project: 'ended', state: 'ended', startedAt: now, lastActivityAt: now, agentIds: [] },
+        { id: 'ended', project: 'ended', state: 'ended', startedAt: now, lastActivityAt: now },
         { project: 'no-id', state: 'active', startedAt: now, lastActivityAt: now },
       ],
     }))
     const office = await loadOffice({ dir, env: { AGENT_OFFICE_STALE_MINUTES: '60' } })
     offices.push(office)
     expect(Array.from(office.server.sessions.keys())).toEqual(['fresh'])
-    // Agent ids that did not survive are dropped from the restored set
-    expect(Array.from(office.server.sessions.get('fresh').agentIds)).toEqual(['fresh-agent'])
+    // The office worker list of an older file is left behind
+    expect(office.server.sessions.get('fresh')).not.toHaveProperty('agentIds')
+  })
 
-    const legacyDir = mkdtempSync(join(tmpdir(), 'agent-office-test-'))
-    writeFileSync(join(legacyDir, 'agents.json'), JSON.stringify({
-      agents: [{ id: 'legacy', name: 'Legacy', role: 'debugger', state: 'working', spawnedAt: now, lastActivityAt: now }],
-    }))
-    const legacy = await loadOffice({ dir: legacyDir })
-    offices.push(legacy)
-    expect(Array.from(legacy.server.activeAgents.keys())).toEqual(['legacy'])
-    expect(legacy.server.sessions.size).toBe(0)
+  it('ignores a corrupt agents.json', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'claudex-test-'))
+    writeFileSync(join(dir, 'agents.json'), '{ not json')
+    const office = await loadOffice({ dir })
+    offices.push(office)
+    expect(office.server.sessions.size).toBe(0)
   })
 })
 
@@ -468,8 +306,7 @@ describe('WebSocket snapshot', () => {
   beforeAll(async () => {
     office = await loadOffice()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'fix it') })
-    office.server.processEvent({ type: 'agent_working', status: 'reading App.tsx', ...BETA })
+    office.server.processEvent({ type: 'session_prompt', ...ALPHA, text: 'secret plan' })
   })
 
   afterAll(async () => {
@@ -479,19 +316,18 @@ describe('WebSocket snapshot', () => {
     removeOffice(office)
   })
 
-  it('includes the sessions, and the agents in it say which session they belong to', async () => {
+  it('carries the sessions, the status-line store, the game and the cloud — and nothing of the old office', async () => {
     const port = await listen(office.server.httpServer)
     const snapshot = await new Promise<any>((resolve, reject) => {
-      ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
+      ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, officeProtocols(office.server))
       // The first message says whether the connection is trusted; the snapshot follows
       ws.on('message', raw => { const m = JSON.parse(raw.toString()); if (m.type === 'snapshot') resolve(m) })
       ws.once('error', reject)
     })
-    expect(snapshot.type).toBe('snapshot')
-    expect(snapshot.activeAgents).toEqual([expect.objectContaining({ id: 'agent-a1', sessionId: ALPHA.sessionId, project: 'alpha' })])
+    expect(Object.keys(snapshot).sort()).toEqual(['cloud', 'health', 'pokedex', 'sessions', 'statuses', 'timestamp', 'type'])
     expect(snapshot.sessions).toEqual([
-      expect.objectContaining({ id: ALPHA.sessionId, project: 'alpha', source: 'startup', state: 'active', agentIds: ['agent-a1'], agentCount: 1 }),
-      expect.objectContaining({ id: BETA.sessionId, project: 'beta', source: 'implicit', state: 'active', agentCount: 0, lastStatus: 'reading App.tsx' }),
+      expect.objectContaining({ id: ALPHA.sessionId, project: 'alpha', state: 'active', main: expect.objectContaining({ state: 'working', lastPrompt: 'secret plan' }) }),
     ])
+    expect(snapshot.statuses).toEqual({ sessions: [] })
   })
 })

@@ -2,13 +2,11 @@
  * health.js — pipeline health: is the server up, have Claude Code hooks ever
  * reached it, how long ago, and what is it running.
  *
- * The most common support question is "nothing appears", and until now the
- * office had no way to answer it: no connection indicator, no sign of whether
- * hooks are installed and firing. This module is the server half of that
- * answer; src/components/StatusStrip.tsx shows it along the bottom of the
- * office and scripts/doctor.mjs prints it.
+ * The most common support question is "nothing appears": is the server up,
+ * are the hooks installed and firing? The desktop app checks /health before it
+ * starts a server of its own, and scripts/doctor.mjs prints it.
  *
- *   GET /health → { status: 'ok', agents, clients, sessions,
+ *   GET /health → { status: 'ok', clients, sessions,
  *                   lastHookAt (ms epoch | null), hooksSeen (since boot),
  *                   uiAvailable, version (package.json), uptimeMs }
  *
@@ -22,7 +20,7 @@
  *
  *   { type: 'health', health: <GET /health body>, timestamp }
  *
- * `counts` is injected (agents / clients / sessions live in index.js), as are
+ * `counts` is injected (clients / sessions live in index.js), as are
  * `now` and the timer functions, so the throttle is unit-testable without
  * waiting. The timer is unref'd: importing the server never keeps a process
  * alive.
@@ -45,7 +43,7 @@ export function readVersion(pkgUrl = new URL('../package.json', import.meta.url)
 /**
  * The health record and its throttled broadcast.
  * @param {object} [opts]
- * @param {() => { agents?: number, clients?: number, sessions?: number }} [opts.counts]
+ * @param {() => { clients?: number, sessions?: number }} [opts.counts]
  * @param {(event: object) => void} [opts.broadcast]
  * @param {boolean} [opts.uiAvailable]
  * @param {string} [opts.version]
@@ -75,7 +73,6 @@ export function createHealth({
     const c = counts() ?? {}
     return {
       status: 'ok',
-      agents: c.agents ?? 0,
       clients: c.clients ?? 0,
       sessions: c.sessions ?? 0,
       lastHookAt,

@@ -1,8 +1,7 @@
 /**
  * hooks/status-line.sh — the Claude Code statusLine command: POSTs the
- * session's cost / context / rate-limit numbers to /status and prints the
- * line Claude Code displays (or the output of a status line it was wrapped
- * around). Runs the real script against a capture server.
+ * session's context and rate-limit numbers to /status and prints the line
+ * Claude Code displays. Runs the real script against a capture server.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -56,38 +55,8 @@ const EXPECTED_EVENT = {
   project: 'Claude-Office',
   model: 'Haiku 5.5',
   modelId: 'claude-haiku-5-5',
-  cost: 0.014055975,
-  durationMs: 23245,
-  apiDurationMs: 19074,
-  linesAdded: 156,
-  linesRemoved: 23,
   context: { used: 4.4, size: 1000000, input: 44051, output: 358 },
-  effort: 'medium',
-  exceeds200k: false,
-  version: '2.1.300',
   rateLimits: { fiveHour: 23.5, fiveHourResetsAt: 1738425600, sevenDay: 41.2, sevenDayResetsAt: 1738857600 },
-}
-
-/** The subagentStatusLine stdin: base hook fields + columns + one task per visible row */
-const SUBAGENT_JSON = {
-  hook_event_name: 'Status',
-  session_id: '8cf68f64-5433-40f7-a130-557fc7f67e42',
-  transcript_path: '/root/.claude/projects/-home-user-Claude-Office/8cf68f64-5433-40f7-a130-557fc7f67e42.jsonl',
-  cwd: '/home/user/Claude-Office',
-  columns: 120,
-  tasks: [
-    {
-      id: 'ac5ff55b850b4fecf', type: 'local_agent', agentType: 'general-purpose', status: 'running',
-      description: 'Count etc', label: 'Reading files', startTime: 1792004729080, model: 'claude-haiku-5-5',
-      effort: 'medium', contextWindowSize: 1000000, tokenCount: 28170, tokenSamples: [1200, 9800, 28170],
-      cwd: '/home/user/Claude-Office',
-    },
-    {
-      id: 'b17c2d9e4f0a1b2c3', type: 'local_agent', agentType: 'Explore', status: 'completed',
-      description: 'Find the config loader', label: 'done', startTime: 1792004731000,
-      tokenCount: 5120, tokenSamples: [5120], cwd: '/home/user/Claude-Office',
-    },
-  ],
 }
 
 interface Captured { url: string; authorization?: string; ts?: string; sig?: string; body: any }
@@ -128,13 +97,11 @@ afterAll(() => new Promise<void>(resolve => server.close(() => resolve())))
 beforeEach(() => { captured.length = 0 })
 afterEach(() => { while (homes.length) rmSync(homes.pop()!, { recursive: true, force: true }) })
 
-/** A fresh AGENT_OFFICE_HOME, optionally with an auth token and a chained command. */
-function officeHome({ token, prev, subagentPrev }: { token?: string; prev?: string; subagentPrev?: string } = {}) {
-  const home = mkdtempSync(join(tmpdir(), 'agent-office-status-'))
+/** A fresh AGENT_OFFICE_HOME, optionally with an auth token. */
+function officeHome({ token }: { token?: string } = {}) {
+  const home = mkdtempSync(join(tmpdir(), 'claudex-status-'))
   homes.push(home)
   if (token) writeFileSync(join(home, 'auth-token'), token)
-  if (prev) writeFileSync(join(home, 'statusline-prev'), prev + '\n')
-  if (subagentPrev) writeFileSync(join(home, 'subagent-statusline-prev'), subagentPrev + '\n')
   return home
 }
 
@@ -221,9 +188,7 @@ describe('status-line.sh: statusLine', () => {
     const [req] = await posted()
     expect(req.body).toEqual({
       type: 'session_status', sessionId: 'sess-early', project: 'my-project', model: 'Opus', modelId: 'claude-opus-5-5',
-      cost: 0, durationMs: 120, apiDurationMs: 0, linesAdded: 0, linesRemoved: 0,
       context: { used: null, size: 200000, input: 0, output: 0 },
-      effort: null, exceeds200k: false, version: '2.1.300',
     })
     expect(req.body).not.toHaveProperty('rateLimits')
   })
@@ -234,27 +199,6 @@ describe('status-line.sh: statusLine', () => {
     const [req] = await posted()
     expect(req.body.project).toBe('billing-api')
     expect(req.body.rateLimits).toEqual({ spendLimit: 62.8, spendLimitResetsAt: 1740787200 })
-  })
-
-  it('chains the status line it was wrapped around: same stdin, its output is printed, the POST still goes out', async () => {
-    const prev = `python3 -I -c 'import json,sys; d=json.load(sys.stdin); print("prev:" + d["model"]["display_name"] + ":" + str(d["context_window"]["used_percentage"]))'`
-    const home = officeHome({ token: 't', prev })
-    const { out } = run(STATUS_JSON, home)
-    expect(out).toBe('prev:Haiku 5.5:4.4\n')
-    const [req] = await posted()
-    expect(req.body).toEqual(EXPECTED_EVENT)
-  })
-
-  it('AGENT_OFFICE_PREV_STATUSLINE overrides the saved command', async () => {
-    const { out } = run(STATUS_JSON, officeHome({ prev: 'echo from-file' }), { env: { AGENT_OFFICE_PREV_STATUSLINE: 'echo from-env' } })
-    expect(out).toBe('from-env\n')
-    expect(await posted()).toHaveLength(1)
-  })
-
-  it('prints the default line when the chained command fails or prints nothing', async () => {
-    expect(run(STATUS_JSON, officeHome({ prev: 'exit 3' })).out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
-    expect(run(STATUS_JSON, officeHome({ prev: 'cat > /dev/null' })).out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
-    expect(await posted(2)).toHaveLength(2)
   })
 
   it('still prints the line, exits 0 and does not wait when the server is down', () => {
@@ -274,41 +218,5 @@ describe('status-line.sh: statusLine', () => {
 
   it('exits 0 and prints nothing on empty stdin', () => {
     expect(run('', officeHome()).out).toBe('')
-  })
-})
-
-describe('status-line.sh --subagents: subagentStatusLine', () => {
-  it('posts an agent_status with every visible row\'s tokens and context size, printing nothing (default rows kept)', async () => {
-    const { out } = run(SUBAGENT_JSON, officeHome({ token: 'a'.repeat(64) }), { args: ['--subagents'] })
-    expect(out).toBe('')
-    const [req] = await posted()
-    expect(req.authorization).toBeUndefined()
-    expect(req.sig).toMatch(/^[0-9a-f]{64}$/)
-    expect(req.body).toEqual({
-      type: 'agent_status',
-      sessionId: '8cf68f64-5433-40f7-a130-557fc7f67e42',
-      agents: [
-        { id: 'ac5ff55b850b4fecf', tokens: 28170, status: 'running', contextSize: 1000000, agentType: 'general-purpose', model: 'claude-haiku-5-5', description: 'Count etc' },
-        { id: 'b17c2d9e4f0a1b2c3', tokens: 5120, status: 'completed', agentType: 'Explore', description: 'Find the config loader' },
-      ],
-    })
-  })
-
-  it('posts nothing when there are no rows', async () => {
-    const { out } = run({ ...SUBAGENT_JSON, tasks: [] }, officeHome(), { args: ['--subagents'] })
-    expect(out).toBe('')
-    await new Promise(r => setTimeout(r, 300))
-    expect(captured).toHaveLength(0)
-  })
-
-  it('prints the rows of a chained subagentStatusLine command', async () => {
-    const prev = `python3 -I -c 'import json,sys; [print(json.dumps({"id": t["id"], "content": t["label"]})) for t in json.load(sys.stdin)["tasks"]]'`
-    const { out } = run(SUBAGENT_JSON, officeHome({ subagentPrev: prev }), { args: ['--subagents'] })
-    expect(out.trim().split('\n').map(l => JSON.parse(l))).toEqual([
-      { id: 'ac5ff55b850b4fecf', content: 'Reading files' },
-      { id: 'b17c2d9e4f0a1b2c3', content: 'done' },
-    ])
-    const [req] = await posted()
-    expect(req.body.type).toBe('agent_status')
   })
 })

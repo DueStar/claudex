@@ -18,8 +18,8 @@ import request from 'supertest'
 import WebSocket from 'ws'
 import { listen, loadOffice, officeProtocols, postEvent, removeOffice, type Office } from './helpers'
 import {
-  BOT_SESSION_NAME, DEFAULT_POLL_MS, REGISTRY_STATES, REGISTRY_WAIT_SUMMARY,
-  isBotSession, mainFromRegistry, mountRegistry, parseRegistryEntry, pidAlive,
+  DEFAULT_POLL_MS, REGISTRY_STATES, REGISTRY_WAIT_SUMMARY,
+  mainFromRegistry, mountRegistry, parseRegistryEntry, pidAlive,
   processStart, readRegistry, registryInfo, registryToSession, sameProcess,
 } from '../server/sessions.js'
 
@@ -297,7 +297,6 @@ describe('registry entry -> session record', () => {
       state: 'active',
       startedAt: 1792021300048,
       lastActivityAt: 1792024878689,
-      agentIds: new Set(),
       registry: {
         pid: process.pid, name: 'claude-office-75', nameSource: 'derived', status: 'busy', kind: 'interactive',
         version: '2.1.300', startedAt: 1792021300048, statusUpdatedAt: 1792024878689,
@@ -311,13 +310,6 @@ describe('registry entry -> session record', () => {
     expect(bare.project).toBeUndefined()
     expect(bare).not.toHaveProperty('cwd')
     expect(bare.startedAt).toBe(42)
-  })
-
-  it("isBotSession: the chat watcher's own claude -p calls are named agent-office-bot", () => {
-    expect(BOT_SESSION_NAME).toBe('agent-office-bot')
-    expect(isBotSession(entry({ name: BOT_SESSION_NAME, nameSource: 'user' }))).toBe(true)
-    expect(isBotSession(entry())).toBe(false)
-    expect(isBotSession(undefined)).toBe(false)
   })
 
   it('mountRegistry refuses to mount without its collaborators', () => {
@@ -407,7 +399,7 @@ describe('the registry roster in the office', () => {
 
     const open = await listed(A)
     expect(open).toMatchObject({
-      id: A, hooked: false, project: 'alpha', state: 'active', source: 'registry', agentIds: [], agentCount: 0, workingCount: 0,
+      id: A, hooked: false, project: 'alpha', state: 'active', source: 'registry',
       registry: { pid: process.pid, name: 'alpha-7f', nameSource: 'derived', status: 'busy', kind: 'interactive', version: '2.1.300' },
       main: { state: 'working' },
     })
@@ -562,7 +554,6 @@ describe('the registry roster in the office', () => {
     expect(rec).toMatchObject({ id: C, hooked: true, source: 'implicit', project: 'gamma', state: 'active' })
     expect(rec.main.state).toBe('working')
     expect(rec.registry).toMatchObject({ pid: child.pid, name: 'gamma-01', status: 'busy' })   // presence stays attached
-    expect(rec.lastStatus).toBe('reading index.js')
     const events = await fresh()
     expect(events.map(e => e.type)).toEqual(['session_started', 'agent_working'])
     expect(events[0]).toMatchObject({ sessionId: C, hooked: true, source: 'implicit', registry: expect.objectContaining({ name: 'gamma-01' }) })
@@ -593,17 +584,6 @@ describe('the registry roster in the office', () => {
     expect(session(D).main.needsYou).toBeUndefined()
     const events = await fresh()
     expect(events).toEqual([expect.objectContaining({ type: 'session_started', sessionId: D, hooked: true, source: 'startup', title: 'delta work' })])
-  })
-
-  it('own bot: an entry named agent-office-bot is neither a session nor listed on GET /registry', async () => {
-    writeEntry(regDir, { pid: process.pid, sessionId: E, cwd: '/home/me/Claude-Office', name: BOT_SESSION_NAME, nameSource: 'user', status: 'busy' })
-    reg().scan()
-    expect(session(E)).toBeUndefined()
-    expect((await request(office.server.app).get('/registry')).body.entries.map((e: any) => e.sessionId)).not.toContain(E)
-    expect(await fresh()).toEqual([])
-    unlinkSync(join(regDir, `${process.pid}.json`))
-    reg().scan()
-    expect(await fresh()).toEqual([])
   })
 
   it('a consumer can count hooked / unhooked / needs-you sessions from GET /sessions alone', async () => {
@@ -658,22 +638,18 @@ describe('a permission dialog answered or dismissed in the terminal (the registr
   const S = '77777777-9999-4999-8999-999999999999'
   const SESSION = { sessionId: S, project: 'alpha', cwd: '/home/me/alpha' }
 
-  /** The hook's PermissionRequest POST with the office allowed to answer. */
-  const ask = async (over: Record<string, unknown> = {}) => (await postEvent(office.server, {
+  /** The hook's PermissionRequest POST. */
+  const ask = (over: Record<string, unknown> = {}) => postEvent(office.server, {
     type: 'session_needs_you', kind: 'permission', ...SESSION, promptId: 'p-1',
-    toolName: 'Write', summary: 'probe3.txt', detail: '/home/me/alpha/probe3.txt', callKey: 'aaaaaaaaaaaaaaaa',
-    answerable: true, permissionMode: 'default', suggestions: [],
+    toolName: 'Write', summary: 'probe3.txt', callKey: 'aaaaaaaaaaaaaaaa',
     ...over,
-  })).body.permissionId as string
+  })
   /** Claude Code rewriting <pid>.json with a new status, then the next poll of the roster. */
   const registryStatus = async (status: string, statusUpdatedAt = Date.now()) => {
     await sleep(5)
     writeEntry(regDir, { pid: process.pid, sessionId: S, cwd: '/home/me/alpha', name: 'alpha-3a', status, statusUpdatedAt })
     office.server.registry.scan()
   }
-  const decide = (id: string, decision: string) =>
-    request(office.server.app).post(`/permission/${id}`).set('Authorization', `Bearer ${office.server.UI_TOKEN}`).send({ decision })
-  const poll = (id: string) => request(office.server.app).get(`/permission/${id}?wait=0`).set('Authorization', `Bearer ${office.server.AUTH_TOKEN}`)
   const main = () => office.server.sessions.get(S).main
 
   beforeAll(async () => {
@@ -688,49 +664,43 @@ describe('a permission dialog answered or dismissed in the terminal (the registr
     try { rmSync(regDir, { recursive: true, force: true }) } catch {}
   })
 
-  it('Esc at the dialog (no hook fires; the registry goes waiting -> idle): the card is released as answered in the terminal, a late office click is a 409, and the hand comes down', async () => {
-    const id = await ask()
+  it('Esc at the dialog (no hook fires; the registry goes waiting -> idle): the hand comes down to idle', async () => {
+    await ask()
     await postEvent(office.server, { type: 'session_needs_you', kind: 'permission', ...SESSION, promptId: 'p-1', notificationType: 'permission_prompt', message: 'Claude needs your permission' })
     await sleep(350)
     expect(main()).toMatchObject({ state: 'needs-you', needsYou: { kind: 'permission', toolName: 'Write' } })
     await registryStatus('waiting')
-    expect(office.server.permissions.get(id)?.status).toBe('pending')
+    expect(main().state).toBe('needs-you')
 
     await registryStatus('idle')
-    expect(office.server.permissions.get(id)).toMatchObject({ status: 'resolved_elsewhere', decidedBy: 'terminal' })
-    expect((await request(office.server.app).get('/permissions')).body.permissions).toEqual([])
-    expect((await poll(id)).body).toMatchObject({ status: 'resolved_elsewhere' })
-    const late = await decide(id, 'allow')
-    expect(late.status).toBe(409)
-    expect(late.body).toMatchObject({ status: 'resolved_elsewhere' })
     expect(main().state).toBe('idle')
     expect(main()).not.toHaveProperty('needsYou')
   })
 
-  it('Yes on a long-running command (waiting -> busy, its PostToolUse minutes away): released at once, the hand comes down to working', async () => {
+  it('Yes on a long-running command (waiting -> busy, its PostToolUse minutes away): the hand comes down to working at once', async () => {
     await postEvent(office.server, { type: 'session_prompt', ...SESSION, promptId: 'p-2', text: 'run the tests' })
-    const id = await ask({ promptId: 'p-2', toolName: 'Bash', summary: 'npm test', detail: 'npm test', callKey: 'bbbbbbbbbbbbbbbb' })
+    await ask({ promptId: 'p-2', toolName: 'Bash', summary: 'npm test', callKey: 'bbbbbbbbbbbbbbbb' })
     await sleep(350)
+    expect(main().state).toBe('needs-you')
     await registryStatus('waiting')
     await registryStatus('busy')
-    expect(office.server.permissions.get(id)).toMatchObject({ status: 'resolved_elsewhere', decidedBy: 'terminal' })
-    expect((await decide(id, 'deny')).status).toBe(409)
     expect(main().state).toBe('working')
+    expect(main()).not.toHaveProperty('needsYou')
   })
 
-  it('a request that came in after the dialog closed (the next one) stays pending; a status change that is not leaving "waiting" releases nothing', async () => {
+  it('a request that came in after the dialog closed (the next one) stays up; a status change that is not leaving "waiting" lowers nothing', async () => {
     await registryStatus('waiting')
     const closedAt = Date.now()
     await sleep(5)
-    const next = await ask({ promptId: 'p-3', callKey: 'cccccccccccccccc' })
+    await ask({ promptId: 'p-3', callKey: 'cccccccccccccccc' })
+    await sleep(350)
     await registryStatus('busy', closedAt)
-    expect(office.server.permissions.get(next)?.status).toBe('pending')
+    expect(main().state).toBe('needs-you')
     await registryStatus('idle')
-    expect(office.server.permissions.get(next)?.status).toBe('pending')
-    office.server.permissions.resolveSession(S, '')
+    expect(main().state).toBe('needs-you')
   })
 
-  it('a leftover file whose pid now belongs to another process is not a session (the reused pid check, in the office)', async () => {
+  it('a leftover file whose pid now belongs to another process is not a session (the reused pid check, in the server)', async () => {
     const ghost = '66666666-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
     writeFileSync(join(regDir, '1.json'), JSON.stringify(entry({ pid: 1, sessionId: ghost, status: 'waiting', procStart: '99999999' })))
     office.server.registry.scan()

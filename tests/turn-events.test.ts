@@ -3,18 +3,18 @@
  * session_needs_you / session_tool_done / session_error / session_compact /
  * session_cwd / session_model (from the main-thread hooks) drive one `main`
  * record per session — working, waiting, idle, needs-you, error, compacting —
- * persist the boss's prompts and Claude's replies as chat rows behind the
- * token (at the logPrompts level), and travel on GET /sessions, the WS
- * snapshot and agents.json.
+ * keep the trainer's last prompt and Claude's last reply (200 characters,
+ * behind the token), and travel on GET /sessions, the WS snapshot and
+ * agents.json.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, officeProtocols, postAuthed, postEvent, removeOffice, type Office } from './helpers'
+import { listen, loadOffice, officeProtocols, postEvent, removeOffice, type Office } from './helpers'
 
 const ALPHA = {
   sessionId: 'aaaaaaaa-1111-4111-8111-111111111111',
@@ -32,13 +32,6 @@ const BETA = {
 const DEBOUNCE_MS = 300
 const TIMEOUT_MS = 10 * 60_000
 
-const gp = (id: string, task: string) => ({ id, name: 'Agent', role: 'general-purpose', task, agentType: 'general-purpose', background: true })
-
-/** GET /chat with the office token: the transcript rows included. */
-const chatRows = async (office: Office) =>
-  (await request(office.server.app).get('/chat').set('Authorization', `Bearer ${office.server.AUTH_TOKEN}`)).body.messages as Array<Record<string, any>>
-/** GET /chat as any other local process sees it. */
-const openChatRows = async (office: Office) => (await request(office.server.app).get('/chat')).body.messages as Array<Record<string, any>>
 const main = (office: Office, sessionId: string) => office.server.sessions.get(sessionId)?.main
 
 /** The `[main] ...` lines the server logged while `fn` ran. */
@@ -76,7 +69,7 @@ describe('session_prompt (UserPromptSubmit)', () => {
     expect(main(office, ALPHA.sessionId)).toEqual({ state: 'idle', since: expect.any(Number), waitingOn: 0 })
   })
 
-  it('moves Claude to working, remembers the prompt, persists a Boss row (role boss, msg_type prompt) and logs the transition', async () => {
+  it('moves Claude to working, remembers the prompt and logs the transition', async () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     let res: any
     let lines: string[]
@@ -94,17 +87,12 @@ describe('session_prompt (UserPromptSubmit)', () => {
     expect(m).toMatchObject({ state: 'working', lastPrompt: 'fix the login bug', promptId: 'p-1', waitingOn: 0 })
     expect(m.lastPromptAt).toBeTypeOf('number')
     expect(m.since).toBeLessThanOrEqual(m.lastPromptAt)
-
-    expect(await chatRows(office)).toEqual([
-      expect.objectContaining({ sender: 'Boss', role: 'boss', text: 'fix the login bug', msg_type: 'prompt', recipient: null, is_system: 0 }),
-    ])
   })
 
-  it('returns its own broadcast shape (not a chat_message) with the row id and main', () => {
+  it('returns its broadcast shape with main', () => {
     const ev = office.server.processEvent({ type: 'session_prompt', ...BETA, promptId: 'p-2', text: 'hello there' })
     expect(ev).toEqual({
       type: 'session_prompt', sessionId: BETA.sessionId, project: 'beta', promptId: 'p-2', text: 'hello there', isWakeup: false,
-      messageId: expect.any(Number),
       main: { state: 'working', since: expect.any(Number), waitingOn: 0, lastPrompt: 'hello there', lastPromptAt: expect.any(Number), promptId: 'p-2' },
       timestamp: expect.any(Number),
     })
@@ -112,28 +100,18 @@ describe('session_prompt (UserPromptSubmit)', () => {
     expect(office.server.sessions.get(BETA.sessionId)).toMatchObject({ source: 'implicit', project: 'beta' })
   })
 
-  it('a wake-up (a background worker reporting back) is not a Boss row and names the worker, resolved to its office agent', async () => {
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Count etc') })
-    office.server.processEvent({ type: 'agent_linked', agentId: 'agent-a1', subagentId: 'ac5ff55b850b4fecf', ...ALPHA })
+  it('a wake-up (a background task reporting back) is flagged and names the subagent', () => {
     office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: 'Waiting for the count.', backgroundTasks: [], crons: 0 })
-    const before = (await chatRows(office)).length
-
     const ev = office.server.processEvent({
       type: 'session_prompt', ...ALPHA, promptId: 'p-3', text: 'Agent "Count etc" finished',
       isWakeup: true, wakeupAgentId: 'ac5ff55b850b4fecf', wakeupStatus: 'completed',
     })
     expect(ev).toMatchObject({
       type: 'session_prompt', isWakeup: true, text: 'Agent "Count etc" finished',
-      wakeupAgentId: 'ac5ff55b850b4fecf', wakeupOfficeId: 'agent-a1', wakeupStatus: 'completed',
+      wakeupAgentId: 'ac5ff55b850b4fecf', wakeupStatus: 'completed',
       main: expect.objectContaining({ state: 'working', lastPrompt: 'Agent "Count etc" finished', promptId: 'p-3' }),
     })
-    expect(ev).not.toHaveProperty('messageId')
-    expect((await chatRows(office)).length).toBe(before)
-
-    // An unknown worker id is passed through without an office id
-    const unknown = office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-4', text: 'Agent "x" finished', isWakeup: true, wakeupAgentId: 'nope' })
-    expect(unknown).toMatchObject({ isWakeup: true, wakeupAgentId: 'nope' })
-    expect(unknown).not.toHaveProperty('wakeupOfficeId')
+    expect(ev).not.toHaveProperty('wakeupOfficeId')
   })
 
   it('clears a raised needs-you, a parked one, and an error', () => {
@@ -160,152 +138,23 @@ describe('session_prompt (UserPromptSubmit)', () => {
     expect(main(office, ALPHA.sessionId)).not.toHaveProperty('error')
   })
 
-  it('POST /event clamps the text (2000 at logPrompts=full), the prompt id to 80, and reads isWakeup only as a real boolean', async () => {
-    await postAuthed(office.server, '/settings', { logPrompts: 'full' })
+  it('POST /event keeps 200 characters of the text, clamps the prompt id to 80, and reads isWakeup only as a real boolean', async () => {
     const res = await postEvent(office.server, { type: 'session_prompt', ...BETA, promptId: 'q'.repeat(200), text: 'x'.repeat(5000), isWakeup: 'yes', wakeupAgentId: 'w'.repeat(200) })
     expect(res.status).toBe(200)
     const m = main(office, BETA.sessionId)
-    expect(m.lastPrompt).toHaveLength(2000)
+    expect(m.lastPrompt).toHaveLength(200)
     expect(m.promptId).toHaveLength(80)
-    // Not a wake-up, so the prompt was persisted as the boss speaking
-    const rows = await chatRows(office)
-    expect(rows.at(-1)).toMatchObject({ sender: 'Boss', role: 'boss', msg_type: 'prompt' })
-    expect(rows.at(-1)!.text).toHaveLength(2000)
-    await postAuthed(office.server, '/settings', { logPrompts: 'summary' })
+    office.server.processEvent({ type: 'session_turn_end', ...BETA, text: 'r'.repeat(500), backgroundTasks: [], crons: 0 })
+    expect(main(office, BETA.sessionId).lastReply).toHaveLength(200)
   })
 
-  it('an empty prompt changes the state but persists no row; a prompt without a sessionId is ignored', async () => {
-    const before = (await chatRows(office)).length
+  it('an empty prompt changes the state; a prompt without a sessionId is ignored', () => {
     office.server.processEvent({ type: 'session_turn_end', ...BETA, text: '', backgroundTasks: [], crons: 0 })
     const ev = office.server.processEvent({ type: 'session_prompt', ...BETA, promptId: 'p-7', text: '' })
     expect(ev).toMatchObject({ type: 'session_prompt', text: '', main: expect.objectContaining({ state: 'working' }) })
-    expect(ev).not.toHaveProperty('messageId')
-    expect((await chatRows(office)).length).toBe(before)
 
     expect(office.server.processEvent({ type: 'session_prompt', text: 'orphan', promptId: 'p' })).toBeNull()
     expect(office.server.sessions.size).toBe(2)
-  })
-})
-
-describe('logPrompts: what of the conversation is kept (GET/POST /settings)', () => {
-  const offices: Office[] = []
-  afterEach(() => {
-    while (offices.length) removeOffice(offices.pop())
-  })
-
-  it('defaults to summary (200 characters), is readable openly and changed with the token, and comes back after a restart from settings.json', async () => {
-    const office = await loadOffice()
-    offices.push(office)
-    expect((await request(office.server.app).get('/settings')).body).toEqual({ logPrompts: 'summary', answerPermissions: true, logPromptsLevels: ['off', 'summary', 'full'] })
-    expect(existsSync(join(office.dir, 'settings.json'))).toBe(false)  // nothing written until a change
-
-    office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'p'.repeat(500) })
-    office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: 'r'.repeat(500), backgroundTasks: [], crons: 0 })
-    expect(main(office, ALPHA.sessionId).lastPrompt).toHaveLength(200)
-    expect(main(office, ALPHA.sessionId).lastReply).toHaveLength(200)
-    expect((await chatRows(office)).map(m => m.text.length)).toEqual([200, 200])
-
-    const bad = await postAuthed(office.server, '/settings', { logPrompts: 'everything' })
-    expect(bad.status).toBe(400)
-    expect(bad.body).toEqual({ error: 'logPrompts must be one of off, summary, full' })
-    expect((await request(office.server.app).post('/settings').send({ logPrompts: 'off' })).status).toBe(401)
-
-    const set = await postAuthed(office.server, '/settings', { logPrompts: 'off' })
-    expect(set.status).toBe(200)
-    expect(set.body).toEqual({ ok: true, logPrompts: 'off', answerPermissions: true })
-    expect(JSON.parse(readFileSync(join(office.dir, 'settings.json'), 'utf8'))).toEqual({ logPrompts: 'off', answerPermissions: true })
-
-    const again = await loadOffice({ dir: office.dir })
-    offices.push(again)
-    expect(again.server.settings.logPrompts).toBe('off')
-    expect((await request(again.server.app).get('/settings')).body.logPrompts).toBe('off')
-  })
-
-  it('off: state transitions only — no text stored, broadcast or persisted; full: the whole 2000-character clamp', async () => {
-    const office = await loadOffice()
-    offices.push(office)
-    await postAuthed(office.server, '/settings', { logPrompts: 'off' })
-
-    const prompt = office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'the secret plan' })
-    expect(prompt).toMatchObject({ type: 'session_prompt', text: '', isWakeup: false, main: expect.objectContaining({ state: 'working', lastPrompt: '' }) })
-    expect(prompt).not.toHaveProperty('messageId')
-    const reply = office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: 'the secret answer', backgroundTasks: [], crons: 0 })
-    expect(reply).toMatchObject({ type: 'session_turn_end', text: '', main: expect.objectContaining({ state: 'idle', lastReply: '' }) })
-    expect(reply).not.toHaveProperty('messageId')
-    expect(await chatRows(office)).toEqual([])
-    expect(JSON.stringify(JSON.parse(readFileSync(join(office.dir, 'agents.json'), 'utf8')))).not.toMatch(/secret/)
-
-    await postAuthed(office.server, '/settings', { logPrompts: 'full' })
-    office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-2', text: 'x'.repeat(3000) })
-    expect(main(office, ALPHA.sessionId).lastPrompt).toHaveLength(2000)
-    expect((await chatRows(office)).at(-1)!.text).toHaveLength(2000)
-  })
-
-  it('switching to off drops the text already held (memory, agents.json, GET /agents, every later broadcast) and says so with a session_main; full -> summary trims to 200', async () => {
-    const office = await loadOffice()
-    offices.push(office)
-    office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'the secret plan: acquire ACME for $4M' })
-    office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: 'Understood, ACME at $4M.', backgroundTasks: [], crons: 0 })
-
-    // The office page's socket (trusted: it would get the text if any were left)
-    const port = await listen(office.server.httpServer)
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, officeProtocols(office.server))
-    const announced: any[] = []
-    ws.on('message', raw => announced.push(JSON.parse(raw.toString())))
-    await new Promise<void>((res, rej) => { ws.once('open', () => res()); ws.once('error', rej) })
-    try {
-      await new Promise(r => setTimeout(r, 50))
-      announced.length = 0
-      expect((await postAuthed(office.server, '/settings', { logPrompts: 'off' })).status).toBe(200)
-      await new Promise(r => setTimeout(r, 50))
-    } finally {
-      ws.terminate()
-      await new Promise<void>(res => office.server.wss.close(() => res()))
-      await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    }
-    expect(main(office, ALPHA.sessionId)).toMatchObject({ lastPrompt: '', lastReply: '' })
-    expect(readFileSync(join(office.dir, 'agents.json'), 'utf8')).not.toMatch(/ACME/)
-    const card = await request(office.server.app).get(`/agents/main-${ALPHA.sessionId}`).set('Authorization', `Bearer ${office.server.AUTH_TOKEN}`)
-    expect(card.body.main).toMatchObject({ lastPrompt: '', lastReply: '' })
-    expect(announced.filter(m => m.type === 'session_main')).toEqual([expect.objectContaining({ sessionId: ALPHA.sessionId, main: expect.objectContaining({ lastPrompt: '', lastReply: '' }) })])
-    expect(JSON.stringify(announced)).not.toMatch(/ACME/)
-    const later = office.server.processEvent({ type: 'session_compact', ...ALPHA, phase: 'pre', trigger: 'auto' })
-    expect(JSON.stringify(later)).not.toMatch(/ACME/)
-
-    // Lowering full to summary trims to the summary length
-    await postAuthed(office.server, '/settings', { logPrompts: 'full' })
-    office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-2', text: 'x'.repeat(1500) })
-    await postAuthed(office.server, '/settings', { logPrompts: 'summary' })
-    expect(main(office, ALPHA.sessionId).lastPrompt).toHaveLength(200)
-  })
-
-  it('/clear also blanks the last prompt and reply each session holds; a restart under off drops what agents.json still had', async () => {
-    const office = await loadOffice()
-    offices.push(office)
-    office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'the secret plan' })
-    office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: 'the secret answer', backgroundTasks: [], crons: 0 })
-    expect((await postAuthed(office.server, '/chat', { sender: 'Antony', text: '/clear' })).status).toBe(200)
-    expect(main(office, ALPHA.sessionId)).toMatchObject({ lastPrompt: '', lastReply: '' })
-    expect((await chatRows(office)).some(m => /secret/.test(m.text))).toBe(false)
-
-    office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-2', text: 'another secret' })
-    writeFileSync(join(office.dir, 'settings.json'), JSON.stringify({ logPrompts: 'off', answerPermissions: true }))
-    const again = await loadOffice({ dir: office.dir })
-    offices.push(again)
-    expect(main(again, ALPHA.sessionId).lastPrompt).toBe('')
-    expect(readFileSync(join(office.dir, 'agents.json'), 'utf8')).not.toMatch(/another secret/)
-  })
-
-  it('a settings.json with junk in it is ignored', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'agent-office-test-'))
-    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ logPrompts: 'everything' }))
-    const office = await loadOffice({ dir })
-    offices.push(office)
-    expect(office.server.settings.logPrompts).toBe('summary')
-    writeFileSync(join(dir, 'settings.json'), '{not json')
-    const again = await loadOffice({ dir })
-    offices.push(again)
-    expect(again.server.settings.logPrompts).toBe('summary')
   })
 })
 
@@ -313,31 +162,10 @@ describe('the transcript stays behind the token', () => {
   let office: Office
   beforeAll(async () => {
     office = await loadOffice()
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Count etc') })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'count /etc please' })
     office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: '/etc has 154 entries.', backgroundTasks: [], crons: 0 })
-    await request(office.server.app).post('/chat').send({ sender: 'Antony', text: 'nice' })
-    await postAuthed(office.server, '/chat/reply', { sender: 'Reviewer', role: 'code-reviewer', recipient: 'Agent', text: 'ping' })
   })
   afterAll(() => removeOffice(office))
-
-  it('GET /chat without the token (the watcher, any local process) never returns prompt/reply rows; with it, it does; ?since and ?recipient behave the same', async () => {
-    const open = await openChatRows(office)
-    expect(open.map(m => m.text)).toEqual(['starting: Count etc', 'nice', 'ping'])
-    expect(open.some(m => m.msg_type === 'prompt' || m.msg_type === 'reply')).toBe(false)
-
-    const withToken = await chatRows(office)
-    expect(withToken.map(m => [m.sender, m.msg_type])).toEqual([
-      ['Agent', null], ['Boss', 'prompt'], ['Claude', 'reply'], ['Antony', null], ['Reviewer', 'message'],
-    ])
-
-    const since = await request(office.server.app).get('/chat?since=1')
-    expect(since.body.messages.map((m: any) => m.text)).toEqual(['starting: Count etc', 'nice', 'ping'])
-    const sinceToken = await request(office.server.app).get('/chat?since=1').set('Authorization', `Bearer ${office.server.AUTH_TOKEN}`)
-    expect(sinceToken.body.messages).toHaveLength(5)
-    const inbox = await request(office.server.app).get('/chat?recipient=Agent')
-    expect(inbox.body.messages.map((m: any) => m.text)).toEqual(['ping'])
-  })
 
   it('GET /sessions leaves the prompt and reply text out of main unless the token is presented; the WS snapshot keeps them', async () => {
     const open = await request(office.server.app).get('/sessions')
@@ -368,18 +196,14 @@ describe('main-thread tool calls (agent_working without an agent)', () => {
     const second = mainLog(() => office.server.processEvent({ type: 'agent_working', status: 'editing index.js', ...ALPHA }))
     expect(second).toEqual([])
     expect(main(office, ALPHA.sessionId)).toMatchObject({ state: 'working' })
-    expect(office.server.sessions.get(ALPHA.sessionId).lastStatus).toBe('editing index.js')
-    // The broadcast shape is unchanged
+    // The broadcast names the session and carries its main
     const ev = office.server.processEvent({ type: 'agent_working', status: 'running: make', ...ALPHA })
-    expect(ev).toEqual({ type: 'agent_working', agentId: undefined, status: 'running: make', sessionId: ALPHA.sessionId, project: 'alpha', timestamp: expect.any(Number) })
+    expect(ev).toEqual({ type: 'agent_working', status: 'running: make', sessionId: ALPHA.sessionId, project: 'alpha', main: expect.objectContaining({ state: 'working' }), timestamp: expect.any(Number) })
   })
 
-  it("a worker's tool call leaves main alone", () => {
-    office.server.processEvent({ type: 'agent_spawned', ...BETA, agent: gp('agent-b1', 'beta work') })
-    office.server.processEvent({ type: 'agent_linked', agentId: 'agent-b1', subagentId: 'sub-b1', ...BETA })
-    office.server.processEvent({ type: 'agent_working', agentId: 'sub-b1', status: 'running: ls', ...BETA })
+  it("a subagent's tool call leaves main alone", () => {
+    expect(office.server.processEvent({ type: 'agent_working', agentId: 'sub-b1', status: 'running: ls', ...BETA })).toBeNull()
     expect(main(office, BETA.sessionId)).toMatchObject({ state: 'idle' })
-    expect(office.server.activeAgents.get('agent-b1')).toMatchObject({ state: 'working' })
   })
 
   it('does not lower a permission hand raised less than 1 s earlier (the PreToolUse POST can arrive after the PermissionRequest POST), but does after', () => {
@@ -682,10 +506,6 @@ describe('a permission a worker asked for (PermissionRequest inside a subagent)'
     office = await loadOffice()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'explore' })
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: { id: 'agent-fg', name: 'Explorer', role: 'Explore', task: 'look around', agentType: 'Explore' } })
-    office.server.processEvent({ type: 'agent_linked', ...ALPHA, agentId: 'agent-fg', subagentId: SUB })
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-bg', 'count things') })
-    office.server.processEvent({ type: 'agent_linked', ...ALPHA, agentId: 'agent-bg', subagentId: OTHER })
   })
   afterAll(() => {
     vi.useRealTimers()
@@ -716,7 +536,7 @@ describe('a permission a worker asked for (PermissionRequest inside a subagent)'
     office.server.processEvent({ type: 'session_tool_done', ...ALPHA, batch: true, count: 1 })
     expect(main(office, ALPHA.sessionId).state).toBe('needs-you')
     const lines = mainLog(() => office.server.processEvent({ type: 'agent_working', ...ALPHA, agentId: SUB, agentType: 'Explore', status: 'searching for \'x\'', tool: 'Grep' }))
-    expect(lines).toEqual(["[main] alpha: needs-you -> working (Explorer: searching for 'x')"])
+    expect(lines).toEqual(["[main] alpha: needs-you -> working (subagent: searching for 'x')"])
     vi.useRealTimers()
   })
 
@@ -731,7 +551,7 @@ describe('a permission a worker asked for (PermissionRequest inside a subagent)'
     raise(office, { ...ALPHA, kind: 'permission', promptId: 'p-1', toolName: 'Bash', summary: 'wc -l', agentId: OTHER, callKey: RM })
     expect(main(office, ALPHA.sessionId).state).toBe('needs-you')
     const lines = mainLog(() => office.server.processEvent({ type: 'agent_completed', ...ALPHA, agentId: OTHER, result: 'counted' }))
-    expect(lines).toEqual(['[main] alpha: needs-you -> waiting (Agent finished)'])
+    expect(lines).toEqual(['[main] alpha: needs-you -> waiting (subagent finished: counted)'])
     expect(main(office, ALPHA.sessionId)).not.toHaveProperty('needsYou')
   })
 })
@@ -745,7 +565,7 @@ describe('session_turn_end (Stop)', () => {
   })
   afterAll(() => removeOffice(office))
 
-  it('with no background task: idle, the reply is stored and persisted as a Claude row (role assistant, msg_type reply), needs-you cleared', async () => {
+  it('with no background task: idle, the reply is stored, needs-you cleared', () => {
     raise(office, { ...ALPHA, kind: 'permission', promptId: 'p-1', toolName: 'Bash', summary: 'ls /etc' })
     let ev: any
     const log = mainLog(() => {
@@ -754,20 +574,14 @@ describe('session_turn_end (Stop)', () => {
     expect(log).toEqual(['[main] alpha: needs-you -> idle (turn ended)', '[main] alpha: reply: /etc has 154 entries.'])
     expect(ev).toEqual({
       type: 'session_turn_end', sessionId: ALPHA.sessionId, project: 'alpha', promptId: 'p-1', text: '/etc has 154 entries.',
-      backgroundTasks: [], crons: 0, stopHookActive: false, messageId: expect.any(Number),
+      backgroundTasks: [], crons: 0, stopHookActive: false,
       main: { state: 'idle', since: expect.any(Number), waitingOn: 0, lastPrompt: 'count /etc', lastPromptAt: expect.any(Number), lastReply: '/etc has 154 entries.', lastReplyAt: expect.any(Number), crons: 0, promptId: 'p-1' },
       timestamp: expect.any(Number),
     })
     expect(main(office, ALPHA.sessionId)).not.toHaveProperty('needsYou')
-    expect(await chatRows(office)).toEqual([
-      expect.objectContaining({ sender: 'Boss', role: 'boss', msg_type: 'prompt', text: 'count /etc' }),
-      expect.objectContaining({ sender: 'Claude', role: 'assistant', msg_type: 'reply', text: '/etc has 154 entries.', recipient: null, is_system: 0 }),
-    ])
   })
 
-  it('with a running background task: waiting, waitingOn counts running/pending entries, subagent tasks are resolved to office agents', () => {
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Count etc') })
-    office.server.processEvent({ type: 'agent_linked', agentId: 'agent-a1', subagentId: 'ac5ff55b850b4fecf', ...ALPHA })
+  it('with a running background task: waiting, waitingOn counts running/pending entries', () => {
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-2', text: 'count in the background' })
     const tasks = [
       { id: 'ac5ff55b850b4fecf', type: 'subagent', status: 'running', description: 'Count etc' },
@@ -782,13 +596,13 @@ describe('session_turn_end (Stop)', () => {
     expect(ev).toMatchObject({
       type: 'session_turn_end', crons: 1,
       backgroundTasks: [
-        { id: 'ac5ff55b850b4fecf', type: 'subagent', status: 'running', description: 'Count etc', officeId: 'agent-a1' },
+        { id: 'ac5ff55b850b4fecf', type: 'subagent', status: 'running', description: 'Count etc' },
         { id: 'sh1', type: 'shell', status: 'pending', description: 'npm test' },
         { id: 'sh0', type: 'shell', status: 'completed', description: 'npm ci' },
       ],
       main: expect.objectContaining({ state: 'waiting', waitingOn: 2, crons: 1, lastReply: 'Counting; I will reply DONE when it finishes.' }),
     })
-    expect(ev.backgroundTasks[1]).not.toHaveProperty('officeId')
+    expect(ev.backgroundTasks[0]).not.toHaveProperty('officeId')
 
     // The wake-up prompt puts Claude back to work; its final Stop makes it idle
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-3', text: 'Agent "Count etc" finished', isWakeup: true, wakeupAgentId: 'ac5ff55b850b4fecf' })
@@ -797,16 +611,13 @@ describe('session_turn_end (Stop)', () => {
     expect(main(office, ALPHA.sessionId)).toMatchObject({ state: 'idle', waitingOn: 0, lastReply: 'DONE' })
   })
 
-  it('an empty reply persists no row; a Stop without a sessionId is ignored', async () => {
-    const before = (await chatRows(office)).length
-    const ev = office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-4', text: '', backgroundTasks: [], crons: 0 })
-    expect(ev).not.toHaveProperty('messageId')
-    expect((await chatRows(office)).length).toBe(before)
+  it('an empty reply is kept empty; a Stop without a sessionId is ignored', () => {
+    office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-4', text: '', backgroundTasks: [], crons: 0 })
+    expect(main(office, ALPHA.sessionId).lastReply).toBe('')
     expect(office.server.processEvent({ type: 'session_turn_end', text: 'x', backgroundTasks: [] })).toBeNull()
   })
 
   it('POST /event keeps at most 10 tasks with four clamped fields each, clamps the text and drops junk', async () => {
-    await postAuthed(office.server, '/settings', { logPrompts: 'full' })
     const res = await postEvent(office.server, {
       type: 'session_turn_end', ...ALPHA, promptId: 'p-5', text: 'r'.repeat(5000),
       backgroundTasks: [
@@ -818,10 +629,8 @@ describe('session_turn_end (Stop)', () => {
     })
     expect(res.status).toBe(200)
     const m = main(office, ALPHA.sessionId)
-    expect(m.lastReply).toHaveLength(2000)
+    expect(m.lastReply).toHaveLength(200)
     expect(m).toMatchObject({ state: 'waiting', waitingOn: 8, crons: 0 })
-    const rows = await chatRows(office)
-    expect(rows.at(-1)!.text).toHaveLength(2000)
     const saved = JSON.parse(readFileSync(join(office.dir, 'agents.json'), 'utf8'))
     expect(JSON.stringify(saved)).not.toContain('secret --flag')
   })
@@ -904,19 +713,15 @@ describe('session_cwd (CwdChanged) and session_model (PostModelSwitch)', () => {
   beforeAll(async () => {
     office = await loadOffice()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup', model: 'claude-haiku-5-5' })
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-a1', 'Count etc') })
   })
   afterAll(() => removeOffice(office))
 
-  it('a cd moves the session and its workers to the new project; the broadcast is the session with oldCwd', async () => {
+  it('a cd moves the session to the new project; the broadcast is the session with oldCwd', () => {
     const ev = office.server.processEvent({ type: 'session_cwd', ...ALPHA, cwd: '/home/me/beta', project: 'beta', oldCwd: '/home/me/alpha' })
     expect(ev).toEqual(expect.objectContaining({
-      type: 'session_cwd', sessionId: ALPHA.sessionId, project: 'beta', cwd: '/home/me/beta', oldCwd: '/home/me/alpha', agentIds: ['agent-a1'], timestamp: expect.any(Number),
+      type: 'session_cwd', sessionId: ALPHA.sessionId, project: 'beta', cwd: '/home/me/beta', oldCwd: '/home/me/alpha', timestamp: expect.any(Number),
     }))
     expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ cwd: '/home/me/beta', project: 'beta' })
-    expect(office.server.activeAgents.get('agent-a1').project).toBe('beta')
-    const agents = await request(office.server.app).get('/agents')
-    expect(agents.body.agents[0]).toMatchObject({ id: 'agent-a1', project: 'beta' })
 
     // The project is derived when the event has none; without a cwd nothing happens
     office.server.processEvent({ type: 'session_cwd', sessionId: ALPHA.sessionId, cwd: '/tmp/' })
@@ -941,29 +746,6 @@ describe('session_cwd (CwdChanged) and session_model (PostModelSwitch)', () => {
     const model = await postEvent(office.server, { type: 'session_model', ...ALPHA, model: 'm'.repeat(300), fromModel: 'f'.repeat(300), switchSource: 's'.repeat(50) })
     expect(model.status).toBe(200)
     expect(office.server.sessions.get(ALPHA.sessionId).model).toHaveLength(200)
-  })
-})
-
-describe('agent_completed carries what a foreground agent cost', () => {
-  let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
-
-  it('tokens, durationMs, toolUses and model travel on the broadcast and the record; junk values are dropped by POST /event', async () => {
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: { ...gp('agent-fg', 'Find hostname'), background: false } })
-    const ev = office.server.processEvent({ type: 'agent_completed', ...ALPHA, agentId: 'agent-fg', result: 'The hostname is vm.', tokens: 20442, durationMs: 2913, toolUses: 1, model: 'claude-haiku-5-5' })
-    expect(ev).toMatchObject({ type: 'agent_completed', agentId: 'agent-fg', result: 'The hostname is vm.', tokens: 20442, durationMs: 2913, toolUses: 1, model: 'claude-haiku-5-5', sessionId: ALPHA.sessionId })
-    expect(office.server.activeAgents.get('agent-fg')).toMatchObject({ state: 'completed', tokens: 20442, durationMs: 2913, toolUses: 1, model: 'claude-haiku-5-5' })
-
-    office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: gp('agent-bg', 'Count etc') })
-    const res = await postEvent(office.server, { type: 'agent_completed', ...ALPHA, agentId: 'agent-bg', result: 'done', tokens: -1, durationMs: 'fast', toolUses: 2.5 })
-    expect(res.status).toBe(200)
-    const bg = office.server.activeAgents.get('agent-bg')
-    expect(bg.state).toBe('completed')
-    for (const key of ['tokens', 'durationMs', 'toolUses', 'model']) expect(bg).not.toHaveProperty(key)
-    // Without the totals (a background agent's SubagentStop) the event is as before
-    const plain = office.server.processEvent({ type: 'agent_completed', agentId: 'ghost', result: 'done' })
-    expect(plain).toEqual({ type: 'agent_completed', agentId: 'ghost', result: 'done', timestamp: expect.any(Number) })
   })
 })
 
@@ -1123,7 +905,6 @@ describe('POST /event body limit', () => {
   afterAll(() => removeOffice(office))
 
   it('takes a session event well over 10 KB (2000 non-ASCII characters escape to six bytes each) and still refuses one over 64 KB; everything else keeps 10 KB', async () => {
-    await postAuthed(office.server, '/settings', { logPrompts: 'full' })
     const text = '☃'.repeat(2000)
     const body = {
       type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text,
@@ -1138,15 +919,15 @@ describe('POST /event body limit', () => {
       .set('Content-Type', 'application/json')
       .send(raw)
     expect(res.status).toBe(200)
-    expect(main(office, ALPHA.sessionId)).toMatchObject({ state: 'waiting', waitingOn: 10, lastReply: text })
+    expect(main(office, ALPHA.sessionId)).toMatchObject({ state: 'waiting', waitingOn: 10, lastReply: text.slice(0, 200) })
 
     const huge = await postEvent(office.server, { type: 'session_prompt', ...ALPHA, promptId: 'p-2', text: 'x'.repeat(70 * 1024) })
     expect(huge.status).toBe(413)
     expect(huge.body).toEqual({ error: 'Request body too large' })
 
-    const chat = await request(office.server.app).post('/chat').send({ sender: 'x', text: 'y'.repeat(20_000) })
-    expect(chat.status).toBe(413)
-    const settings = await postAuthed(office.server, '/settings', { logPrompts: 'summary', pad: 'z'.repeat(20_000) })
-    expect(settings.status).toBe(413)
+    const status = await request(office.server.app).post('/status')
+      .set('Authorization', `Bearer ${office.server.AUTH_TOKEN}`)
+      .send({ type: 'session_status', sessionId: 's', pad: 'z'.repeat(20_000) })
+    expect(status.status).toBe(413)
   })
 })

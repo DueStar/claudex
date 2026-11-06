@@ -162,13 +162,11 @@ function waitForServer(retries = 30, intervalMs = 300) {
  * Start the Express/WebSocket server as a child process.
  *
  * Packaged: run it on the Node bundled inside Electron (ELECTRON_RUN_AS_NODE
- * turns this very binary into a plain Node). That is the ABI the packaged
- * better-sqlite3 is built for (see electron/after-pack.cjs), and it does not
- * depend on a `node` on the user's PATH — apps opened from Finder, the Dock or
- * a launcher get a bare system PATH without Homebrew/nvm.
+ * turns this very binary into a plain Node), so it does not depend on a
+ * `node` on the user's PATH.
  *
- * Dev: node_modules are built for the system Node, so use the Node that runs
- * npm (`npm_node_execpath`, set by `npm run ...`), or `node` from PATH.
+ * Dev: use the Node that runs npm (`npm_node_execpath`, set by `npm run ...`),
+ * or `node` from PATH.
  */
 function startServer() {
   const running = server.get()

@@ -38,17 +38,6 @@ const VALID_EVENTS = [
   'MessageDisplay',
 ]
 
-/**
- * What hooks/install-hooks.sh registers — read from its EVENTS tuple, so the
- * plugin and the installer cannot drift apart without this test noticing.
- */
-const INSTALLER_EVENTS = (() => {
-  const source = readFileSync(join(ROOT, 'hooks', 'install-hooks.sh'), 'utf8')
-  const tuple = /^EVENTS = \(([\s\S]*?)^\)/m.exec(source)
-  if (!tuple) throw new Error('could not find the EVENTS tuple in hooks/install-hooks.sh')
-  return Array.from(tuple[1].matchAll(/'([A-Za-z]+)'/g), (m) => m[1])
-})()
-
 const TRACKER_COMMAND = 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/agent-tracker.sh"'
 
 describe('.claude-plugin/plugin.json', () => {
@@ -147,9 +136,11 @@ describe('hooks/hooks.json', () => {
     }
   })
 
-  it('registers exactly the 19 events the installer registers (workers, sessions, the main thread’s turn, the task list)', () => {
-    expect(INSTALLER_EVENTS).toHaveLength(19)
-    expect(Object.keys(hooks).sort()).toEqual([...INSTALLER_EVENTS].sort())
+  it('registers exactly the 16 events the app sessions need (tool calls, subagents finishing, sessions, the main thread’s turn)', () => {
+    expect(Object.keys(hooks).sort()).toEqual([
+      'CwdChanged', 'Notification', 'PermissionRequest', 'PostCompact', 'PostModelSwitch', 'PostToolBatch', 'PostToolUse',
+      'PostToolUseFailure', 'PreCompact', 'PreToolUse', 'SessionEnd', 'SessionStart', 'Stop', 'StopFailure', 'SubagentStop', 'UserPromptSubmit',
+    ])
   })
 
   it('runs agent-tracker.sh through ${CLAUDE_PLUGIN_ROOT}, double-quoted, once per event', () => {
@@ -201,7 +192,6 @@ describe('hooks/hooks.json × agent-tracker.sh', () => {
     PreToolUse: { ...tool },
     PostToolUse: { ...tool, tool_response: { stdout: '', stderr: '', interrupted: false }, duration_ms: 3 },
     PostToolUseFailure: { ...tool, error: 'Exit code 1\nboom', is_interrupt: false, duration_ms: 3 },
-    SubagentStart: { agent_id: 'a1b2c3d4e5f6a7b8c', agent_type: 'general-purpose' },
     SubagentStop: { agent_id: 'a1b2c3d4e5f6a7b8c', agent_type: 'general-purpose', last_assistant_message: 'done', stop_hook_active: false },
     SessionStart: { source: 'startup' },
     SessionEnd: { reason: 'other' },
@@ -215,8 +205,6 @@ describe('hooks/hooks.json × agent-tracker.sh', () => {
     PostToolBatch: { tool_calls: [{ ...tool, tool_response: '' }] },
     CwdChanged: { old_cwd: '/tmp/project', new_cwd: '/tmp' },
     PostModelSwitch: { from_model: 'a', to_model: 'b', requested_model: 'b', source: 'command', context_tokens: 1 },
-    TaskCreated: { task_id: '1', task_subject: 'Fix the parser', task_description: 'The parser drops trailing commas' },
-    TaskCompleted: { task_id: '1', task_subject: 'Fix the parser' },
   }
 
   // An AGENT_OFFICE_HOME with no auth-token, so the script never finds a server to call

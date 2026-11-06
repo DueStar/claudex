@@ -1,14 +1,13 @@
 /**
- * The WebSocket's handshake auth and the office token's life on disk.
+ * The WebSocket's handshake auth and the server token's life on disk.
  *
  * Any local process can open ws://127.0.0.1:<port>/ws and send any Origin it
- * likes, so the Origin check cannot keep the conversation or the UI token
- * from another local user. A connection that presents the file token (as a
- * subprotocol, the way src/officeToken.ts does) is trusted; every other one
- * still gets the office, read-only: no UI token, no prompt / reply text, no
- * permission command line, no signal output. Then the token file: reused
- * across restarts when it is still safe to trust, replaced otherwise; and
- * the startup link that carries it.
+ * likes, so the Origin check cannot keep the conversation from another local
+ * user. A connection that presents the file token (as a subprotocol, the way
+ * src/officeToken.ts does) is trusted; every other one still gets the
+ * sessions, without the prompt / reply text. Then the token file: reused
+ * across restarts when it is still safe to trust, replaced otherwise; and the
+ * startup link that carries it.
  */
 
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
@@ -55,12 +54,6 @@ function connect(url: string, protocols: string[] = [], headers: Record<string, 
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const ALPHA = { sessionId: 'aaaaaaaa-1111-4111-8111-111111111111', project: 'alpha', cwd: '/home/me/alpha' }
-const SUGGESTIONS = [{ type: 'addRules', rules: [{ toolName: 'Bash', ruleContent: 'git push origin:*' }], behavior: 'allow', destination: 'localSettings' }]
-const PERMISSION = {
-  type: 'session_needs_you', kind: 'permission', ...ALPHA, promptId: 'p-1',
-  toolName: 'Bash', summary: 'git push', detail: 'git push origin main --force-with-lease',
-  answerable: true, permissionMode: 'default', suggestions: SUGGESTIONS,
-}
 
 // ---------------------------------------------------------------------------
 // The handshake
@@ -69,7 +62,6 @@ const PERMISSION = {
 describe('the WebSocket handshake: trusted with the file token, read-only without', () => {
   let office: Office
   let url: string
-  let permissionId: string
   const sockets: WebSocket[] = []
 
   const open = async (protocols: string[] = [], headers: Record<string, string> = {}) => {
@@ -81,12 +73,10 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
   beforeAll(async () => {
     office = await loadOffice()
     const { server } = office
-    // A session with a prompt, a reply and a pending permission dialog, and a failed test run
+    // A session with a prompt and a reply
     server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'deploy the hotfix to prod' })
     server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: 'Pushed the hotfix; prod is green.' })
-    permissionId = (await postEvent(server, PERMISSION)).body.permissionId
-    await postEvent(server, { type: 'signal', ...ALPHA, signals: [{ kind: 'test_failed', target: 'api', detail: '3 failing', error: 'FAIL secret-name.test.ts', command: 'npm test', exitCode: 1 }] })
     url = `ws://127.0.0.1:${await listen(server.httpServer)}/ws`
   })
 
@@ -100,26 +90,18 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
   /** What every read-only snapshot must not carry. */
   function expectReadOnlySnapshot(snapshot: Message) {
     expect(snapshot.type).toBe('snapshot')
-    expect(snapshot).not.toHaveProperty('uiToken')
-    // The office itself is all there: sessions, states, counts
+    // The sessions are all there, with their states
     const alpha = snapshot.sessions.find((s: Message) => s.id === ALPHA.sessionId)
     expect(alpha).toMatchObject({ project: 'alpha', state: 'active', main: { since: expect.any(Number), lastPromptAt: expect.any(Number), lastReplyAt: expect.any(Number) } })
     expect(alpha.main).not.toHaveProperty('lastPrompt')
     expect(alpha.main).not.toHaveProperty('lastReply')
-    // The dialog: which tool, for which project — not the command line or the rules
-    expect(snapshot.pendingPermissions).toEqual([expect.objectContaining({ id: permissionId, toolName: 'Bash', project: 'alpha', status: 'pending' })])
-    expect(snapshot.pendingPermissions[0]).not.toHaveProperty('detail')
-    expect(snapshot.pendingPermissions[0]).not.toHaveProperty('suggestions')
-    // The signal: what happened, not what the command printed
-    expect(snapshot.signals).toEqual([expect.objectContaining({ kind: 'test_failed', target: 'api', exitCode: 1 })])
-    for (const field of ['command', 'error', 'detail']) expect(snapshot.signals[0]).not.toHaveProperty(field)
     const text = JSON.stringify(snapshot)
-    for (const secret of ['deploy the hotfix', 'Pushed the hotfix', '--force-with-lease', 'git push origin:*', 'FAIL secret-name', '3 failing', office.server.UI_TOKEN, office.server.AUTH_TOKEN]) {
+    for (const secret of ['deploy the hotfix', 'Pushed the hotfix', office.server.AUTH_TOKEN]) {
       expect(text, secret).not.toContain(secret)
     }
   }
 
-  it('no token: `auth` says read-only, and the snapshot has no UI token and no conversation', async () => {
+  it('no token: `auth` says read-only, and the snapshot has no conversation', async () => {
     const client = await open()
     expect(await client.next()).toEqual({ type: 'auth', trusted: false })
     expectReadOnlySnapshot(await client.next())
@@ -133,9 +115,6 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
     expectReadOnlySnapshot(await wrong.next())
     const prefix = await open([WS_PROTOCOL, `${WS_TOKEN_PROTOCOL_PREFIX}${office.server.AUTH_TOKEN.slice(0, 63)}`])
     expect(await prefix.next()).toEqual({ type: 'auth', trusted: false })
-    // The UI token is not the file token
-    const ui = await open([WS_PROTOCOL, `${WS_TOKEN_PROTOCOL_PREFIX}${office.server.UI_TOKEN}`])
-    expect(await ui.next()).toEqual({ type: 'auth', trusted: false })
     const bare = await open([WS_PROTOCOL, office.server.AUTH_TOKEN])
     expect(await bare.next()).toEqual({ type: 'auth', trusted: false })
   })
@@ -148,16 +127,13 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
     }
   })
 
-  it('the file token as a subprotocol: trusted, the full snapshot with the UI token and the text; the token is not echoed', async () => {
+  it('the file token as a subprotocol: trusted, the full snapshot with the text; the token is not echoed', async () => {
     const client = await open(officeProtocols(office.server), { Origin: 'http://localhost:3333' })
     expect(client.ws.protocol).toBe('agent-office')
     expect(await client.next()).toEqual({ type: 'auth', trusted: true })
     const snapshot = await client.next()
-    expect(snapshot.uiToken).toBe(office.server.UI_TOKEN)
     expect(snapshot.sessions.find((s: Message) => s.id === ALPHA.sessionId).main).toMatchObject({ lastPrompt: 'deploy the hotfix to prod', lastReply: 'Pushed the hotfix; prod is green.' })
-    expect(snapshot.pendingPermissions[0]).toMatchObject({ detail: 'git push origin main --force-with-lease', suggestions: SUGGESTIONS })
-    expect(snapshot.signals[0]).toMatchObject({ error: 'FAIL secret-name.test.ts', detail: '3 failing' })
-    expect(snapshot.signals[0]).not.toHaveProperty('command')  // the page never needed it
+    expect(JSON.stringify(snapshot)).not.toContain(office.server.AUTH_TOKEN)
   })
 
   it('the page\'s own subprotocol list (src/officeToken.ts) is what the server trusts', async () => {
@@ -178,9 +154,9 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
     office.server.broadcast(office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-2', text: 'rotate the database password' }))
     const fullPrompt = await trusted.next(m => m.type === 'session_prompt')
     const roPrompt = await readOnly.next(m => m.type === 'session_prompt')
-    expect(fullPrompt).toMatchObject({ text: 'rotate the database password', messageId: expect.any(Number), main: { state: 'working', lastPrompt: 'rotate the database password' } })
+    expect(fullPrompt).toMatchObject({ text: 'rotate the database password', main: { state: 'working', lastPrompt: 'rotate the database password' } })
     expect(roPrompt).toMatchObject({ type: 'session_prompt', sessionId: ALPHA.sessionId, project: 'alpha', promptId: 'p-2', isWakeup: false, main: { state: 'working' } })
-    for (const field of ['text', 'messageId']) expect(roPrompt).not.toHaveProperty(field)
+    expect(roPrompt).not.toHaveProperty('text')
     expect(roPrompt.main).not.toHaveProperty('lastPrompt')
     expect(roPrompt.main).not.toHaveProperty('lastReply')
 
@@ -199,87 +175,12 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
     expect(JSON.stringify(roStarted)).not.toContain('vault')
   })
 
-  it('a permission_request reaches a read-only client without the command line or the suggestions; its answer is a 401', async () => {
-    const trusted = await open(officeProtocols(office.server))
-    const readOnly = await open()
-    expect(await readOnly.next(m => m.type === 'snapshot')).not.toHaveProperty('uiToken')
-    await trusted.next(m => m.type === 'snapshot')
-
-    const id = (await postEvent(office.server, { ...PERMISSION, sessionId: 'cccccccc-3333-4333-8333-333333333333', project: 'gamma', promptId: 'p-g', detail: 'curl -H "Authorization: Bearer sk-live-123" https://api.example.com' })).body.permissionId
-    expect((await trusted.next(m => m.type === 'permission_request')).permission).toMatchObject({ id, detail: expect.stringContaining('sk-live-123'), suggestions: SUGGESTIONS })
-    const request_ = await readOnly.next(m => m.type === 'permission_request')
-    expect(request_.permission).toMatchObject({ id, toolName: 'Bash', project: 'gamma', status: 'pending', deadline: expect.any(Number) })
-    expect(request_.permission).not.toHaveProperty('detail')
-    expect(request_.permission).not.toHaveProperty('suggestions')
-    expect(JSON.stringify(request_)).not.toContain('sk-live-123')
-
-    // Nothing the read-only client was sent answers it
-    const res = await request(office.server.app).post(`/permission/${id}`).send({ decision: 'allow' })
-    expect(res.status).toBe(401)
-    expect(office.server.permissions.get(id)).toMatchObject({ status: 'pending' })
-    // The resolution itself is no secret: both hear it
-    await request(office.server.app).post(`/permission/${id}`).set('Authorization', `Bearer ${office.server.UI_TOKEN}`).send({ decision: 'deny' })
-    for (const c of [trusted, readOnly]) {
-      expect(await c.next(m => m.type === 'permission_resolved' && m.permissionId === id)).toMatchObject({ status: 'denied', decidedBy: 'office' })
-    }
-  })
-
-  it('a signal reaches a read-only client without error and detail (the command never travels)', async () => {
-    const trusted = await open(officeProtocols(office.server))
-    const readOnly = await open()
-    for (const c of [trusted, readOnly]) await c.next(m => m.type === 'snapshot')
-    await postEvent(office.server, { type: 'signal', ...ALPHA, signals: [{ kind: 'deploy_fail', target: 'web', branch: 'main', error: 'Error: invalid token tk_9', detail: 'exit 1 after 3 retries', command: 'DEPLOY_KEY=tk_9 vercel deploy --prod', exitCode: 1 }] })
-    const full = await trusted.next(m => m.type === 'signal' && m.kind === 'deploy_fail')
-    expect(full).toMatchObject({ target: 'web', branch: 'main', error: 'Error: invalid token tk_9', detail: 'exit 1 after 3 retries', exitCode: 1 })
-    expect(full).not.toHaveProperty('command')
-    const ro = await readOnly.next(m => m.type === 'signal' && m.kind === 'deploy_fail')
-    expect(ro).toMatchObject({ type: 'signal', kind: 'deploy_fail', target: 'web', branch: 'main', exitCode: 1, sessionId: ALPHA.sessionId, project: 'alpha', at: expect.any(Number) })
-    for (const field of ['command', 'error', 'detail']) expect(ro).not.toHaveProperty(field)
-  })
-
-  it('a prompt / reply chat row is withheld from read-only clients; ordinary chat lines and agent events reach both', async () => {
-    const trusted = await open(officeProtocols(office.server))
-    const readOnly = await open()
-    for (const c of [trusted, readOnly]) await c.next(m => m.type === 'snapshot')
-    office.server.broadcast({ type: 'chat_message', id: 900, sender: 'Boss', role: 'boss', text: 'the boss typed this in a terminal', msg_type: 'prompt' })
-    office.server.broadcast({ type: 'chat_message', id: 901, sender: 'Claude', role: 'assistant', text: 'and Claude said this', msg_type: 'reply' })
-    office.server.broadcast({ type: 'chat_message', id: 902, sender: 'Pam', role: 'default', text: 'lunch?', msg_type: null })
-    office.server.broadcast(office.server.processEvent({ type: 'agent_spawned', ...ALPHA, agent: { id: 'agent-ro', name: 'Tester', role: 'test-engineer', task: 'run the suite' } }))
-    expect((await trusted.next(m => m.id === 900)).text).toBe('the boss typed this in a terminal')
-    expect((await trusted.next(m => m.id === 901)).text).toBe('and Claude said this')
-    expect((await readOnly.next(m => m.id === 902)).text).toBe('lunch?')
-    expect((await readOnly.next(m => m.type === 'agent_spawned')).agent).toMatchObject({ id: 'agent-ro', task: 'run the suite' })
-    await sleep(50)
-    expect(readOnly.messages.some(m => m.id === 900 || m.id === 901)).toBe(false)
-  })
-
   it('redactForReadOnly hands back the payload itself when there is nothing to strip, so broadcast reuses the one serialisation', async () => {
     const { redactForReadOnly } = office.server
     const noText = { type: 'agent_working', agentId: 'a', status: 'reading x' }
     expect(redactForReadOnly(noText)).toBe(noText)
     const mainNoText = { type: 'session_main', main: { state: 'idle' } }
     expect(redactForReadOnly(mainNoText)).toBe(mainNoText)
-    expect(redactForReadOnly({ type: 'chat_message', msg_type: 'reply', text: 'x' })).toBeNull()
-  })
-})
-
-describe('GET /permissions: the command line only with a token', () => {
-  let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
-
-  it('lists the pending dialogs without detail and suggestions, and in full with the file token or the UI token', async () => {
-    await postEvent(office.server, PERMISSION)
-    const open = (await request(office.server.app).get('/permissions')).body.permissions
-    expect(open).toEqual([expect.objectContaining({ toolName: 'Bash', summary: 'git push', project: 'alpha' })])
-    expect(open[0]).not.toHaveProperty('detail')
-    expect(open[0]).not.toHaveProperty('suggestions')
-    for (const token of [office.server.AUTH_TOKEN, office.server.UI_TOKEN]) {
-      const full = (await request(office.server.app).get('/permissions').set('Authorization', `Bearer ${token}`)).body.permissions
-      expect(full[0]).toMatchObject({ detail: 'git push origin main --force-with-lease', suggestions: SUGGESTIONS })
-    }
-    const wrong = (await request(office.server.app).get('/permissions').set('Authorization', `Bearer ${'f'.repeat(64)}`)).body.permissions
-    expect(wrong[0]).not.toHaveProperty('detail')
   })
 })
 
@@ -290,7 +191,7 @@ describe('GET /permissions: the command line only with a token', () => {
 const TOKEN = 'c0ffee'.repeat(10) + 'beef'
 
 function freshDir() {
-  return mkdtempSync(join(tmpdir(), 'agent-office-token-'))
+  return mkdtempSync(join(tmpdir(), 'claudex-token-'))
 }
 
 function mode(path: string) {
@@ -433,7 +334,7 @@ describe('the token file: reused when it is safe to trust, replaced otherwise', 
   })
 })
 
-describe('the office link at startup', () => {
+describe('the page link at startup', () => {
   const offices: Office[] = []
   const dirs: string[] = []
   afterEach(async () => {
@@ -449,12 +350,12 @@ describe('the office link at startup', () => {
   it('prints http://127.0.0.1:<port>/#token=<token> when the server serves the UI', async () => {
     const uiDir = freshDir()
     dirs.push(uiDir)
-    writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>office</title>')
+    writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>Claudex</title>')
     const office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
     offices.push(office)
     const lines = await started(office)
     const port = (office.server.httpServer.address() as AddressInfo).port
-    expect(lines).toContain(`  Agent Office: http://127.0.0.1:${port}/#token=${office.server.AUTH_TOKEN}`)
+    expect(lines).toContain(`  Page: http://127.0.0.1:${port}/#token=${office.server.AUTH_TOKEN}`)
     expect(office.server.officeLink(`http://127.0.0.1:${port}/`)).toBe(`http://127.0.0.1:${port}/#token=${office.server.AUTH_TOKEN}`)
   })
 
@@ -462,7 +363,7 @@ describe('the office link at startup', () => {
     const office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: join(freshDir(), 'nothing-here') } })
     offices.push(office)
     const lines = await started(office)
-    expect(lines.find(l => l.includes('Agent Office: '))).toBe(`  Agent Office: http://127.0.0.1:${office.server.UI_DEV_PORT}/#token=${office.server.AUTH_TOKEN}  (the Vite dev server)`)
+    expect(lines.find(l => l.includes('Page: '))).toBe(`  Page: http://127.0.0.1:${office.server.UI_DEV_PORT}/#token=${office.server.AUTH_TOKEN}  (the Vite dev server)`)
   })
 
   it('the fragment never reaches the server: a request for the link\'s page carries no token', async () => {

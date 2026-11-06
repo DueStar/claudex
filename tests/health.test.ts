@@ -54,7 +54,7 @@ describe('createHealth', () => {
       broadcast: (e: Message) => broadcasts.push(e),
       setTimer: ((fn: () => void, ms: number) => { const h = { fn, ms, due: t + ms, cleared: false, fired: false }; timers.push(h); return h }) as unknown as typeof setTimeout,
       clearTimer: ((h: { cleared: boolean }) => { h.cleared = true }) as unknown as typeof clearTimeout,
-      counts: () => ({ agents: 2, clients: 1, sessions: 1 }),
+      counts: () => ({ clients: 1, sessions: 1 }),
       uiAvailable: true,
       version: '9.9.9',
       ...over,
@@ -74,7 +74,7 @@ describe('createHealth', () => {
   it('starts with no hooks seen and reports counts, version, uptime and the UI flag', () => {
     const { health, advance } = harness()
     expect(health.snapshot()).toEqual({
-      status: 'ok', agents: 2, clients: 1, sessions: 1,
+      status: 'ok', clients: 1, sessions: 1,
       lastHookAt: null, hooksSeen: 0, uiAvailable: true, version: '9.9.9', uptimeMs: 0,
     })
     advance(1500)
@@ -135,7 +135,7 @@ describe('createHealth', () => {
 
   it('tolerates a counts() that says nothing and a package.json that cannot be read', () => {
     const health = createHealth({ counts: () => ({}), version: readVersion(new URL('file:///nonexistent/package.json')) })
-    expect(health.snapshot()).toMatchObject({ agents: 0, clients: 0, sessions: 0, version: '0.0.0', uiAvailable: false })
+    expect(health.snapshot()).toMatchObject({ clients: 0, sessions: 0, version: '0.0.0', uiAvailable: false })
   })
 
   it('readVersion reads the real package.json', () => {
@@ -176,7 +176,6 @@ describe('GET /health and the health broadcast', () => {
     expect(res.status).toBe(200)
     expect(res.body).toEqual({
       status: 'ok',
-      agents: 0,
       clients: 0,
       sessions: 0,
       lastHookAt: null,
@@ -198,7 +197,7 @@ describe('GET /health and the health broadcast', () => {
     const before = Date.now()
     await postEvent(office.server, { type: 'session_started', sessionId: 's-health', project: 'office', cwd: '/tmp/office' })
     const event = await client.next(m => m.type === 'health')
-    expect(event).toMatchObject({ type: 'health', health: { status: 'ok', hooksSeen: 1, sessions: 1, agents: 0 } })
+    expect(event).toMatchObject({ type: 'health', health: { status: 'ok', hooksSeen: 1, sessions: 1 } })
     expect(event.health.lastHookAt).toBeGreaterThanOrEqual(before)
     expect(event.timestamp).toBeTypeOf('number')
     expect(Date.now() - before).toBeLessThan(HEALTH_THROTTLE_MS)
@@ -209,15 +208,16 @@ describe('GET /health and the health broadcast', () => {
     expect(bad.status).toBe(400)
     expect((await request(office.server.app).get('/health')).body.hooksSeen).toBe(1)
 
-    const unauthorised = await postEvent(office.server, { type: 'agent_spawned', agent: { id: 'h-0' } }, 'wrong-token')
+    const unauthorised = await postEvent(office.server, { type: 'agent_working', status: 'x' }, 'wrong-token')
     expect(unauthorised.status).toBe(401)
     expect((await request(office.server.app).get('/health')).body.hooksSeen).toBe(1)
 
     const before = Date.now()
-    const ok = await postEvent(office.server, { type: 'agent_spawned', sessionId: 's-health', agent: { id: 'h-1', name: 'Debugger', role: 'debugger', task: 'look' } })
+    const ok = await postEvent(office.server, { type: 'agent_working', sessionId: 's-health', status: 'reading x', tool: 'Read' })
     expect(ok.status).toBe(200)
     const body = (await request(office.server.app).get('/health')).body
-    expect(body).toMatchObject({ hooksSeen: 2, sessions: 1, agents: 1 })
+    expect(body).toMatchObject({ hooksSeen: 2, sessions: 1 })
+    expect(body).not.toHaveProperty('agents')
     expect(body.lastHookAt).toBeGreaterThanOrEqual(before)
     expect(body.lastHookAt).toBeLessThanOrEqual(Date.now())
     // Inside the window of the previous broadcast: this one waits for the trailing edge

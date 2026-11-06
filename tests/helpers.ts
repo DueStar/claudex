@@ -1,10 +1,10 @@
 /**
  * Shared helpers for the server tests.
  *
- * server/index.js keeps its state at module level (activeAgents, the chat.db
- * connection, the loop budget, ...). `loadOffice()` re-evaluates the module
- * with AGENT_OFFICE_HOME pointed at a fresh temp dir, so every call is a
- * brand-new office that never touches the real ~/.agent-office. Importing
+ * server/index.js keeps its state at module level (the sessions, the game,
+ * ...). `loadOffice()` re-evaluates the module with AGENT_OFFICE_HOME pointed
+ * at a fresh temp dir, so every call is a brand-new server that never touches
+ * the real ~/.agent-office. Importing
  * the module does not bind port 3334 or write the auth token — only
  * `start()` does — so tests drive the Express app through supertest and
  * call `httpServer.listen(0)` themselves when they need a live socket.
@@ -35,16 +35,14 @@ export interface LoadOptions {
 
 /** Import a fresh copy of server/index.js against a temp runtime dir. */
 export async function loadOffice(opts: LoadOptions = {}): Promise<Office> {
-  const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'agent-office-test-'))
+  const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'claudex-test-'))
   process.env.AGENT_OFFICE_HOME = dir
   // The registry roster (server/sessions.js) reads Claude Code's own
   // ~/.claude/sessions when started; a test office reads a (normally absent)
   // directory under its runtime dir instead, so the sessions of whoever runs
   // the suite never turn up in it. A test that wants a registry passes its own.
-  // The same for the task board (server/tasks.js): never ~/.claude/tasks.
   const extra = Object.entries({
     AGENT_OFFICE_REGISTRY_DIR: join(dir, 'registry'),
-    AGENT_OFFICE_TASKS_DIR: join(dir, 'tasks'),
     ...(opts.env ?? {}),
   })
   for (const [key, value] of extra) process.env[key] = value
@@ -64,8 +62,8 @@ export function removeOffice(office: Office | undefined) {
 }
 
 /**
- * POST a JSON body to a token-protected route (/event, /chat/reply, /a2a,
- * /chat/inbox/read, ...) with the server's own bearer token, or a bad one.
+ * POST a JSON body to a token-protected route (/event, /status, /pokedex/*,
+ * ...) with the server's own bearer token, or a bad one.
  */
 export function postAuthed(server: OfficeServer, path: string, body: unknown, token: string = server.AUTH_TOKEN) {
   return request(server.app)
@@ -80,10 +78,10 @@ export function postEvent(server: OfficeServer, body: unknown, token: string = s
 }
 
 /**
- * The WebSocket subprotocols the office page offers when it has the office
- * token (src/officeToken.ts): `new WebSocket(url, officeProtocols(server))`
- * is a trusted connection — prompt / reply text and the UI token included.
- * A client that offers none is read-only (server/index.js, "The WebSocket").
+ * The WebSocket subprotocols the app's page offers when it has the token
+ * (src/officeToken.ts): `new WebSocket(url, officeProtocols(server))` is a
+ * trusted connection, prompt / reply text included. A client that offers
+ * none gets no conversation text (server/index.js, "The WebSocket").
  */
 export function officeProtocols(server: OfficeServer, token: string = server.AUTH_TOKEN): string[] {
   return [server.WS_PROTOCOL, `${server.WS_TOKEN_PROTOCOL_PREFIX}${token}`]
@@ -98,9 +96,4 @@ export function listen(httpServer: Server): Promise<number> {
       resolve((httpServer.address() as AddressInfo).port)
     })
   })
-}
-
-/** Spawn an office agent directly through processEvent (no HTTP). */
-export function spawnAgent(server: OfficeServer, agent: Record<string, unknown>) {
-  return server.processEvent({ type: 'agent_spawned', agent })
 }

@@ -1,7 +1,7 @@
 /**
- * sessions.js — the registry roster: Claude Code sessions the office can see
- * before (or without) the hooks being installed, so a session strip answers
- * "why don't I see my session?" on screen.
+ * sessions.js — the registry roster: Claude Code sessions the server can see
+ * before (or without) the hooks reporting them, and when a permission dialog
+ * on screen closes without a hook saying so.
  *
  * Claude Code keeps a live registry of its running CLI processes at
  * ~/.claude/sessions/<pid>.json ($CLAUDE_CONFIG_DIR/sessions when set): one
@@ -35,7 +35,7 @@
  * The module watches that directory — fs.watch where it works, plus a poll
  * (fs.watch is unreliable on macOS for some writers) with mtime/size change
  * detection, so a 50-file registry costs a readdir and a few stats every
- * pollMs — and joins the entries to the office's `sessions` map by session
+ * pollMs — and joins the entries to the server's `sessions` map by session
  * id, the id every hook payload carries (the join is by id, never by pid):
  *
  *   - a live entry no hooked session claims becomes an UNHOOKED session
@@ -55,8 +55,8 @@
  *     undefined when the entry went). server/index.js uses the one transition
  *     the hooks cannot see: "waiting" -> anything else means the permission
  *     dialog on screen was answered or dismissed in the terminal (an Esc fires
- *     no hook at all), so the office card for it is released and the hand
- *     comes down — the only thing the registry ever changes on a hooked session
+ *     no hook at all), so the hand comes down — the only thing the registry
+ *     ever changes on a hooked session
  *
  * Presence and status only, by design: what a session is doing stays
  * hook-only (no transcript tailing). Registry status -> main.state is
@@ -64,15 +64,6 @@
  * waiting is needs-you with needsYou { kind: 'registry', summary: 'waiting in
  * the terminal' } — Claude Code sets "waiting" while a permission dialog or a
  * question is on screen (checked live, see the PR that added this).
- *
- * Own bot. The chat watcher (scripts/chat-ai-watcher.sh) runs `claude -p` for
- * every reply; those register too, for a few seconds each, and would flicker
- * through the strip as unhooked sessions. `claude -p` takes `--name <display
- * name>`, which lands in the registry as name with nameSource "user" even
- * under --safe-mode and --no-session-persistence (checked live), so the
- * watcher names its calls BOT_SESSION_NAME and the roster skips entries with
- * that name. Chosen over a pid file because it needs no shared state between
- * the two processes and survives a watcher restart.
  *
  * Mounted by server/index.js the way server/status.js is: the `sessions`
  * map and the lifecycle helpers are handed in rather than imported, so this
@@ -88,8 +79,6 @@ import { execFileSync } from 'child_process'
 import { readdirSync, readFileSync, statSync, watch } from 'fs'
 import { basename, join } from 'path'
 
-/** The display name the chat watcher gives its `claude -p` calls; such entries are not sessions of yours. */
-export const BOT_SESSION_NAME = 'agent-office-bot'
 export const DEFAULT_POLL_MS = 2_000
 // fs.watch fires once per write syscall; one scan shortly after the burst is enough
 const WATCH_DEBOUNCE_MS = 100
@@ -195,13 +184,8 @@ export function sameProcess(entry, start) {
   return true
 }
 
-/** The chat watcher's own `claude -p` call (see the module header). */
-export function isBotSession(entry) {
-  return entry?.name === BOT_SESSION_NAME
-}
-
 /**
- * The fields of one registry file the office keeps, or null when the text is
+ * The fields of one registry file the server keeps, or null when the text is
  * not a registry entry: not JSON, not an object, no positive integer pid, no
  * session id. Strings are clamped like every other input.
  */
@@ -328,7 +312,7 @@ function projectOf(cwd) {
 
 /**
  * Registry entry -> an unhooked session record in the shape of server/index.js's
- * sessions (hooked: false, source 'registry', no agents, main from the status).
+ * sessions (hooked: false, source 'registry', main from the status).
  */
 export function registryToSession(entry, now = Date.now()) {
   const session = {
@@ -339,7 +323,6 @@ export function registryToSession(entry, now = Date.now()) {
     state: 'active',
     startedAt: entry.startedAt ?? now,
     lastActivityAt: entry.updatedAt ?? entry.startedAt ?? now,
-    agentIds: new Set(),
     registry: registryInfo(entry),
     main: mainFromRegistry(entry, now),
   }
@@ -352,7 +335,7 @@ export function registryToSession(entry, now = Date.now()) {
  * it. Handed in from index.js: `broadcast`, `toEvent(session, type)` (its
  * sessionEvent), `endSession(session, reason, now)` and `forgetSession(id)`,
  * so an unhooked session ends, lingers and is forgotten exactly like a hooked
- * one. `isOwnSession(entry)` skips the office's own bot. `onStatusChange`
+ * one. `onStatusChange`
  * hears every status change of an entry attached to an active session (see
  * the module header). `alive`, `startOf` and `now` are injectable for tests.
  * Returns { start, stop, scan, stats, dir }, also reachable as
@@ -363,7 +346,6 @@ export function mountRegistry(app, {
   broadcast,
   registryDir,
   pollMs = DEFAULT_POLL_MS,
-  isOwnSession = isBotSession,
   toEvent,
   endSession,
   forgetSession,
@@ -409,7 +391,6 @@ export function mountRegistry(app, {
     const seen = new Set()
 
     for (const entry of entries) {
-      if (isOwnSession(entry)) continue
       const id = entry.sessionId
       seen.add(id)
       const prev = known.get(id)
