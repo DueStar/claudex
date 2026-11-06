@@ -1718,6 +1718,7 @@ const POKEMON_DATA = join(dirname(fileURLToPath(import.meta.url)), 'pokemon-data
 const pokedex = createPokedex({
   file: join(RUNTIME_DIR, 'pokedex.json'),
   species: existsSync(POKEMON_DATA) ? JSON.parse(readFileSync(POKEMON_DATA, 'utf8')) : [],
+  balls: (() => { const f = join(dirname(fileURLToPath(import.meta.url)), 'balls.json'); return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')).balls : [] })(),
   natures: (() => { const f = join(dirname(fileURLToPath(import.meta.url)), 'natures.json'); return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : [] })(),
   broadcast,
   // A session that ended hands its Pokémon back to the party

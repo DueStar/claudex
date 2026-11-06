@@ -7,7 +7,8 @@
 import React, { useMemo, useState } from 'react'
 import { pokemonById, spriteUrl } from '../theme'
 import { bridge } from '../desktop'
-import { usePokedex, TIER_LABEL, NATURE_BY_ID, genderMark, sourceText, type Mon, type Tier } from '../pokedexStore'
+import { usePokedex, TIER_LABEL, NATURE_BY_ID, genderMark, sourceText, ballName, BALL_BY_ID, BALL_TIER_LABEL, type Mon, type Tier } from '../pokedexStore'
+import { PokeBall } from './Icons'
 
 type Sort = 'recent' | 'dex' | 'tier' | 'steps'
 const TIER_RANK: Record<Tier, number> = { mythical: 0, legendary: 1, sub: 2, rare: 3, common: 4 }
@@ -76,6 +77,7 @@ const BoxView: React.FC = () => {
     >
       <img src={spriteUrl(m.dex, m.shiny)} alt="" loading="lazy" />
       {m.shiny && <span className="box-shiny">✦</span>}
+      <PokeBall ball={m.ball} size={14} className="box-ball" />
       {working.has(m.uid) && <span className="box-working" />}
     </button>
   )
@@ -123,6 +125,7 @@ const BoxView: React.FC = () => {
               <dl className="dex-card-facts">
                 <dt>위치</dt><dd>{inParty ? '파티' : '박스'}{isWorking ? ' · 일하는 중' : ''}</dd>
                 <dt>성격</dt><dd>{n ? `${n.ko}${n.up ? ` (${n.up}↑ ${n.down}↓)` : ' (보정 없음)'}` : '—'}</dd>
+                <dt>볼</dt><dd className="box-ball-dd"><PokeBall ball={picked.ball} size={16} />{ballName(picked.ball)}<span className="dex-fine"> · {BALL_TIER_LABEL[BALL_BY_ID.get(picked.ball ?? 'poke-ball')?.tier ?? 'basic']}</span></dd>
                 <dt>성별</dt><dd>{picked.gender === 'male' ? '수컷' : picked.gender === 'female' ? '암컷' : picked.gender === 'none' ? '무성' : '—'}</dd>
                 <dt>걸음</dt><dd>{picked.steps}걸음{picked.evos ? ` · ${picked.evos}번 진화` : ''}</dd>
                 <dt>만난 곳</dt><dd>{picked.place || '—'} · {HOW[picked.how] ?? picked.how}</dd>

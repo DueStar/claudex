@@ -263,6 +263,26 @@ describe('pokedex', () => {
     expect(st.box).not.toContain('mbox')
   })
 
+  it('every catch comes in a ball drawn by the balls’ weights', () => {
+    const balls = JSON.parse(readFileSync(join(__dirname, '..', 'server', 'balls.json'), 'utf8')).balls
+    expect(balls).toHaveLength(27)
+    expect(balls.reduce((a: number, b: any) => a + b.weight, 0)).toBeCloseTo(100, 6)
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const sent: any[] = []
+    // every roll 0: every step meets and catches, and the ball is the first one listed
+    const dex = createPokedex({ file: join(dir, 'p.json'), species: SPECIES, balls, broadcast: (m: any) => sent.push(m), random: () => 0, now: () => new Date('2026-11-06T14:00:00').getTime() })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    dex.noteEvent(work('s1', 'Bash'), {})
+    const ev = sent.map(m => m.event).find(e => e?.kind === 'catch')
+    expect(ev.ball).toBe('poke-ball')
+    expect(dex.publicState().mons[ev.uid].ball).toBe('poke-ball')
+    // the starter came in a plain Poké Ball
+    const st = dex.publicState()
+    expect(st.mons[st.party[0]].ball).toBe('poke-ball')
+  })
+
   it('keeps the game on disk', async () => {
     const { dex, file } = setup([0])
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'x' })

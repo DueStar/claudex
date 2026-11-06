@@ -1,8 +1,22 @@
 # Changelog
 
+## Claudex
+
+### 1.3.0
+- 포켓몬을 잡은 볼이 기록돼요. 27종 중에서 게임에서 구하기 쉬운 정도에 따라 확률이 정해져요 (server/balls.json): 흔한 볼 64%, 특수 볼 30%, 규격 외 볼 4.2%, 한정 볼 1.7%, 마스터볼 0.1%.
+- 알림, 박스, 도감의 보유 개체 목록에 볼이 보여요.
+- 볼 그림: 게임의 고화질 그림(tools/import-balls.mjs로 넣은 경우)이 있으면 그걸 쓰고, 없으면 PokeAPI 아이콘을 받아 써요.
+- 사용량 카드: 세션을 열기 전에는 안내 문구가 나오고, 세션이 시작되는 동안에는 막대가 한 줄을 꽉 채워 반짝여요.
+- README와 NOTICE를 Claudex에 맞게 새로 썼어요.
+
+### 1.2.0
+- 첫 공개 릴리스.
+
+## Claude Office (원작)
+
 All notable changes to Claude Office. Numbers refer to pull requests.
 
-## Unreleased
+### Unreleased
 
 - Prod Is Down now sounds the alarm: as an incident starts the room flashes deep red three times over 1.8 s (under the 3-a-second photosensitivity limit), then settles into a darker red tint. A reload halfway through an incident, a mini-incident from a random event, and reduced-motion settings get no flash.
 

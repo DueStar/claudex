@@ -378,3 +378,11 @@
 .w-view-switch .w-new-dot { position: absolute; top: 2px; right: 3px; width: 6px; height: 6px; }
 .w-dex { position: relative; }
 .w-new-dot.corner { position: absolute; top: 10px; right: 10px; }
+
+/* ---------- Poké Balls ---------- */
+.box-ball { position: absolute; right: 4px; bottom: 4px; opacity: 0.95; }
+.box-ball-dd { display: inline-flex; align-items: center; gap: 5px; }
+.dex-owned-top { justify-content: flex-start; align-items: center; }
+.dex-owned-top .dex-nature { margin-left: auto; }
+.box-cell img.box-ball, .dex-owned-top img.pokeball, .box-ball-dd img.pokeball { width: 14px; height: 14px; }
+.box-ball-dd img.pokeball { width: 16px; height: 16px; }

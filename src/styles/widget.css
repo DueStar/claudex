@@ -360,3 +360,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 @keyframes wLimitShimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @keyframes wLimitPulse { 50% { opacity: 0.45; } }
 
+
+/* Limits: a hint before any session; while a session starts, the bar fills the row */
+.w-limits.idle { flex-direction: row; align-items: center; gap: 10px; padding: 11px 12px; }
+.w-limits-hint { font-size: 11px; color: var(--ink-3); }
+.w-limit.loading .w-bar { grid-column: 2 / -1; }
+.w-limit.loading .w-limit-pct, .w-limit.loading .w-limit-reset { display: none; }

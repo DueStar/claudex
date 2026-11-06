@@ -10,6 +10,8 @@
  *   GET /sprites/pokemon/art/<id>.png        normal colours
  *   GET /sprites/pokemon/art-shiny/<id>.png  shiny
  *   GET /sprites/items/<name>.png            an item's artwork (the Poké Ball), as is
+ *   GET /sprites/balls/<id>.png              a Poké Ball: the bundled high-quality art when the
+ *                                            build has it, else PokeAPI's small item icon
  *
  * A copy already in the UI folder (a developer's local pack) is served as is.
  * When a picture cannot be had (offline, unknown id) the Poké Ball stand-in is
@@ -25,6 +27,8 @@ const SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites
 const MAX_ID = 1025
 const PARALLEL = 6
 const ITEMS = new Set(['poke-ball'])
+const BALL_ID = /^[a-z]+-ball$/
+const BALL_SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items'
 const ITEM_SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/dream-world'
 
 /** Crop to the opaque pixels, then scale down (area average) to fit size x size. */
@@ -155,5 +159,31 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
     }
   })
 
-  return { obtain, obtainItem, cacheDir }
+  async function obtainBall(id) {
+    const file = join(cacheDir, 'balls', `${id}.png`)
+    if (existsSync(file)) return file
+    const res = await fetchImpl(`${BALL_SOURCE}/${id}.png`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const png = Buffer.from(await res.arrayBuffer())
+    PNG.sync.read(png)
+    mkdirSync(join(cacheDir, 'balls'), { recursive: true })
+    writeFileSync(file, png)
+    return file
+  }
+
+  app.get('/sprites/balls/:file', async (req, res) => {
+    const m = /^([a-z-]{1,30})\.png$/.exec(req.params.file)
+    if (!m || !BALL_ID.test(m[1])) return res.status(404).end()
+    res.set('Cache-Control', 'public, max-age=86400')
+    const bundled = join(uiDir, 'sprites', 'balls', `${m[1]}.png`)
+    if (existsSync(bundled)) return res.type('png').send(readFileSync(bundled))
+    try {
+      res.type('png').send(readFileSync(await obtainBall(m[1])))
+    } catch (err) {
+      console.warn(`[sprites] ball ${m[1]}: ${err.message}`)
+      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/claudex-ball.png')
+    }
+  })
+
+  return { obtain, obtainItem, obtainBall, cacheDir }
 }

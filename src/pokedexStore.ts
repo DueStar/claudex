@@ -8,6 +8,7 @@ import { useSyncExternalStore } from 'react'
 import { assignPokemonToRole, setOwnedSpecies, POKEMON } from './theme'
 
 import NATURES from './pokemon/natures.json'
+import BALL_DATA from './pokemon/balls.json'
 
 export type Tier = 'common' | 'rare' | 'sub' | 'legendary' | 'mythical'
 
@@ -39,6 +40,8 @@ export interface CaughtInfo {
   how: 'starter' | 'gift' | 'wild' | 'evolve' | 'pity' | 'attendance'
   shiny: boolean
   via?: CatchSource | null
+  /** The ball it was caught in (server/balls.json id) */
+  ball?: string | null
 }
 
 /** One Pokémon the trainer owns */
@@ -54,6 +57,8 @@ export interface Mon {
   gender?: Gender
   nature?: number | null
   via?: CatchSource | null
+  /** The ball it was caught in (server/balls.json id) */
+  ball?: string | null
 }
 
 export interface DexEvent {
@@ -70,6 +75,8 @@ export interface DexEvent {
   /** The box was full: the Pokédex counts it, the individual went to the professor */
   toProfessor?: boolean
   via?: CatchSource | null
+  /** The ball it was caught in (server/balls.json id) */
+  ball?: string | null
   gender?: Gender
   nature?: number | null
   from?: number
@@ -184,4 +191,19 @@ export function useViewed(): { viewed: Set<number>; isNew: (id: number) => boole
     () => viewedVersion,
   )
   return { viewed, isNew: (id) => !!state?.caught?.[id] && !viewed.has(id) }
+}
+
+// ---------------------------------------------------------------------------
+// Poké Balls: which ball a catch came in (the server rolls it by weight)
+// ---------------------------------------------------------------------------
+export interface Ball { id: string; ko: string; en: string; tier: string; weight: number }
+export const BALLS: Ball[] = (BALL_DATA as { balls: Ball[] }).balls
+export const BALL_BY_ID = new Map(BALLS.map(b => [b.id, b]))
+export const BALL_TIER_LABEL: Record<string, string> = (BALL_DATA as { tiers: Record<string, string> }).tiers
+export function ballName(id: string | null | undefined): string {
+  return BALL_BY_ID.get(id ?? 'poke-ball')?.ko ?? '몬스터볼'
+}
+/** The ball's picture (shipped with the app; Claudex's own ball when it is missing) */
+export function ballUrl(id: string | null | undefined): string {
+  return `/sprites/balls/${BALL_BY_ID.has(id ?? '') ? id : 'poke-ball'}.png`
 }

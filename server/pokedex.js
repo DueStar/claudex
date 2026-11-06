@@ -128,7 +128,7 @@ function emptyState() {
   }
 }
 
-export function createPokedex({ file, species, natures = [], broadcast, isActive = () => true, onChange = () => {}, now = () => Date.now(), random = Math.random }) {
+export function createPokedex({ file, species, natures = [], balls = [], broadcast, isActive = () => true, onChange = () => {}, now = () => Date.now(), random = Math.random }) {
   const byId = new Map(species.map(s => [s.id, s]))
   const byTier = {}
   for (const s of species) (byTier[s.tier] ??= []).push(s)
@@ -139,6 +139,7 @@ export function createPokedex({ file, species, natures = [], broadcast, isActive
   for (const m of Object.values(state.mons ?? {})) {
     if (m.gender === undefined) m.gender = null
     if (m.nature === undefined) m.nature = null
+    if (m.ball === undefined) m.ball = 'poke-ball' // caught before balls were kept
   }
   let traitsBackfilled = false
   function backfillTraits() {
@@ -235,7 +236,7 @@ export function createPokedex({ file, species, natures = [], broadcast, isActive
       c.lastAt = at
       if (info.shiny) c.shiny = true
     } else {
-      state.caught[id] = { count: 1, firstAt: at, lastAt: at, place: info.place, sessionId: info.sessionId, project: info.project, how: info.how, shiny: !!info.shiny, via: info.via ?? null }
+      state.caught[id] = { count: 1, firstAt: at, lastAt: at, place: info.place, sessionId: info.sessionId, project: info.project, how: info.how, shiny: !!info.shiny, via: info.via ?? null, ball: info.ball ?? 'poke-ball' }
     }
   }
 
@@ -246,6 +247,14 @@ export function createPokedex({ file, species, natures = [], broadcast, isActive
     if (rate < 0) return 'none'
     return random() * 8 < rate ? 'female' : 'male'
   }
+  /** The ball a catch comes in, by the balls' weights (server/balls.json) */
+  const ballTotal = balls.reduce((a, b) => a + (b.weight || 0), 0)
+  function rollBall() {
+    if (!ballTotal) return 'poke-ball'
+    let r = random() * ballTotal
+    for (const b of balls) { r -= b.weight || 0; if (r < 0) return b.id }
+    return balls[balls.length - 1].id
+  }
   function rollNature() {
     return natures.length ? natures[Math.floor(random() * natures.length)].id : null
   }
@@ -254,7 +263,7 @@ export function createPokedex({ file, species, natures = [], broadcast, isActive
     const uid = `m${state.nextUid++}`
     state.mons[uid] = {
       uid, dex, steps: 0, evos: 0, shiny: !!info.shiny, how: info.how, place: info.place, at: now(),
-      gender: rollGender(dex), nature: rollNature(), via: info.via ?? null,
+      gender: rollGender(dex), nature: rollNature(), via: info.via ?? null, ball: info.ball ?? 'poke-ball',
     }
     markSeen(dex)
     recordSpecies(dex, info)
@@ -358,8 +367,10 @@ export function createPokedex({ file, species, natures = [], broadcast, isActive
     const place = attendance ? `${project || '이름 없는 마을'} (오늘의 출석)` : placeName(project, terrain, night)
     let uid = null
     let toProfessor = false
+    let ball = null
     if (caught) {
-      const info = { place, sessionId, project, how: pity ? 'pity' : attendance ? 'attendance' : 'wild', shiny, via }
+      ball = rollBall()
+      const info = { place, sessionId, project, how: pity ? 'pity' : attendance ? 'attendance' : 'wild', shiny, via, ball }
       if (state.box.length >= BOX_LIMIT) {
         // A full box: the Pokédex still counts it, the individual goes to the professor
         toProfessor = true
@@ -372,7 +383,7 @@ export function createPokedex({ file, species, natures = [], broadcast, isActive
       }
     }
     const fresh = uid ? state.mons[uid] : null
-    const event = { kind: caught ? 'catch' : 'flee', id: sp.id, name: sp.ko, tier, shiny, place, via, gender: fresh?.gender ?? null, nature: fresh?.nature ?? null, sessionId, partner: mon?.dex, pity, attendance, uid, toProfessor, at: now() }
+    const event = { kind: caught ? 'catch' : 'flee', id: sp.id, name: sp.ko, tier, shiny, place, via, gender: fresh?.gender ?? null, nature: fresh?.nature ?? null, ball, sessionId, partner: mon?.dex, pity, attendance, uid, toProfessor, at: now() }
     pushLog(event)
     return event
   }

@@ -8,7 +8,8 @@ import './styles/widget.css'
 import './styles/toast.css'
 import { bridge } from './desktop'
 import { spriteUrl } from './theme'
-import { TIER_LABEL, genderMark, sourceText, NATURE_BY_ID, type DexEvent } from './pokedexStore'
+import { TIER_LABEL, genderMark, sourceText, ballName, NATURE_BY_ID, type DexEvent } from './pokedexStore'
+import { PokeBall } from './components/Icons'
 
 function durationOf(e: DexEvent): number {
   const rare = e.tier === 'legendary' || e.tier === 'mythical' || e.shiny
@@ -62,6 +63,7 @@ const Toast: React.FC = () => {
             {t.kind === 'evolve' && <><b>{t.fromName}</b>이(가) <b>{t.name}</b>(으)로 진화했다!</>}
           </span>
           <span className="w-toast-sub">
+            {t.kind === 'catch' && t.ball && <span className="w-toast-ball"><PokeBall ball={t.ball} size={14} />{ballName(t.ball)}</span>}
             {t.tier && <span className={`w-toast-tier tier-${t.tier}`}>{TIER_LABEL[t.tier]}</span>}
             {t.nature ? `${NATURE_BY_ID.get(t.nature)?.ko} · ` : ''}{t.place}
           </span>

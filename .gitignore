@@ -24,3 +24,7 @@ graphify-out/graph.html
 public/sprites/pokemon/
 public/rooms/pokemon-*.png
 tools/_cache/
+
+# Poké Ball artwork (Bulbagarden Archives, Nintendo IP): fetched at build time by
+# tools/fetch-balls.mjs, shipped inside the app, never committed
+public/sprites/balls/

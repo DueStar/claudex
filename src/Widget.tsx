@@ -361,11 +361,19 @@ ${update.notes}` : ''}${update.error ? `
           )}
 
           {/* The subscription's two limits: the only numbers that decide whether work can go on */}
-          <section className="w-card w-limits" title={typeof fiveHour === 'number' ? undefined : '세션의 첫 응답이 오면 한도가 표시돼요'}>
-            <Limit label="5시간" value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
-            <Limit label="주간" value={sevenDay}
-              reset={sevenReset ? `${new Date(sevenReset * 1000).getMonth() + 1}/${new Date(sevenReset * 1000).getDate()} ${formatClockTime(sevenReset)}` : null} />
-          </section>
+          {/* Limits arrive with a session's status line: before any session there is nothing to wait for */}
+          {typeof fiveHour !== 'number' && typeof sevenDay !== 'number' && !sendable.length ? (
+            <section className="w-card w-limits idle">
+              <span className="w-label">사용량</span>
+              <span className="w-limits-hint">세션을 열면 5시간·주간 사용량을 볼 수 있어요</span>
+            </section>
+          ) : (
+            <section className="w-card w-limits">
+              <Limit label="5시간" value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
+              <Limit label="주간" value={sevenDay}
+                reset={sevenReset ? `${new Date(sevenReset * 1000).getMonth() + 1}/${new Date(sevenReset * 1000).getDate()} ${formatClockTime(sevenReset)}` : null} />
+            </section>
+          )}
 
           <section className="w-card w-launch">
             <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? '파티의 포켓몬이 모두 일하는 중' : '문서 폴더에서 새 Claude 세션'}>

@@ -33,8 +33,18 @@ const TAR = join(process.env.SystemRoot || 'C:/Windows', 'System32', 'tar.exe')
 const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32', ...opts })
 
 console.log(`\n== Claudex ${version}`)
-run('npx', ['vite', 'build'])
-run('npx', ['electron-builder', '--win', 'dir', '--x64'])
+const ballDir = join(root, 'public', 'sprites', 'balls')
+const balls = existsSync(ballDir) ? readdirSync(ballDir).length : 0
+console.log(balls ? `Poké Ball art: ${balls} bundled` : 'Poké Ball art: none bundled (the app falls back to PokeAPI item icons; see tools/import-balls.mjs)')
+// The games' Poké Ball as the app icon when its art was imported; the drawn icons come back after
+const ICONS = ['build/icon.png', 'electron/assets/icon.png', 'electron/assets/tray-16.png', 'electron/assets/tray-32.png', 'electron/assets/tray-48.png']
+run('python', ['-I', join(root, 'tools', 'build-icons.py'), root, '--official'], { shell: false })
+try {
+  run('npx', ['vite', 'build'])
+  run('npx', ['electron-builder', '--win', 'dir', '--x64'])
+} finally {
+  execFileSync('git', ['checkout', '--', ...ICONS], { cwd: root, stdio: 'inherit' })
+}
 
 // Nothing of Nintendo's may ride along
 const appDir = join(unpacked, 'resources', 'app')

@@ -1,330 +1,126 @@
-# Claude Office
+# Claudex
 
-A pixel art virtual office that visualizes your AI agents working in real-time. Watch Claude Code agents spawn, sit at desks, take coffee breaks, and chat in a Slack-inspired office chat panel — all rendered in an isometric pixel art office.
+Claude Code 세션을 포켓몬과 함께 쓰는 Windows 데스크톱 앱이에요. 세션마다 파티의 포켓몬이 하나씩 나가서 일하고, Claude가 일하는 동안 야생 포켓몬을 만나 도감을 채워요. 싸움은 없고 **수집**이 중심이에요.
 
-## Update — 1.1: the level-up
+*A Windows desktop app that runs your Claude Code sessions with a Pokémon partner each, and fills a Pokédex while Claude works. Collecting, not battling.*
 
-> We had 12 hours and 90 % of our 20x plan still to use 😂 so I asked Claude to level up Claude Office (using Fable 5.1 <img src="docs/images/claude-crab.gif" height="36" alt="" align="absmiddle"> and <img src="docs/images/ultracode.svg" height="20" alt="ultracode" align="absmiddle">).
+> 비영리 팬 프로젝트예요. 포켓몬과 관련된 이름과 그림의 권리는 Nintendo / Creatures Inc. / GAME FREAK inc.에 있어요. 자세한 내용은 [NOTICE.md](NOTICE.md)를 봐 주세요.
 
-**What's new**
-- **A Claude for every terminal** — each Claude Code session gets its own pill, model badge and Claude at a desk
-- **Claude acts out the turn** — the boss walks your prompt over, Claude types, naps when it's done
-- **✋ Needs you** — a permission prompt raises Claude's hand with a chime, and you can click **Allow** right in the office
-- **Click anyone** — an inspector card shows what they're doing, every tool they've called and what they've said
-- **Prod Is Down** — a failed deploy turns the office red; a 🚀 for deploys, a 🎉 for pushes to main, ❌ for failing tests
-- **The whiteboard is real** — it shows Claude's actual task list
-- **Payroll, electricity and memory meters** — cost, tokens per minute and context fill per session
-- **Desktop app** with a tray badge and a mini widget, installers for Mac, Windows and Linux
-- Plus three bug hunts, a security pass and 972 tests — the full list is in the [CHANGELOG](CHANGELOG.md)
+## 무엇을 하나요
 
-### Claude's turn, start to nap
-![The boss hands the prompt to Claude, workers come and go, Claude holds a glass of water while a worker is out, then falls asleep](docs/images/claudes-turn.gif)
+### 세션 = 포켓몬
+- 처음 켜면 스타팅(이상해씨·파이리·꼬부기 중 하나)과 함께 파티 6마리를 받아요.
+- **New session**을 누르고 파티에서 포켓몬을 고르면, 그 포켓몬이 새 Claude Code 세션을 맡아요. 파티가 6마리라 세션도 최대 6개예요.
+- 세션은 자기 포켓몬을 기억해요. 이어하기를 하면 같은 포켓몬이 다시 나와요.
+- 세션 이름은 더블클릭이나 ✎로 바꿀 수 있어요.
+- 일하는 포켓몬은 언제든 잡은 다른 포켓몬으로 바꿀 수 있어요.
 
-### Click a character
-![Inspector card: the task, tools used with a failed call in red, tokens and model, and the end of the agent's own transcript](docs/images/inspector.png)
+### 포획
+- Claude가 도구를 한 번 쓸 때마다 한 걸음이에요. 걸음마다 3% 확률로 야생 포켓몬을 만나요.
+- 매일 첫 세션에는 아직 못 잡은 포켓몬이 꼭 한 마리 나와요(출석 조우).
+- 만나는 곳은 쓰는 도구로 정해져요. Edit은 풀숲, Bash는 동굴, Read는 숲이고, 밤에는 고스트·악·에스퍼 타입이 더 잘 나와요.
+- 잡히면 화면 맨 위에 알림이 떠요. 어떤 요청에서 어떤 도구를 쓰다 잡았는지와 어떤 볼에 잡혔는지가 같이 남아요.
 
-### ✋ Needs you — answer it from the office
-![Claude's hand is up, the session pill is amber, and a card asks to run git push origin main with Allow, Allow & remember and Deny](docs/images/permission-card.png)
+| 등급 | 만날 확률 | 기준 |
+|---|---|---|
+| 일반 | 74% | 그 밖의 포켓몬 |
+| 희귀 | 21% | 공식 포획률 45 이하 (스타팅, 600족, 화석 등) |
+| 준전설 | 3.6% | PokeAPI `is_legendary` 중 표지 전설이 아닌 포켓몬 |
+| 전설 | 1.0% | 표지 전설 |
+| 환상 | 0.4% | PokeAPI `is_mythical` |
 
-### Prod Is Down — and back again
-![A deploy fails and the office turns red with a spinning beacon and an incident timer, then the fix lands and the lights come back with a postmortem](docs/images/prod-is-down.gif)
+- 이로치 확률은 1/4096이고, 아직 못 잡은 종은 8배 잘 나와요.
+- 천장: 150번 만나도 전설이 안 나오면 다음은 확정 전설, 300번이면 확정 환상이에요.
 
-### The whiteboard is your real task list
-![Post-its land in To do, move through In progress to Done, with a red pin on a blocked task](docs/images/task-board.gif)
+### 개체
+- 포켓몬마다 성별(종별 공식 성비)과 성격(공식 25종)이 있어요.
+- 120걸음, 360걸음에 진화해요. 성장은 포켓몬마다 따로 쌓여요.
+- 잡힌 볼은 27종 중에서 정해져요. 희귀도는 게임에서 얼마나 구하기 쉬운지를 기준으로 나눴어요.
 
-### Payroll, electricity and memory
-![Office meters: cost, tokens per minute and context fill per session, with the 5h rate-limit pill](docs/images/meters.png)
+| 볼 등급 | 확률 | 볼 |
+|---|---|---|
+| 흔한 볼 | 64% | 몬스터볼, 슈퍼볼, 하이퍼볼 |
+| 특수 볼 | 30% | 프리미어·네트·다이브·네스트·리피트·타이머·다크·퀵·힐·럭셔리볼 |
+| 규격 외 볼 | 4.2% | 스피드·레벨·루어·헤비·러브러브·프렌드·문볼 |
+| 한정 볼 | 1.7% | 사파리·컴퍼티션·파크·드림·울트라·프레셔스볼 |
+| 마스터볼 | 0.1% | 마스터볼 |
 
-## Update — Dunder Mifflin mode
+### 도감과 박스
+- **도감**: 1025종 전체를 세대·등급별로 볼 수 있어요. 잡았지만 아직 열어보지 않은 포켓몬에는 빨간 점이 붙어요.
+- **박스**: 최대 1200마리까지 들어가요. 정렬, 검색, 이로치 필터가 있고 파티와 자리 바꾸기와 놓아주기를 할 수 있어요. 꽉 차면 새로 잡은 포켓몬은 도감에만 등록되고 박사님께 보내져요.
 
-Type `/the-office` in the Slack chat panel to flip the whole office into a Scranton-branch tribute. The room, the cast, and the chatter all swap over — Michael Scott runs the place, Jim is your assistant, and Dwight guards the beet cellar. (Fan art — see [NOTICE.md](NOTICE.md).)
+### 앱
+- **위젯 / 창 / 전체화면**: 위젯은 항상 위에 떠 있고, 창과 전체화면은 일반 창이에요. 전체화면은 작업 표시줄 위까지만 채워요.
+- **터미널**:
+  - Shift+Enter로 줄바꿈해요.
+  - 링크는 Ctrl+클릭으로 열려요.
+  - 파일을 끌어다 놓으면 경로가 입력돼요.
+- **한도**: 5시간·주간 한도와 리셋 시각을 보여줘요.
+- **구글 로그인**(선택): 도감이 클라우드(Supabase)에 저장돼요.
+- **업데이트**: 새 버전이 나오면 위젯 상단에 업데이트 버튼이 떠요. 앱 부분만 받아서 재시작해요.
 
-### Pretzel day, every day
-<p>
-  <img src="docs/images/dunder-mifflin-day.png" alt="Dunder Mifflin — Day" width="48%">
-  <img src="docs/images/dunder-mifflin-night.png" alt="Dunder Mifflin — Night" width="48%">
-</p>
+## 설치
 
-**What changes when you toggle it on**
-- 27 cast members (Michael, Jim, Pam, Dwight, Kevin, Angela, Stanley, Creed, David Wallace, Bob Vance — the whole office) dealt to agent roles
-- Role chatter swaps to in-character lines (`"Bears. Beets. Battlestar Galactica."`, `"selling paper"`, `"Schrute bucks awarded"`)
-- Michael occasionally lands his signature `"That's what she said 😏"` when replying to finished work
-- Character prop overlays — Michael rotates World's Best Boss mug / Dundie / Golden Ticket / Prison Mike bandana / "NO GOD PLEASE NO", Dwight gets the CPR dummy mask or a Schrute Buck, Jim keeps his jello stapler, Stanley gets a pretzel, Jan gets a Serenity by Jan candle, Oscar / Pam / Toby share the Finer Things Club
-- Angela gets a follower cat *and* a head-cat (randomized from 12 cat sprites)
-- Kevin's chili, pretzel day, and Finer Things Club references sprinkled through the break-room chatter
+1. [Releases](https://github.com/DueStar/claudex/releases/latest)에서 `Claudex-<버전>-win-x64.zip`을 받아 원하는 곳에 풀어요.
+2. `win-unpacked\Claudex.exe`를 실행해요.
 
-### The cast
-<p align="center">
-  <img src="docs/images/michael-scott.png" alt="Michael Scott" height="140">
-  <img src="docs/images/jim-halpert.png" alt="Jim Halpert" height="140">
-  <img src="docs/images/pam-beesly.png" alt="Pam Beesly" height="140">
-  <img src="docs/images/dwight-schrute.png" alt="Dwight Schrute" height="140">
-  <img src="docs/images/angela-martin.png" alt="Angela Martin" height="140">
-  <img src="docs/images/kevin-malone.png" alt="Kevin Malone" height="140">
-  <img src="docs/images/stanley-hudson.png" alt="Stanley Hudson" height="140">
-  <img src="docs/images/andy-bernard.png" alt="Andy Bernard" height="140">
-  <img src="docs/images/kelly-kapoor.png" alt="Kelly Kapoor" height="140">
-  <img src="docs/images/ryan-howard.png" alt="Ryan Howard" height="140">
-  <img src="docs/images/creed-bratton.png" alt="Creed Bratton" height="140">
-  <img src="docs/images/robert-california.png" alt="Robert California" height="140">
-  <img src="docs/images/david-wallace.png" alt="David Wallace" height="140">
-  <img src="docs/images/bob-vance.png" alt="Bob Vance, Vance Refrigeration" height="140">
-</p>
+필요한 프로그램이 없으면 앱이 설치 링크를 보여줘요.
+- [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) (로그인된 상태)
+- [Git for Windows](https://git-scm.com/downloads/win): 훅이 Git Bash로 돌아가요.
+- [Python 3](https://www.python.org/downloads/windows/)
 
-### Easter-egg props
-Each cast member gets a signature prop floating above their desk in place of the usual coffee/energy-drink bubble.
+> 코드 서명이 아직 없어요. SmartScreen 경고가 뜨면 **추가 정보 → 실행**을 눌러 주세요. Windows 11의 스마트 앱 컨트롤이 켜져 있으면 실행이 막혀요.
 
-<p align="center">
-  <img src="docs/images/prop-worlds-best-boss.png" alt="World's Best Boss mug (Michael)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-dundie.png" alt="Dundie Award (Michael)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-golden-ticket.png" alt="Golden Ticket (Michael)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-prison-mike.png" alt="Prison Mike bandana (Michael)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-no-god.png" alt="NO GOD PLEASE NO (Michael)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-cpr-mask.png" alt="CPR Dummy Mask (Dwight)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-schrute-buck.png" alt="Schrute Buck (Dwight)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-jello-stapler.png" alt="Jello Stapler (Jim)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-pretzel.png" alt="Pretzel Day (Stanley)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-serenity-candle.png" alt="Serenity by Jan (Jan)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-finer-things.png" alt="Finer Things Club (Oscar / Pam / Toby)" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-paper-box.png" alt="Dunder Mifflin Paper Box" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-dunder-logo.png" alt="Dunder Mifflin Logo" height="70">
-  &nbsp;&nbsp;
-  <img src="docs/images/prop-angela-cat.png" alt="Angela's cat" height="70">
-</p>
+포켓몬 그림은 앱에 들어 있지 않아요. 처음 볼 때 [PokeAPI 이미지 저장소](https://github.com/PokeAPI/sprites)에서 받아 `%USERPROFILE%\.agent-office\sprites`에 저장하고, 그다음부터는 저장된 파일을 써요.
 
-Toggle it off any time with `/the-office` again — state persists in `localStorage`.
-
----
-
-### Full office — agents working, chatting, and taking coffee breaks
-![Day Mode](docs/images/Day-Mode.png)
-
-## Features
-
-**Live Agent Visualization**
-- Agents appear as pixel art characters that walk into the office through the door
-- Each agent type gets a unique character sprite and desk assignment
-- Agents show typing bubbles, take coffee/water breaks, and leave when done
-- One pill per Claude Code session, each with its own Claude at a desk
-- Boss character (you) with an energy drink, Claude with coffee
-- Random office events: pizza deliveries, fire drills, power flickers, printer jams
-- Day/night cycle with smooth transitions
-
-**AI-Powered Office Chat**
-- Back-and-forth conversation with Claude through the office chat panel
-- Claude has a witty office manager personality with running jokes
-- Multi-agent routing — mention a bug and the Debugger responds, ask about UI and Frontend answers
-- Typing indicators, emoji reactions, read receipts
-- Slash commands: `/status`, `/agents`, `/incident`, `/all-clear`, `/help`
-- Chat history persists across restarts (SQLite)
-- Proactive messages — agents announce when they start and finish work
-- Desktop notifications for important events
-
-**Context-Aware AI**
-- Claude knows your current git branch and active agents
-- Conversation memory — remembers the last 10 messages
-- AI On/Off toggle to control token usage
-
-### Night mode — the office after dark, agents still grinding
-![Night Mode](docs/images/night-mode.png)
-
-### Waiting for tokens... the office keeps itself entertained
-![Waiting for tokens](docs/images/entertainment-waiting-tokenreset.png)
-
-## How It Works
-
-Claude Code hooks and its status line send every agent spawn, tool call, prompt and permission wait to a local Express + WebSocket server, which broadcasts them to the React frontend.
+## 어떻게 동작하나요
 
 ```
-Claude Code ──hooks + status line──> Express Server ──WebSocket──> React Frontend
-                                          │
-                                    SQLite (chat)
-                                          │
-                                  Chat AI Watcher ──claude -p──> Reply
+Claudex (Electron)
+ ├─ 터미널 (node-pty + xterm.js) ── claude --session-id … --settings <Claudex 전용 훅>
+ │                                        │ 훅·상태줄
+ ├─ 로컬 서버 127.0.0.1:3334 <────────────┘
+ │    ├─ 세션 상태, 한도
+ │    ├─ 게임 (server/pokedex.js → ~/.agent-office/pokedex.json)
+ │    ├─ 포켓몬 그림 (server/sprites.js, 처음 쓸 때 받아서 저장)
+ │    └─ 클라우드 동기화 (server/cloud.js, Supabase)
+ └─ 위젯 / 도감 / 박스 / 알림 창 (React)
 ```
 
-## Quick Start
+- **훅은 Claudex가 띄운 세션에만 걸려요**: Claude Code의 전역 설정(`~/.claude/settings.json`)은 건드리지 않아요.
+- **서버는 로컬에서만 열려요**: 서버는 `127.0.0.1`에서만 열리고, 바꾸는 요청에는 `~/.agent-office/auth-token`이 필요해요.
+- **로그인 토큰은 서버에만 있어요**: 클라우드 로그인 토큰은 화면 쪽으로 넘어가지 않아요.
+
+## 개발
 
 ```bash
-# Clone
-git clone https://github.com/W17ant/Claude-Office.git
-cd Claude-Office
-
-# Install
 npm install
-
-# Connect Claude Code (adds the hooks + status line to ~/.claude/settings.json, safe to re-run)
-npm run install-hooks
-
-# Start everything (server + frontend + chat watcher) and open the office
-bash scripts/start-office.sh
-
-# Stop everything
-bash scripts/stop-office.sh
+npm run dev:electron        # 개발 실행
+npx vitest run tests/pokedex.test.ts tests/sprites.test.ts tests/theme.test.ts
+node scripts/release.mjs "변경 내용"            # 빌드 (release/)
+node scripts/release.mjs "변경 내용" --publish  # GitHub 릴리스까지
 ```
 
-Now spawn agents in Claude Code and watch them appear in the office.
-
-- **Rather have an app?** Grab the installer for Mac, Windows or Linux from [Releases](https://github.com/W17ant/Claude-Office/releases).
-- **Nothing showing up?** `npm run doctor` checks the whole setup and tells you what's missing.
-- **Want it gone?** `npm run uninstall-hooks` takes the hooks back out.
-- Works on macOS and Linux, and on Windows through WSL or Git Bash.
-
-Installing it as a Claude Code plugin, the hook events, every setting and the security model are all in the [reference](docs/reference.md).
-
-## Customise Your Character
-
-The boss character (you) is configurable via `office.config.json`:
-
-```json
-{
-  "boss": {
-    "name": "YourName",
-    "sprite": "MyChar-1",
-    "color": "#ff4444",
-    "emoji": "crown"
-  }
-}
-```
-
-Change it and reload the page — no rebuild needed.
-
-### Creating a custom sprite
-
-Use the Helper sprite sheet as a reference for the 4-direction layout — here's an example of mine next to it:
-
-<p>
-  <img src="docs/images/Helper.png" alt="Helper Sprite Template" height="250">
-  <img src="docs/images/Me-1-front-right.png" alt="Custom Boss — Front Right" height="250">
-  <img src="docs/images/Me-1-rear-left.png" alt="Custom Boss — Rear Left" height="250">
-</p>
-
-Here's Mini Claude — I asked Claude to describe itself after showing it the office with my avatar, then used the prompt to generate the sprite:
-
-<img src="docs/images/mini-claude.png" alt="Mini Claude" height="500">
-
-1. Open ChatGPT (with DALL-E image generation)
-2. Upload `public/sprites/characters/Helper.png` as a reference
-3. Ask it to generate a pixel art character in the same style and layout (4 directions: front-left, rear-right, front-right, rear-left)
-4. Save the output and extract the sprites:
-
-```bash
-python3 scripts/extract-boss-sprite.py your-character.png MyChar-1
-```
-
-## Chat
-
-| Command | Description |
-|---------|-------------|
-| `/status` | Office stats — agents, clients |
-| `/agents` | List active agents |
-| `/incident` | Declare an incident by hand |
-| `/all-clear` | End the incident and post the postmortem |
-| `/help` | Show available commands |
-| `/the-office` | Toggle Dunder Mifflin mode |
-
-To wipe the chat history, run `python3 scripts/chat-post.py /clear` from the checkout.
-
-### Agent Routing
-
-The chat AI routes your messages to specialist agents based on keywords:
-
-| Topic | Agent |
-|-------|-------|
-| bugs, errors, crashes | Debugger |
-| PRs, code review, git | Reviewer |
-| UI, CSS, design | Frontend |
-| tests, coverage, e2e | Tester |
-| auth, security, tokens | Security |
-| deploys, Docker, CI | DevOps |
-| performance, caching | PerfEng |
-| databases, SQL | DBA |
-| TypeScript, types | TS Pro |
-| AI, LLMs, prompts | AI Eng |
-| APIs, REST, webhooks | Fullstack |
-| architecture, patterns | Architect |
-
-Agents can also message each other directly — see [Agent-to-agent messages](docs/reference.md#agent-to-agent-messages).
-
-### Just me and Claude — chatting in the office
-![Me & Claude](docs/images/Me%20&%20Claude.png)
-
-## Modes
-
-| URL | Mode |
-|-----|------|
-| `127.0.0.1:3333` | Live — connected to Claude Code via WebSocket |
-| `127.0.0.1:3333?sim` | Simulation — scripted demo with fake agents |
-| `127.0.0.1:3333?video` | Video — scripted recording mode |
-| `127.0.0.1:3333?helper` | Placement helper — dev tool for positioning furniture |
-| `127.0.0.1:3333?variant=incident` | Incident — pins "Prod Is Down" on |
-
-## Tech Stack
-
-- **Frontend**: React + TypeScript + Vite
-- **Server**: Express + WebSocket (ws)
-- **Storage**: SQLite (better-sqlite3)
-- **Chat AI**: Claude CLI (`claude -p`)
-- **Sprites**: Custom pixel art (isometric)
-- **Desktop**: Electron (optional)
-- **Tests**: Vitest, run in CI on every pull request
-
-## Project Structure
+- **빌드할 때 받는 그림**: `tools/fetch-balls.mjs`가 볼 그림을 받아요. `tools/build-icons.py`는 앱 아이콘을 만들어요.
+- **저장소에 없는 것**: 포켓몬·볼 그림은 저장소에 넣지 않아요(`.gitignore`).
+- **시험 실행**: 실제 데이터를 건드리지 않으려면 `AGENT_OFFICE_HOME=<임시 폴더> AGENT_OFFICE_PORT=3344`로 실행하세요.
 
 ```
-Claude-Office/
-├── src/                    # React frontend
-│   ├── components/         # Character, SlackChat, AgentCard, TaskBoard…
-│   ├── officeReducer.ts    # Every office event → what the office does
-│   ├── styles/             # office.css, incident.css…
-│   └── App.tsx             # Main app
-├── server/                 # Express + WebSocket server
-│   ├── index.js            # HTTP endpoints + WS broadcast
-│   └── chat-db.js          # SQLite wrapper
-├── hooks/                  # Claude Code hooks
-│   ├── agent-tracker.sh    # Forwards events to the server
-│   ├── status-line.sh      # Feeds the meters
-│   └── install-hooks.sh    # npm run install-hooks
-├── scripts/                # start / stop / doctor / chat watcher
-├── electron/               # Desktop app
-├── public/sprites/         # Pixel art characters + effects
-└── docs/                   # Reference + images
+claudex/
+├── electron/      # 앱: 창, 터미널, 업데이트, 트레이
+├── server/        # 로컬 서버: 게임, 그림, 클라우드, 세션
+├── src/           # 화면: Widget, 도감, 박스, 알림
+├── hooks/         # Claude Code 훅과 상태줄
+├── tools/         # 데이터·그림 준비 스크립트
+├── scripts/       # 릴리스 스크립트
+└── supabase/      # 클라우드 테이블 (RLS)
 ```
 
-## Security
+## 만든 사람과 바탕
 
-- Server binds to `127.0.0.1` only — not exposed to the network
-- Agent events, permission answers and wiping the chat need the auth token in `~/.agent-office/auth-token` (`0600` permissions); typing in the chat doesn't
-- The office page gets the token from the link the start script opens; without it the office is read-only
-- Hook requests are signed, so the token never appears on a command line
+- [W17ant/Claude-Office](https://github.com/W17ant/Claude-Office) (MIT)를 바탕으로 만들었어요. 세션 추적, 훅, 상태줄 구조는 원작에서 왔어요.
+- 포켓몬 데이터는 [PokeAPI](https://pokeapi.co/)에서, 볼 그림은 [Bulbagarden Archives](https://archives.bulbagarden.net/)에서 가져와요.
 
-The full model is in the [reference](docs/reference.md#security).
+## 라이선스
 
-## Desktop App (Electron)
-
-Download it from [Releases](https://github.com/W17ant/Claude-Office/releases), or build it yourself:
-
-```bash
-npm run dev:electron    # Development
-npm run build:electron  # Build the installer
-```
-
-## Contributing
-
-Issues and pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-MIT — the Dunder Mifflin fan art is excluded, see [NOTICE.md](NOTICE.md).
+코드는 MIT예요. 포켓몬 이름과 그림은 라이선스 대상이 아니에요. [NOTICE.md](NOTICE.md)를 봐 주세요.

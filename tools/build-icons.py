@@ -77,11 +77,30 @@ def draw_ball(n):
     return img.resize((n, n), Image.LANCZOS)
 
 
-big = draw_ball(512)
+# --official (release builds only, see scripts/release.mjs): the icons come from the
+# games' Poké Ball art imported by tools/import-balls.mjs. That art is never
+# committed, so the release script puts the drawn icons back after building.
+official = ROOT / 'tools' / '_cache' / 'poke-ball-full.png'
+if '--official' in sys.argv and official.exists():
+    src = Image.open(official).convert('RGBA')
+    src = src.crop(src.getchannel('A').getbbox() or (0, 0, src.width, src.height))
+
+    def make(n):
+        side = max(src.width, src.height)
+        sq = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+        sq.alpha_composite(src, ((side - src.width) // 2, (side - src.height) // 2))
+        return sq.resize((n, n), Image.LANCZOS)
+    which = 'official'
+else:
+    make = draw_ball
+    which = 'drawn'
+
+big = make(512)
 big.save(ROOT / 'build' / 'icon.png')
 big.save(ROOT / 'electron' / 'assets' / 'icon.png')
-draw_ball(16).save(ROOT / 'electron' / 'assets' / 'tray-16.png')
-draw_ball(32).save(ROOT / 'electron' / 'assets' / 'tray-32.png')
-draw_ball(48).save(ROOT / 'electron' / 'assets' / 'tray-48.png')
-draw_ball(128).save(ROOT / 'public' / 'sprites' / 'claudex-ball.png')
-print('ok')
+make(16).save(ROOT / 'electron' / 'assets' / 'tray-16.png')
+make(32).save(ROOT / 'electron' / 'assets' / 'tray-32.png')
+make(48).save(ROOT / 'electron' / 'assets' / 'tray-48.png')
+if which == 'drawn':
+    draw_ball(128).save(ROOT / 'public' / 'sprites' / 'claudex-ball.png')
+print(f'ok ({which})')

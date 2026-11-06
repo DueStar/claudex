@@ -7,7 +7,8 @@
 import React, { useMemo, useState } from 'react'
 import { POKEMON, spriteUrl, type PokemonEntry } from '../theme'
 import { bridge } from '../desktop'
-import { usePokedex, useViewed, markViewed, TIER_LABEL, TIER_RATE, TYPE_KO, NATURE_BY_ID, genderMark, sourceText, type Tier } from '../pokedexStore'
+import { PokeBall } from './Icons'
+import { ballName, usePokedex, useViewed, markViewed, TIER_LABEL, TIER_RATE, TYPE_KO, NATURE_BY_ID, genderMark, sourceText, type Tier } from '../pokedexStore'
 
 const GENS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 const TIERS: Tier[] = ['common', 'rare', 'sub', 'legendary', 'mythical']
@@ -149,6 +150,7 @@ const PokedexView: React.FC = () => {
                           return (
                             <div key={m.uid} className="dex-owned-row">
                               <div className="dex-owned-top">
+                                <PokeBall ball={m.ball} size={14} title={ballName(m.ball)} />
                                 <b>{m.shiny ? '✦ ' : ''}{detail.ko}{genderMark(m.gender)}{m.gender === 'none' ? ' (무성)' : ''}</b>
                                 {n && <span className="dex-nature" title={n.up ? `${n.up}↑ ${n.down}↓` : '능력 보정 없음'}>{n.ko}{n.up ? ` · ${n.up}↑ ${n.down}↓` : ''}</span>}
                               </div>
