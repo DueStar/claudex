@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('pokeOffice', {
     getExpanded: () => ipcRenderer.invoke('widget:get-expanded'),
     setExpanded: (flag) => ipcRenderer.invoke('widget:set-expanded', !!flag),
     getMode: () => ipcRenderer.invoke('widget:get-mode'),
+    minimize: () => ipcRenderer.invoke('widget:minimize'),
     setMode: (mode) => ipcRenderer.invoke('widget:set-mode', String(mode)),
     onMode: (fn) => on('widget:mode', fn),
     onExpanded: (fn) => on('widget:expanded', fn),

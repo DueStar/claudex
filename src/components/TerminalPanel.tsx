@@ -87,6 +87,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     // Ctrl+V pastes, Ctrl+C copies when there is a selection (else it is ^C for Claude)
     xterm.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true
+      // Ctrl+1–4 switch the app's views (터미널/도감/박스/기록): not for the terminal
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) return false
       // Ctrl+= / Ctrl+- / Ctrl+0: text size
       if (e.ctrlKey && !e.altKey && (e.key === '=' || e.key === '+')) { stepTermFont(1); return false }
       if (e.ctrlKey && !e.altKey && e.key === '-') { stepTermFont(-1); return false }

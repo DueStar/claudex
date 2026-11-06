@@ -445,6 +445,22 @@ function sanitizeWindowState(raw) {
   if (isRect(raw.compactBounds)) state.compactBounds = pickRect(raw.compactBounds)
   if (typeof raw.compact === 'boolean') state.compact = raw.compact
   if (typeof raw.alwaysOnTop === 'boolean') state.alwaysOnTop = raw.alwaysOnTop
+  // The widget (the app): where it sits, its sizes and mode
+  if (isRect(raw.widgetBounds)) state.widgetBounds = pickRect(raw.widgetBounds)
+  for (const k of ['widgetCompactSize', 'widgetExpandedSize']) {
+    const v = raw[k]
+    if (v && Number.isFinite(v.width) && Number.isFinite(v.height) && v.width > 0 && v.height > 0) state[k] = { width: Math.round(v.width), height: Math.round(v.height) }
+  }
+  for (const k of ['widgetExpanded', 'widgetHidden']) if (typeof raw[k] === 'boolean') state[k] = raw[k]
+  if (['widget', 'window', 'fullscreen'].includes(raw.widgetMode)) state.widgetMode = raw.widgetMode
+  // The trainer's session names (session id -> name)
+  if (raw.sessionTitles && typeof raw.sessionTitles === 'object' && !Array.isArray(raw.sessionTitles)) {
+    const titles = {}
+    for (const [id, t] of Object.entries(raw.sessionTitles).slice(-500)) {
+      if (/^[0-9a-f-]{36}$/i.test(id) && typeof t === 'string' && t.trim()) titles[id] = t.trim().slice(0, 40)
+    }
+    state.sessionTitles = titles
+  }
   return state
 }
 

@@ -719,8 +719,10 @@ function createWidgetWindow() {
   const { workArea } = screen.getPrimaryDisplay()
   const saved = state.widgetBounds
   const size = widgetSize(state.widgetExpanded === true, workArea)
-  const bounds = saved ? clampBounds({ ...saved, ...size }, workArea, WIDGET_MIN)
-    : { x: workArea.x + workArea.width - size.width - 16, y: workArea.y + 16, ...size }
+  // The widget opens docked to the right edge, top to bottom; a window opens where it was
+  const bounds = state.widgetExpanded !== true ? widgetDockBounds(workArea, size.width)
+    : saved ? clampBounds({ ...saved, ...size }, workArea, WIDGET_MIN)
+      : { x: workArea.x + workArea.width - size.width - 16, y: workArea.y + 16, ...size }
   widgetWin = new BrowserWindow({
     ...bounds,
     minWidth: WIDGET_MIN.width,
@@ -782,6 +784,13 @@ function widgetSize(expanded, workArea) {
   }
 }
 
+/** The widget's place: against the right edge, the full height of the work area, a small gap all round */
+const WIDGET_GAP = 12
+function widgetDockBounds(workArea, width) {
+  const w = Math.max(WIDGET_MIN.width, Math.min(width, workArea.width - 2 * WIDGET_GAP))
+  return { x: workArea.x + workArea.width - w - WIDGET_GAP, y: workArea.y + WIDGET_GAP, width: w, height: workArea.height - 2 * WIDGET_GAP }
+}
+
 /** Fold the widget into a terminal (or back), keeping its right edge where it is. */
 function setWidgetExpanded(expanded) {
   const w = createWidgetWindow()
@@ -791,7 +800,10 @@ function setWidgetExpanded(expanded) {
   const { workArea } = screen.getDisplayMatching(b)
   const size = widgetSize(state.widgetExpanded, workArea)
   const right = b.x + b.width
-  const next = clampBounds({ x: right - size.width, y: b.y, ...size }, workArea, WIDGET_MIN)
+  // Folded back to the widget: docked to the right edge, top to bottom
+  const next = state.widgetExpanded
+    ? clampBounds({ x: right - size.width, y: b.y, ...size }, workArea, WIDGET_MIN)
+    : widgetDockBounds(workArea, size.width)
   w.setBounds(next)
   w.webContents.send('widget:expanded', state.widgetExpanded)
   // Keep the mode in step for callers that only fold or unfold (the tray, debug runs)
@@ -1084,6 +1096,7 @@ function registerTerminalIpc() {
   ipcMain.handle('update:check', guard(() => updater?.check() ?? null))
   ipcMain.handle('update:install', guard(() => updater?.install() ?? null))
   ipcMain.handle('update:restart', guard(() => updater?.restart() ?? false))
+  ipcMain.handle('widget:minimize', guard(() => { if (widgetWin && !widgetWin.isDestroyed()) widgetWin.minimize() }))
   ipcMain.handle('widget:get-mode', guard(() => state.widgetMode ?? (state.widgetExpanded ? 'window' : 'widget')))
   ipcMain.handle('widget:set-mode', guard((mode) => setWidgetMode(String(mode))))
   ipcMain.handle('widget:get-expanded', guard(() => state.widgetExpanded === true))

@@ -244,3 +244,11 @@
 .term-view .xterm .scrollbar.vertical { width: 8px !important; }
 /* Session tabs above the terminal: a smaller Pokémon */
 .w-term-tab img { width: 20px; height: 20px; }
+
+/* ---------- Tab bar: new session right after the open sessions; window controls at the far right ---------- */
+.w-term-new { flex: none; -webkit-app-region: no-drag; }
+.w-win-controls { display: flex; gap: 2px; margin-left: 4px; -webkit-app-region: no-drag; flex: none; }
+.w-win-controls .w-icon { width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); }
+.w-win-controls .w-icon:hover { background: var(--card-2); color: var(--ink); }
+.w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
+.w-font-switch button { font-family: 'W Uncut', 'Uncut Sans Variable', system-ui, sans-serif; letter-spacing: -0.02em; }

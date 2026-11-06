@@ -366,3 +366,17 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-limits-hint { font-size: 11px; color: var(--ink-3); }
 .w-limit.loading .w-bar { grid-column: 2 / -1; }
 .w-limit.loading .w-limit-pct, .w-limit.loading .w-limit-reset { display: none; }
+
+/* ---------- Session row: name and level on the left, status, swap and close on the right ---------- */
+.w-row-label { flex: 0 1 auto; }
+.w-row-top > .w-pill { margin-left: auto; }
+.w-row-top > .w-row-close { margin-left: 2px; }
+
+/* ---------- Instruction box: the note sits above it, 보내기 at the bottom ---------- */
+.w-compose { gap: 6px; }
+.w-input { align-items: flex-end; }
+.w-send { height: 38px; align-self: flex-end; }
+.w-note { margin: 0; line-height: 1.45; animation: wNoteIn 0.2s ease-out both; }
+@keyframes wNoteIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.w-row-swap, .w-row-top > .w-pill, .w-row-lv { flex: none; white-space: nowrap; }
+.w-row-label { min-width: 0; }

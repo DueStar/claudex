@@ -85,6 +85,7 @@ interface PokeOfficeBridge {
     getExpanded(): Promise<boolean>
     setExpanded(flag: boolean): Promise<boolean>
     getMode(): Promise<WidgetMode>
+    minimize(): Promise<void>
     setMode(mode: WidgetMode): Promise<WidgetMode>
     onMode(fn: (mode: WidgetMode) => void): () => void
     onExpanded(fn: (flag: boolean) => void): () => void

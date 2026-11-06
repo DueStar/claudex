@@ -54,6 +54,14 @@ export const FullscreenIcon: React.FC<P> = (p) => (
 export const TodayIcon: React.FC<P> = (p) => (
   <Svg {...p}><circle cx="8" cy="8" r="6" /><path d="M8 4.8V8l2.2 1.6" /></Svg>
 )
+/** A line: minimize the window */
+export const MinimizeIcon: React.FC<P> = (p) => (
+  <Svg {...p}><path d="M3.5 8h9" /></Svg>
+)
+/** × : close */
+export const CloseIcon: React.FC<P> = (p) => (
+  <Svg {...p}><path d="M4 4l8 8M12 4l-8 8" /></Svg>
+)
 export const PlusIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M8 3v10M3 8h10" /></Svg>
 )
