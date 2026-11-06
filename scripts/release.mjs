@@ -80,7 +80,7 @@ console.log(`\napp update ${appZip} ${mb(manifest.app.size)} · full ${fullZip} 
 if (publish) {
   const token = execFileSync('gh', ['auth', 'token', '-u', 'DueStar'], { encoding: 'utf8' }).trim()
   run('gh', ['release', 'create', `v${version}`, '--repo', 'DueStar/claudex', '--title', `Claudex ${version}`, '--notes', notes || `Claudex ${version}`,
-    join(out, 'latest.json'), join(out, appZip), join(out, fullZip)], { env: { ...process.env, GH_TOKEN: token } })
+    join(out, 'latest.json'), join(out, appZip), join(out, fullZip)], { env: { ...process.env, GH_TOKEN: token }, shell: false })
 } else {
   console.log('Not published. Add --publish to create the GitHub release.')
 }
