@@ -1,0 +1,54 @@
+/* toast.css — the catch notification window (?toast): one card, bottom-right, above everything */
+
+html.toast-mode, html.toast-mode body, html.toast-mode #root {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+.toast-host {
+  height: 100vh;
+  padding: 8px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  background: transparent;
+}
+
+.toast-host .w-toast {
+  position: static;
+  width: 100%;
+  min-height: 84px;
+  box-sizing: border-box;
+  padding: 12px 16px 12px 12px;
+  border-radius: 18px;
+  background: rgba(20, 22, 28, 0.97);
+  animation: toastIn 0.4s cubic-bezier(.2, .9, .3, 1.25) both;
+}
+.toast-host .w-toast img { height: 60px; max-width: 72px; image-rendering: auto; }
+.toast-host .w-toast-text { font-size: 13.5px; }
+.toast-host .w-toast.leaving { animation: toastOut 0.35s ease-in both; }
+
+/* tier colours (the widget's pokedex.css is not loaded here) */
+.tier-common { --tier: #a4a9b6; }
+.tier-rare { --tier: #6cb6ff; }
+.tier-sub { --tier: #c08bff; }
+.tier-legendary { --tier: #ffc94a; }
+.tier-mythical { --tier: #ff7ad9; }
+.toast-host .w-toast-sub { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6e7381; }
+.toast-host .w-toast-tier { color: var(--tier); font-weight: 700; }
+.toast-host .w-toast-line { display: block; }
+.toast-host .w-toast-badge { align-self: flex-start; font-size: 10px; font-weight: 700; color: #1b1e27; background: #ffd84a; padding: 1px 7px; border-radius: 999px; }
+.toast-host .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.55); }
+.toast-host .w-toast.kind-catch.tier-legendary, .toast-host .w-toast.kind-catch.tier-mythical {
+  border-color: var(--tier);
+  box-shadow: 0 0 0 1px var(--tier), 0 0 26px color-mix(in srgb, var(--tier) 45%, transparent);
+}
+.toast-host .w-toast.shiny { border-color: #fff3a0; box-shadow: 0 0 22px rgba(255, 243, 160, 0.5); }
+
+@keyframes toastIn { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes toastOut { to { transform: translateY(16px); opacity: 0; } }
+.toast-host .w-toast-via { display: block; font-size: 11px; color: #a4a9b6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 270px; }
+.toast-host .w-toast-via.warn { color: #ffb54a; }

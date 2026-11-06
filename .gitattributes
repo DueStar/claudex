@@ -1,0 +1,5 @@
+# Keep LF everywhere: the hook scripts run under bash, and CRLF breaks them
+* text=auto eol=lf
+*.png binary
+*.gif binary
+*.ico binary

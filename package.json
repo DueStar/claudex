@@ -1,0 +1,113 @@
+{
+  "name": "claudex",
+  "productName": "Claudex",
+  "version": "1.1.1",
+  "description": "Pokémon-skinned desktop office for Claude Code sessions (personal, local use)",
+  "author": "W17ANT",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/W17ant/Claude-Office.git"
+  },
+  "homepage": "https://github.com/W17ant/Claude-Office",
+  "bugs": "https://github.com/W17ant/Claude-Office/issues",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "concurrently \"vite\" \"sleep 2 && electron .\"",
+    "dev:all": "concurrently \"node server/index.js\" \"vite\"",
+    "build": "tsc && vite build",
+    "build:electron": "vite build && electron-builder",
+    "pack": "vite build && electron-builder --dir",
+    "electron": "electron .",
+    "start": "npm run dev:electron",
+    "server": "node server/index.js",
+    "open": "node scripts/open-office.mjs",
+    "rotate-token": "node scripts/rotate-token.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check-assets": "node scripts/check-assets.mjs",
+    "install-hooks": "bash hooks/install-hooks.sh",
+    "install-status-line": "bash hooks/install-hooks.sh --status-line-only",
+    "uninstall-hooks": "bash hooks/install-hooks.sh --uninstall",
+    "doctor": "node scripts/doctor.mjs",
+    "version": "node scripts/sync-plugin-version.mjs && git add .claude-plugin/plugin.json"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "^6.0.0",
+    "better-sqlite3": "^12.8.0",
+    "concurrently": "^8.2.2",
+    "express": "^4.19.2",
+    "node-pty": "^1.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.5.12",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^33.0.0",
+    "electron-builder": "^24.13.3",
+    "supertest": "^7.3.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.0",
+    "vitest": "^3.2.7"
+  },
+  "build": {
+    "appId": "local.claudex.app",
+    "productName": "Claudex",
+    "artifactName": "Claudex-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "asar": false,
+    "files": [
+      "dist/**",
+      "electron/**",
+      "!electron/after-pack.cjs",
+      "server/**",
+      "scripts/notify.sh",
+      "hooks/**"
+    ],
+    "npmRebuild": false,
+    "afterPack": "electron/after-pack.cjs",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "differentialPackage": false
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Development",
+      "target": [
+        "AppImage"
+      ]
+    }
+  }
+}

@@ -1,0 +1,240 @@
+/* pokemon.css — the 2D Pokémon map. One map pixel = var(--map-px) (the map is 640 px wide). */
+
+.room-container {
+  container-type: inline-size;
+  --map-px: calc(100cqw / 640);
+  background: #6abe30;
+}
+
+.room-background {
+  image-rendering: pixelated;
+  background-size: 100% 100%;
+}
+
+.char-flip {
+  display: block;
+  line-height: 0;
+}
+.char-flip.flipped {
+  transform: scaleX(-1);
+}
+
+.char-sprite,
+.furniture-item img {
+  image-rendering: pixelated;
+  max-width: none;
+}
+
+/* Pokémon hop instead of sway when they walk */
+@keyframes walkSway {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(calc(-3 * var(--map-px))); }
+}
+
+.char-shadow {
+  width: calc(28 * var(--map-px));
+  height: calc(6 * var(--map-px));
+}
+
+/* Coming out of a Poké Ball: a white flash that settles */
+.character-wrapper.state-new-hire .char-sprite {
+  animation: pokeballPop 0.6s ease-out 1;
+}
+@keyframes pokeballPop {
+  0% { transform: scale(0.1); filter: brightness(6) saturate(0); }
+  60% { transform: scale(1.1); filter: brightness(2); }
+  100% { transform: scale(1); filter: none; }
+}
+
+/* Evolution: glow white, shimmer, settle into the new form */
+.character-wrapper.evolving .char-sprite {
+  animation: evolveFlash 1.8s ease-in-out 1;
+}
+@keyframes evolveFlash {
+  0%   { filter: none; }
+  20%  { filter: brightness(8) saturate(0); transform: scale(0.9); }
+  40%  { filter: brightness(8) saturate(0); transform: scale(1.1); }
+  60%  { filter: brightness(8) saturate(0); transform: scale(0.95); }
+  100% { filter: none; transform: scale(1); }
+}
+
+/* Chat: BW dialogue-box flavour */
+.slack-avatar-img {
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+/* "Days since last incident" lives on the wooden sign left of the lab */
+.days-sign {
+  width: calc(22 * var(--map-px));
+  height: calc(13 * var(--map-px));
+}
+.days-sign img { display: none; }
+.days-sign-digits,
+.days-sign-digits.two,
+.days-sign-digits.three {
+  inset: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  color: #fff8e0;
+  font-family: 'Press Start 2P', ui-monospace, monospace;
+  font-size: calc(7 * var(--map-px));
+  text-shadow: 0 1px 0 #3f2a1c;
+}
+.days-sign.incident .days-sign-digits { color: #ff5a5a; }
+
+/* ---------- Desktop app layout: map | terminals | chat ---------- */
+html.desktop, html.desktop body, html.desktop #root { margin: 0; height: 100%; overflow: hidden; background: #0a0a0f; }
+html.desktop .app-wrapper {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  transform: none;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+}
+html.desktop .office-view {
+  flex: 0 0 38%;
+  max-width: 38%;
+  flex-shrink: 1;
+  min-width: 300px;
+}
+html.desktop .office-view:has(+ .term-column.collapsed),
+html.desktop .office-view:has(+ .agent-card + .term-column.collapsed) {
+  flex: 1;
+  max-width: none;
+  align-items: center;
+}
+
+.term-column {
+  flex: 1;
+  min-width: 360px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #2b2f3a;
+  background: #101218;
+}
+.term-column.collapsed { display: none; }
+html.desktop .chat-column { width: 320px; min-width: 280px; }
+html.desktop .chat-column.narrow { width: 280px; min-width: 240px; }
+
+.right-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: #151210;
+  border-left: 1px solid #35363a;
+  border-bottom: 1px solid #2a2520;
+}
+.right-tabs button {
+  flex: 1;
+  background: #1f1b18;
+  color: #b9b2a8;
+  border: 1px solid #2f2924;
+  border-radius: 4px;
+  font: 600 11px 'Pretendard', 'Malgun Gothic', sans-serif;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.right-tabs button.active { background: #d8383a; color: #fff; border-color: #d8383a; }
+
+.term-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.term-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 4px 0;
+  background: #0c0d12;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.term-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px 2px 2px;
+  background: #1a1d26;
+  color: #a7acb8;
+  border: 1px solid #2b2f3a;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  font: 12px 'Pretendard', 'Malgun Gothic', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.term-tab img { width: 26px; height: 26px; image-rendering: pixelated; }
+.term-tab.active { background: #101218; color: #fff; border-color: #ffd84a; }
+.term-tab.exited { opacity: 0.5; }
+.term-tab-name { font-weight: 700; }
+.term-tab-project { color: #7d8292; font-size: 11px; }
+.term-tab-close { margin-left: 2px; padding: 0 3px; border-radius: 3px; color: #7d8292; }
+.term-tab-close:hover { background: #3a2020; color: #ff8787; }
+.term-new {
+  background: transparent;
+  color: #ffd84a;
+  border: 1px dashed #5a5030;
+  border-radius: 6px 6px 0 0;
+  font: 600 12px 'Pretendard', 'Malgun Gothic', sans-serif;
+  padding: 0 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.term-new:hover { background: #241f10; }
+.term-new.big { border-radius: 8px; padding: 10px 16px; font-size: 14px; }
+.term-body { flex: 1; min-height: 0; position: relative; padding: 4px 0 0 6px; }
+.term-view { position: absolute; inset: 4px 0 0 6px; }
+.term-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #8a8f9c;
+  font: 13px 'Pretendard', 'Malgun Gothic', sans-serif;
+}
+.term-error { color: #ff8787; padding: 4px 8px; font-size: 12px; background: #2a1414; }
+
+/* ---------- 이어하기 (resume) picker ---------- */
+.resume-backdrop {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(5, 6, 10, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.resume-modal {
+  width: min(560px, 92vw); max-height: 76vh;
+  display: flex; flex-direction: column;
+  background: #161922; border: 1px solid #343949; border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  font: 13px 'Pretendard', 'Malgun Gothic', sans-serif; color: #e8e8ea;
+  overflow: hidden;
+}
+.resume-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; background: #d8383a; color: #fff; font-weight: 700;
+}
+.resume-head button { background: none; border: 0; color: #fff; font-size: 18px; cursor: pointer; }
+.resume-list { overflow-y: auto; overflow-x: hidden; padding: 6px; }
+.resume-empty { padding: 20px; text-align: center; color: #8a8f9c; }
+.resume-item {
+  width: 100%; min-width: 0; text-align: left; display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 10px; margin-bottom: 4px;
+  background: #1d212c; border: 1px solid #2b2f3a; border-radius: 6px;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.resume-item:hover:not(:disabled) { border-color: #ffd84a; }
+.resume-item:disabled { opacity: 0.45; cursor: default; }
+.resume-title { display: block; max-width: 100%; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resume-meta { display: flex; gap: 10px; color: #8a8f9c; font-size: 11px; align-items: center; }
+.resume-project { color: #c9cdd6; }
+.resume-badge { background: #2b3a2b; color: #9ff0a8; padding: 0 6px; border-radius: 8px; }
+.resume-badge.run { background: #3a3220; color: #ffd84a; }
+.resume-warn { padding: 14px 16px; line-height: 1.55; }
+.resume-warn code { background: #232838; padding: 0 4px; border-radius: 3px; }
+.resume-warn-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.resume-warn-actions button {
+  background: #2b2f3a; color: #e8e8ea; border: 0; border-radius: 5px; padding: 6px 12px; font: inherit; cursor: pointer;
+}
+.resume-warn-actions button.danger { background: #d8383a; color: #fff; }

@@ -1,0 +1,834 @@
+{
+ "size": {
+  "w": 640,
+  "h": 480
+ },
+ "entryPoint": {
+  "x": 55.0,
+  "y": 24.58
+ },
+ "spots": [
+  {
+   "id": "spot-1",
+   "type": "desk",
+   "x": 50.0,
+   "y": 70.42,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-2",
+   "type": "desk",
+   "x": 63.75,
+   "y": 70.42,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  },
+  {
+   "id": "spot-3",
+   "type": "desk",
+   "x": 36.25,
+   "y": 70.42,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-4",
+   "type": "desk",
+   "x": 77.5,
+   "y": 70.42,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  },
+  {
+   "id": "spot-5",
+   "type": "desk",
+   "x": 22.5,
+   "y": 70.42,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-6",
+   "type": "desk",
+   "x": 50.0,
+   "y": 51.67,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-7",
+   "type": "desk",
+   "x": 36.25,
+   "y": 51.67,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-8",
+   "type": "desk",
+   "x": 63.75,
+   "y": 51.67,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  },
+  {
+   "id": "spot-9",
+   "type": "desk",
+   "x": 22.5,
+   "y": 51.67,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-10",
+   "type": "desk",
+   "x": 77.5,
+   "y": 51.67,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  },
+  {
+   "id": "spot-coffee-1",
+   "type": "coffee",
+   "x": 14.37,
+   "y": 51.25,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-coffee-2",
+   "type": "coffee",
+   "x": 16.25,
+   "y": 75.0,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-water-1",
+   "type": "water",
+   "x": 88.44,
+   "y": 60.83,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  },
+  {
+   "id": "spot-water-2",
+   "type": "water",
+   "x": 94.69,
+   "y": 61.67,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  },
+  {
+   "id": "spot-filing",
+   "type": "filing",
+   "x": 39.06,
+   "y": 28.33,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-printer",
+   "type": "printer",
+   "x": 63.28,
+   "y": 27.08,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  },
+  {
+   "id": "spot-door-2",
+   "type": "door",
+   "x": 51.56,
+   "y": 27.08,
+   "facing": "down",
+   "spriteFacing": "front-left"
+  },
+  {
+   "id": "spot-door-3",
+   "type": "door",
+   "x": 58.44,
+   "y": 27.08,
+   "facing": "down",
+   "spriteFacing": "front-right"
+  }
+ ],
+ "furniture": [
+  {
+   "id": "desk-1",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 50.0,
+   "y": 72.92
+  },
+  {
+   "id": "desk-2",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 63.75,
+   "y": 72.92
+  },
+  {
+   "id": "desk-3",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 36.25,
+   "y": 72.92
+  },
+  {
+   "id": "desk-4",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 77.5,
+   "y": 72.92
+  },
+  {
+   "id": "desk-5",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 22.5,
+   "y": 72.92
+  },
+  {
+   "id": "desk-6",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 50.0,
+   "y": 54.17
+  },
+  {
+   "id": "desk-7",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 36.25,
+   "y": 54.17
+  },
+  {
+   "id": "desk-8",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 63.75,
+   "y": 54.17
+  },
+  {
+   "id": "desk-9",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 22.5,
+   "y": 54.17
+  },
+  {
+   "id": "desk-10",
+   "type": "desk",
+   "sprite": "map-desk",
+   "x": 77.5,
+   "y": 54.17
+  },
+  {
+   "id": "water-cooler",
+   "type": "hotspot",
+   "sprite": "hotspot",
+   "x": 92.19,
+   "y": 50.42,
+   "interactive": true,
+   "label": "연못"
+  },
+  {
+   "id": "bell",
+   "type": "hotspot",
+   "sprite": "hotspot",
+   "x": 43.44,
+   "y": 21.67,
+   "interactive": true,
+   "label": "몬스터볼 동상"
+  },
+  {
+   "id": "kanban-board",
+   "type": "hotspot",
+   "sprite": "hotspot",
+   "x": 77.19,
+   "y": 18.75,
+   "interactive": true,
+   "label": "게시판"
+  },
+  {
+   "id": "tv-monitor",
+   "type": "hotspot",
+   "sprite": "hotspot",
+   "x": 63.28,
+   "y": 19.58,
+   "interactive": true,
+   "label": "PC"
+  },
+  {
+   "id": "coffee",
+   "type": "hotspot",
+   "sprite": "hotspot",
+   "x": 8.44,
+   "y": 42.5,
+   "interactive": true,
+   "label": "나무열매 나무"
+  },
+  {
+   "id": "printer-1",
+   "type": "hotspot",
+   "sprite": "hotspot",
+   "x": 63.28,
+   "y": 22.5,
+   "interactive": true,
+   "label": "PC"
+  },
+  {
+   "id": "filing-1",
+   "type": "hotspot",
+   "sprite": "hotspot",
+   "x": 38.12,
+   "y": 22.5,
+   "interactive": true,
+   "label": "우체통"
+  }
+ ],
+ "waypoints": [
+  {
+   "id": "W-top-100",
+   "x": 15.62,
+   "y": 42.92,
+   "connections": [
+    "W-coffee-1",
+    "W-mid-100",
+    "W-top-144"
+   ]
+  },
+  {
+   "id": "W-top-144",
+   "x": 22.5,
+   "y": 42.92,
+   "connections": [
+    "W-spot-9",
+    "W-top-100",
+    "W-top-188"
+   ]
+  },
+  {
+   "id": "W-top-188",
+   "x": 29.38,
+   "y": 42.92,
+   "connections": [
+    "W-mid-188",
+    "W-top-144",
+    "W-top-232"
+   ]
+  },
+  {
+   "id": "W-top-232",
+   "x": 36.25,
+   "y": 42.92,
+   "connections": [
+    "W-filing",
+    "W-spot-7",
+    "W-top-188",
+    "W-top-276"
+   ]
+  },
+  {
+   "id": "W-top-276",
+   "x": 43.12,
+   "y": 42.92,
+   "connections": [
+    "W-mid-276",
+    "W-top-232",
+    "W-top-320"
+   ]
+  },
+  {
+   "id": "W-top-320",
+   "x": 50.0,
+   "y": 42.92,
+   "connections": [
+    "W-spot-6",
+    "W-top-276",
+    "W-top-364",
+    "W-yard"
+   ]
+  },
+  {
+   "id": "W-top-364",
+   "x": 56.88,
+   "y": 42.92,
+   "connections": [
+    "W-mid-364",
+    "W-top-320",
+    "W-top-408",
+    "W-yard"
+   ]
+  },
+  {
+   "id": "W-top-408",
+   "x": 63.75,
+   "y": 42.92,
+   "connections": [
+    "W-printer",
+    "W-spot-8",
+    "W-top-364",
+    "W-top-452"
+   ]
+  },
+  {
+   "id": "W-top-452",
+   "x": 70.62,
+   "y": 42.92,
+   "connections": [
+    "W-mid-452",
+    "W-top-408",
+    "W-top-496"
+   ]
+  },
+  {
+   "id": "W-top-496",
+   "x": 77.5,
+   "y": 42.92,
+   "connections": [
+    "W-spot-10",
+    "W-top-452",
+    "W-top-540"
+   ]
+  },
+  {
+   "id": "W-top-540",
+   "x": 84.38,
+   "y": 42.92,
+   "connections": [
+    "W-mid-540",
+    "W-top-496"
+   ]
+  },
+  {
+   "id": "W-mid-100",
+   "x": 15.62,
+   "y": 60.83,
+   "connections": [
+    "W-coffee-1",
+    "W-coffee-2",
+    "W-low-100",
+    "W-mid-144",
+    "W-top-100"
+   ]
+  },
+  {
+   "id": "W-mid-144",
+   "x": 22.5,
+   "y": 60.83,
+   "connections": [
+    "W-mid-100",
+    "W-mid-188",
+    "W-spot-5"
+   ]
+  },
+  {
+   "id": "W-mid-188",
+   "x": 29.38,
+   "y": 60.83,
+   "connections": [
+    "W-low-188",
+    "W-mid-144",
+    "W-mid-232",
+    "W-top-188"
+   ]
+  },
+  {
+   "id": "W-mid-232",
+   "x": 36.25,
+   "y": 60.83,
+   "connections": [
+    "W-mid-188",
+    "W-mid-276",
+    "W-spot-3"
+   ]
+  },
+  {
+   "id": "W-mid-276",
+   "x": 43.12,
+   "y": 60.83,
+   "connections": [
+    "W-low-276",
+    "W-mid-232",
+    "W-mid-320",
+    "W-top-276"
+   ]
+  },
+  {
+   "id": "W-mid-320",
+   "x": 50.0,
+   "y": 60.83,
+   "connections": [
+    "W-mid-276",
+    "W-mid-364",
+    "W-spot-1"
+   ]
+  },
+  {
+   "id": "W-mid-364",
+   "x": 56.88,
+   "y": 60.83,
+   "connections": [
+    "W-low-364",
+    "W-mid-320",
+    "W-mid-408",
+    "W-top-364"
+   ]
+  },
+  {
+   "id": "W-mid-408",
+   "x": 63.75,
+   "y": 60.83,
+   "connections": [
+    "W-mid-364",
+    "W-mid-452",
+    "W-spot-2"
+   ]
+  },
+  {
+   "id": "W-mid-452",
+   "x": 70.62,
+   "y": 60.83,
+   "connections": [
+    "W-low-452",
+    "W-mid-408",
+    "W-mid-496",
+    "W-top-452"
+   ]
+  },
+  {
+   "id": "W-mid-496",
+   "x": 77.5,
+   "y": 60.83,
+   "connections": [
+    "W-mid-452",
+    "W-mid-540",
+    "W-spot-4"
+   ]
+  },
+  {
+   "id": "W-mid-540",
+   "x": 84.38,
+   "y": 60.83,
+   "connections": [
+    "W-low-540",
+    "W-mid-496",
+    "W-top-540",
+    "W-water-1"
+   ]
+  },
+  {
+   "id": "W-low-100",
+   "x": 15.62,
+   "y": 80.83,
+   "connections": [
+    "W-coffee-2",
+    "W-low-144",
+    "W-mid-100"
+   ]
+  },
+  {
+   "id": "W-low-144",
+   "x": 22.5,
+   "y": 80.83,
+   "connections": [
+    "W-low-100",
+    "W-low-188"
+   ]
+  },
+  {
+   "id": "W-low-188",
+   "x": 29.38,
+   "y": 80.83,
+   "connections": [
+    "W-low-144",
+    "W-low-232",
+    "W-mid-188"
+   ]
+  },
+  {
+   "id": "W-low-232",
+   "x": 36.25,
+   "y": 80.83,
+   "connections": [
+    "W-low-188",
+    "W-low-276"
+   ]
+  },
+  {
+   "id": "W-low-276",
+   "x": 43.12,
+   "y": 80.83,
+   "connections": [
+    "W-low-232",
+    "W-low-320",
+    "W-mid-276"
+   ]
+  },
+  {
+   "id": "W-low-320",
+   "x": 50.0,
+   "y": 80.83,
+   "connections": [
+    "W-low-276",
+    "W-low-364"
+   ]
+  },
+  {
+   "id": "W-low-364",
+   "x": 56.88,
+   "y": 80.83,
+   "connections": [
+    "W-low-320",
+    "W-low-408",
+    "W-mid-364"
+   ]
+  },
+  {
+   "id": "W-low-408",
+   "x": 63.75,
+   "y": 80.83,
+   "connections": [
+    "W-low-364",
+    "W-low-452"
+   ]
+  },
+  {
+   "id": "W-low-452",
+   "x": 70.62,
+   "y": 80.83,
+   "connections": [
+    "W-low-408",
+    "W-low-496",
+    "W-mid-452"
+   ]
+  },
+  {
+   "id": "W-low-496",
+   "x": 77.5,
+   "y": 80.83,
+   "connections": [
+    "W-low-452",
+    "W-low-540"
+   ]
+  },
+  {
+   "id": "W-low-540",
+   "x": 84.38,
+   "y": 80.83,
+   "connections": [
+    "W-low-496",
+    "W-mid-540"
+   ]
+  },
+  {
+   "id": "W-spot-1",
+   "x": 50.0,
+   "y": 70.42,
+   "connections": [
+    "W-mid-320"
+   ]
+  },
+  {
+   "id": "W-spot-2",
+   "x": 63.75,
+   "y": 70.42,
+   "connections": [
+    "W-mid-408"
+   ]
+  },
+  {
+   "id": "W-spot-3",
+   "x": 36.25,
+   "y": 70.42,
+   "connections": [
+    "W-mid-232"
+   ]
+  },
+  {
+   "id": "W-spot-4",
+   "x": 77.5,
+   "y": 70.42,
+   "connections": [
+    "W-mid-496"
+   ]
+  },
+  {
+   "id": "W-spot-5",
+   "x": 22.5,
+   "y": 70.42,
+   "connections": [
+    "W-mid-144"
+   ]
+  },
+  {
+   "id": "W-spot-6",
+   "x": 50.0,
+   "y": 51.67,
+   "connections": [
+    "W-top-320"
+   ]
+  },
+  {
+   "id": "W-spot-7",
+   "x": 36.25,
+   "y": 51.67,
+   "connections": [
+    "W-top-232"
+   ]
+  },
+  {
+   "id": "W-spot-8",
+   "x": 63.75,
+   "y": 51.67,
+   "connections": [
+    "W-top-408"
+   ]
+  },
+  {
+   "id": "W-spot-9",
+   "x": 22.5,
+   "y": 51.67,
+   "connections": [
+    "W-top-144"
+   ]
+  },
+  {
+   "id": "W-spot-10",
+   "x": 77.5,
+   "y": 51.67,
+   "connections": [
+    "W-top-496"
+   ]
+  },
+  {
+   "id": "W-door",
+   "x": 55.0,
+   "y": 24.58,
+   "connections": [
+    "W-door-2",
+    "W-door-3",
+    "W-yard"
+   ]
+  },
+  {
+   "id": "W-yard",
+   "x": 55.0,
+   "y": 31.25,
+   "connections": [
+    "W-door",
+    "W-door-2",
+    "W-door-3",
+    "W-filing",
+    "W-printer",
+    "W-top-320",
+    "W-top-364"
+   ]
+  },
+  {
+   "id": "W-door-2",
+   "x": 51.56,
+   "y": 27.08,
+   "connections": [
+    "W-door",
+    "W-yard"
+   ]
+  },
+  {
+   "id": "W-door-3",
+   "x": 58.44,
+   "y": 27.08,
+   "connections": [
+    "W-door",
+    "W-yard"
+   ]
+  },
+  {
+   "id": "W-filing",
+   "x": 39.06,
+   "y": 28.33,
+   "connections": [
+    "W-top-232",
+    "W-yard"
+   ]
+  },
+  {
+   "id": "W-printer",
+   "x": 63.28,
+   "y": 27.08,
+   "connections": [
+    "W-top-408",
+    "W-yard"
+   ]
+  },
+  {
+   "id": "W-coffee-1",
+   "x": 14.37,
+   "y": 51.25,
+   "connections": [
+    "W-mid-100",
+    "W-top-100"
+   ]
+  },
+  {
+   "id": "W-coffee-2",
+   "x": 16.25,
+   "y": 75.0,
+   "connections": [
+    "W-low-100",
+    "W-mid-100"
+   ]
+  },
+  {
+   "id": "W-water-1",
+   "x": 88.44,
+   "y": 60.83,
+   "connections": [
+    "W-mid-540",
+    "W-water-2"
+   ]
+  },
+  {
+   "id": "W-water-2",
+   "x": 94.69,
+   "y": 61.67,
+   "connections": [
+    "W-water-1"
+   ]
+  }
+ ],
+ "anchors": {
+  "door": {
+   "x": 55.0,
+   "y": 22.5
+  },
+  "doorBeacon": {
+   "x": 55.0,
+   "y": 13.75
+  },
+  "tv": {
+   "x": 63.28,
+   "y": 18.96
+  },
+  "daysSign": {
+   "x": 31.25,
+   "y": 20.83
+  },
+  "kanban": {
+   "x": 77.19,
+   "y": 13.33
+  },
+  "counter": {
+   "x": 10.94,
+   "y": 47.92
+  },
+  "boardRect": {
+   "left": 71.41,
+   "top": 9.79,
+   "width": 11.56,
+   "height": 7.29
+  }
+ }
+}

@@ -1,0 +1,158 @@
+/**
+ * pokedexStore.ts — the game state from the server (server/pokedex.js): the
+ * trainer's party and box, which Pokémon works which session, the Pokédex, and
+ * the latest event for the toast.
+ */
+
+import { useSyncExternalStore } from 'react'
+import { assignPokemonToRole, setOwnedSpecies, POKEMON } from './theme'
+
+import NATURES from './pokemon/natures.json'
+
+export type Tier = 'common' | 'rare' | 'sub' | 'legendary' | 'mythical'
+
+/** What brought a Pokémon out: the tool call and the request the session was on */
+export interface CatchSource { tool: string | null; label: string; prompt: string | null }
+
+export type Gender = 'male' | 'female' | 'none' | null
+
+export interface Nature { id: number; en: string; ko: string; up: string | null; down: string | null }
+export const NATURE_BY_ID = new Map((NATURES as Nature[]).map(n => [n.id, n]))
+
+export function genderMark(g: Gender | undefined): string {
+  return g === 'male' ? '♂' : g === 'female' ? '♀' : ''
+}
+
+/** "‘요청…’ 하다가 Bash(npm test)로 포획" */
+export function sourceText(v: CatchSource | null | undefined): string {
+  if (!v) return ''
+  return v.prompt ? `‘${v.prompt}’ 요청 중 ${v.label}로` : `${v.label}로`
+}
+
+export interface CaughtInfo {
+  count: number
+  firstAt: number
+  lastAt: number
+  place: string
+  sessionId?: string
+  project?: string
+  how: 'starter' | 'gift' | 'wild' | 'evolve' | 'pity' | 'attendance'
+  shiny: boolean
+  via?: CatchSource | null
+}
+
+/** One Pokémon the trainer owns */
+export interface Mon {
+  uid: string
+  dex: number
+  steps: number
+  evos: number
+  shiny: boolean
+  how: CaughtInfo['how']
+  place: string
+  at: number
+  gender?: Gender
+  nature?: number | null
+  via?: CatchSource | null
+}
+
+export interface DexEvent {
+  kind: 'catch' | 'flee' | 'evolve' | 'sendout' | 'swap' | 'release' | 'exchange'
+  id: number
+  name?: string
+  tier?: Tier
+  shiny?: boolean
+  place?: string
+  sessionId?: string
+  pity?: boolean
+  /** The day's attendance encounter (an uncaught species) */
+  attendance?: boolean
+  /** The box was full: the Pokédex counts it, the individual went to the professor */
+  toProfessor?: boolean
+  via?: CatchSource | null
+  gender?: Gender
+  nature?: number | null
+  from?: number
+  fromName?: string
+  uid?: string
+  at: number
+}
+
+export interface DexState {
+  caught: Record<string, CaughtInfo>
+  seen: Record<string, number>
+  trainer: { starter: number; since: number } | null
+  mons: Record<string, Mon>
+  party: string[]
+  box: string[]
+  /** sessionId -> uid, active sessions only */
+  assign: Record<string, string>
+  /** sessionId -> uid for every session that ever had a Pokémon (resume brings it back) */
+  remembered?: Record<string, string>
+  partySize: number
+  boxLimit?: number
+  encounters: number
+  sinceLegend: number
+  sinceMythical: number
+  pity: number
+  pityMythical: number
+  total: number
+  log: DexEvent[]
+}
+
+export const TIER_LABEL: Record<Tier, string> = {
+  common: '일반', rare: '희귀', sub: '준전설', legendary: '전설', mythical: '환상',
+}
+
+/** The encounter odds the server rolls (server/pokedex.js RATES), for the dex's rate table */
+export const TIER_RATE: Record<Tier, string> = {
+  common: '74%', rare: '21%', sub: '3.6%', legendary: '1.0%', mythical: '0.4%',
+}
+
+export const TYPE_KO: Record<string, string> = {
+  normal: '노말', fire: '불꽃', water: '물', grass: '풀', electric: '전기', ice: '얼음', fighting: '격투',
+  poison: '독', ground: '땅', flying: '비행', psychic: '에스퍼', bug: '벌레', rock: '바위', ghost: '고스트',
+  dragon: '드래곤', dark: '악', steel: '강철', fairy: '페어리',
+}
+
+const EVOLVES = new Set(POKEMON.filter(p => p.evolvesFrom).map(p => p.evolvesFrom as number))
+/** A species with nowhere left to evolve (only these may be swapped off a session) */
+export function isFullyEvolved(dex: number): boolean { return !EVOLVES.has(dex) }
+
+let state: DexState | null = null
+let lastEvent: DexEvent | null = null
+let version = 0
+const listeners = new Set<() => void>()
+
+function emit() { version++; listeners.forEach(l => l()) }
+
+/** Feed every socket message through here (the office and the widget both do). */
+export function dispatchPokedex(msg: { type?: string; state?: DexState; event?: DexEvent } | null | undefined) {
+  if (!msg || msg.type !== 'pokedex' || !msg.state) return
+  state = msg.state
+  // Each session is drawn as the party Pokémon working it
+  for (const [sessionId, uid] of Object.entries(state.assign ?? {})) {
+    const mon = state.mons?.[uid]
+    if (mon) assignPokemonToRole(`session:${sessionId}`, mon.dex, mon.shiny)
+  }
+  // Workers borrow from the trainer's own Pokémon
+  setOwnedSpecies([...new Set(Object.values(state.mons ?? {}).map(m => m.dex))])
+  if (msg.event) lastEvent = msg.event
+  emit()
+}
+
+export function usePokedex(): { state: DexState | null; lastEvent: DexEvent | null } {
+  useSyncExternalStore(
+    (cb) => { listeners.add(cb); return () => listeners.delete(cb) },
+    () => version,
+    () => version,
+  )
+  return { state, lastEvent }
+}
+
+/** Party Pokémon not working a session right now */
+export function freePartyCount(s: DexState | null): number {
+  if (!s) return Infinity
+  const busy = new Set(Object.values(s.assign ?? {}))
+  return s.party.filter(uid => !busy.has(uid)).length
+}
