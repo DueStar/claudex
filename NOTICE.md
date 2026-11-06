@@ -25,11 +25,7 @@ The code inherited from Claude-Office and the code added in this repository.
 
   None of this is licensed by this repository.
 
-## Third-party art with its own licence
+## Original art
 
-- `tools/assets/tilemap.png` — "Pokemon inspired 16x16 tiles" by RedVoxel, **CC0**:
-  https://opengameart.org/content/pokemon-inspired-16x16-tiles
-- Character sprites, furniture and docs images under `public/sprites/` and `docs/images/`
-  come from Claude-Office (MIT).
 - `public/sprites/claudex-ball.png` and the default icons in `build/` and `electron/assets/`
   are original drawings made by `tools/build-icons.py` (MIT).

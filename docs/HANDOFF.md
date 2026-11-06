@@ -120,7 +120,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 플러그인·설치기: `.claude-plugin/`, `commands/office.md`, `hooks/install-hooks.sh`(아직 19개 이벤트), `scripts/doctor.mjs`의 office 부분, 관련 테스트(`plugin`·`install-hooks`·`doctor`). 앱은 세션마다 `--settings`로 훅을 넣으므로 전역 설치기가 필요 없다. 지우기 전에 README의 플러그인 안내도 같이 정리한다.
    - 스크립트: `open-office.mjs`, `rotate-token.mjs`(남길지 결정), `check-assets.mjs`, `generate-icons/office-bg/sprites/walks.mjs`, `extract-boss-sprite.py`, `split-character.py`, `setup-character.md`, `gather-context.sh`, `sync-plugin-version.mjs`
    - `public/sprites`의 office 그림(appliances, characters, culture, decoration, effects, furniture, incident, map, 역할 PNG)
-   - 문서: `docs/reference.md`, `docs/superpowers`, `docs/images`, `TEST_PLAN.md`, `office.config.example.json`
+   - 1.3.7에서 지운 것: office 그림(`public/sprites`의 appliances·characters·culture·decoration·effects·furniture·incident·map·역할 PNG·ball.svg), 스크립트(check-assets·extract-boss-sprite·gather-context·generate-icons/office-bg/sprites/walks·setup-character·split-character), `docs/reference.md`·`docs/superpowers`·`docs/images`·`TEST_PLAN.md`·`office.config.example.json`·`tools/assets/tilemap.png`, CI의 check-assets 단계. 아래 남은 것은 아직이다.
    - `.github` 템플릿·워크플로, `package.json`의 scripts·repository·author(W17ant), `release.test`
    - 주석: `vite.config`, `serverUrl`, `officeToken`, `health`
    - README·CHANGELOG 갱신
@@ -136,8 +136,8 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - `release.mjs --publish`는 이제 gh의 현재 로그인이 DueStar인지만 확인한다(`gh auth token`으로 토큰을 꺼내지 않는다).
    - 1.3.4를 올린 뒤에도 버튼이 안 뜬 이유: 앱이 켜진 채로 있었고 확인 주기가 6시간이었다(켠 뒤 15초에 한 번, 그 뒤 6시간마다). 1.3.5부터는 30분마다 확인하고, 트레이 메뉴 "업데이트 확인"으로 바로 확인할 수 있다. 최신이거나 확인에 실패하면 알림을 띄운다.
    - 이 대화(Claude Code)가 Claudex 터미널 안에서 돌 때가 많다. Claudex를 재시작하면 세션도 끊기니, 사용자에게 재시작을 부탁할 때는 작업을 먼저 끝낸다.
-4. **포켓몬 교체 후 아이콘이 늦게 바뀌는 문제**: `castSession`이 pokedex 이벤트가 와야 갱신되는 것으로 보인다. 교체 즉시 로컬 상태를 바꾸도록 조사한다.
-5. **세션 이름 유지**: 왼쪽 패널에서 바꾼 이름이 재시작 뒤 사라진다. `window-state.json`의 `sessionTitles`에 저장은 하는데, resume 경로나 서버 쪽 제목이 덮어쓰는지 조사한다.
+4. **포켓몬 교체 후 아이콘이 늦게 바뀌는 문제** — 1.3.7에서 해결. 교체를 누르면 바로 `castSession`으로 그림을 바꾸고(실패하면 되돌림), 교체 창이 열릴 때 후보의 SV 아이콘을 미리 받는다.
+5. **세션 이름 유지** — 1.3.3에서 해결됨(2026-11-07 실제 `window-state.json`의 `sessionTitles`에 남는 것 확인).
 6. **포켓볼 그림**(앱 안 볼, 설치 파일·작업표시줄 아이콘)
    - 원인: 볼 그림은 DMCA 때문에 `.gitignore`로 빠져 있고, 빌드하는 PC에 그림이 있어야 앱에 들어간다. 회사 노트북에는 있었지만 집 PC에는 없었다.
    - 집 PC `Downloads`에 `60px-Bag_*_SV_Sprite.png` 28개(60×60)가 있다. balls.json의 27종이 다 있고 Strange Ball 1개는 안 쓴다. 이벤트 볼도 받아만 둔다(`catch:false` 유지).
@@ -146,7 +146,9 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **원칙: 릴리스는 볼 그림을 가져온 PC에서 만든다.** 볼 그림이 없으면 `release.mjs`가 크게 경고하고, `--publish`는 거부한다.
 7. **재빌드와 재설치**(`%LOCALAPPDATA%\Claudex`). 띵동 소리가 안 나는지, `/health`의 `clients: 1`인지 확인한다. 1.3.4는 업데이트 버튼으로 받아서 업데이트 흐름도 같이 확인한다.
 7-1. **세션 그림은 SV 박스 아이콘** — 1.3.5에서 적용(사용자 결정, 2026-11-07: 도감·박스는 HOME 그림, 터미널 옆 패널과 위 세션 탭은 SV 아이콘). 1.3.6에서 파티 줄과 도감 카드의 최근 잡은 포켓몬도 SV 아이콘으로 바꿨다. 교체·던지기 창과 알림은 HOME 그림 그대로다.
-7-2. **1.3.6 추가**: 업데이트 후 첫 실행에 패치노트 창(`src/patchNotes.ts`, `PatchNotes.tsx`: CHANGELOG의 Claudex 부분을 앱에 넣고, 마지막으로 본 버전은 localStorage `claudex-seen-version`). 처음 보는 PC는 현재 버전만 보여준다. **그래서 CHANGELOG는 사용자에게 보이는 글이다: 릴리스마다 `### x.y.z`를 한글로 쓴다**(테스트가 package.json 버전 항목이 있는지 확인한다). 창 모드 스냅은 투명 창이라 Windows 스냅이 안 돼서 `moved` 이벤트에서 직접 맞춘다(`snapTarget`·`unsnapBounds`, 좌우 반·위쪽 전체, 1/4은 위젯 최소 높이 540 때문에 뺐다).
+7-2. **1.3.6 추가**: 업데이트 후 첫 실행에 패치노트 창(`src/patchNotes.ts`, `PatchNotes.tsx`: CHANGELOG의 Claudex 부분을 앱에 넣고, 마지막으로 본 버전은 localStorage `claudex-seen-version`). 처음 보는 PC는 현재 버전만 보여준다. **그래서 CHANGELOG는 사용자에게 보이는 글이다: 릴리스마다 `### x.y.z`를 한글로 쓴다**(테스트가 package.json 버전 항목이 있는지 확인한다). 1.3.6의 직접 만든 스냅은 1.3.7에서 지웠다(아래 7-3).
+7-3. **창 두 종류**(1.3.7, 사용자 결정 2026-11-07: "창 모드면 창이 떠 있는 걸 생각하지, 위젯 모드만 위젯"): 위젯 모드는 투명·항상 위·작업표시줄 없음, 창·전체 화면 모드는 불투명한 일반 창(`frame: false`라도 투명이 아니면 Windows 스냅·미리보기·크기 조절 테두리가 된다). 전체 화면 = 최대화(`maximize`/`unmaximize` 이벤트로 모드를 맞춘다). 투명 여부는 만든 뒤 못 바꾸므로 종류가 바뀌면 `swapAppWindow`가 새 창을 숨긴 채 만들어 첫 그림(`ready-to-show`)+120ms를 기다린 뒤 크로스페이드(옛 창 140ms, 새 창 200ms)하고 옛 창을 없앤다. 터미널은 main의 버퍼(세션당 20만 자)에서 다시 그려지고, 보던 탭·고른 세션·쓰던 지시는 `src/carry.ts`(localStorage `claudex-carry`)로 넘긴다. 페이지 주소의 `?widget&mode=<모드>`로 첫 그림부터 맞는 모드로 그린다. 창 최소 크기는 560×400(1/4 스냅용), 위젯은 300×540, 위젯 너비 상한 640(1.3.6이 스냅된 창 크기를 위젯 크기로 저장하던 것을 무시).
+   - 개발 실행으로 확인하는 법: `AGENT_OFFICE_PORT=3344 npx vite --port 3333 --strictPort`를 띄우고 `AGENT_OFFICE_HOME=<임시> AGENT_OFFICE_PORT=3344 POKEMON_OFFICE_AUTOTEST_EXPAND=1 AGENT_OFFICE_SCREENSHOT=<png> npx electron .`. 창 캡처는 불투명한 창이면 Claudex 터미널 안에서도 된다(투명 위젯은 흰 화면). 개발 실행도 `%APPDATA%\Claudex\window-state.json`을 같이 쓰므로 먼저 백업하고 끝나면 되돌린다.
    - `theme.ts`의 `iconUrl()`과 `sessionSprite()` → `/sprites/pokemon/icon/<id>.png` → `server/sprites.js`가 pokemondb에서 처음 쓸 때 받아 `<runtime dir>/sprites/icon/`에 둔다(잘라내기만 하고 키우지 않는다). 받지 못하면 HOME 그림으로 넘긴다. 그림은 각 PC가 직접 받으므로 Supabase 사용량과는 관계없다.
    - 종 번호 → 아이콘 이름은 `server/pokemon-icons.json`(`tools/fetch-pokemon-icons.py`로 생성). 폼이 있는 40종은 기본 폼 이름이다(`deoxys-normal` 등).
    - 이로치 아이콘은 없다. 이름의 ✨로 구분한다(`sessionName`).

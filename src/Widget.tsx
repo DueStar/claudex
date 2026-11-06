@@ -22,6 +22,7 @@ import { dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
 import PokedexView from './components/PokedexView'
 import PatchNotes from './components/PatchNotes'
+import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 import BoxView from './components/BoxView'
 import TodayLog from './components/TodayLog'
@@ -123,9 +124,9 @@ const Widget: React.FC = () => {
   // A new session name also becomes Claude Code's own name for it (/rename), sent when Claude is free
   const pendingRename = useRef(new Map<string, string>())
   const termFont = useTermFont()
-  const [mode, setModeState] = useState<WidgetMode>('widget')
+  const [mode, setModeState] = useState<WidgetMode>(modeFromUrl)
   const expanded = mode !== 'widget'
-  const [view, setView] = useState<'terminal' | 'dex' | 'box' | 'today'>('terminal')
+  const [view, setView] = useState<'terminal' | 'dex' | 'box' | 'today'>(() => readCarry().view ?? 'terminal')
   const { state: dex, lastEvent } = usePokedex()
   const { isNew } = useViewed()
   const hasNew = Object.keys(dex?.caught ?? {}).some(id => isNew(Number(id)))
@@ -186,8 +187,10 @@ const Widget: React.FC = () => {
     }
   })
   const withTerminal = rows.filter(r => r.terminal)
-  const [target, setTarget] = useState<string | null>(null)
-  const [text, setText] = useState('')
+  const [target, setTarget] = useState<string | null>(() => readCarry().target ?? null)
+  const [text, setText] = useState(() => readCarry().text ?? '')
+  // Kept for the next window (a mode swap builds a new one) and the next start
+  useEffect(() => { writeCarry({ view, target, text }) }, [view, target, text])
   const [note, setNote] = useState<string | null>(null)
   // A note goes away on its own after a few seconds
   useEffect(() => {
@@ -308,9 +311,25 @@ const Widget: React.FC = () => {
   const doSwap = async (sessionId: string, uid: string) => {
     setSwapFor(null)
     if (!bridge) return
+    // Drawn as the new Pokémon at once; the server's update confirms it (or it goes back)
+    const before = monOf(sessionId)
+    const next = dex?.mons?.[uid]
+    if (next) castSession(sessionId, next.dex, next.shiny)
     const r = await bridge.game.swap(sessionId, uid)
-    if (!r.ok) setNote(`교체하지 못했어요 (${r.reason ?? '알 수 없음'})`)
+    if (!r.ok) {
+      if (before) castSession(sessionId, before.dex, before.shiny)
+      setNote(`교체하지 못했어요 (${r.reason ?? '알 수 없음'})`)
+    }
   }
+  // The swap list shows the artwork; fetch the box icons it may switch to before a pick
+  useEffect(() => {
+    if (!swapFor || !dex) return
+    const busy = new Set(Object.values(dex.assign ?? {}))
+    for (const uid of [...dex.party, ...dex.box.slice(-60)]) {
+      const m = dex.mons[uid]
+      if (m && !busy.has(uid)) new Image().src = iconUrl(m.dex)
+    }
+  }, [swapFor, dex])
 
   return (
     <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}`}>
@@ -660,7 +679,7 @@ ${update.notes}` : ''}${update.error ? `
         </div>
       )}
       <PatchNotes />
-      {mode !== 'fullscreen' && <ResizeGrip />}
+      {mode === 'widget' && <ResizeGrip />}
     </div>
   )
 }

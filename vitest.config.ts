@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config'
 
 // Server/hook tests only for now — they run in plain Node. Frontend (jsdom)
-// tests from TEST_PLAN.md can be added as a second project later.
+// browser tests can be added as a second project later.
 export default defineConfig({
   test: {
     environment: 'node',

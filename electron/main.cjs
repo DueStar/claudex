@@ -17,8 +17,6 @@ const {
   reopenAction,
   childSlot,
   clampBounds,
-  snapTarget,
-  unsnapBounds,
   readWindowState,
   writeWindowState,
   runtimeDirFromEnv,
@@ -441,125 +439,37 @@ function pageWith(query) {
   return `${base}?${query}${fragment ? `#${fragment}` : ''}`
 }
 
-/** The size of the half the window is snapped to, or null (see the 'moved' handler). */
-let snapped = null
-/** Change the mode the page shows without moving the window (it was moved by hand). */
-function setModeQuietly(mode) {
-  state.widgetMode = mode
-  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.webContents.send('widget:mode', mode)
-  saveState()
-}
-
-function createWidgetWindow() {
-  if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
-  const url = pageWith('widget')
-  if (!url) return null
-  const { workArea } = screen.getPrimaryDisplay()
-  const saved = state.widgetBounds
-  const size = widgetSize(state.widgetExpanded === true, workArea)
-  // The widget opens docked to the right edge, top to bottom; a window opens where it was
-  const bounds = state.widgetExpanded !== true ? widgetDockBounds(workArea, size.width)
-    : saved ? clampBounds({ ...saved, ...size }, workArea, WIDGET_MIN)
-      : { x: workArea.x + workArea.width - size.width - 16, y: workArea.y + 16, ...size }
-  widgetWin = new BrowserWindow({
-    ...bounds,
-    minWidth: WIDGET_MIN.width,
-    minHeight: WIDGET_MIN.height,
-    title: 'Claudex',
-    frame: false,
-    // Transparent: the Pokémon float in the open above the cards, and the
-    // desktop shows through the gaps of the bento
-    transparent: true,
-    hasShadow: false,
-    resizable: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    backgroundColor: '#00000000',
-    show: true, // the widget is the app: it always opens
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
-  })
-  // A window or fullscreen app is an ordinary window; only the widget floats on top
-  if (state.widgetMode === 'window' || state.widgetMode === 'fullscreen') {
-    widgetWin.setAlwaysOnTop(false)
-    widgetWin.setSkipTaskbar(false)
-    if (state.widgetMode === 'fullscreen') widgetWin.setBounds(screen.getDisplayMatching(widgetWin.getBounds()).workArea)
-  } else {
-    widgetWin.setAlwaysOnTop(true, 'floating')
-  }
-  widgetWin.webContents.on('will-navigate', (event) => event.preventDefault())
-  widgetWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  widgetWin.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
-    console.error(`[main] The app failed to load ${redactLink(failedUrl)}: ${description} (${code})`)
-  })
-  widgetWin.webContents.once('did-finish-load', () => {
-    console.log('[main] App window loaded')
-    maybeCaptureScreenshot()
-  })
-  widgetWin.on('show', refreshMenus)
-  widgetWin.on('hide', refreshMenus)
-  const remember = () => {
-    if (!widgetWin || widgetWin.isDestroyed() || widgetWin.isFullScreen() || state.widgetMode === 'fullscreen') return
-    const b = widgetWin.getBounds()
-    state.widgetBounds = b
-    // A snapped half is not the window's own size: keep the size it goes back to
-    const isSnapped = snapped && b.width === snapped.width && b.height === snapped.height
-    if (state.widgetExpanded && !isSnapped) state.widgetExpandedSize = { width: b.width, height: b.height }
-    else state.widgetCompactSize = { width: b.width, height: b.height }
-    scheduleSave()
-  }
-  widgetWin.on('move', remember)
-  widgetWin.on('resize', remember)
-  // Snap like Windows does (a transparent window does not get Windows Snap):
-  // dropped with the cursor on the left or right edge it takes that half of
-  // the screen, on the top edge the whole of it; dragged off a snap it goes
-  // back to its own size. Only the window and full-screen modes snap.
-  widgetWin.on('moved', () => {
-    if (!widgetWin || widgetWin.isDestroyed() || !state.widgetExpanded) return
-    const mode = state.widgetMode ?? 'widget'
-    if (mode !== 'window' && mode !== 'fullscreen') return
-    const cursor = screen.getCursorScreenPoint()
-    const display = screen.getDisplayNearestPoint(cursor)
-    const snap = snapTarget(cursor, display)
-    if (snap?.zone === 'full') {
-      snapped = null
-      if (mode !== 'fullscreen') setWidgetMode('fullscreen')
-      else widgetWin.setBounds(snap.bounds)
-      return
-    }
-    if (snap) {
-      snapped = { width: snap.bounds.width, height: snap.bounds.height }
-      widgetWin.setBounds(snap.bounds)
-      if (mode === 'fullscreen') setModeQuietly('window')
-      return
-    }
-    if (mode === 'fullscreen' || snapped) {
-      snapped = null
-      const size = widgetSize(true, display.workArea)
-      widgetWin.setBounds(unsnapBounds(cursor, size, display.workArea, WIDGET_MIN))
-      if (mode === 'fullscreen') setModeQuietly('window')
-    }
-  })
-  widgetWin.on('close', (event) => {
-    if (quitting) return
-    event.preventDefault()
-    widgetWin.hide()
-    state.widgetHidden = true
-    saveState()
-  })
-  widgetWin.on('closed', () => { widgetWin = null })
-  widgetWin.loadURL(url)
-  return widgetWin
-}
+/**
+ * The app is one of two windows, never both:
+ *   widget   the compact bento: transparent (the desktop shows through its
+ *            gaps), always on top, no taskbar button, its own resize grip
+ *   window   an ordinary window for the window and fullscreen modes: opaque,
+ *            in the taskbar, so Windows Snap (with its preview), the resize
+ *            border and maximize all work; "fullscreen" is maximized
+ * A window cannot stop or start being transparent, so moving between the two
+ * builds the other window, waits for its first paint and cross-fades (the
+ * terminals live here in the main process and replay into the new page).
+ */
+const kindOf = (mode) => (mode === 'window' || mode === 'fullscreen' ? 'window' : 'widget')
+const modeNow = () => (WIDGET_MODES.has(state.widgetMode) ? state.widgetMode : (state.widgetExpanded ? 'window' : 'widget'))
 
 const WIDGET_MIN = Object.freeze({ width: 300, height: 540 })
+// A window can be smaller: Windows Snap puts it in a quarter of the screen
+const WINDOW_MIN = Object.freeze({ width: 560, height: 400 })
 const WIDGET_COMPACT = Object.freeze({ width: 340, height: 680 })
 const WIDGET_EXPANDED = Object.freeze({ width: 1200, height: 760 })
+const WINDOW_BACKGROUND = '#0b0c10' // .widget.mode-window in widget-expanded.css
 
+// The widget is a sidebar: 1.3.6 could save a snapped window's size as the
+// widget's, so anything wider than this is taken as that and not used
+const WIDGET_MAX_WIDTH = 640
 function widgetSize(expanded, workArea) {
-  const want = expanded ? (state.widgetExpandedSize ?? WIDGET_EXPANDED) : (state.widgetCompactSize ?? WIDGET_COMPACT)
+  let want = expanded ? (state.widgetExpandedSize ?? WIDGET_EXPANDED) : (state.widgetCompactSize ?? WIDGET_COMPACT)
+  if (!expanded && want.width > WIDGET_MAX_WIDTH) want = WIDGET_COMPACT
+  const min = expanded ? WINDOW_MIN : WIDGET_MIN
   return {
-    width: Math.max(WIDGET_MIN.width, Math.min(want.width, workArea.width - 32)),
-    height: Math.max(WIDGET_MIN.height, Math.min(want.height, workArea.height - 32)),
+    width: Math.max(min.width, Math.min(want.width, workArea.width - 32)),
+    height: Math.max(min.height, Math.min(want.height, workArea.height - 32)),
   }
 }
 
@@ -570,67 +480,206 @@ function widgetDockBounds(workArea, width) {
   return { x: workArea.x + workArea.width - w - WIDGET_GAP, y: workArea.y + WIDGET_GAP, width: w, height: workArea.height - 2 * WIDGET_GAP }
 }
 
-/** Fold the widget into a terminal (or back), keeping its right edge where it is. */
-function setWidgetExpanded(expanded) {
-  const w = createWidgetWindow()
-  if (!w) return false
-  state.widgetExpanded = !!expanded
-  const b = w.getBounds()
-  const { workArea } = screen.getDisplayMatching(b)
-  const size = widgetSize(state.widgetExpanded, workArea)
-  const right = b.x + b.width
-  // Folded back to the widget: docked to the right edge, top to bottom
-  const next = state.widgetExpanded
-    ? clampBounds({ x: right - size.width, y: b.y, ...size }, workArea, WIDGET_MIN)
-    : widgetDockBounds(workArea, size.width)
-  w.setBounds(next)
-  w.webContents.send('widget:expanded', state.widgetExpanded)
-  // Keep the mode in step for callers that only fold or unfold (the tray, debug runs)
-  if (!state.widgetExpanded) state.widgetMode = 'widget'
-  else if (!state.widgetMode || state.widgetMode === 'widget') state.widgetMode = 'window'
-  w.webContents.send('widget:mode', state.widgetMode)
-  if (!w.isVisible()) w.show()
-  w.focus()
+/** Where a window of `kind` opens: the widget docked right, a window where it last was. */
+function boundsFor(kind, near) {
+  const { workArea } = near ? screen.getDisplayMatching(near) : screen.getPrimaryDisplay()
+  if (kind === 'widget') return widgetDockBounds(workArea, widgetSize(false, workArea).width)
+  const size = widgetSize(true, workArea)
+  const saved = state.widgetBounds
+  if (saved && saved.width >= WINDOW_MIN.width) return clampBounds({ ...saved, ...size }, workArea, WINDOW_MIN)
+  // First time as a window: its right edge where the widget's was
+  const right = near ? near.x + near.width : workArea.x + workArea.width - 16
+  return clampBounds({ x: right - size.width, y: workArea.y + 16, ...size }, workArea, WINDOW_MIN)
+}
+
+/** Build the app's window for `mode`; it shows itself once painted unless `hidden`. */
+function buildAppWindow(mode, { hidden = false, near = null } = {}) {
+  const url = pageWith(`widget&mode=${mode}`)
+  if (!url) return null
+  const kind = kindOf(mode)
+  const isWidget = kind === 'widget'
+  const win = new BrowserWindow({
+    ...boundsFor(kind, near),
+    minWidth: (isWidget ? WIDGET_MIN : WINDOW_MIN).width,
+    minHeight: (isWidget ? WIDGET_MIN : WINDOW_MIN).height,
+    title: 'Claudex',
+    frame: false,
+    transparent: isWidget,
+    hasShadow: !isWidget,
+    resizable: true,
+    maximizable: !isWidget,
+    alwaysOnTop: isWidget,
+    skipTaskbar: isWidget,
+    backgroundColor: isWidget ? '#00000000' : WINDOW_BACKGROUND,
+    show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
+  })
+  win.claudexKind = kind
+  if (isWidget) win.setAlwaysOnTop(true, 'floating')
+  win.webContents.on('will-navigate', (event) => event.preventDefault())
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
+    console.error(`[main] The app failed to load ${redactLink(failedUrl)}: ${description} (${code})`)
+  })
+  win.webContents.once('did-finish-load', () => {
+    console.log(`[main] App window loaded (${kind})`)
+    maybeCaptureScreenshot()
+  })
+  win.on('show', refreshMenus)
+  win.on('hide', refreshMenus)
+  const remember = () => {
+    if (win.isDestroyed() || win !== widgetWin || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return
+    const b = win.getBounds()
+    if (win.claudexKind === 'window') {
+      state.widgetBounds = b
+      state.widgetExpandedSize = { width: b.width, height: b.height }
+    } else if (b.width <= WIDGET_MAX_WIDTH) {
+      state.widgetCompactSize = { width: b.width, height: b.height }
+    }
+    scheduleSave()
+  }
+  win.on('move', remember)
+  win.on('resize', remember)
+  if (!isWidget) {
+    // Maximized (the button, a double-click on the title bar, a drag to the top
+    // edge) is the fullscreen mode; restored it is the window mode
+    win.on('maximize', () => { if (win === widgetWin) setModeQuietly('fullscreen') })
+    win.on('unmaximize', () => { if (win === widgetWin) setModeQuietly('window') })
+  }
+  win.on('close', (event) => {
+    if (quitting || win !== widgetWin) return
+    event.preventDefault()
+    win.hide()
+    state.widgetHidden = true
+    saveState()
+  })
+  win.on('closed', () => { if (widgetWin === win) widgetWin = null })
+  win.once('ready-to-show', () => { win.claudexPainted = true; win.emit('claudex-painted') })
+  if (!hidden) {
+    win.once('ready-to-show', () => {
+      if (win.isDestroyed() || win !== widgetWin) return
+      if (mode === 'fullscreen') win.maximize()
+      win.show()
+    })
+  }
+  win.loadURL(url)
+  return win
+}
+
+function createWidgetWindow() {
+  if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
+  widgetWin = buildAppWindow(modeNow())
+  return widgetWin
+}
+
+/** The page shows `mode`; the window is already right (moved by hand, maximized). */
+function setModeQuietly(mode) {
+  if (state.widgetMode === mode) return
+  state.widgetMode = mode
+  state.widgetExpanded = mode !== 'widget'
+  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.webContents.send('widget:mode', mode)
   saveState()
-  return state.widgetExpanded
+}
+
+/** Ease a window's opacity from `from` to `to` over `ms`. */
+function fadeWindow(win, from, to, ms) {
+  return new Promise((resolve) => {
+    if (!win || win.isDestroyed()) return resolve()
+    const t0 = Date.now()
+    const tick = () => {
+      if (win.isDestroyed()) return resolve()
+      const k = Math.min(1, (Date.now() - t0) / ms)
+      win.setOpacity(from + (to - from) * (1 - Math.pow(1 - k, 3)))
+      if (k < 1) setTimeout(tick, 16)
+      else resolve()
+    }
+    tick()
+  })
+}
+
+/** Wait for a window's first paint (or give up after `ms`). */
+function painted(win, ms = 4000) {
+  return new Promise((resolve) => {
+    if (win.claudexPainted) return resolve()
+    const done = () => { clearTimeout(timer); resolve() }
+    const timer = setTimeout(done, ms)
+    win.once('claudex-painted', done)
+    win.once('closed', done)
+  })
+}
+
+/**
+ * Swap the widget for a window (or back): the new one is built hidden at its
+ * place, painted with its terminals replayed, then the two cross-fade.
+ */
+let swapping = Promise.resolve()
+function swapAppWindow(mode) {
+  swapping = swapping.then(async () => {
+    const old = widgetWin && !widgetWin.isDestroyed() ? widgetWin : null
+    if (old && old.claudexKind === kindOf(mode)) { setWidgetMode(mode); return }
+    const wasVisible = !old || old.isVisible()
+    state.widgetMode = mode
+    state.widgetExpanded = mode !== 'widget'
+    saveState()
+    const next = buildAppWindow(mode, { hidden: true, near: old ? old.getBounds() : null })
+    if (!next) return
+    widgetWin = next
+    await painted(next)
+    // A moment for the terminals' scrollback to land in the new page
+    await new Promise((r) => setTimeout(r, 120))
+    if (next.isDestroyed()) return
+    if (!wasVisible) { if (old && !old.isDestroyed()) old.destroy(); return }
+    next.setOpacity(0)
+    if (mode === 'fullscreen') next.maximize()
+    next.show()
+    next.focus()
+    await Promise.all([fadeWindow(old, 1, 0, 140), fadeWindow(next, 0, 1, 200)])
+    if (old && !old.isDestroyed()) old.destroy()
+    state.widgetHidden = false
+    refreshMenus()
+  }).catch((err) => console.error('[main] Could not swap the app window:', err))
+  return swapping
 }
 
 /**
  * Three ways to show the app:
  *   widget      the compact bento, always on top, no taskbar button
  *   window      widened with the terminal, an ordinary window (not on top)
- *   fullscreen  the same, filling the screen
+ *   fullscreen  the same window, maximized
  */
 const WIDGET_MODES = new Set(['widget', 'window', 'fullscreen'])
 function setWidgetMode(mode) {
-  if (!WIDGET_MODES.has(mode)) return state.widgetMode ?? 'widget'
-  const w = createWidgetWindow()
-  if (!w) return state.widgetMode ?? 'widget'
-  if (w.isFullScreen() && mode !== 'fullscreen') w.setFullScreen(false)
-  snapped = null
-  state.widgetMode = mode
-  if (mode === 'widget') {
-    setWidgetExpanded(false)
-    w.setAlwaysOnTop(true, 'floating')
-    w.setSkipTaskbar(true)
-  } else {
-    if (mode === 'window' || !state.widgetExpanded) setWidgetExpanded(true)
-    w.setAlwaysOnTop(false)
-    w.setSkipTaskbar(false)
-    // "Fullscreen" fills the screen's work area: the taskbar stays visible and nothing is cut off under it
-    if (mode === 'fullscreen') w.setBounds(screen.getDisplayMatching(w.getBounds()).workArea)
+  if (!WIDGET_MODES.has(mode)) return modeNow()
+  const w = widgetWin && !widgetWin.isDestroyed() ? widgetWin : null
+  if (!w || w.claudexKind !== kindOf(mode)) {
+    swapAppWindow(mode)
+    return mode
   }
+  // The same window: maximize or restore it (its events tell the page too)
+  state.widgetMode = mode
+  state.widgetExpanded = mode !== 'widget'
+  if (mode === 'fullscreen' && !w.isMaximized()) w.maximize()
+  if (mode === 'window' && w.isMaximized()) w.unmaximize()
+  if (!w.isVisible()) w.show()
+  w.focus()
   w.webContents.send('widget:mode', mode)
   saveState()
   return mode
 }
 
+/** Fold the widget into a window (or back), for the tray and debug runs. */
+function setWidgetExpanded(expanded) {
+  const now = modeNow()
+  setWidgetMode(expanded ? (now === 'widget' ? 'window' : now) : 'widget')
+  return !!expanded
+}
+
 /** The widget's own resize grip (a transparent window has no resizable frame on Windows). */
 function resizeWidget(width, height) {
-  if (!widgetWin || widgetWin.isDestroyed()) return
+  if (!widgetWin || widgetWin.isDestroyed() || widgetWin.claudexKind !== 'widget') return
   const b = widgetWin.getBounds()
   const { workArea } = screen.getDisplayMatching(b)
-  const w = Math.max(WIDGET_MIN.width, Math.min(Math.round(width), workArea.width))
+  const w = Math.max(WIDGET_MIN.width, Math.min(Math.round(width), workArea.width, WIDGET_MAX_WIDTH))
   const h = Math.max(WIDGET_MIN.height, Math.min(Math.round(height), workArea.height))
   widgetWin.setBounds({ x: b.x, y: b.y, width: w, height: h })
 }
@@ -872,7 +921,7 @@ function registerTerminalIpc() {
   ipcMain.handle('update:install', guard(() => updater?.install() ?? null))
   ipcMain.handle('update:restart', guard(() => updater?.restart() ?? false))
   ipcMain.handle('widget:minimize', guard(() => { if (widgetWin && !widgetWin.isDestroyed()) widgetWin.minimize() }))
-  ipcMain.handle('widget:get-mode', guard(() => state.widgetMode ?? (state.widgetExpanded ? 'window' : 'widget')))
+  ipcMain.handle('widget:get-mode', guard(() => modeNow()))
   ipcMain.handle('widget:set-mode', guard((mode) => setWidgetMode(String(mode))))
   ipcMain.on('widget:resize', guard(({ width, height } = {}) => resizeWidget(Number(width), Number(height))))
   ipcMain.handle('widget:hide', guard(() => { if (widgetWin && !widgetWin.isDestroyed()) { widgetWin.hide(); state.widgetHidden = true; saveState() } }))

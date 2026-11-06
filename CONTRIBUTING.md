@@ -17,9 +17,8 @@ axis are welcome once the art exists.
 - Run `npm test`. It runs the Vitest suite against a temp `AGENT_OFFICE_HOME`,
   so it never touches your real `~/.agent-office`. CI
   (`.github/workflows/ci.yml`) runs, on every pull request and in this order:
-  `tsc --noEmit` (after copying `office.config.example.json` to
-  `office.config.json`), `claude plugin validate . --strict`, `npm test`,
-  `vite build` and `npm run check-assets`; all five must pass.
+  `tsc --noEmit`, `claude plugin validate . --strict`, `npm test` and
+  `vite build`; all four must pass.
 - Add or update a test for behaviour you change (`tests/`); the server, the
   hook script and the installer all have harnesses to extend.
 - Keep the README true: if you change a command, a port, a hook event or a
