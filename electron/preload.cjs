@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('pokeOffice', {
     send: (id, text) => ipcRenderer.invoke('terminals:send', { id, text }),
     setDex: (id, dex) => ipcRenderer.invoke('terminals:set-dex', { id, dex }),
     close: (id) => ipcRenderer.invoke('terminals:close', id),
+    rename: (id, title) => ipcRenderer.invoke('terminals:rename', { id, title }),
     onData: (fn) => on('terminals:data', fn),
     onList: (fn) => on('terminals:list', fn),
     onFocus: (fn) => on('terminals:focus', fn),
@@ -47,6 +48,13 @@ contextBridge.exposeInMainWorld('pokeOffice', {
     release: (uid) => ipcRenderer.invoke('game:release', uid),
     exchange: (boxUid, partyUid) => ipcRenderer.invoke('game:exchange', { boxUid, partyUid }),
     swap: (sessionId, uid) => ipcRenderer.invoke('game:swap', { sessionId, uid }),
+  },
+  update: {
+    get: () => ipcRenderer.invoke('update:get'),
+    check: () => ipcRenderer.invoke('update:check'),
+    install: () => ipcRenderer.invoke('update:install'),
+    restart: () => ipcRenderer.invoke('update:restart'),
+    onState: (fn) => on('update:state', fn),
   },
   widget: {
     toggle: () => ipcRenderer.invoke('widget:toggle'),

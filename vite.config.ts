@@ -38,6 +38,7 @@ export default defineConfig({
     proxy: {
       // Pokémon artwork comes from the server (fetched on first use), never from public/
       '/sprites/pokemon': { target: `http://127.0.0.1:${SERVER_PORT}` },
+      '/sprites/items': { target: `http://127.0.0.1:${SERVER_PORT}` },
       '/ws': {
         target: `ws://127.0.0.1:${SERVER_PORT}`,
         ws: true,

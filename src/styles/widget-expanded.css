@@ -31,7 +31,7 @@
   font-weight: 650;
   font-size: 12.5px;
   color: #fff;
-  background: var(--red);
+  background: var(--accent);
   border: 0;
   border-radius: 10px;
   padding: 9px 12px;
@@ -176,7 +176,7 @@
 .resume-warn code { background: var(--card-2); padding: 0 4px; border-radius: 4px; }
 .resume-warn-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 .resume-warn-actions button { background: var(--card-2); color: var(--ink); border: 0; border-radius: 9px; padding: 7px 13px; font: inherit; cursor: pointer; }
-.resume-warn-actions button.danger { background: var(--red); color: #fff; }
+.resume-warn-actions button.danger { background: var(--accent); color: #fff; }
 
 /* ---------- Resize grip ---------- */
 .w-grip {
@@ -211,3 +211,35 @@
 .widget.mode-fullscreen .w-side { flex-basis: 360px; width: 360px; }
 .w-mode-switch { -webkit-app-region: no-drag; flex-shrink: 0; }
 .w-mode-switch button { font-size: 11px; }
+
+/* ---------- Icons ---------- */
+.ico { display: block; flex-shrink: 0; }
+.pokeball { display: block; flex-shrink: 0; object-fit: contain; image-rendering: auto; }
+.w-view-switch button { display: inline-flex; align-items: center; gap: 5px; }
+.w-view-switch button.icon-only { padding: 4px 7px; }
+.w-launch-alt { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.w-launch-main:hover { filter: none; background: #7480ff; }
+.w-icon { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---------- Resize grip: small, and clear of the rounded corner ---------- */
+.w-grip { right: 11px; bottom: 11px; width: 10px; height: 10px; opacity: 0.7; }
+.w-grip:hover { opacity: 1; }
+
+/* ---------- Window / fullscreen: the sidebar is open space, not cards in a box ---------- */
+.widget.mode-window .w-side .w-card, .widget.mode-fullscreen .w-side .w-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.widget.mode-window .w-side .w-card:last-child, .widget.mode-fullscreen .w-side .w-card:last-child { border-bottom: 0; }
+.widget.mode-window .w-bento, .widget.mode-fullscreen .w-bento { gap: 0; }
+.widget.mode-window .w-side .w-launch, .widget.mode-fullscreen .w-side .w-launch { padding: 10px 6px; }
+.widget.mode-window .w-side .w-compose textarea, .widget.mode-fullscreen .w-side .w-compose textarea { background: var(--card-2); }
+
+/* xterm's own scrollbar: quiet until hovered */
+.term-view .xterm .scrollbar > .slider { background: rgba(255, 255, 255, 0.08) !important; border-radius: 4px; }
+.term-view .xterm:hover .scrollbar > .slider { background: rgba(255, 255, 255, 0.16) !important; }
+.term-view .xterm .scrollbar.vertical { width: 8px !important; }

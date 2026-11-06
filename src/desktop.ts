@@ -15,6 +15,8 @@ export interface TerminalInfo {
   status: 'running' | 'exited'
   createdAt: number
   exitCode: number | null
+  /** The trainer's name for the session, if given */
+  title: string | null
 }
 
 export interface PastSession {
@@ -41,6 +43,7 @@ interface PokeOfficeBridge {
     send(id: string, text: string): Promise<{ ok: boolean; reason?: string }>
     setDex(id: string, dex: number): Promise<boolean>
     close(id: string): Promise<void>
+    rename(id: string, title: string): Promise<boolean>
     onData(fn: (p: { id: string; data: string }) => void): () => void
     onList(fn: (list: TerminalInfo[]) => void): () => void
     onFocus(fn: (id: string) => void): () => void
@@ -52,7 +55,7 @@ interface PokeOfficeBridge {
   }
   env: {
     check(): Promise<Record<'claude' | 'git' | 'python', { ok: boolean; version: string | null; link: string }>>
-    openLink(key: 'claude' | 'git' | 'python'): Promise<void>
+    openLink(key: 'claude' | 'git' | 'python' | 'release'): Promise<void>
   }
   toast: {
     show(event: unknown): void
@@ -64,6 +67,13 @@ interface PokeOfficeBridge {
     release(uid: string): Promise<{ ok: boolean; reason?: string }>
     exchange(boxUid: string, partyUid: string): Promise<{ ok: boolean; reason?: string }>
     swap(sessionId: string, uid: string): Promise<{ ok: boolean; reason?: string }>
+  }
+  update: {
+    get(): Promise<UpdateState | null>
+    check(): Promise<UpdateState | null>
+    install(): Promise<UpdateState | null>
+    restart(): Promise<boolean>
+    onState(fn: (s: UpdateState) => void): () => void
   }
   widget: {
     toggle(): Promise<void>
@@ -77,6 +87,18 @@ interface PokeOfficeBridge {
     resize(width: number, height: number): void
     showOffice(terminalId?: string | null): Promise<void>
   }
+}
+
+export interface UpdateState {
+  status: 'idle' | 'current' | 'available' | 'downloading' | 'ready'
+  current: string
+  latest: string | null
+  notes: string
+  progress: number
+  error: string | null
+  /** The new release needs a new Electron: download the full app instead */
+  needsFull: boolean
+  page: string
 }
 
 export type WidgetMode = 'widget' | 'window' | 'fullscreen'

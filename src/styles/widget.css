@@ -20,7 +20,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   --ink: #f1f2f5;
   --ink-2: #a4a9b6;
   --ink-3: #6e7381;
-  --red: #ef4b4b;
+  --accent: #6470f3;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(100, 112, 243, 0.16);
   --green: #74d68b;
   --amber: #ffb54a;
   --danger: #ff6464;
@@ -108,7 +110,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   white-space: nowrap;
 }
 .w-mon:hover .w-mon-name, .w-mon.chosen .w-mon-name { opacity: 1; transform: none; }
-.w-mon.chosen .w-mon-name { background: var(--red); }
+.w-mon.chosen .w-mon-name { background: var(--accent); }
 .w-mon-bubble {
   position: absolute;
   top: -6px;
@@ -172,7 +174,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: linear-gradient(var(--red) 0 45%, #111 45% 55%, #f4f4f4 55%);
+  background: linear-gradient(#ef4b4b 0 45%, #111 45% 55%, #f4f4f4 55%);
   box-shadow: inset 0 0 0 1.5px #111;
   position: relative;
 }
@@ -264,7 +266,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   cursor: pointer;
 }
 .w-chip:hover { color: var(--ink); }
-.w-chip.on { background: var(--red); border-color: var(--red); color: #fff; }
+.w-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .w-input { display: flex; gap: 6px; align-items: stretch; }
 .w-input textarea {
   flex: 1;
@@ -287,7 +289,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   padding: 0 14px;
   border: 0;
   border-radius: 12px;
-  background: var(--red);
+  background: var(--accent);
   color: #fff;
   cursor: pointer;
 }
@@ -328,3 +330,20 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-limit.tone-danger .w-bar span { background: var(--danger); }
 .w-limit.tone-warn .w-limit-pct { color: var(--amber); }
 .w-limit.tone-danger .w-limit-pct { color: var(--danger); }
+
+/* ---------- Update ---------- */
+.w-update { -webkit-app-region: no-drag; font: inherit; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 0; background: var(--green); color: #0d1a12; cursor: pointer; white-space: nowrap; }
+.w-update:hover { filter: brightness(1.08); }
+.w-update.downloading { background: #2a3a30; color: var(--green); cursor: default; }
+.w-update.ready { background: #ffd84a; color: #1b1e27; }
+
+/* ---------- Session rows: a name you can change ---------- */
+.w-row { cursor: pointer; }
+.w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
+.w-row-label { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+.w-row-label .w-row-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-row-label .w-row-project { white-space: nowrap; }
+.w-row-edit { opacity: 0; font: inherit; font-size: 11px; color: var(--ink-3); background: transparent; border: 0; padding: 0 2px; cursor: pointer; }
+.w-row:hover .w-row-edit { opacity: 1; }
+.w-row-edit:hover { color: var(--ink); }
+.w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; font-weight: 650; color: var(--ink); background: var(--card); border: 1px solid var(--accent); border-radius: 7px; padding: 2px 7px; outline: none; }

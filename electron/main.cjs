@@ -43,6 +43,8 @@ const { createTray } = require('./tray.cjs')
 const { createTerminalManager } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
+const { createUpdater } = require('./updater.cjs')
+let updater = null
 
 const PRELOAD = path.join(__dirname, 'preload.cjs')
 const REPO_ROOT = path.join(__dirname, '..')
@@ -735,7 +737,7 @@ function createWidgetWindow() {
   if (state.widgetMode === 'window' || state.widgetMode === 'fullscreen') {
     widgetWin.setAlwaysOnTop(false)
     widgetWin.setSkipTaskbar(false)
-    if (state.widgetMode === 'fullscreen') widgetWin.setFullScreen(true)
+    if (state.widgetMode === 'fullscreen') widgetWin.setBounds(screen.getDisplayMatching(widgetWin.getBounds()).workArea)
   } else {
     widgetWin.setAlwaysOnTop(true, 'floating')
   }
@@ -818,7 +820,8 @@ function setWidgetMode(mode) {
     if (mode === 'window' || !state.widgetExpanded) setWidgetExpanded(true)
     w.setAlwaysOnTop(false)
     w.setSkipTaskbar(false)
-    if (mode === 'fullscreen') w.setFullScreen(true)
+    // "Fullscreen" fills the screen's work area: the taskbar stays visible and nothing is cut off under it
+    if (mode === 'fullscreen') w.setBounds(screen.getDisplayMatching(w.getBounds()).workArea)
   }
   w.webContents.send('widget:mode', mode)
   saveState()
@@ -992,7 +995,17 @@ async function cloudSignIn() {
 }
 
 function registerTerminalIpc() {
-  terminals = createTerminalManager({ repoRoot: REPO_ROOT, userDataDir: app.getPath('userData'), send: sendToWindows, onExit: postSessionEnded, defaultCwd: app.getPath('documents') })
+  // Session names the trainer gave, kept with the window state so a resumed session keeps its name
+  const titles = {
+    get: (sid) => state.sessionTitles?.[sid] ?? null,
+    set: (sid, title) => {
+      state.sessionTitles = { ...(state.sessionTitles ?? {}) }
+      if (title) state.sessionTitles[sid] = title
+      else delete state.sessionTitles[sid]
+      saveState()
+    },
+  }
+  terminals = createTerminalManager({ repoRoot: REPO_ROOT, userDataDir: app.getPath('userData'), send: sendToWindows, onExit: postSessionEnded, defaultCwd: app.getPath('documents'), titles })
   const guard = (fn) => (event, arg) => (fromOurWindow(event) ? fn(arg, event) : undefined)
   ipcMain.handle('terminals:list', guard(() => terminals.list()))
   ipcMain.handle('terminals:create', guard((opts) => {
@@ -1009,19 +1022,20 @@ function registerTerminalIpc() {
     return r.canceled ? null : r.filePaths[0]
   }))
   ipcMain.handle('sessions:history', guard(() => {
-    try { return listHistory({ limit: 40 }) } catch (err) { console.error('[main] history:', err.message); return [] }
+    try { return listHistory({ limit: 40 }).map(h => (state.sessionTitles?.[h.id] ? { ...h, title: state.sessionTitles[h.id], named: true } : h)) } catch (err) { console.error('[main] history:', err.message); return [] }
   }))
   ipcMain.handle('terminals:buffer', guard((id) => terminals.buffer(String(id))))
   ipcMain.on('terminals:write', guard(({ id, data } = {}) => terminals.write(String(id), data)))
   ipcMain.on('terminals:resize', guard(({ id, cols, rows } = {}) => terminals.resize(String(id), Number(cols), Number(rows))))
   ipcMain.handle('terminals:send', guard(({ id, text } = {}) => terminals.sendInstruction(String(id), text)))
   ipcMain.handle('terminals:set-dex', guard(({ id, dex } = {}) => terminals.setDex(String(id), Number(dex))))
+  ipcMain.handle('terminals:rename', guard(({ id, title } = {}) => terminals.rename(String(id), String(title ?? ''))))
   ipcMain.handle('terminals:close', guard((id) => terminals.close(String(id))))
   ipcMain.handle('widget:toggle', guard(() => toggleWidget()))
   // What a session needs on this PC (Claude Code, Git, Python), and their install pages
   ipcMain.handle('env:check', guard(() => checkPrereqs()))
   ipcMain.handle('env:open-link', guard((key) => {
-    const url = PREREQ_LINKS[key]
+    const url = key === 'release' ? 'https://github.com/DueStar/claudex/releases/latest' : PREREQ_LINKS[key]
     if (url) shell.openExternal(url) // only the known install pages, never a page-supplied URL
   }))
   ipcMain.handle('cloud:signin', guard(() => cloudSignIn()))
@@ -1033,6 +1047,10 @@ function registerTerminalIpc() {
   ipcMain.handle('game:exchange', guard((o) => serverPost('/pokedex/exchange', { boxUid: String(o?.boxUid), partyUid: String(o?.partyUid) })))
   ipcMain.handle('game:release', guard((uid) => serverPost('/pokedex/release', { uid: String(uid) })))
   ipcMain.handle('game:swap', guard(({ sessionId, uid } = {}) => swapPokemon(String(sessionId), String(uid))))
+  ipcMain.handle('update:get', guard(() => updater?.getState() ?? null))
+  ipcMain.handle('update:check', guard(() => updater?.check() ?? null))
+  ipcMain.handle('update:install', guard(() => updater?.install() ?? null))
+  ipcMain.handle('update:restart', guard(() => updater?.restart() ?? false))
   ipcMain.handle('widget:get-mode', guard(() => state.widgetMode ?? (state.widgetExpanded ? 'window' : 'widget')))
   ipcMain.handle('widget:set-mode', guard((mode) => setWidgetMode(String(mode))))
   ipcMain.handle('widget:get-expanded', guard(() => state.widgetExpanded === true))
@@ -1104,7 +1122,14 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
 
   app.on('second-instance', reopen)
 
-  app.whenReady().then(() => { registerTerminalIpc(); return openOffice() })
+  app.whenReady().then(() => {
+    registerTerminalIpc()
+    // Updates: a look at GitHub Releases shortly after start, then every 6 hours
+    updater = createUpdater({ app, isPackaged: app.isPackaged, send: (channel, payload) => sendToWindows(channel, payload) })
+    setTimeout(() => updater.check(), 15_000)
+    setInterval(() => updater.check(), 6 * 60 * 60 * 1000).unref?.()
+    return openOffice()
+  })
 
   app.on('window-all-closed', () => {
     stopServer()

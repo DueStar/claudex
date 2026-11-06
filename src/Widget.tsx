@@ -12,12 +12,13 @@ import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { officeWsUrl } from './serverUrl'
 import { dispatchMeters, useMeters, formatMoney, formatTokens, formatClockTime, contextTone, type SessionStatus } from './meters'
-import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode } from './desktop'
+import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { assignPokemonToRole, getPokemonFor, getSpritePath, getAvatarPath, themedDisplayName, useTheme, spriteUrl, displayHeight, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, TIER_LABEL, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
 import PokedexView from './components/PokedexView'
+import { BoxIcon, DexIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 import BoxView from './components/BoxView'
 import { TerminalView, ResumePicker } from './components/TerminalPanel'
 import type { SessionInfo } from './types'
@@ -55,6 +56,8 @@ interface Row {
   avatar: string
   height: number
   project: string
+  /** The trainer's name for the session */
+  title: string | null
 }
 
 function pct(n: number | null | undefined): string {
@@ -107,6 +110,12 @@ const Widget: React.FC = () => {
   const onEvent = useCallback((e: Parameters<typeof dispatchMeters>[0]) => { dispatchMeters(e); dispatchPokedex(e as never); dispatchCloud(e as never) }, [])
   const { sessions, connected } = useAgentSocket({ onEvent, url: officeWsUrl() })
 
+  const [update, setUpdate] = useState<UpdateState | null>(null)
+  useEffect(() => {
+    bridge?.update.get().then(setUpdate).catch(() => {})
+    return bridge?.update.onState(setUpdate)
+  }, [])
+  const [renaming, setRenaming] = useState<string | null>(null)
   const [mode, setModeState] = useState<WidgetMode>('widget')
   const expanded = mode !== 'widget'
   const [view, setView] = useState<'terminal' | 'dex' | 'box'>('terminal')
@@ -144,6 +153,7 @@ const Widget: React.FC = () => {
         sessionId, terminal, session, meter,
         mood: moodOf(session, terminal),
         name: themedDisplayName('assistant', 'Claude', agentId),
+        title: terminal?.title ?? null,
         sprite: getSpritePath(agentId, 'assistant'),
         avatar: getAvatarPath('assistant', agentId),
         height: displayHeight(getPokemonFor('assistant', agentId)),
@@ -279,7 +289,7 @@ const Widget: React.FC = () => {
       <div className="w-side">
         <div className="w-bento">
           <header className="w-card w-head">
-            <span className="w-ball" aria-hidden="true" />
+            <PokeBall size={18} />
             <span className="w-brand">Claudex</span>
             <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? '연결됨' : '서버 연결 끊김'} />
             {cloud?.enabled && (cloud.user ? (
@@ -289,6 +299,26 @@ const Widget: React.FC = () => {
             ) : (
               <button className="w-signin" onClick={signIn} title="구글로 로그인하면 도감이 클라우드에 저장돼요">로그인</button>
             ))}
+            {update && (update.status === 'available' || update.status === 'downloading' || update.status === 'ready') && (
+              <button
+                className={`w-update ${update.status}`}
+                disabled={update.status === 'downloading'}
+                title={`${update.current} → ${update.latest}${update.notes ? `
+
+${update.notes}` : ''}${update.error ? `
+
+오류: ${update.error}` : ''}`}
+                onClick={() => {
+                  if (update.needsFull) bridge?.env.openLink('release')
+                  else if (update.status === 'available') bridge?.update.install()
+                  else if (update.status === 'ready') bridge?.update.restart()
+                }}
+              >
+                {update.status === 'downloading' ? `받는 중 ${Math.round(update.progress * 100)}%`
+                  : update.status === 'ready' ? '재시작해서 적용'
+                  : update.needsFull ? '새 버전 받기' : '업데이트'}
+              </button>
+            )}
             {!expanded && (
               <button className="w-icon" onClick={() => setMode('window')} title="창 모드로 펼쳐서 터미널 보기" aria-label="펼치기">⇤</button>
             )}
@@ -338,10 +368,10 @@ const Widget: React.FC = () => {
 
           <section className="w-card w-launch">
             <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? '파티의 포켓몬이 모두 일하는 중' : '문서 폴더에서 새 Claude 세션'}>
-              <span className="w-ball small" aria-hidden="true" /> 몬스터볼 던지기
+              <PokeBall size={18} /> New session
             </button>
-            <button className="w-launch-alt" onClick={() => launch(true)} title="다른 폴더에서 새 세션">📁</button>
-            <button className="w-launch-alt" onClick={() => setPicking(true)} title="예전 세션 이어하기">↺</button>
+            <button className="w-launch-alt" onClick={() => launch(true)} title="다른 폴더에서 새 세션" aria-label="다른 폴더에서 새 세션"><FolderIcon /></button>
+            <button className="w-launch-alt" onClick={() => setPicking(true)} title="예전 세션 골라서 이어하기" aria-label="예전 세션 이어하기"><SessionsIcon /></button>
           </section>
 
           <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title="도감 열기">
@@ -373,12 +403,41 @@ const Widget: React.FC = () => {
               <div
                 key={r.sessionId}
                 className={`w-row mood-${r.mood}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
-                onClick={() => (r.terminal ? setTarget(r.sessionId) : undefined)}
+                onClick={() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') }}
+                title={r.terminal ? '눌러서 이 세션 열기' : undefined}
               >
                 <div className="w-row-top">
                   <img className="w-row-mon" src={r.sprite} alt="" />
-                  <span className="w-row-name">{r.name}</span>
-                  <span className="w-row-project">{r.project}</span>
+                  {renaming === r.sessionId ? (
+                    <input
+                      className="w-row-rename"
+                      autoFocus
+                      defaultValue={r.title ?? ''}
+                      placeholder={`${r.name} · ${r.project}`}
+                      maxLength={40}
+                      onClick={e => e.stopPropagation()}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) { bridge?.terminals.rename(r.terminal!.id, e.currentTarget.value); setRenaming(null) }
+                        if (e.key === 'Escape') setRenaming(null)
+                      }}
+                      onBlur={e => { bridge?.terminals.rename(r.terminal!.id, e.currentTarget.value); setRenaming(null) }}
+                    />
+                  ) : (
+                    <span
+                      className="w-row-label"
+                      title={r.terminal ? '더블클릭해서 세션 이름 바꾸기' : undefined}
+                      onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
+                    >
+                      {r.title ? (
+                        <><span className="w-row-name">{r.title}</span><span className="w-row-project">{r.name}</span></>
+                      ) : (
+                        <><span className="w-row-name">{r.name}</span><span className="w-row-project">{r.project}</span></>
+                      )}
+                    </span>
+                  )}
+                  {r.terminal && renaming !== r.sessionId && (
+                    <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title="세션 이름 바꾸기" aria-label="세션 이름 바꾸기">✎</button>
+                  )}
                   {r.mood === 'needs-you' && r.terminal ? (
                     <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }}>확인하러 가기</button>
                   ) : (
@@ -404,28 +463,16 @@ const Widget: React.FC = () => {
                     <span style={{ width: `${Math.min(100, r.meter?.context.used ?? 0)}%` }} />
                   </div>
                   <span className="w-row-num">{typeof r.meter?.context.used === 'number' ? `${pct(r.meter.context.used)}%` : '—'}</span>
-                  <span className="w-row-num">{r.meter ? formatMoney(r.meter.cost) : '—'}</span>
                 </div>
               </div>
             ))}
           </section>
 
           <section className="w-card w-compose">
-            <div className="w-compose-to">
-              <span className="w-label">받는 포켓몬</span>
-              <div className="w-chips">
-                {sendable.length === 0 && <span className="w-empty">지시할 수 있는 포켓몬이 없어요</span>}
-                {sendable.map(r => (
-                  <button key={r.sessionId} className={`w-chip${chosen?.sessionId === r.sessionId ? ' on' : ''}`} onClick={() => setTarget(r.sessionId)}>
-                    {r.name}
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="w-input">
               <textarea
                 value={text}
-                placeholder={chosen ? `${chosen.name}에게 지시하기…` : '몬스터볼을 던지면 지시할 수 있어요'}
+                placeholder={chosen ? `${chosen.title ?? chosen.name}에게 지시하기…` : '새 세션을 열면 지시할 수 있어요'}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() }
@@ -444,9 +491,9 @@ const Widget: React.FC = () => {
         <section className="w-card w-term">
           <div className="w-term-tabs" role="tablist">
             <div className="w-view-switch">
-              <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')}>터미널</button>
-              <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')}>도감</button>
-              <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')}>박스</button>
+              <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')}><TerminalIcon size={14} />터미널</button>
+              <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')}><DexIcon size={14} />도감</button>
+              <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')}><BoxIcon size={14} />박스</button>
             </div>
             {view === 'terminal' && withTerminal.map(r => (
               <button
@@ -458,18 +505,18 @@ const Widget: React.FC = () => {
                 title={r.terminal?.cwd}
               >
                 <img src={r.avatar} alt="" />
-                <span className="w-term-tab-name">{r.name}</span>
-                <span className="w-term-tab-project">{r.project}</span>
+                <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? r.name}</span>
+                <span className="w-term-tab-project">{r.title ? r.name : r.project}</span>
                 <span className="w-term-tab-dot" />
               </button>
             ))}
             <span className="w-term-spacer" />
             <div className="w-view-switch w-mode-switch" role="group" aria-label="화면 모드">
-              <button onClick={() => setMode('widget')} title="위젯으로 접기 (항상 위)">위젯</button>
-              <button className={mode === 'window' ? 'on' : ''} onClick={() => setMode('window')} title="창 모드">창</button>
-              <button className={mode === 'fullscreen' ? 'on' : ''} onClick={() => setMode('fullscreen')} title="전체화면">전체화면</button>
+              <button className="icon-only" onClick={() => setMode('widget')} title="위젯 (작게, 항상 위)" aria-label="위젯"><WidgetModeIcon /></button>
+              <button className={`icon-only${mode === 'window' ? ' on' : ''}`} onClick={() => setMode('window')} title="창 모드" aria-label="창 모드"><WindowModeIcon /></button>
+              <button className={`icon-only${mode === 'fullscreen' ? ' on' : ''}`} onClick={() => setMode('fullscreen')} title="전체화면" aria-label="전체화면"><FullscreenIcon /></button>
             </div>
-            {view === 'terminal' && <button className="w-icon" onClick={() => launch(false)} title="새 세션 (문서 폴더)" aria-label="새 세션">＋</button>}
+            {view === 'terminal' && <button className="w-icon" onClick={() => launch(false)} title="새 세션 (문서 폴더)" aria-label="새 세션"><PlusIcon size={14} /></button>}
           </div>
           {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}
           {view === 'box' && <div className="w-dex-body"><BoxView /></div>}
@@ -477,8 +524,8 @@ const Widget: React.FC = () => {
             {withTerminal.length === 0 && (
               <div className="w-term-empty">
                 <p>아직 터미널이 없어요</p>
-                <button className="w-launch-main" onClick={() => launch(false)}><span className="w-ball small" aria-hidden="true" /> 몬스터볼 던지기 (문서 폴더)</button>
-                <button className="w-launch-alt wide" onClick={() => setPicking(true)}>↺ 예전 세션 이어하기</button>
+                <button className="w-launch-main" onClick={() => launch(false)}><PokeBall size={18} /> New session</button>
+                <button className="w-launch-alt wide" onClick={() => setPicking(true)}><SessionsIcon /> 예전 세션 이어하기</button>
               </div>
             )}
             {withTerminal.map(r => r.terminal && (

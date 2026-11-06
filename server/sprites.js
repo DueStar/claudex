@@ -9,6 +9,7 @@
  *
  *   GET /sprites/pokemon/art/<id>.png        normal colours
  *   GET /sprites/pokemon/art-shiny/<id>.png  shiny
+ *   GET /sprites/items/<name>.png            an item's artwork (the Poké Ball), as is
  *
  * A copy already in the UI folder (a developer's local pack) is served as is.
  * When a picture cannot be had (offline, unknown id) the Poké Ball stand-in is
@@ -23,6 +24,8 @@ export const SPRITE_SIZE = 128
 const SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home'
 const MAX_ID = 1025
 const PARALLEL = 6
+const ITEMS = new Set(['poke-ball'])
+const ITEM_SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/dream-world'
 
 /** Crop to the opaque pixels, then scale down (area average) to fit size x size. */
 export function fitPng(buffer, size = SPRITE_SIZE) {
@@ -129,5 +132,28 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
     }
   })
 
-  return { obtain, cacheDir }
+  async function obtainItem(name) {
+    const file = join(cacheDir, 'items', `${name}.png`)
+    if (existsSync(file)) return file
+    const res = await fetchImpl(`${ITEM_SOURCE}/${name}.png`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const png = Buffer.from(await res.arrayBuffer())
+    PNG.sync.read(png) // only a real PNG is kept
+    mkdirSync(join(cacheDir, 'items'), { recursive: true })
+    writeFileSync(file, png)
+    return file
+  }
+
+  app.get('/sprites/items/:file', async (req, res) => {
+    const m = /^([a-z-]{1,30})\.png$/.exec(req.params.file)
+    if (!m || !ITEMS.has(m[1])) return res.status(404).end()
+    try {
+      res.set('Cache-Control', 'public, max-age=31536000, immutable').type('png').send(readFileSync(await obtainItem(m[1])))
+    } catch (err) {
+      console.warn(`[sprites] item ${m[1]}: ${err.message}`)
+      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/ball.svg')
+    }
+  })
+
+  return { obtain, obtainItem, cacheDir }
 }

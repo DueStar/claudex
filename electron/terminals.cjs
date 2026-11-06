@@ -63,7 +63,7 @@ function claudeCommand() {
   return fs.existsSync(local) ? local : 'claude.exe'
 }
 
-function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd }) {
+function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, titles = { get: () => null, set: () => {} } }) {
   const terms = new Map() // id -> { id, sessionId, cwd, dex, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
 
@@ -76,6 +76,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     return {
       id: t.id, sessionId: t.sessionId, cwd: t.cwd, project: path.basename(t.cwd),
       dex: t.dex, status: t.status, createdAt: t.createdAt, exitCode: t.exitCode ?? null,
+      title: titles.get(t.sessionId) ?? null,
     }
   }
 
@@ -126,6 +127,16 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     })
     broadcastList()
     return info(t)
+  }
+
+  /** The trainer's own name for a session (kept across resumes); empty clears it */
+  function rename(id, title) {
+    const t = terms.get(id)
+    if (!t) return false
+    const clean = String(title ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 40)
+    titles.set(t.sessionId, clean || null)
+    broadcastList()
+    return true
   }
 
   function write(id, data) {
@@ -183,7 +194,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     for (const t of terms.values()) if (t.status !== 'exited') { try { t.pty.kill() } catch {} }
   }
 
-  return { create, write, sendInstruction, resize, buffer, list, setDex, close, killAll }
+  return { create, write, sendInstruction, resize, buffer, list, setDex, rename, close, killAll }
 }
 
 module.exports = { createTerminalManager, writeSessionSettings, cleanEnv }
