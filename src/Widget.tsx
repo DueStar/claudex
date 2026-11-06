@@ -78,10 +78,10 @@ const Stat: React.FC<{ label: string; value: string; unit?: string; bar?: number
 
 /** One limit row: label, bar, percent, when it resets */
 const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null }> = ({ label, value, reset }) => (
-  <div className={`w-limit tone-${contextTone(value)}`}>
+  <div className={`w-limit tone-${contextTone(value)}${typeof value === 'number' ? '' : ' loading'}`}>
     <span className="w-label">{label}</span>
     <div className="w-bar" aria-hidden="true"><span style={{ width: `${typeof value === 'number' ? Math.max(2, Math.min(100, value)) : 0}%` }} /></div>
-    <span className="w-limit-pct">{pct(value)}<small>%</small></span>
+    <span className="w-limit-pct">{typeof value === 'number' ? <>{pct(value)}<small>%</small></> : <span className="w-limit-wait" />}</span>
     <span className="w-limit-reset" title="리셋 시각">{reset ? `↻ ${reset}` : ''}</span>
   </div>
 )
@@ -359,7 +359,7 @@ ${update.notes}` : ''}${update.error ? `
           )}
 
           {/* The subscription's two limits: the only numbers that decide whether work can go on */}
-          <section className="w-card w-limits">
+          <section className="w-card w-limits" title={typeof fiveHour === 'number' ? undefined : '세션의 첫 응답이 오면 한도가 표시돼요'}>
             <Limit label="5시간" value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
             <Limit label="주간" value={sevenDay}
               reset={sevenReset ? `${new Date(sevenReset * 1000).getMonth() + 1}/${new Date(sevenReset * 1000).getDate()} ${formatClockTime(sevenReset)}` : null} />
@@ -397,7 +397,7 @@ ${update.notes}` : ''}${update.error ? `
               </span>
               <span className="w-party-free">{dex ? `${freePartyCount(dex)}마리 대기` : ''}</span>
             </div>
-            {rows.length === 0 && <div className="w-empty">몬스터볼을 던지면 여기 나타나요</div>}
+            {rows.length === 0 && <div className="w-empty">새 세션을 열면 여기 나타나요</div>}
             {rows.map(r => (
               <div
                 key={r.sessionId}

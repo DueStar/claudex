@@ -170,6 +170,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const c = Math.max(20, Math.min(400, cols | 0))
     const r = Math.max(5, Math.min(200, rows | 0))
     try { t.pty.resize(c, r) } catch {}
+    if (process.env.CLAUDEX_DEBUG_RESIZE) console.log(`[terminals] resize ${id.slice(0, 8)} ${c}x${r}`)
   }
 
   function buffer(id) { return terms.get(id)?.buffer ?? '' }

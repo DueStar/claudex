@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
+import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, useTerminals, type PastSession, type TerminalInfo } from '../desktop'
 import { getAvatarPath, themedDisplayName, useTheme } from '../theme'
@@ -53,6 +54,23 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     } catch { /* no WebGL: the DOM renderer still works */ }
     xtermRef.current = xterm
     fitRef.current = fit
+    // Links open with Ctrl+click, as in Windows Terminal (a plain click selects text)
+    xterm.loadAddon(new WebLinksAddon((event, uri) => {
+      if (event.ctrlKey || event.metaKey) bridge!.terminals.openUrl(uri)
+    }))
+    // Files dropped on the terminal arrive as their paths, quoted when they have spaces
+    // (Claude Code attaches a dropped image by its path)
+    const host = hostRef.current
+    const onDragOver = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }
+    const onDrop = (e: DragEvent) => {
+      const files = [...(e.dataTransfer?.files ?? [])]
+      if (!files.length) return
+      e.preventDefault()
+      const paths = files.map(f => bridge!.terminals.pathForFile(f)).filter(Boolean).map(p => (/\s/.test(p) ? `"${p}"` : p))
+      if (paths.length) { xterm.paste(paths.join(' ') + ' '); xterm.focus() }
+    }
+    host.addEventListener('dragover', onDragOver)
+    host.addEventListener('drop', onDrop)
 
     let disposed = false
     bridge.terminals.buffer(term.id).then((buf) => { if (!disposed && buf) xterm.write(buf) })
@@ -61,8 +79,17 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     // Ctrl+V pastes, Ctrl+C copies when there is a selection (else it is ^C for Claude)
     xterm.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true
-      if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
-        navigator.clipboard.readText().then((t) => { if (t) xterm.paste(t) }).catch(() => {})
+      // Shift+Enter: a new line in the prompt instead of sending it (Claude Code reads ESC+CR as a newline)
+      if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.altKey) {
+        bridge!.terminals.write(term.id, '\x1b\r')
+        return false
+      }
+      // Ctrl+V: text is pasted here; anything else (a screenshot) goes to Claude Code as the key
+      // itself, and Claude Code reads the image from the clipboard
+      if (e.ctrlKey && !e.shiftKey && (e.key === 'v' || e.key === 'V')) {
+        navigator.clipboard.readText()
+          .then((t) => { if (t) xterm.paste(t); else bridge!.terminals.write(term.id, '\x16') })
+          .catch(() => bridge!.terminals.write(term.id, '\x16'))
         return false
       }
       if (e.ctrlKey && (e.key === 'c' || e.key === 'C') && xterm.hasSelection()) {
@@ -73,8 +100,11 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
       return true
     })
 
+    // One session can be on screen in two windows (the widget and the office). Only a
+    // window the user can see sets the session's size, or the two fight over it and
+    // Claude Code draws for the wrong width
     const doFit = () => {
-      if (!hostRef.current || hostRef.current.offsetWidth === 0) return
+      if (!hostRef.current || hostRef.current.offsetWidth === 0 || document.visibilityState !== 'visible') return
       try {
         fit.fit()
         bridge!.terminals.resize(term.id, xterm.cols, xterm.rows)
@@ -89,10 +119,16 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     const refont = () => { if (disposed) return; xterm.options.fontFamily = xterm.options.fontFamily; doFit() }
     document.fonts.load("13px 'Monaspace Neon Var'").then(refont, () => {})
     document.fonts.addEventListener('loadingdone', refont)
+    document.addEventListener('visibilitychange', doFit)
+    window.addEventListener('focus', doFit)
 
     return () => {
       disposed = true
+      host.removeEventListener('dragover', onDragOver)
+      host.removeEventListener('drop', onDrop)
       document.fonts.removeEventListener('loadingdone', refont)
+      document.removeEventListener('visibilitychange', doFit)
+      window.removeEventListener('focus', doFit)
       ro.disconnect()
       offData()
       input.dispose()
@@ -106,7 +142,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
       try {
         fitRef.current?.fit()
         const x = xtermRef.current
-        if (x) { bridge?.terminals.resize(term.id, x.cols, x.rows); x.focus() }
+        if (x && document.visibilityState === 'visible') { bridge?.terminals.resize(term.id, x.cols, x.rows); x.focus() }
       } catch {}
     })
     return () => cancelAnimationFrame(id)

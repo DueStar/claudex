@@ -218,7 +218,6 @@
 .w-view-switch button { display: inline-flex; align-items: center; gap: 5px; }
 .w-view-switch button.icon-only { padding: 4px 7px; }
 .w-launch-alt { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.w-launch-main:hover { filter: none; background: var(--accent-hover); }
 .w-icon { display: inline-flex; align-items: center; justify-content: center; }
 
 /* ---------- Resize grip: small, and clear of the rounded corner ---------- */

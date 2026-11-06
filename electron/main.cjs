@@ -1026,9 +1026,21 @@ function registerTerminalIpc() {
   }))
   ipcMain.handle('terminals:buffer', guard((id) => terminals.buffer(String(id))))
   ipcMain.on('terminals:write', guard(({ id, data } = {}) => terminals.write(String(id), data)))
-  ipcMain.on('terminals:resize', guard(({ id, cols, rows } = {}) => terminals.resize(String(id), Number(cols), Number(rows))))
+  // Only a window on screen sizes a session: the hidden office window keeps its own
+  // terminal views, and their size must not win over the one the user is looking at
+  ipcMain.on('terminals:resize', guard(({ id, cols, rows } = {}, event) => {
+    const w = BrowserWindow.fromWebContents(event.sender)
+    if (!w || !w.isVisible() || w.isMinimized()) return
+    terminals.resize(String(id), Number(cols), Number(rows))
+  }))
   ipcMain.handle('terminals:send', guard(({ id, text } = {}) => terminals.sendInstruction(String(id), text)))
   ipcMain.handle('terminals:set-dex', guard(({ id, dex } = {}) => terminals.setDex(String(id), Number(dex))))
+  ipcMain.handle('terminals:open-url', guard((url) => {
+    try {
+      const u = new URL(String(url))
+      if (u.protocol === 'http:' || u.protocol === 'https:') shell.openExternal(u.toString())
+    } catch {}
+  }))
   ipcMain.handle('terminals:rename', guard(({ id, title } = {}) => terminals.rename(String(id), String(title ?? ''))))
   ipcMain.handle('terminals:close', guard((id) => terminals.close(String(id))))
   ipcMain.handle('widget:toggle', guard(() => toggleWidget()))

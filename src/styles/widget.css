@@ -333,10 +333,10 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-limit.tone-danger .w-limit-pct { color: var(--danger); }
 
 /* ---------- Update ---------- */
-.w-update { -webkit-app-region: no-drag; font: inherit; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 0; background: var(--green); color: #0d1a12; cursor: pointer; white-space: nowrap; }
+.w-update { -webkit-app-region: no-drag; font: inherit; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 0; background: var(--accent-soft); color: var(--accent); cursor: pointer; white-space: nowrap; }
 .w-update:hover { filter: brightness(1.08); }
-.w-update.downloading { background: #2a3a30; color: var(--green); cursor: default; }
-.w-update.ready { background: #ffd84a; color: #1b1e27; }
+.w-update.downloading { background: var(--card-2); color: var(--accent); cursor: default; }
+.w-update.ready { background: var(--accent); color: var(--accent-ink); }
 
 /* ---------- Session rows: a name you can change ---------- */
 .w-row { cursor: pointer; }
@@ -348,3 +348,15 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row:hover .w-row-edit { opacity: 1; }
 .w-row-edit:hover { color: var(--ink); }
 .w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; font-weight: 650; color: var(--ink); background: var(--card); border: 1px solid var(--accent); border-radius: 7px; padding: 2px 7px; outline: none; }
+
+/* ---------- Limits while nothing has reported yet: a quiet shimmer, same widths ---------- */
+.w-limit.loading .w-bar { position: relative; overflow: hidden; }
+.w-limit.loading .w-bar::after {
+  content: ''; position: absolute; inset: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.10), transparent);
+  animation: wLimitShimmer 1.4s ease-in-out infinite;
+}
+.w-limit-wait { display: inline-block; width: 26px; height: 10px; border-radius: 4px; background: #262a34; vertical-align: middle; animation: wLimitPulse 1.4s ease-in-out infinite; }
+@keyframes wLimitShimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@keyframes wLimitPulse { 50% { opacity: 0.45; } }
+

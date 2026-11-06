@@ -3,7 +3,7 @@
 // The page's only door to the app: a narrow API over IPC (contextIsolation +
 // sandbox stay on, the page never gets Node). Exposed as window.pokeOffice.
 
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 function on(channel, fn) {
   const listener = (_event, payload) => fn(payload)
@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('pokeOffice', {
     setDex: (id, dex) => ipcRenderer.invoke('terminals:set-dex', { id, dex }),
     close: (id) => ipcRenderer.invoke('terminals:close', id),
     rename: (id, title) => ipcRenderer.invoke('terminals:rename', { id, title }),
+    // A file dropped on a terminal: its path on disk (File.path is gone since Electron 32)
+    pathForFile: (file) => { try { return webUtils.getPathForFile(file) || '' } catch { return '' } },
+    // Ctrl+click on a link in a terminal: the user's browser opens it (http/https only)
+    openUrl: (url) => ipcRenderer.invoke('terminals:open-url', String(url)),
     onData: (fn) => on('terminals:data', fn),
     onList: (fn) => on('terminals:list', fn),
     onFocus: (fn) => on('terminals:focus', fn),

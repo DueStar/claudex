@@ -44,6 +44,8 @@ interface PokeOfficeBridge {
     setDex(id: string, dex: number): Promise<boolean>
     close(id: string): Promise<void>
     rename(id: string, title: string): Promise<boolean>
+    pathForFile(file: File): string
+    openUrl(url: string): Promise<void>
     onData(fn: (p: { id: string; data: string }) => void): () => void
     onList(fn: (list: TerminalInfo[]) => void): () => void
     onFocus(fn: (id: string) => void): () => void
