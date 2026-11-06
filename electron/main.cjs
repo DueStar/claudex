@@ -43,7 +43,9 @@ const { createTray } = require('./tray.cjs')
 const { createTerminalManager } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
-const { createUpdater } = require('./updater.cjs')
+const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
+// An update staged by the last run goes in before anything else loads; then start again on the new code
+if (applyPendingUpdate(app)) { app.relaunch(); app.exit(0) }
 let updater = null
 
 const PRELOAD = path.join(__dirname, 'preload.cjs')
@@ -1129,7 +1131,19 @@ function createTrayIcon() {
 // the Start menu) brings the existing window back instead of fighting over
 // the port. Dev runs (`electron .`) are not locked, so one can run beside a
 // packaged app.
-if (app.isPackaged && !app.requestSingleInstanceLock()) {
+/**
+ * The single-instance lock, waited for a little: right after an update
+ * restart (app.relaunch) the old run may still be letting go of it.
+ */
+function takeInstanceLock() {
+  for (let i = 0; i < 20; i++) {
+    if (app.requestSingleInstanceLock()) return true
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250)
+  }
+  return false
+}
+
+if (app.isPackaged && !takeInstanceLock()) {
   app.quit()
 } else {
   // Startup (probe the port, start the server, wait for it, open the window)

@@ -152,23 +152,15 @@ function createUpdater({ app, send, isPackaged }) {
   }
 
   /**
-   * Quit, and swap resources/app for the staged one once this process is gone
-   * (the native modules are locked while it runs), then start Claudex again.
-   * An inline PowerShell command, not a script file: nothing new to run.
+   * Restart into the new version. The swap happens in the next start, before
+   * it loads anything (applyPendingUpdate): a script left behind to do it after
+   * the app quits does not survive on Windows (a detached PowerShell never
+   * runs; an attached one dies with the app).
    */
   function restart() {
     if (state.status !== 'ready' || !manifest?.staged) return false
-    const target = path.join(process.resourcesPath, 'app')
-    const exe = process.execPath
-    const q = (s) => `'${String(s).replace(/'/g, "''")}'`
-    const ps = [
-      `$ErrorActionPreference = 'Stop'`,
-      `try { Wait-Process -Id ${process.pid} -Timeout 60 -ErrorAction SilentlyContinue } catch {}`,
-      `Start-Sleep -Milliseconds 800`,
-      `robocopy ${q(manifest.staged)} ${q(target)} /MIR /R:5 /W:1 /NFL /NDL /NJH /NJS | Out-Null`,
-      `Start-Process -FilePath ${q(exe)}`,
-    ].join('; ')
-    spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', ps], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+    fs.writeFileSync(pendingFile(app), JSON.stringify({ staged: manifest.staged, version: manifest.version }))
+    app.relaunch()
     app.quit()
     return true
   }
@@ -176,4 +168,31 @@ function createUpdater({ app, send, isPackaged }) {
   return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir() }
 }
 
-module.exports = { createUpdater, newer, REPO }
+const pendingFile = (app) => path.join(app.getPath('userData'), 'pending-update.json')
+
+/**
+ * Called first thing in main.cjs: when the last run left an update staged,
+ * mirror it over resources/app (robocopy retries while the old run's processes
+ * let go of their files) and report true, so main restarts into the new code.
+ * The marker is removed before trying, so a bad update can never loop.
+ */
+function applyPendingUpdate(app) {
+  const file = pendingFile(app)
+  if (!fs.existsSync(file)) return false
+  let pending = null
+  try { pending = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
+  fs.rmSync(file, { force: true })
+  const staged = pending?.staged
+  if (!app.isPackaged || !staged || !fs.existsSync(path.join(staged, 'package.json'))) return false
+  const target = path.join(process.resourcesPath, 'app')
+  const { spawnSync } = require('child_process')
+  const r = spawnSync('robocopy', [staged, target, '/MIR', '/R:20', '/W:1', '/NFL', '/NDL', '/NJH', '/NJS', '/NP'], { windowsHide: true })
+  const ok = typeof r.status === 'number' && r.status < 8 // robocopy: 0–7 copied or nothing to do, 8+ failed
+  const log = path.join(app.getPath('userData'), 'update.log')
+  try { fs.appendFileSync(log, `${new Date().toISOString()} ${pending.version}: robocopy ${r.status}${r.error ? ` ${r.error.message}` : ''}
+`) } catch {}
+  if (ok) { try { fs.rmSync(path.dirname(staged), { recursive: true, force: true }) } catch {} }
+  return ok
+}
+
+module.exports = { createUpdater, applyPendingUpdate, newer, REPO }
