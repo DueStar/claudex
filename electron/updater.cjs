@@ -64,17 +64,45 @@ function get(url, { onProgress, maxBytes = 300 * 1024 * 1024 } = {}, hops = 0) {
   })
 }
 
+/**
+ * A local channel for whoever builds Claudex on this PC: when
+ * ~/.agent-office/update-dir (or CLAUDEX_UPDATE_DIR) names a folder, the update
+ * comes from that folder's latest.json and zip (what scripts/release.mjs leaves
+ * in release/), checked every minute, and a build counts as newer by its date
+ * even when the version number is the same. No GitHub release is needed.
+ */
+function localUpdateDir() {
+  if (process.env.CLAUDEX_UPDATE_DIR) return process.env.CLAUDEX_UPDATE_DIR
+  try {
+    const home = process.env.AGENT_OFFICE_HOME || path.join(os.homedir(), '.agent-office')
+    const dir = fs.readFileSync(path.join(home, 'update-dir'), 'utf8').trim()
+    return dir && fs.existsSync(path.join(dir, 'latest.json')) ? dir : null
+  } catch { return null }
+}
+
+/** When this copy of the app was built (scripts/release.mjs writes build-info.json) */
+function ownBuildDate(app) {
+  try { return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'build-info.json'), 'utf8')).date ?? null } catch { return null }
+}
+
 function createUpdater({ app, send, isPackaged }) {
   let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
   let manifest = null
   const publish = (patch) => { state = { ...state, ...patch }; send('update:state', state) }
 
+  const builtAt = ownBuildDate(app)
+  /** Newer by version, or the same version built later (local builds) */
+  const isNewer = (m) => newer(m.version, state.current) || (m.version === state.current && !!m.date && !!builtAt && Date.parse(m.date) > Date.parse(builtAt))
+
   async function check() {
     if (state.status === 'downloading' || state.status === 'ready') return state
     try {
-      const m = JSON.parse((await get(LATEST, { maxBytes: 64 * 1024 })).toString('utf8'))
+      const local = localUpdateDir()
+      const m = local
+        ? { ...JSON.parse(fs.readFileSync(path.join(local, 'latest.json'), 'utf8')), localDir: local }
+        : JSON.parse((await get(LATEST, { maxBytes: 64 * 1024 })).toString('utf8'))
       if (!m || typeof m.version !== 'string') throw new Error('bad manifest')
-      if (!newer(m.version, state.current)) { publish({ status: 'current', latest: m.version, error: null }); return state }
+      if (!isNewer(m)) { publish({ status: 'current', latest: m.version, error: null }); return state }
       manifest = m
       publish({
         status: 'available', latest: m.version, notes: String(m.notes ?? '').slice(0, 2000), error: null,
@@ -96,8 +124,9 @@ function createUpdater({ app, send, isPackaged }) {
     if (!/^claudex-app-[\w.-]+\.zip$/.test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
     publish({ status: 'downloading', progress: 0, error: null })
     try {
-      const url = `https://github.com/${REPO}/releases/download/v${manifest.version}/${appFile}`
-      const zip = await get(url, { onProgress: (p) => publish({ progress: p }) })
+      const zip = manifest.localDir
+        ? fs.readFileSync(path.join(manifest.localDir, appFile))
+        : await get(`https://github.com/${REPO}/releases/download/v${manifest.version}/${appFile}`, { onProgress: (p) => publish({ progress: p }) })
       const sha = crypto.createHash('sha256').update(zip).digest('hex')
       if (sha !== String(manifest.app?.sha256 ?? '').toLowerCase()) throw new Error('checksum mismatch')
 
@@ -144,7 +173,7 @@ function createUpdater({ app, send, isPackaged }) {
     return true
   }
 
-  return { check, install, restart, getState: () => state }
+  return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir() }
 }
 
 module.exports = { createUpdater, newer, REPO }

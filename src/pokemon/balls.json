@@ -1,39 +1,235 @@
 {
-  "_about": "The 27 Poké Balls a catch can come in. weight is the chance in percent (they add up to 100). Tiers follow how hard each ball is to get in the games: basic = sold in every Poké Mart; special = sold only in some marts or given as a bonus (PokeAPI category special-balls); apricorn = hand-made from Apricorns, a handful per game (apricorn-balls); limited = only at one place or event (Safari Zone, Bug-Catching Contest, Pal Park, Dream World, Ultra Space, event gifts); master = one per game. art = the Scarlet/Violet bag artwork on Bulbagarden Archives, fetched on first use (server/sprites.js).",
+  "_about": "The 27 Poké Balls. weight is the chance in percent that a catch comes in that ball (the catchable ones add up to 100). Tiers follow how hard each ball is to get in the games: basic = sold in every Poké Mart; special = sold only in some marts or given as a bonus (PokeAPI special-balls); apricorn = hand-made from Apricorns (apricorn-balls); limited = only at one place (Safari Zone, Bug-Catching Contest, Ultra Space); master = one per game. event balls (Park, Dream, Cherish) never come from a wild catch: like in the games, they are only given (catch: false). A legendary or mythical catch comes in a Master Ball 1% of the time (MASTER_FOR_LEGENDS in server/pokedex.js). art = the picture on Bulbagarden Archives; tools/import-balls.mjs bundles it.",
   "tiers": {
     "basic": "흔한 볼",
     "special": "특수 볼",
     "apricorn": "규격 외 볼",
     "limited": "한정 볼",
-    "master": "마스터볼"
+    "master": "마스터볼",
+    "event": "이벤트 볼"
   },
   "balls": [
-    { "id": "poke-ball", "ko": "몬스터볼", "en": "Poké Ball", "tier": "basic", "weight": 34, "art": "0/00/Bag_Pok%C3%A9_Ball_SV_Sprite.png" },
-    { "id": "great-ball", "ko": "슈퍼볼", "en": "Great Ball", "tier": "basic", "weight": 20, "art": "5/54/Bag_Great_Ball_SV_Sprite.png" },
-    { "id": "ultra-ball", "ko": "하이퍼볼", "en": "Ultra Ball", "tier": "basic", "weight": 10, "art": "5/55/Bag_Ultra_Ball_SV_Sprite.png" },
-    { "id": "premier-ball", "ko": "프리미어볼", "en": "Premier Ball", "tier": "special", "weight": 4, "art": "d/da/Bag_Premier_Ball_SV_Sprite.png" },
-    { "id": "net-ball", "ko": "네트볼", "en": "Net Ball", "tier": "special", "weight": 3, "art": "3/3b/Bag_Net_Ball_SV_Sprite.png" },
-    { "id": "dive-ball", "ko": "다이브볼", "en": "Dive Ball", "tier": "special", "weight": 3, "art": "5/52/Bag_Dive_Ball_SV_Sprite.png" },
-    { "id": "nest-ball", "ko": "네스트볼", "en": "Nest Ball", "tier": "special", "weight": 3, "art": "3/3d/Bag_Nest_Ball_SV_Sprite.png" },
-    { "id": "repeat-ball", "ko": "리피트볼", "en": "Repeat Ball", "tier": "special", "weight": 3, "art": "8/80/Bag_Repeat_Ball_SV_Sprite.png" },
-    { "id": "timer-ball", "ko": "타이머볼", "en": "Timer Ball", "tier": "special", "weight": 3, "art": "2/23/Bag_Timer_Ball_SV_Sprite.png" },
-    { "id": "dusk-ball", "ko": "다크볼", "en": "Dusk Ball", "tier": "special", "weight": 3, "art": "b/b1/Bag_Dusk_Ball_SV_Sprite.png" },
-    { "id": "quick-ball", "ko": "퀵볼", "en": "Quick Ball", "tier": "special", "weight": 3, "art": "7/72/Bag_Quick_Ball_SV_Sprite.png" },
-    { "id": "heal-ball", "ko": "힐볼", "en": "Heal Ball", "tier": "special", "weight": 3, "art": "f/fa/Bag_Heal_Ball_SV_Sprite.png" },
-    { "id": "luxury-ball", "ko": "럭셔리볼", "en": "Luxury Ball", "tier": "special", "weight": 2, "art": "5/59/Bag_Luxury_Ball_SV_Sprite.png" },
-    { "id": "fast-ball", "ko": "스피드볼", "en": "Fast Ball", "tier": "apricorn", "weight": 0.6, "art": "3/3c/Bag_Fast_Ball_SV_Sprite.png" },
-    { "id": "level-ball", "ko": "레벨볼", "en": "Level Ball", "tier": "apricorn", "weight": 0.6, "art": "f/f1/Bag_Level_Ball_SV_Sprite.png" },
-    { "id": "lure-ball", "ko": "루어볼", "en": "Lure Ball", "tier": "apricorn", "weight": 0.6, "art": "f/f4/Bag_Lure_Ball_SV_Sprite.png" },
-    { "id": "heavy-ball", "ko": "헤비볼", "en": "Heavy Ball", "tier": "apricorn", "weight": 0.6, "art": "4/46/Bag_Heavy_Ball_SV_Sprite.png" },
-    { "id": "love-ball", "ko": "러브러브볼", "en": "Love Ball", "tier": "apricorn", "weight": 0.6, "art": "4/40/Bag_Love_Ball_SV_Sprite.png" },
-    { "id": "friend-ball", "ko": "프렌드볼", "en": "Friend Ball", "tier": "apricorn", "weight": 0.6, "art": "4/4c/Bag_Friend_Ball_SV_Sprite.png" },
-    { "id": "moon-ball", "ko": "문볼", "en": "Moon Ball", "tier": "apricorn", "weight": 0.6, "art": "2/26/Bag_Moon_Ball_SV_Sprite.png" },
-    { "id": "safari-ball", "ko": "사파리볼", "en": "Safari Ball", "tier": "limited", "weight": 0.35, "art": "8/8d/Bag_Safari_Ball_SV_Sprite.png" },
-    { "id": "sport-ball", "ko": "컴퍼티션볼", "en": "Sport Ball", "tier": "limited", "weight": 0.35, "art": "6/68/Bag_Sport_Ball_SV_Sprite.png" },
-    { "id": "park-ball", "ko": "파크볼", "en": "Park Ball", "tier": "limited", "weight": 0.3, "art": "6/63/Bag_Park_Ball_SV_Sprite.png" },
-    { "id": "dream-ball", "ko": "드림볼", "en": "Dream Ball", "tier": "limited", "weight": 0.3, "art": "6/6a/Bag_Dream_Ball_SV_Sprite.png" },
-    { "id": "beast-ball", "ko": "울트라볼", "en": "Beast Ball", "tier": "limited", "weight": 0.3, "art": "d/d1/Bag_Beast_Ball_SV_Sprite.png" },
-    { "id": "cherish-ball", "ko": "프레셔스볼", "en": "Cherish Ball", "tier": "limited", "weight": 0.1, "art": "8/8f/Bag_Cherish_Ball_SV_Sprite.png" },
-    { "id": "master-ball", "ko": "마스터볼", "en": "Master Ball", "tier": "master", "weight": 0.1, "art": "a/a6/Bag_Master_Ball_SV_Sprite.png" }
+    {
+      "id": "poke-ball",
+      "ko": "몬스터볼",
+      "en": "Poké Ball",
+      "tier": "basic",
+      "weight": 32,
+      "art": "0/00/Bag_Pok%C3%A9_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "great-ball",
+      "ko": "슈퍼볼",
+      "en": "Great Ball",
+      "tier": "basic",
+      "weight": 18,
+      "art": "5/54/Bag_Great_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "ultra-ball",
+      "ko": "하이퍼볼",
+      "en": "Ultra Ball",
+      "tier": "basic",
+      "weight": 10,
+      "art": "5/55/Bag_Ultra_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "premier-ball",
+      "ko": "프리미어볼",
+      "en": "Premier Ball",
+      "tier": "special",
+      "weight": 4,
+      "art": "d/da/Bag_Premier_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "net-ball",
+      "ko": "네트볼",
+      "en": "Net Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "3/3b/Bag_Net_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "dive-ball",
+      "ko": "다이브볼",
+      "en": "Dive Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "5/52/Bag_Dive_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "nest-ball",
+      "ko": "네스트볼",
+      "en": "Nest Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "3/3d/Bag_Nest_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "repeat-ball",
+      "ko": "리피트볼",
+      "en": "Repeat Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "8/80/Bag_Repeat_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "timer-ball",
+      "ko": "타이머볼",
+      "en": "Timer Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "2/23/Bag_Timer_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "dusk-ball",
+      "ko": "다크볼",
+      "en": "Dusk Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "b/b1/Bag_Dusk_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "quick-ball",
+      "ko": "퀵볼",
+      "en": "Quick Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "7/72/Bag_Quick_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "heal-ball",
+      "ko": "힐볼",
+      "en": "Heal Ball",
+      "tier": "special",
+      "weight": 3,
+      "art": "f/fa/Bag_Heal_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "luxury-ball",
+      "ko": "럭셔리볼",
+      "en": "Luxury Ball",
+      "tier": "special",
+      "weight": 1.4,
+      "art": "5/59/Bag_Luxury_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "fast-ball",
+      "ko": "스피드볼",
+      "en": "Fast Ball",
+      "tier": "apricorn",
+      "weight": 1.2,
+      "art": "3/3c/Bag_Fast_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "level-ball",
+      "ko": "레벨볼",
+      "en": "Level Ball",
+      "tier": "apricorn",
+      "weight": 1.2,
+      "art": "f/f1/Bag_Level_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "lure-ball",
+      "ko": "루어볼",
+      "en": "Lure Ball",
+      "tier": "apricorn",
+      "weight": 1.2,
+      "art": "f/f4/Bag_Lure_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "heavy-ball",
+      "ko": "헤비볼",
+      "en": "Heavy Ball",
+      "tier": "apricorn",
+      "weight": 1.2,
+      "art": "4/46/Bag_Heavy_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "love-ball",
+      "ko": "러브러브볼",
+      "en": "Love Ball",
+      "tier": "apricorn",
+      "weight": 1.2,
+      "art": "4/40/Bag_Love_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "friend-ball",
+      "ko": "프렌드볼",
+      "en": "Friend Ball",
+      "tier": "apricorn",
+      "weight": 1.2,
+      "art": "4/4c/Bag_Friend_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "moon-ball",
+      "ko": "문볼",
+      "en": "Moon Ball",
+      "tier": "apricorn",
+      "weight": 1.2,
+      "art": "2/26/Bag_Moon_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "safari-ball",
+      "ko": "사파리볼",
+      "en": "Safari Ball",
+      "tier": "limited",
+      "weight": 0.8,
+      "art": "8/8d/Bag_Safari_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "sport-ball",
+      "ko": "컴퍼티션볼",
+      "en": "Sport Ball",
+      "tier": "limited",
+      "weight": 0.6,
+      "art": "6/68/Bag_Sport_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "park-ball",
+      "ko": "파크볼",
+      "en": "Park Ball",
+      "tier": "event",
+      "weight": 0,
+      "art": "6/63/Bag_Park_Ball_SV_Sprite.png",
+      "catch": false,
+      "why": "팔파크 안에서만 쓰는 볼이라 가방에 들어오지 않아요"
+    },
+    {
+      "id": "dream-ball",
+      "ko": "드림볼",
+      "en": "Dream Ball",
+      "tier": "event",
+      "weight": 0,
+      "art": "6/6a/Bag_Dream_Ball_SV_Sprite.png",
+      "catch": false,
+      "why": "드림월드·이벤트로만 받을 수 있어요"
+    },
+    {
+      "id": "beast-ball",
+      "ko": "울트라볼",
+      "en": "Beast Ball",
+      "tier": "limited",
+      "weight": 0.6,
+      "art": "d/d1/Bag_Beast_Ball_SV_Sprite.png"
+    },
+    {
+      "id": "cherish-ball",
+      "ko": "프레셔스볼",
+      "en": "Cherish Ball",
+      "tier": "event",
+      "weight": 0,
+      "art": "8/8f/Bag_Cherish_Ball_SV_Sprite.png",
+      "catch": false,
+      "why": "이벤트 배포 포켓몬 전용이에요"
+    },
+    {
+      "id": "master-ball",
+      "ko": "마스터볼",
+      "en": "Master Ball",
+      "tier": "master",
+      "weight": 0.2,
+      "art": "a/a6/Bag_Master_Ball_SV_Sprite.png"
+    }
   ]
 }

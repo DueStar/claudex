@@ -3,10 +3,9 @@
  *
  *   node tools/import-balls.mjs <folder>
  *
- * <folder> holds the Scarlet/Violet bag pictures saved from
- * https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9_Ball (the 27 balls, Master
- * Ball to Park Ball), named as the archive names them, e.g.
- * "Bag_Great_Ball_SV_Sprite.png" (Poké Ball may be "Bag_Poké_Ball_SV_Sprite.png").
+ * <folder> holds the ball pictures saved from
+ * https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9_Ball, named as the archive
+ * names them (Bag_*_SV_Sprite.png, Dream_*_Sprite.png, …).
  * The archive does not allow automated downloads, so they are saved by hand.
  *
  * Writes public/sprites/balls/<id>.png (trimmed, 128px; gitignored: the art is
@@ -29,12 +28,17 @@ const cache = join(root, 'tools', '_cache')
 mkdirSync(out, { recursive: true })
 mkdirSync(cache, { recursive: true })
 
-const files = readdirSync(src)
-const norm = (s) => decodeURIComponent(s).normalize('NFC').toLowerCase().replace(/é/g, 'e').replace(/[\s_]+/g, '_')
+// Any of the archive's ball pictures will do: "Bag_Great_Ball_SV_Sprite.png",
+// "Dream_Poké_Ball_Sprite.png", "Bag_Sport_Ball_ZA_Sprite.png"… The ball is read from
+// the name; a Scarlet/Violet bag picture wins over the others when there are several.
+const idOf = (f) => f.normalize('NFC').replace(/\.png$/i, '')
+  .replace(/^(Bag|Dream|Item)_/i, '').replace(/(_[A-Z]{2,4})?_Sprite$/, '')
+  .toLowerCase().replace(/é/g, 'e').replace(/[\s_]+/g, '-')
+const files = readdirSync(src).filter((f) => /\.png$/i.test(f))
+const rank = (f) => (/^Bag_.*_SV_/i.test(f) ? 0 : /^Bag_/i.test(f) ? 1 : 2)
 const missing = []
 for (const b of balls) {
-  const want = norm(decodeURIComponent(b.art.split('/').pop()))
-  const hit = files.find((f) => norm(f) === want)
+  const hit = files.filter((f) => idOf(f) === b.id).sort((x, y) => rank(x) - rank(y))[0]
   if (!hit) { missing.push(b.id); continue }
   const raw = readFileSync(join(src, hit))
   writeFileSync(join(out, `${b.id}.png`), fitPng(raw, 128))

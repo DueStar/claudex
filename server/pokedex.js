@@ -61,6 +61,10 @@ export const NEW_SPECIES_BOOST = 8
 export const PITY = 150
 /** Encounters without a mythical before the next is a sure mythical */
 export const PITY_MYTHICAL = 300
+/** A species already caught comes back less: its weight × this, once per catch (0.9, 0.81, …) */
+export const RECATCH_DECAY = 0.9
+/** A legendary or mythical catch comes in a Master Ball this often */
+export const MASTER_FOR_LEGENDS = 0.01
 
 /** Where the step was taken: the tool decides the terrain, and the terrain favours some types */
 const TERRAIN = [
@@ -248,12 +252,22 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     return random() * 8 < rate ? 'female' : 'male'
   }
   /** The ball a catch comes in, by the balls' weights (server/balls.json) */
-  const ballTotal = balls.reduce((a, b) => a + (b.weight || 0), 0)
-  function rollBall() {
-    if (!ballTotal) return 'poke-ball'
-    let r = random() * ballTotal
-    for (const b of balls) { r -= b.weight || 0; if (r < 0) return b.id }
-    return balls[balls.length - 1].id
+  // Event balls (catch: false) never come from a wild catch
+  const wildBalls = balls.filter(b => b.catch !== false && b.weight > 0)
+  function pickBall(list) {
+    const total = list.reduce((a, b) => a + b.weight, 0)
+    if (!total) return 'poke-ball'
+    let r = random() * total
+    for (const b of list) { r -= b.weight; if (r < 0) return b.id }
+    return list[list.length - 1].id
+  }
+  const notMaster = wildBalls.filter(b => b.id !== 'master-ball')
+  /** A legendary or mythical comes in a Master Ball MASTER_FOR_LEGENDS of the time, else any other ball */
+  function rollBall(tier) {
+    if (tier === 'legendary' || tier === 'mythical') {
+      return random() < MASTER_FOR_LEGENDS ? 'master-ball' : pickBall(notMaster)
+    }
+    return pickBall(wildBalls)
   }
   function rollNature() {
     return natures.length ? natures[Math.floor(random() * natures.length)].id : null
@@ -311,12 +325,18 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     return { tier: 'common', pity: false }
   }
 
-  /** A species of the tier: uncaught ones boosted, the terrain's types ×3, commons by capture rate */
+  /**
+   * A species of the tier: uncaught ones boosted, each earlier catch of a species
+   * ×RECATCH_DECAY (the rest of the tier shares what it gives up), the terrain's
+   * types ×3, commons by capture rate
+   */
   function pickSpecies(tier, favoured) {
     const pool = byTier[tier]?.length ? byTier[tier] : byTier.common
     const weights = pool.map(s => {
       let w = tier === 'common' ? Math.max(1, s.captureRate ?? 45) : 1
-      if (!state.caught[s.id]) w *= NEW_SPECIES_BOOST
+      const caughtBefore = state.caught[s.id]?.count ?? 0
+      if (!caughtBefore) w *= NEW_SPECIES_BOOST
+      else w *= RECATCH_DECAY ** caughtBefore
       if (s.types?.some(t => favoured.includes(t))) w *= 3
       return w
     })
@@ -369,7 +389,7 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     let toProfessor = false
     let ball = null
     if (caught) {
-      ball = rollBall()
+      ball = rollBall(tier)
       const info = { place, sessionId, project, how: pity ? 'pity' : attendance ? 'attendance' : 'wild', shiny, via, ball }
       if (state.box.length >= BOX_LIMIT) {
         // A full box: the Pokédex still counts it, the individual goes to the professor

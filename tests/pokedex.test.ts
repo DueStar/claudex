@@ -267,6 +267,8 @@ describe('pokedex', () => {
     const balls = JSON.parse(readFileSync(join(__dirname, '..', 'server', 'balls.json'), 'utf8')).balls
     expect(balls).toHaveLength(27)
     expect(balls.reduce((a: number, b: any) => a + b.weight, 0)).toBeCloseTo(100, 6)
+    // event balls are only ever given, never caught in
+    for (const id of ['park-ball', 'dream-ball', 'cherish-ball']) expect(balls.find((b: any) => b.id === id)).toMatchObject({ catch: false, weight: 0 })
     const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
     dirs.push(dir)
     const sent: any[] = []
@@ -275,12 +277,39 @@ describe('pokedex', () => {
     dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
     dex.noteEvent(work('s1', 'Bash'), {})
+    // every roll 0 meets a mythical first, and 1% of legendary/mythical catches are in a Master Ball
     const ev = sent.map(m => m.event).find(e => e?.kind === 'catch')
-    expect(ev.ball).toBe('poke-ball')
-    expect(dex.publicState().mons[ev.uid].ball).toBe('poke-ball')
+    expect(ev.tier).toBe('mythical')
+    expect(ev.ball).toBe('master-ball')
+    expect(dex.publicState().mons[ev.uid].ball).toBe('master-ball')
     // the starter came in a plain Poké Ball
     const st = dex.publicState()
     expect(st.mons[st.party[0]].ball).toBe('poke-ball')
+  })
+
+  it('a species already caught comes back less: ×0.9 per catch', () => {
+    // two commons of equal weight; the trainer has caught the first one 3 times
+    const species = [
+      { id: 1, ko: 'a', types: ['normal'], tier: 'common', captureRate: 100, evolvesFrom: null },
+      { id: 2, ko: 'b', types: ['normal'], tier: 'common', captureRate: 100, evolvesFrom: null },
+    ]
+    const picks = { 1: 0, 2: 0 } as Record<number, number>
+    let seed = 7
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646 }
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const sent: any[] = []
+    const dex = createPokedex({ file: join(dir, 'p.json'), species, broadcast: (m: any) => sent.push(m), random: rnd, now: () => new Date('2026-11-06T14:00:00').getTime() })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    const st = (dex as any)._state()
+    st.caught = { 1: { count: 3 }, 2: { count: 1 } }
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    // hold the counts still (a caught 3 times, b once) so only the weights speak
+    for (let i = 0; i < 60000; i++) { st.caught = { 1: { count: 3 }, 2: { count: 1 } }; dex.noteEvent(work('s1', 'Bash'), {}) }
+    for (const e of sent.map(m => m.event)) if (e && (e.kind === 'catch' || e.kind === 'flee')) picks[e.id]++
+    // a : b = 0.9^3 : 0.9^1 = 0.81
+    expect(picks[1] / picks[2]).toBeGreaterThan(0.7)
+    expect(picks[1] / picks[2]).toBeLessThan(0.92)
   })
 
   it('keeps the game on disk', async () => {

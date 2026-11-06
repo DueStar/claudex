@@ -52,6 +52,10 @@ for (const banned of [join(appDir, 'dist', 'sprites', 'pokemon'), join(appDir, '
   if (existsSync(banned) && readdirSync(banned).length) throw new Error(`Pokémon artwork in the build: ${banned}`)
 }
 
+// When this build was made: the app reads it to tell a newer local build of the same version
+const builtAt = new Date().toISOString()
+writeFileSync(join(appDir, 'build-info.json'), JSON.stringify({ version, date: builtAt }))
+
 const appZip = `claudex-app-${version}.zip`
 const fullZip = `Claudex-${version}-win-x64.zip`
 for (const f of [appZip, fullZip]) rmSync(join(out, f), { force: true })
@@ -65,7 +69,7 @@ const manifest = {
   version,
   electron: electronVersion,
   notes,
-  date: new Date().toISOString(),
+  date: builtAt,
   app: { file: appZip, sha256: sha, size: statSync(join(out, appZip)).size },
   full: { file: fullZip, size: statSync(join(out, fullZip)).size },
 }

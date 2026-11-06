@@ -1143,6 +1143,8 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
     updater = createUpdater({ app, isPackaged: app.isPackaged, send: (channel, payload) => sendToWindows(channel, payload) })
     setTimeout(() => updater.check(), 15_000)
     setInterval(() => updater.check(), 6 * 60 * 60 * 1000).unref?.()
+    // A local build folder (the developer's own PC) is looked at every minute
+    setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
     return openOffice()
   })
 
