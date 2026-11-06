@@ -22,7 +22,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
   - 디버그 변수: `POKEMON_OFFICE_AUTOTEST(_EXPAND/_KEYS/_WIDGET_JS)`, `POKEMON_OFFICE_CLAUDE=powershell.exe`
 
 ## 빌드·업데이트
-- **빌드와 릴리스**: `node scripts/release.mjs "노트" [--publish]`
+- **빌드와 릴리스**: `node scripts/release.mjs [--publish]` — 노트는 CHANGELOG.md의 `### <버전>` 절을 UTF-8로 직접 읽는다. 셸로 한글 노트를 넘기면 cp949로 깨진다(1.3.6에서 실제로 깨져서 릴리스 본문과 latest.json을 다시 올렸다).
   1. vite 빌드와 `electron-builder --win dir`를 실행한다.
   2. 볼 그림이 있으면 앱 아이콘을 공식 몬스터볼로 만들고, 빌드가 끝나면 `git checkout`으로 직접 그린 아이콘으로 되돌린다.
   3. `build-info.json`(빌드 날짜)을 넣는다.

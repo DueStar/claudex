@@ -1,6 +1,7 @@
 /**
  * release.mjs — build Claudex for Windows and lay out a GitHub release.
  *
+ *   node scripts/release.mjs [--publish]          notes from CHANGELOG.md "### <version>"
  *   node scripts/release.mjs "notes…"            build into release/, publish nothing
  *   node scripts/release.mjs "notes…" --publish  also create the GitHub release v<version>
  *
@@ -24,7 +25,21 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const version = pkg.version
-const notes = process.argv.slice(2).filter(a => !a.startsWith('--')).join(' ').trim()
+const given = process.argv.slice(2).filter(a => !a.startsWith('--')).join(' ').trim()
+// Without notes on the command line, the release says what CHANGELOG.md says
+// under "### <version>" (read here as UTF-8: notes piped through a Windows
+// shell can arrive in the console code page and show as mojibake)
+const notes = given || changelogNotes(version)
+function changelogNotes(v) {
+  const md = readFileSync(join(root, 'CHANGELOG.md'), 'utf8').replace(/\r\n?/g, '\n')
+  const head = `\n### ${v}\n`
+  const at = md.indexOf(head)
+  if (at < 0) return ''
+  const rest = md.slice(at + head.length)
+  const end = rest.search(/^#{2,3} /m)
+  return (end < 0 ? rest : rest.slice(0, end)).trim()
+}
+if (!notes) console.warn(`No notes: CHANGELOG.md has no "### ${version}" section`)
 const publish = process.argv.includes('--publish')
 const out = join(root, 'release')
 const unpacked = join(out, 'win-unpacked')
