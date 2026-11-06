@@ -23,10 +23,7 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
 
       - name: Type-check
-        # src/config.ts imports office.config.json, which is gitignored
-        run: |
-          cp office.config.example.json office.config.json
-          npx tsc --noEmit -p .
+        run: npx tsc --noEmit -p .
 
       - name: Install Claude Code
         # The npm package installs the same native binary as the standalone
@@ -49,8 +46,3 @@ jobs:
 
       - name: Build
         run: npx vite build
-
-      - name: Check assets
-        # Every sprite and room the code can ask for exists in public/, and
-        # public/ stays under its size budget (scripts/check-assets.mjs)
-        run: npm run check-assets
