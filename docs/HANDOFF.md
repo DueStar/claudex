@@ -29,7 +29,8 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 - **NSIS 설치 파일은 `spawn UNKNOWN`으로 실패한다.** 그래서 설치는 `release/win-unpacked`를 `%LOCALAPPDATA%\Claudex`로 robocopy하고 바탕화면 `Claudex.lnk`로 실행한다.
 - **앱 안 업데이트**(`electron/updater.cjs`):
   - GitHub `releases/latest/download/latest.json`을 확인하고 sha256을 검증한다.
-  - 앱을 끈 뒤 PowerShell이 `resources\app`을 교체하고 다시 실행한다.
+  - 재시작하면 `pending-update.json`을 남기고 `app.relaunch`한다. 다음 시작 때 main.cjs 맨 앞(`applyPendingUpdate`)에서 robocopy로 `resources\app`을 교체하고 한 번 더 relaunch한다. 결과는 `userData/update.log`에 남는다. 앱이 꺼진 뒤 외부 PowerShell로 교체하는 방식은 Windows에서 실행되지 않아 버렸다(detached면 아예 실행되지 않고, attached면 앱과 같이 죽는다).
+  - 수동 설치: `scripts\install-local.cmd`(Claudex를 닫고 `release\win-unpacked`를 설치한 뒤 실행한다).
   - **로컬 채널**: `~/.agent-office/update-dir`에 `release` 폴더 경로를 적어 두었다. 1분마다 확인하고, 같은 버전이라도 빌드 날짜가 더 새로우면 업데이트로 본다.
   - **exe는 바뀌지 않는다.** 아이콘처럼 exe에 들어가는 변경은 전체 설치가 필요하다.
 - **스마트 앱 컨트롤**: 서명이 없어서 막힌다. 해결하려면 코드 서명이 필요하다(Certum 오픈소스 인증서가 현실적). 아직 구매하지 않았다.
