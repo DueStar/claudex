@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { createPokedex, catchSource, STARTERS, EVOLVE_AT, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, MINUTES_PER_LEVEL } from '../server/pokedex.js'
+import { createPokedex, catchSource, STARTERS, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel } from '../server/pokedex.js'
 
 const S = (id: number, ko: string, tier: string, evolvesFrom: number | null, types = ['normal'], captureRate = 255) =>
   ({ id, ko, types, tier, captureRate, evolvesFrom })
@@ -95,12 +95,38 @@ describe('pokedex', () => {
     expect(dex.publicState().assign.b).toBe(first)
   })
 
-  it('growth belongs to the Pokémon: it evolves after EVOLVE_AT steps', () => {
-    const { dex, sent } = setup([0]) // starter 이상해씨; no encounters (0.99)
-    for (let i = 0; i < EVOLVE_AT[0]; i++) dex.noteEvent(work('s1'), { project: 'x' })
-    const st = dex.publicState()
-    expect(st.mons[st.assign.s1].dex).toBe(2)
-    expect(sent.at(-1).event).toMatchObject({ kind: 'evolve', from: 1, id: 2 })
+  it('growth belongs to the Pokémon: it evolves at the games’ level (이상해씨 → 이상해풀 at 16)', () => {
+    let t = new Date('2026-11-06T14:00:00').getTime()
+    const species = SPECIES.map(sp => (sp.id === 2 ? { ...sp, evolveLevel: 16 } : sp))
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const sent: any[] = []
+    const queue = [0] // starter: 이상해씨
+    const dex = createPokedex({ file: join(dir, 'p.json'), species, broadcast: (m: any) => sent.push(m), random: () => (queue.length ? queue.shift()! : 0.99), now: () => t })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    const uid = dex.publicState().assign.s1
+    const mon = () => (dex as any)._state().mons[uid]
+    let evolvedAt: number | null = null
+    for (let i = 0; i < 400 && evolvedAt === null; i++) {
+      t += 60_000
+      dex.noteEvent(work('s1'), {})
+      if (mon().dex === 2) evolvedAt = levelFrom(mon().metLevel, mon().workMs).level
+    }
+    expect(evolvedAt).toBe(16)
+    expect(sent.map(m => m.event).find(e => e?.kind === 'evolve')).toMatchObject({ from: 1, id: 2 })
+  })
+
+  it('the level curve: 20 minutes a level at first, 60 near the top, about 55 hours to 100', () => {
+    expect(minutesForLevel(1)).toBe(20)
+    expect(minutesForLevel(99)).toBe(60)
+    expect(minutesForLevel(50)).toBeGreaterThan(25)
+    let total = 0
+    for (let L = 1; L < 100; L++) total += minutesForLevel(L)
+    expect(total / 60).toBeGreaterThan(50)
+    expect(total / 60).toBeLessThan(60)
+    expect(levelFrom(5, 20 * 60000).level).toBe(5) // 20 min is just short of the 20.07 needed at 5
+    expect(levelFrom(5, 21 * 60000).level).toBe(6)
   })
 
   it('swaps any owned Pokémon that is not working; a box Pokémon takes the party slot', () => {
@@ -312,7 +338,7 @@ describe('pokedex', () => {
     expect(picks[1] / picks[2]).toBeLessThan(0.92)
   })
 
-  it('levels: 30 minutes of work with a trainer is one level; breaks over 5 minutes do not count', () => {
+  it('levels: work time with a trainer raises it; breaks over 5 minutes do not count', () => {
     let t = new Date('2026-11-06T14:00:00').getTime()
     const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
     dirs.push(dir)
@@ -325,7 +351,7 @@ describe('pokedex', () => {
     // a tool call every minute for 61 minutes: two levels
     for (let i = 0; i <= 61; i++) { dex.noteEvent(work('s1'), {}); t += 60_000 }
     expect(Math.floor(mon().workMs / 60000)).toBe(61)
-    expect(5 + Math.floor(mon().workMs / (MINUTES_PER_LEVEL * 60000))).toBe(7)
+    expect(levelFrom(mon().metLevel, mon().workMs).level).toBe(8) // ~20 minutes a level at this point
     // an hour away, then one call: nothing added
     t += 60 * 60_000
     dex.noteEvent(work('s1'), {})

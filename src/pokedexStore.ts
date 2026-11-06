@@ -217,15 +217,26 @@ export function ballUrl(id: string | null | undefined): string {
   return `/sprites/balls/${BALL_BY_ID.has(id ?? '') ? id : 'poke-ball'}.png`
 }
 
-/** Levels: met level + one per 30 minutes of work, up to 100 (server/pokedex.js) */
-export const MINUTES_PER_LEVEL = 30
+/**
+ * Levels (the same curve as server/pokedex.js): from level L to L+1 takes
+ * 20 minutes of work at the start, rising to 60 near the top; up to 100.
+ */
+export function minutesForLevel(L: number): number {
+  const x = Math.max(0, Math.min(1, (L - 1) / 98))
+  return 20 + 40 * x * x
+}
+function levelFrom(metLevel: number, workMs: number): { level: number; into: number } {
+  let level = Math.max(1, Math.min(100, metLevel))
+  let left = workMs / 60000
+  while (level < 100 && left >= minutesForLevel(level)) { left -= minutesForLevel(level); level++ }
+  return { level, into: left }
+}
 export function levelOf(m: { metLevel?: number; workMs?: number } | null | undefined): number {
   if (!m) return 1
-  return Math.min(100, (m.metLevel ?? 5) + Math.floor((m.workMs ?? 0) / (MINUTES_PER_LEVEL * 60000)))
+  return levelFrom(m.metLevel ?? 5, m.workMs ?? 0).level
 }
 /** Minutes of work left before the next level */
 export function minutesToNext(m: { metLevel?: number; workMs?: number }): number | null {
-  if (levelOf(m) >= 100) return null
-  const into = ((m.workMs ?? 0) / 60000) % MINUTES_PER_LEVEL
-  return Math.ceil(MINUTES_PER_LEVEL - into)
+  const { level, into } = levelFrom(m.metLevel ?? 5, m.workMs ?? 0)
+  return level >= 100 ? null : Math.ceil(minutesForLevel(level) - into)
 }

@@ -5,7 +5,8 @@
  * random) and five base-form Pokémon. Each Claude Code session takes a party
  * Pokémon that is not working (the starter first); with all six out, there is
  * no one left to send. Growth belongs to the Pokémon, not the session: every
- * tool call is a step for it, and it evolves at EVOLVE_AT steps. A fully
+ * tool call is a step for it; it levels up with work time and evolves at the
+ * games' evolution level. A fully
  * evolved Pokémon can be swapped out of its session for another one the
  * trainer owns, so a busy session can raise someone new.
  *
@@ -30,8 +31,6 @@ export const PARTY_SIZE = 6
  * the Pokédex, but the individual is sent to the professor instead of the box.
  */
 export const BOX_LIMIT = 1200
-/** Steps a Pokémon walks before each evolution (its 1st, then its 2nd) */
-export const EVOLVE_AT = [120, 360]
 
 /**
  * The rarity table, per encounter (rarest first when rolled). Tuned by
@@ -74,7 +73,23 @@ export const MASTER_FOR_LEGENDS = 0.01
 // ---------------------------------------------------------------------------
 export const MAX_LEVEL = 100
 export const WILD_MAX_LEVEL = 55
-export const MINUTES_PER_LEVEL = 30
+/**
+ * Minutes of work from level L to L+1: 20 at the start, rising on a curve to
+ * 60 near the top (level 1 → 100 is about 55 hours of work)
+ */
+export const MIN_MINUTES_PER_LEVEL = 20
+export const MAX_MINUTES_PER_LEVEL = 60
+export function minutesForLevel(L) {
+  const x = Math.max(0, Math.min(1, (L - 1) / (MAX_LEVEL - 2)))
+  return MIN_MINUTES_PER_LEVEL + (MAX_MINUTES_PER_LEVEL - MIN_MINUTES_PER_LEVEL) * x * x
+}
+/** The level reached from `metLevel` after `workMs` of work (and minutes into the next one) */
+export function levelFrom(metLevel, workMs) {
+  let level = Math.max(1, Math.min(MAX_LEVEL, metLevel ?? 5))
+  let left = (workMs ?? 0) / 60000
+  while (level < MAX_LEVEL && left >= minutesForLevel(level)) { left -= minutesForLevel(level); level++ }
+  return { level, into: left, need: level < MAX_LEVEL ? minutesForLevel(level) : null }
+}
 const WORK_GAP_MS = 5 * 60 * 1000
 const STARTER_LEVEL = 5
 /** Ultra Beasts (Beast Ball): Nihilego … Blacephalon */
@@ -346,9 +361,9 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     return pickBall(weigh(wildBalls))
   }
 
-  /** A Pokémon's level: met level + one per MINUTES_PER_LEVEL of work, up to MAX_LEVEL */
+  /** A Pokémon's level: its met level grown by its work time on the 20 → 60 minute curve */
   function levelOf(m) {
-    return Math.min(MAX_LEVEL, (m.metLevel ?? STARTER_LEVEL) + Math.floor((m.workMs ?? 0) / (MINUTES_PER_LEVEL * 60000)))
+    return levelFrom(m.metLevel ?? STARTER_LEVEL, m.workMs ?? 0).level
   }
   /** A wild Pokémon's level by how far it has evolved (legends and single-stage ones meet higher) */
   function wildLevel(sp, tier) {
@@ -528,10 +543,16 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     return !nextOf.has(dex)
   }
 
+  /**
+   * Evolve at the games' level: the next forms whose evolveLevel (from PokeAPI;
+   * stone, trade and friendship evolutions get 30 / 40) the Pokémon has reached.
+   * A branch (Eevee) picks one of the forms it qualifies for.
+   */
   function evolveIfDue(sessionId, mon) {
-    const need = EVOLVE_AT[Math.min(mon.evos, EVOLVE_AT.length - 1)]
-    if (mon.evos >= EVOLVE_AT.length || mon.steps < need || isFinal(mon.dex)) return null
-    const options = nextOf.get(mon.dex)
+    if (isFinal(mon.dex)) return null
+    const level = levelOf(mon)
+    const options = (nextOf.get(mon.dex) ?? []).filter(id => level >= (byId.get(id)?.evolveLevel ?? 30))
+    if (!options.length) return null
     const next = options[Math.floor(random() * options.length)]
     const from = mon.dex
     mon.dex = next
@@ -578,8 +599,11 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
         }
         lastWorkAt.set(sessionId, now())
         mon.steps += 1
-        const evo = evolveIfDue(sessionId, mon)
-        if (evo) event = evo
+        // Evolution comes with a level-up, at the games' level for it
+        if (event?.kind === 'levelup') {
+          const evo = evolveIfDue(sessionId, mon)
+          if (evo) event = evo
+        }
       }
       if ((!event || event.kind === 'sendout' || event.kind === 'levelup') && random() < ENCOUNTER_PER_STEP) event = encounter(sessionId, mon, ev.tool, false, catchSource(ev, session))
     }

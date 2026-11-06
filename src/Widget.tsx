@@ -445,7 +445,7 @@ ${update.notes}` : ''}${update.error ? `
                       )}
                     </span>
                   )}
-                  {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title="함께 일한 30분마다 1레벨">Lv.{levelOf(monOf(r.sessionId))}</span>}
+                  {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title="함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)">Lv.{levelOf(monOf(r.sessionId))}</span>}
                   {r.terminal && renaming !== r.sessionId && (
                     <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title="세션 이름 바꾸기" aria-label="세션 이름 바꾸기">✎</button>
                   )}
