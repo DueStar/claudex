@@ -535,8 +535,8 @@ ${update.notes}` : ''}${update.error ? `
                 disabled={!chosen}
                 rows={2}
               />
-              <button className="w-send" onClick={send} disabled={!chosen || !text.trim()} >
-                <SendIcon size={14} /> 보내기
+              <button className="w-send" onClick={send} disabled={!chosen || !text.trim()} aria-label="보내기" title="보내기 (Enter)">
+                <SendIcon size={15} />
               </button>
             </div>
           </section>

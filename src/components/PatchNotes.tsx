@@ -41,7 +41,7 @@ export const PatchNotes: React.FC = () => {
           ))}
         </div>
         <div className="w-notes-foot">
-          <button className="w-send" onClick={close} autoFocus>확인</button>
+          <button className="w-notes-ok" onClick={close} autoFocus>확인</button>
         </div>
       </div>
     </div>
