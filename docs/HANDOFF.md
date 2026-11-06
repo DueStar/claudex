@@ -95,7 +95,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 진화의 돌 아이템: 조우나 출석에서 돌을 얻어 쓰는 방식. 지금은 돌 진화를 Lv.30(두 번째 40) 고정으로 둔다.
    - 님피아(700) 진화 경로: 지금은 진화할 방법이 없다. 돌 아이템을 할 때 같이 정한다.
    - 이벤트 볼(컴퍼티션·파크·드림·프레셔스) 지급 방식: 아직 정하지 않았다.
-2. **로컬 업데이트 버튼**: 실제로 눌러서 확인한 적이 아직 없다. 이제부터 Claudex 안에서 작업하므로 첫 빌드 때 확인한다.
+2. **로컬 업데이트 버튼**: 실제로 눌러서 확인한 적이 아직 없다. 아래 "다음 할 일" 3번에서 확인한다.
 3. 1.3.2에서 넣은 것
    - 레벨업 알림
    - 위젯 질문 패널: `terminals.cjs`의 ASKING 정규식으로 출력을 감지하고, Enter나 Esc를 누르면 사라진다
@@ -108,4 +108,39 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 5. **이벤트 볼 지급 방식**(업적 보상 등)은 아직 미정이다.
 6. **같은 세션을 일반 터미널과 Claudex에서 동시에 이어 열지 않는다**(기록이 섞인다).
 7. **포켓몬 공식 효과음은 보류한다**(사용자 결정, 2026-11-06). 게임 효과음은 저작물이고 스프라이트의 PokeAPI 같은 정당한 자동 취득처가 없어서, 넣으려면 저장소에 직접 담아야 한다(그림을 저장소에 넣지 않는 원칙과 충돌). 소리를 넣게 되면 `src/sounds.ts`처럼 WebAudio로 합성한 오리지널 소리(포획·도감)로 한다.
-8. **주기적인 "띵동" 소리의 원인**: `electron/main.cjs`의 office 창(`show: false`)이 `?widget` 없는 주소를 열어 숨은 채로 옛 office UI(`App.tsx`)를 돌리고, 이벤트마다 `sounds.ts`의 `playNotification()`(880Hz→1100Hz)을 울린다. `/health`의 `clients: 2`도 이 창 때문이다. 옛 office UI를 걷어낼 때 이 창도 같이 없앤다.
+8. **주기적인 "띵동" 소리** — 해결(2026-11-06, 462e17e). `electron/main.cjs`의 숨은 office 창(`show: false`)이 옛 office UI(`App.tsx`)를 돌리며 이벤트마다 `playNotification()`(880Hz→1100Hz)을 울렸다. 창과 UI를 통째로 걷어냈고 `/health`의 `clients`가 1이 됐다.
+
+## 다음 할 일 (2026-11-06 집 PC 세션 끝, 순서대로)
+이번 세션에서 한 일: 옛 office UI와 숨은 창 제거(462e17e), 서버·훅의 office 기능 제거와 better-sqlite3 삭제(2c9b529). 권한 대화상자가 15초~10분 늦던 문제, 사파리존이 안 나오던 문제, Windows에서 status-line이 CR만 보내던 문제도 함께 고쳤다. 테스트는 Windows 기준선 대비 새 실패 0(449 통과 / 55 실패, 남은 실패는 원래 있던 파일권한·심볼릭링크·uid 문제).
+
+1. **3단계: office 잔재 마저 제거**
+   - 플러그인·설치기: `.claude-plugin/`, `commands/office.md`, `hooks/install-hooks.sh`(아직 19개 이벤트), `scripts/doctor.mjs`의 office 부분, 관련 테스트(`plugin`·`install-hooks`·`doctor`). 앱은 세션마다 `--settings`로 훅을 넣으므로 전역 설치기가 필요 없다. 지우기 전에 README의 플러그인 안내도 같이 정리한다.
+   - 스크립트: `open-office.mjs`, `rotate-token.mjs`(남길지 결정), `check-assets.mjs`, `generate-icons/office-bg/sprites/walks.mjs`, `extract-boss-sprite.py`, `split-character.py`, `setup-character.md`, `gather-context.sh`, `sync-plugin-version.mjs`
+   - `public/sprites`의 office 그림(appliances, characters, culture, decoration, effects, furniture, incident, map, 역할 PNG)
+   - 문서: `docs/reference.md`, `docs/superpowers`, `docs/images`, `TEST_PLAN.md`, `office.config.example.json`
+   - `.github` 템플릿·워크플로, `package.json`의 scripts·repository·author(W17ant), `release.test`
+   - 주석: `vite.config`, `serverUrl`, `officeToken`, `health`
+   - README·CHANGELOG 갱신
+2. **office → claudex 이름 바꾸기**(사용자 요청)
+   - 식별자: `officeToken.ts`, `officeWsUrl`, `officeHttpBase`, `readOfficeToken`, `officeLink`, `officeProof`, 테스트의 `loadOffice`·`officeProtocols`
+   - 환경변수: `CLAUDEX_*`로 바꾸고 `AGENT_OFFICE_*`도 계속 읽는다
+   - 프로토콜: `X-Office-*` 헤더, WS 서브프로토콜 `agent-office`, `office-health:`. 앱·서버·훅이 한 번에 같이 바뀌어야 한다(훅은 앱이 세션마다 넣으므로 같이 배포된다).
+   - 데이터 폴더: `~/.agent-office` → `~/.claudex`. 첫 실행 때 자동으로 옮긴다(pokedex.json, 클라우드 세션, auth-token, update-dir). **도감 데이터가 사라지면 안 되므로** 옮기기 전에 백업하고 테스트로 확인한다.
+   - 훅, 업데이터, electron의 `runtimeDirFromEnv`
+3. **업데이트 버튼이 안 뜨는 이유 확인과 해결**
+   - push는 릴리스가 아니다. 업데이터는 GitHub 최신 릴리스의 `latest.json`을 본다(아직 1.3.3). 로컬 채널은 `~/.agent-office/update-dir`이 있어야 한다.
+   - 사용자에게 설명하고, 릴리스를 낼지(사용자 확인 필요) 로컬 채널로 확인할지 정한다.
+4. **포켓몬 교체 후 아이콘이 늦게 바뀌는 문제**: `castSession`이 pokedex 이벤트가 와야 갱신되는 것으로 보인다. 교체 즉시 로컬 상태를 바꾸도록 조사한다.
+5. **세션 이름 유지**: 왼쪽 패널에서 바꾼 이름이 재시작 뒤 사라진다. `window-state.json`의 `sessionTitles`에 저장은 하는데, resume 경로나 서버 쪽 제목이 덮어쓰는지 조사한다.
+6. **포켓볼 그림**(앱 안 볼, 설치 파일·작업표시줄 아이콘)
+   - 원인: 볼 그림은 DMCA 때문에 `.gitignore`로 빠져 있고, 빌드하는 PC에 그림이 있어야 앱에 들어간다. 회사 노트북에는 있었지만 집 PC에는 없었다.
+   - 집 PC `Downloads`에 `60px-Bag_*_SV_Sprite.png` 28개(60×60)가 있다. balls.json의 27종이 다 있고 Strange Ball 1개는 안 쓴다. 이벤트 볼도 받아만 둔다(`catch:false` 유지).
+   - 할 일: `tools/import-balls.mjs`가 `60px-` 접두사를 떼게 고친다. 아이콘용 원본 크기 파일(최소 `Bag_Poké_Ball_SV_Sprite.png`)은 사용자가 Bulbagarden "Original file" 링크로 직접 받는다(자동 다운로드·우회 금지).
+   - 가져오기 → 릴리스 빌드 → **전체 재설치**(exe 아이콘은 재설치해야 바뀐다)
+   - `release.mjs`가 볼 그림이 없으면 크게 경고하게 하고, "릴리스는 볼 그림이 있는 PC에서 만든다"는 원칙을 이 문서에 넣는다.
+7. **재빌드와 재설치**(`%LOCALAPPDATA%\Claudex`). 띵동 소리가 안 나는지, `/health`의 `clients: 1`인지 확인한다.
+8. **나중에**
+   - 클라우드 동기화를 합집합 병합으로 바꾼다(지금은 잡은 종이 많은 쪽이 통째로 덮어쓴다).
+   - 설정 페이지, 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명
+   - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)
+   - 공식 효과음은 보류(7번)
