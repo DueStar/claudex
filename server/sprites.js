@@ -14,7 +14,6 @@
  *                                            session in the panel and the terminal tabs. There is no
  *                                            shiny icon. Kept at its own size (never scaled up); when
  *                                            it cannot be had, the HOME artwork is sent instead.
- *   GET /sprites/items/<name>.png            an item's artwork (the Poké Ball), as is
  *   GET /sprites/balls/<id>.png              a Poké Ball: the bundled high-quality art when the
  *                                            build has it, else PokeAPI's small item icon
  *
@@ -35,10 +34,8 @@ const ICON_SOURCE = 'https://img.pokemondb.net/sprites/scarlet-violet/icon'
 const ICON_SLUGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'pokemon-icons.json'), 'utf8')).slugs
 const KINDS = new Set(['art', 'art-shiny', 'icon'])
 const PARALLEL = 6
-const ITEMS = new Set(['poke-ball'])
 const BALL_ID = /^[a-z]+-ball$/
 const BALL_SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items'
-const ITEM_SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/dream-world'
 
 /** Crop to the opaque pixels, then scale down (area average) to fit size x size. */
 export function fitPng(buffer, size = SPRITE_SIZE) {
@@ -149,29 +146,6 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
     }
   })
 
-  async function obtainItem(name) {
-    const file = join(cacheDir, 'items', `${name}.png`)
-    if (existsSync(file)) return file
-    const res = await fetchImpl(`${ITEM_SOURCE}/${name}.png`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const png = Buffer.from(await res.arrayBuffer())
-    PNG.sync.read(png) // only a real PNG is kept
-    mkdirSync(join(cacheDir, 'items'), { recursive: true })
-    writeFileSync(file, png)
-    return file
-  }
-
-  app.get('/sprites/items/:file', async (req, res) => {
-    const m = /^([a-z-]{1,30})\.png$/.exec(req.params.file)
-    if (!m || !ITEMS.has(m[1])) return res.status(404).end()
-    try {
-      res.set('Cache-Control', 'public, max-age=31536000, immutable').type('png').send(readFileSync(await obtainItem(m[1])))
-    } catch (err) {
-      console.warn(`[sprites] item ${m[1]}: ${err.message}`)
-      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/claudex-ball.png')
-    }
-  })
-
   async function obtainBall(id) {
     const file = join(cacheDir, 'balls', `${id}.png`)
     if (existsSync(file)) return file
@@ -198,5 +172,5 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
     }
   })
 
-  return { obtain, obtainItem, obtainBall, cacheDir }
+  return { obtain, obtainBall, cacheDir }
 }

@@ -45,14 +45,12 @@ describe('POST /event', () => {
     expect((await postEvent(office.server, { type: 'chat_message', text: 'hi' })).body).toEqual({ error: 'Unknown event type: chat_message' })
   })
 
-  it('answers { ok: true } and accepts the events older hooks still send, as signs of life only', async () => {
+  it('refuses the office-era events the hooks no longer send (agents, signals, tasks)', async () => {
     for (const type of ['agent_spawned', 'agent_linked', 'agent_started', 'signal', 'task_created', 'task_completed']) {
       const res = await postEvent(office.server, { type, ...ALPHA })
-      expect(res.status, type).toBe(200)
-      expect(res.body).toEqual({ ok: true })
+      expect(res.status, type).toBe(400)
     }
-    // They keep the session alive (created implicitly) and change nothing else
-    expect(office.server.sessions.get(ALPHA.sessionId)).toMatchObject({ source: 'implicit', main: { state: 'idle' } })
+    expect(office.server.sessions.has(ALPHA.sessionId)).toBe(false)
   })
 
   it('clamps the session strings (cwd and transcriptPath up to 400 characters)', async () => {

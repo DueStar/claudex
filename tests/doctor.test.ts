@@ -401,7 +401,7 @@ describe('runDoctor against a running server', () => {
     // start() writes the token once the port is bound; the test harness binds the port itself
     writeFileSync(office.server.TOKEN_FILE, `${office.server.AUTH_TOKEN}\n`, { mode: 0o600 })
     await postEvent(office.server, { type: 'session_started', sessionId: 's-doctor', project: 'office', cwd: '/tmp/office' })
-    await postEvent(office.server, { type: 'agent_spawned', sessionId: 's-doctor', agent: { id: 'd-1', name: 'Debugger', role: 'debugger', task: 'look' } })
+    await postEvent(office.server, { type: 'session_tool_done', sessionId: 's-doctor', tool: 'Bash', project: 'office', cwd: '/tmp/office' })
     const r = (await runDoctor(await base(home, { port, officeHome: office.dir }))) as Report
     expect(line(r, 'server:')?.title).toContain(`on :${port} — 1 session(s), 1 agent(s)`)
     const hooks = line(r, 'hooks reaching the server:')!

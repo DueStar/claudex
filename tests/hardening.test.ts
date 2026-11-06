@@ -167,8 +167,8 @@ describe('signed requests authenticate the hook without the token on the wire', 
     expect((await signed('post', '/status', status())).status).toBe(200)
   })
 
-  it('a task_created from the hook is accepted when signed', async () => {
-    const res = await signed('post', '/event', { type: 'task_created', taskId: '1', subject: 'board', sessionId: 's-sign', project: 'p', cwd: '/home/me/p' })
+  it('a tool finishing, from the hook, is accepted when signed', async () => {
+    const res = await signed('post', '/event', { type: 'session_tool_done', tool: 'Bash', sessionId: 's-sign', project: 'p', cwd: '/home/me/p' })
     expect(res.status).toBe(200)
   })
 

@@ -127,7 +127,3 @@ export function useTerminals(): TerminalInfo[] {
     () => terminals,
   )
 }
-
-export function terminalForSession(sessionId: string | undefined): TerminalInfo | undefined {
-  return sessionId ? terminals.find(t => t.sessionId === sessionId && t.status === 'running') : undefined
-}

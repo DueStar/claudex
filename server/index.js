@@ -185,9 +185,9 @@ function bearerToken(req) {
 // / environment, which only its owner can read), never on a command line.
 //
 // The server accepts a request to a token-guarded route when it carries
-// either a valid bearer token (the Python chat scripts and A2A clients send
-// it from their own memory, not argv) or a valid signature whose timestamp is
-// within SIGNATURE_WINDOW_MS. Both checks are constant-time.
+// either a valid bearer token (the app sends it from its own memory, not
+// argv) or a valid signature whose timestamp is within SIGNATURE_WINDOW_MS.
+// Both checks are constant-time.
 // ---------------------------------------------------------------------------
 
 /** ±1 minute: wide enough for clock skew, narrow enough that a leaked signature expires fast. */
@@ -205,7 +205,7 @@ function requestSignature(method, path, timestamp, rawBody) {
  * True when the request carries a signature this server's token would
  * produce over the raw body, for a timestamp within the window. `req.rawBody`
  * is captured by express.json's verify hook (the exact bytes the hook signed);
- * it is empty for the hook's GET long-poll, which signs an empty body.
+ * it is empty for a GET, which signs an empty body.
  */
 function signatureValid(req) {
   const ts = req.headers['x-office-timestamp']
@@ -842,13 +842,6 @@ const KNOWN_EVENT_TYPES = new Set([
   'session_compact',
   'session_cwd',
   'session_model',
-  // Sent by older hooks: the session is alive, nothing else follows from them
-  'agent_spawned',
-  'agent_linked',
-  'agent_started',
-  'signal',
-  'task_created',
-  'task_completed',
 ])
 
 const MAX_STRING_LEN = 200
@@ -1459,16 +1452,6 @@ function processEvent(body) {
         timestamp: now,
       }
     }
-
-    // Sent by older hooks: the session is alive, nothing else follows
-    case 'agent_spawned':
-    case 'agent_linked':
-    case 'agent_started':
-    case 'signal':
-    case 'task_created':
-    case 'task_completed':
-      touchSession(body)
-      return null
 
     default:
       console.warn(`[?] Unknown event type: ${body.type}`)

@@ -66,7 +66,6 @@
 .w-dex-count b { font-size: 20px; font-weight: 650; color: var(--ink); letter-spacing: -0.02em; }
 /* The latest catches and the party share one icon size and one gap (--w-icon, --w-icon-gap) */
 .w-dex-recent { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: var(--w-icon-gap); justify-content: flex-end; align-items: center; min-width: 0; overflow: hidden; }
-.w-dex-pity { grid-column: 3; grid-row: 1 / span 2; font-size: 10px; color: var(--ink-3); writing-mode: horizontal-tb; white-space: nowrap; }
 
 /* ---------- Expanded card: view switch ---------- */
 .w-view-switch {
@@ -182,8 +181,8 @@
 .type-steel { background: rgba(180, 190, 210, 0.2); color: #d6dde9; }
 
 /* ---------- Modern artwork (Pokémon HOME): smooth scaling, not pixel art ---------- */
-.char-sprite, .w-mon img, .dex-cell img, .dex-card-art img, .w-toast img, .w-term-tab img,
-.w-dex-recent img, .w-party-slots img, .w-swap-item img, .slack-avatar-img, .w-row img {
+.dex-cell img, .dex-card-art img, .w-toast img, .w-term-tab img,
+.w-dex-recent img, .w-party-slots img, .w-swap-item img, .w-row img {
   image-rendering: auto !important;
 }
 .dex-cell img { width: 52px; height: 52px; transform: none; }
@@ -213,7 +212,6 @@
 .w-swap-item img { grid-row: 1 / span 2; width: 40px; height: 40px; object-fit: contain; }
 .w-swap-name { font-weight: 650; font-size: 12.5px; }
 .w-swap-meta { font-size: 10.5px; color: var(--ink-3); }
-.w-dex-pity { line-height: 1.35; text-align: right; }
 .w-toast-badge { align-self: flex-start; font-size: 10px; font-weight: 700; color: #1b1e27; background: #ffd84a; padding: 1px 7px; border-radius: 999px; }
 
 /* ---------- Setup card: missing prerequisites ---------- */

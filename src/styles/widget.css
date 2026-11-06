@@ -39,103 +39,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   box-sizing: border-box;
 }
 
-/* ---------- The sky: free-floating Pokémon ---------- */
-.w-sky {
-  height: 104px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 8px 2px;
-  -webkit-app-region: drag; /* empty sky moves the window */
-}
-.w-sky-empty {
-  align-self: center;
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 500;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-}
-.w-mon {
-  -webkit-app-region: no-drag;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: none;
-  border: 0;
-  padding: 0 2px;
-  cursor: pointer;
-  min-width: 44px;
-}
-.w-mon.readonly { cursor: default; }
-.w-mon-float {
-  position: relative;
-  display: block;
-  animation: wFloat 3.2s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -0.7s);
-}
-.w-mon img {
-  display: block;
-  height: calc(var(--h) * 1px);
-  width: auto;
-  image-rendering: pixelated;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
-}
-.w-mon img.flip { transform: scaleX(-1); }
-.w-mon.mood-working .w-mon-float { animation: wHop 0.7s ease-in-out infinite; animation-delay: calc(var(--i) * -0.15s); }
-.w-mon.mood-idle img { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)) saturate(0.85); }
-.w-mon.mood-ended { opacity: 0.35; }
-.w-mon-shadow {
-  width: 60%;
-  height: 5px;
-  margin-top: 2px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
-  animation: wShadow 3.2s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -0.7s);
-}
-.w-mon.mood-working .w-mon-shadow { animation: wShadowHop 0.7s ease-in-out infinite; }
-.w-mon.chosen .w-mon-shadow { background: rgba(255, 216, 74, 0.55); box-shadow: 0 0 8px rgba(255, 216, 74, 0.6); }
-.w-mon-name {
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #fff;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(10, 11, 15, 0.72);
-  opacity: 0;
-  transform: translateY(-2px);
-  transition: opacity 0.15s, transform 0.15s;
-  white-space: nowrap;
-}
-.w-mon:hover .w-mon-name, .w-mon.chosen .w-mon-name { opacity: 1; transform: none; }
-.w-mon.chosen .w-mon-name { background: var(--accent); color: var(--accent-ink); }
-.w-mon-bubble {
-  position: absolute;
-  top: -6px;
-  right: -8px;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-size: 10px;
-  font-weight: 800;
-  z-index: 1;
-}
-.w-mon-bubble.zz { background: rgba(20, 22, 28, 0.85); color: #b8c4ff; animation: wZz 2.4s ease-in-out infinite; }
-.w-mon-bubble.alert { background: var(--amber); color: #2a1a00; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35); animation: wPing 1s ease-in-out infinite; }
-.w-mon:focus-visible { outline: none; }
-.w-mon:focus-visible .w-mon-name { opacity: 1; outline: 2px solid #ffd84a; }
-
-@keyframes wFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-@keyframes wShadow { 0%, 100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(0.75); opacity: 0.6; } }
-@keyframes wHop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-9px); } 60% { transform: translateY(-9px); } }
-@keyframes wShadowHop { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.6); } }
-@keyframes wZz { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(-4px); opacity: 1; } }
-@keyframes wPing { 50% { transform: scale(1.18); } }
 
 /* ---------- The bento ---------- */
 .w-bento {
@@ -171,22 +74,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   border-radius: 14px;
   -webkit-app-region: drag;
 }
-.w-ball {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: linear-gradient(#ef4b4b 0 45%, #111 45% 55%, #f4f4f4 55%);
-  box-shadow: inset 0 0 0 1.5px #111;
-  position: relative;
-}
-.w-ball::after {
-  content: '';
-  position: absolute;
-  inset: 4.5px;
-  border-radius: 50%;
-  background: #f4f4f4;
-  box-shadow: 0 0 0 1.5px #111;
-}
 .w-brand { font-weight: 650; font-size: 12.5px; letter-spacing: -0.01em; flex: 1; }
 .w-conn { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
 .w-conn.off { background: var(--ink-3); box-shadow: none; }
@@ -203,23 +90,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   cursor: pointer;
 }
 .w-icon:hover { background: #262a35; color: var(--ink); }
-
-.w-stat { display: flex; flex-direction: column; gap: 4px; }
-.w-value {
-  font-size: 24px;
-  font-weight: 620;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-.w-unit { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 1px; letter-spacing: 0; }
 .w-bar { height: 5px; border-radius: 3px; background: #262a34; overflow: hidden; }
 .w-bar span { display: block; height: 100%; border-radius: 3px; background: var(--green); transition: width 0.4s; }
-.w-stat.tone-warn .w-bar span { background: var(--amber); }
-.w-stat.tone-danger .w-bar span { background: var(--danger); }
-.w-stat.tone-warn .w-value { color: var(--amber); }
-.w-stat.tone-danger .w-value { color: var(--danger); }
-.w-foot { font-size: 10.5px; color: var(--ink-3); }
 
 .w-party {
   grid-column: 1 / -1;
@@ -253,21 +125,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row-num { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 
 .w-compose { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
-.w-compose-to { display: flex; flex-direction: column; gap: 6px; }
-.w-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.w-chip {
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--card-2);
-  color: var(--ink-2);
-  cursor: pointer;
-}
-.w-chip:hover { color: var(--ink); }
-.w-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 /* The textarea takes the full width; 보내기 is a small icon button inside it, bottom right */
 .w-input { position: relative; display: flex; }
 .w-input textarea {
@@ -310,10 +167,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   border-radius: 9px;
   background: var(--card-2);
   cursor: pointer;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .w-mon-float, .w-mon-shadow, .w-mon-bubble { animation: none !important; }
 }
 
 /* Thin scrollbars that sit inside the cards */
@@ -367,7 +220,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-limit-wait { display: inline-block; width: 26px; height: 10px; border-radius: 4px; background: #262a34; vertical-align: middle; animation: wLimitPulse 1.4s ease-in-out infinite; }
 @keyframes wLimitShimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @keyframes wLimitPulse { 50% { opacity: 0.45; } }
-
 
 /* Limits: a hint before any session; while a session starts, the bar fills the row */
 .w-limits.idle { flex-direction: row; align-items: center; gap: 10px; padding: 11px 12px; }
