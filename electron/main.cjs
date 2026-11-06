@@ -5,7 +5,6 @@ const path = require('path')
 const fs = require('fs')
 const { spawn } = require('child_process')
 const http = require('http')
-const { pathToFileURL } = require('url')
 const {
   APP_NAME,
   serverPortFromEnv,
@@ -17,27 +16,15 @@ const {
   singleFlight,
   reopenAction,
   childSlot,
-  acceleratorFor,
-  shortcutFor,
-  viewportFor,
-  minSizeFor,
-  defaultSizeFor,
-  fitZoom,
-  compactCss,
   clampBounds,
-  placeInWorkArea,
   readWindowState,
   writeWindowState,
-  statusText,
-  windowTitle,
-  trayMenuTemplate,
   runtimeDirFromEnv,
   readOfficeToken,
   officeLink,
   redactLink,
   officeProofMatches,
   healthChallenge,
-  writeRedirectPage,
 } = require('./helpers.cjs')
 const { createTray } = require('./tray.cjs')
 const { createTerminalManager } = require('./terminals.cjs')
@@ -59,8 +46,8 @@ const REPO_ROOT = path.join(__dirname, '..')
 const SERVER_PORT = serverPortFromEnv(process.env)
 const { serverUrl: SERVER_URL, healthUrl: HEALTH_URL, viteUrl: VITE_URL, allowedOrigins } = serverUrls(SERVER_PORT)
 
-// Allowed origins for navigation and new-window events: the Vite dev server
-// (3333) and the office server (SERVER_PORT), by name or loopback IP.
+// The origins the app's pages come from: the Vite dev server (3333) and the
+// server (SERVER_PORT). Only they may use the IPC bridge.
 const ALLOWED_ORIGINS = new Set(allowedOrigins)
 
 // The server sits next to this file in both layouts: <repo>/server in dev and
@@ -69,38 +56,25 @@ const ALLOWED_ORIGINS = new Set(allowedOrigins)
 // files the server process can read).
 const SERVER_ENTRY = path.join(__dirname, '..', 'server', 'index.js')
 
-// The office token: the server child inherits this environment, so it keeps
-// its auth-token in the same runtime dir. The window loads the office with
-// the token in the URL fragment (helpers.cjs, "The office link"); without it
-// the page would show the office read-only.
+// The server token: the server child inherits this environment, so it keeps
+// its auth-token in the same runtime dir. The pages load with the token in
+// the URL fragment (helpers.cjs, "The page link").
 const TOKEN_FILE = path.join(runtimeDirFromEnv(process.env), 'auth-token')
-const REDIRECT_FILE = path.join(runtimeDirFromEnv(process.env), 'open-office.html')
 
-// Window icon for Linux (macOS and Windows take it from the bundle / the exe).
-const WINDOW_ICON = path.join(__dirname, 'assets', 'icon.png')
-
-// Closing the window keeps the app in the tray on macOS (the Dock icon brings
-// it back) and Windows. Linux desktops do not all show a tray, so there a
-// close is a quit — nothing is left running invisibly.
-const HIDE_ON_CLOSE = process.platform !== 'linux'
-
-let win = null
-let widgetWin = null
-let toastWin = null
+let widgetWin = null // the app
+let toastWin = null  // catch notifications (?toast)
+let qaWin = null     // the design QA page (?qa)
 let terminals = null
-let officeUrl = null // the page URL the windows load (with the token fragment)
+let pageUrl = null // the page URL the windows load (with the token fragment)
 let tray = null
 // The server child this app spawned (helpers.cjs childSlot): the one stopServer stops
 const server = childSlot()
 let quitting = false
 
-// Window state: the full window's bounds, the compact widget's bounds, which
-// mode is on and the always-on-top preference, in userData/window-state.json.
+// Window state: the app window's place, sizes and mode, and the trainer's
+// session names, in userData/window-state.json.
 let state = {}
-let compact = false
-let compactCssKey = null
 let saveTimer = null
-let lastStatus = '' // the tray's last status line, for the right-click menu
 
 function stateFile() {
   return path.join(app.getPath('userData'), 'window-state.json')
@@ -133,7 +107,7 @@ function httpGet(url, timeoutMs = 1000) {
 
 /**
  * What is already on SERVER_PORT (helpers.cjs classifyHealth): 'none',
- * 'usable' (an office server that serves the office page) or 'no-ui'. A
+ * 'usable' (a server that serves the page) or 'no-ui'. A
  * server too old to say whether it has the UI is asked for its page.
  */
 async function probeServer() {
@@ -249,10 +223,9 @@ function stopServer() {
 }
 
 // ---------------------------------------------------------------------------
-// Debug aid: AGENT_OFFICE_SCREENSHOT=<file.png> captures the window a moment
-// after the page has loaded (AGENT_OFFICE_SCREENSHOT_DELAY_MS, default 3000),
-// then quits. Used to verify a packaged build headlessly (xvfb); with
-// --compact it captures the compact widget.
+// Debug aid: AGENT_OFFICE_SCREENSHOT=<file.png> captures the app a moment
+// after its page has loaded (AGENT_OFFICE_SCREENSHOT_DELAY_MS, default 3000),
+// then quits; an open notification goes to <file>-toast.png.
 // ---------------------------------------------------------------------------
 
 function maybeCaptureScreenshot() {
@@ -284,12 +257,9 @@ function maybeCaptureScreenshot() {
   }
   // Debug: POKEMON_OFFICE_AUTOTEST_EXPAND=1|0 forces the widget's mode for the capture
   if (process.env.POKEMON_OFFICE_AUTOTEST_EXPAND) setTimeout(() => setWidgetExpanded(process.env.POKEMON_OFFICE_AUTOTEST_EXPAND === '1'), 1500)
-  // Debug: POKEMON_OFFICE_AUTOTEST_JS runs in the office page a second before the capture
-  // Debug: POKEMON_OFFICE_AUTOTEST_WIDGET_JS runs in the widget a second before the capture
+  // Debug: POKEMON_OFFICE_AUTOTEST_WIDGET_JS runs in the app a second before the capture
   const wjs = process.env.POKEMON_OFFICE_AUTOTEST_WIDGET_JS
   if (wjs) setTimeout(() => { widgetWin?.webContents.executeJavaScript(wjs).catch((e) => console.error('[main] autotest widget js:', e.message)) }, Math.max(0, delay - 1500))
-  const js = process.env.POKEMON_OFFICE_AUTOTEST_JS
-  if (js) setTimeout(() => { win.webContents.executeJavaScript(js).catch((e) => console.error('[main] autotest js:', e.message)) }, Math.max(0, delay - 1500))
   setTimeout(async () => {
     try {
       if (toastWin && !toastWin.isDestroyed() && toastWin.isVisible()) {
@@ -298,19 +268,10 @@ function maybeCaptureScreenshot() {
       }
     } catch {}
     try {
-      if (widgetWin && !widgetWin.isDestroyed()) {
-        const wimg = await widgetWin.webContents.capturePage()
-        fs.writeFileSync(file.replace(/\.png$/, '-widget.png'), wimg.toPNG())
-      }
-    } catch (err) {
-      console.error('[main] Widget screenshot failed:', err.message)
-    }
-    try {
-      const image = await win.webContents.capturePage()
+      const image = await widgetWin.webContents.capturePage()
       fs.writeFileSync(file, image.toPNG())
       const { width, height } = image.getSize()
-      const [cw, ch] = win.getContentSize()
-      console.log(`[main] Screenshot written to ${file} (${width}x${height}; content ${cw}x${ch}, zoom ${win.webContents.getZoomFactor().toFixed(3)}, compact=${compact})`)
+      console.log(`[main] Screenshot written to ${file} (${width}x${height}, mode=${state.widgetMode ?? 'widget'})`)
     } catch (err) {
       console.error('[main] Screenshot failed:', err.message)
     }
@@ -319,32 +280,12 @@ function maybeCaptureScreenshot() {
 }
 
 // ---------------------------------------------------------------------------
-// Window state and modes
+// Window state
 // ---------------------------------------------------------------------------
-
-/** Bounds for a mode: the saved ones, else the defaults, clamped on screen. */
-function boundsFor(isCompact, near) {
-  const saved = isCompact ? state.compactBounds : state.bounds
-  const display = saved ? screen.getDisplayMatching(saved) : near ? screen.getDisplayMatching(near) : screen.getPrimaryDisplay()
-  const { workArea } = display
-  // The desktop layout (map | terminals | chat) wants room: most of the screen by default
-  const size = isCompact ? defaultSizeFor(true) : { width: Math.min(1480, workArea.width - 40), height: Math.min(900, workArea.height - 40) }
-  const wanted = saved ?? placeInWorkArea(size, workArea, isCompact ? 'top-right' : 'center')
-  return clampBounds(wanted, workArea, minSizeFor(isCompact))
-}
-
-/** Record the current bounds for the current mode (not while minimized etc.). */
-function rememberBounds() {
-  if (!win || win.isDestroyed() || win.isMinimized() || win.isMaximized() || win.isFullScreen()) return
-  const bounds = win.getBounds()
-  if (compact) state.compactBounds = bounds
-  else state.bounds = bounds
-}
 
 function saveState() {
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = null
-  state.compact = compact
   if (!writeWindowState(stateFile(), state)) {
     console.error(`[main] Could not write ${stateFile()}`)
   }
@@ -352,97 +293,14 @@ function saveState() {
 
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => { rememberBounds(); saveState() }, 500)
+  saveTimer = setTimeout(saveState, 500)
 }
 
-/** Zoom the page so the mode's viewport fits the window content area. */
-function applyZoom() {
-  if (!win || win.isDestroyed()) return
-  if (!compact) { win.webContents.setZoomFactor(1); return }
-  const [width, height] = win.getContentSize()
-  win.webContents.setZoomFactor(fitZoom({ width, height }, viewportFor(compact)))
-}
-
-/** Insert (compact) or remove (full) the CSS that centres the room column. */
-async function applyCompactCss() {
-  if (!win || win.isDestroyed()) return
-  const contents = win.webContents
-  if (compactCssKey) {
-    const key = compactCssKey
-    compactCssKey = null
-    try { await contents.removeInsertedCSS(key) } catch {}
-  }
-  if (compact) {
-    try { compactCssKey = await contents.insertCSS(compactCss()) } catch (err) {
-      console.error('[main] Could not apply compact CSS:', err.message)
-    }
-  }
-}
-
-function isAlwaysOnTop() {
-  return compact || state.alwaysOnTop === true
-}
-
-/** Switch between the full office and the compact widget. */
-function setCompact(next) {
-  next = !!next
-  if (!win || win.isDestroyed() || next === compact) return
-  rememberBounds()
-  const near = win.getBounds()
-  compact = next
-  const min = minSizeFor(compact)
-  win.setMinimumSize(min.width, min.height)
-  win.setBounds(boundsFor(compact, near))
-  win.setAlwaysOnTop(isAlwaysOnTop(), 'floating')
-  win.setVisibleOnAllWorkspaces(compact, { visibleOnFullScreen: compact })
-  applyCompactCss()
-  applyZoom()
-  console.log(`[main] ${compact ? 'Compact widget' : 'Full office'} (${win.getContentSize().join('x')})`)
-  saveState()
-  refreshMenus()
-}
-
-function setAlwaysOnTop(flag) {
-  state.alwaysOnTop = !!flag
-  if (win && !win.isDestroyed()) win.setAlwaysOnTop(isAlwaysOnTop(), 'floating')
-  saveState()
-  refreshMenus()
-}
-
-/** Back to the mode's default size and spot. */
-function resetBounds() {
-  if (!win || win.isDestroyed()) return
-  if (compact) delete state.compactBounds
-  else delete state.bounds
-  win.setBounds(boundsFor(compact, win.getBounds()))
-  applyZoom()
-  saveState()
-}
-
-function showWindow() {
-  if (!win || win.isDestroyed()) return
-  if (win.isMinimized()) win.restore()
-  win.show()
-  win.focus()
-}
-
-function toggleWindow() {
-  if (!win || win.isDestroyed()) return
-  if (win.isVisible() && !win.isMinimized()) win.hide()
-  else showWindow()
-  refreshMenus()
-}
-
-/**
- * The same office in the default browser, with the token: through the
- * redirect page in the runtime dir, so the token is never on an opener's
- * command line (helpers.cjs). Without a token, the bare (read-only) page.
- */
 /**
  * Whether the server answering on SERVER_PORT holds `token`: it must answer
  * a fresh /health challenge with the HMAC only the token's holder can make.
- * A process that took the port while the office was down cannot, and must
- * never be handed the token (in a page URL or the redirect page).
+ * A process that took the port while the app was down cannot, and must never
+ * be handed the token in a page URL.
  */
 async function serverHoldsToken(token) {
   const challenge = healthChallenge()
@@ -455,67 +313,30 @@ async function serverHoldsToken(token) {
   }
 }
 
-async function openInBrowser() {
-  let token = readOfficeToken(TOKEN_FILE)
-  if (token && !(await serverHoldsToken(token))) {
-    console.warn(`[main] The server on port ${SERVER_PORT} could not prove it holds the office token: opening the read-only page`)
-    token = null
-  }
-  if (!token) {
-    shell.openExternal(`${SERVER_URL}/`)
-    return
-  }
-  try {
-    writeRedirectPage(REDIRECT_FILE, officeLink(SERVER_URL, token))
-    shell.openExternal(pathToFileURL(REDIRECT_FILE).href)
-  } catch (err) {
-    console.error('[main] Could not write the redirect page:', err.message)
-    shell.openExternal(`${SERVER_URL}/`)
-  }
-}
-
 function quitApp() {
   quitting = true
   app.quit()
 }
 
 // ---------------------------------------------------------------------------
-// Menus: the application menu (menu bar on macOS, accelerators everywhere),
-// the tray menu and the window's right-click menu, which mirrors the tray.
+// Menus: the application menu (its accelerators: copy/paste, reload, dev
+// tools) and the tray menu
 // ---------------------------------------------------------------------------
 
 function menuState() {
-  return {
-    visible: !!win && !win.isDestroyed() && win.isVisible() && !win.isMinimized(),
-    compact,
-    alwaysOnTop: state.alwaysOnTop === true,
-  }
+  return { visible: !!widgetWin && !widgetWin.isDestroyed() && widgetWin.isVisible() }
 }
 
-const menuActions = { toggleWindow, toggleWidget, toggleMain: toggleWidget, setCompact, setAlwaysOnTop, resetBounds, openInBrowser, quit: quitApp, openQa }
-
-/** A keyboard shortcut (helpers.cjs SHORTCUTS), the same as its menu item. */
-function runShortcut(action) {
-  switch (action) {
-    case 'toggleCompact': toggleWidget(); break
-    case 'toggleAlwaysOnTop': if (!compact) setAlwaysOnTop(!state.alwaysOnTop); break
-    case 'openInBrowser': openInBrowser(); break
-    case 'resetBounds': resetBounds(); break
-  }
-}
+const menuActions = { toggleWidget, quit: quitApp, openQa }
 
 function applicationMenuTemplate() {
   const isMac = process.platform === 'darwin'
   return [
     ...(isMac ? [{ role: 'appMenu' }] : []),
     {
-      label: 'Office',
+      label: APP_NAME,
       submenu: [
-        { label: '위젯 보이기/숨기기', click: toggleWidget },
-        { label: 'Always on top', type: 'checkbox', checked: isAlwaysOnTop(), enabled: !compact, accelerator: acceleratorFor('toggleAlwaysOnTop'), click: () => setAlwaysOnTop(!state.alwaysOnTop) },
-        { label: 'Reset window size', accelerator: acceleratorFor('resetBounds'), click: resetBounds },
-        { type: 'separator' },
-        { label: 'Open in browser', accelerator: acceleratorFor('openInBrowser'), click: openInBrowser },
+        { label: '보이기/숨기기', click: toggleWidget },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'toggleDevTools' },
@@ -523,7 +344,6 @@ function applicationMenuTemplate() {
       ],
     },
     { role: 'editMenu' },
-    { role: 'windowMenu' },
   ]
 }
 
@@ -533,19 +353,19 @@ function refreshMenus() {
 }
 
 // ---------------------------------------------------------------------------
-// Window creation
+// Startup: the server, then the app window
 // ---------------------------------------------------------------------------
 
-async function createWindow() {
+async function startApp() {
   // Check if a server is already running (e.g. launched separately during dev)
   const found = await probeServer()
   const plan = serverPlan(found, app.isPackaged)
 
   if (plan === 'conflict') {
-    // The packaged window would show that server's "UI not built" error body.
+    // The packaged app would show that server's "UI not built" error body.
     // Starting a second server on the same port cannot help (it would fail to
     // bind), so say what is going on instead.
-    console.error(`[main] The server on port ${SERVER_PORT} serves no office page — not loading it`)
+    console.error(`[main] The server on port ${SERVER_PORT} serves no page — not loading it`)
     dialog.showErrorBox(APP_NAME, serverConflictMessage(SERVER_PORT))
     quitApp()
     return
@@ -562,7 +382,7 @@ async function createWindow() {
       console.error('[main] Server did not become ready in time')
       dialog.showErrorBox(
         APP_NAME,
-        `The office server did not start on port ${SERVER_PORT}.\n\n` +
+        `The ${APP_NAME} server did not start on port ${SERVER_PORT}.\n\n` +
         `If something else is using that port, stop it and open ${APP_NAME} again, ` +
         `or launch it with AGENT_OFFICE_PORT set to a free port.`,
       )
@@ -574,128 +394,20 @@ async function createWindow() {
   }
 
   state = readWindowState(stateFile())
-  compact = app.commandLine.hasSwitch('compact') || state.compact === true
-  const bounds = boundsFor(compact)
-  const min = minSizeFor(compact)
-  console.log(`[main] Window ${compact ? 'compact' : 'full'} at ${bounds.x},${bounds.y} ${bounds.width}x${bounds.height} (state: ${stateFile()})`)
 
-  win = new BrowserWindow({
-    ...bounds,
-    useContentSize: true,
-    minWidth: min.width,
-    minHeight: min.height,
-    title: APP_NAME,
-    icon: process.platform === 'linux' ? WINDOW_ICON : undefined,
-    alwaysOnTop: isAlwaysOnTop(),
-    // The widget is the app; the office map opens from the tray when wanted
-    show: false,
-    // The office draws its own title bar (the drag region is in office.css)
-    frame: false,
-    transparent: false,
-    resizable: true,
-    minimizable: true,
-    skipTaskbar: false,
-    backgroundColor: '#0a0a0f',
-    hasShadow: true,
-    roundedCorners: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      preload: PRELOAD,
-      zoomFactor: compact ? fitZoom(bounds, viewportFor(compact)) : 1,
-    },
-  })
-
-  // Prevent navigation away from the app origin
-  win.webContents.on('will-navigate', (event, url) => {
-    try {
-      const origin = new URL(url).origin
-      if (!ALLOWED_ORIGINS.has(origin)) {
-        event.preventDefault()
-      }
-    } catch {
-      event.preventDefault()
-    }
-  })
-
-  // Prevent opening new windows (links, window.open, etc.)
-  win.webContents.setWindowOpenHandler(() => {
-    return { action: 'deny' }
-  })
-
-  // Inserted CSS and the zoom do not survive a reload: apply them per load.
-  win.webContents.on('dom-ready', applyZoom)
-  win.webContents.on('did-finish-load', () => {
-    console.log(`[main] Window loaded ${redactLink(win.webContents.getURL())}`)
-    compactCssKey = null
-    applyCompactCss()
-    applyZoom()
-    maybeCaptureScreenshot()
-  })
-
-  win.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
-    console.error(`[main] Window failed to load ${failedUrl}: ${description} (${code})`)
-  })
-
-  // The window's shortcuts, handled before the page or a menu sees the keys:
-  // on Windows and Linux the frameless window has no menu bar to carry them
-  // (helpers.cjs, "Keyboard shortcuts"). Consuming the key also keeps a menu
-  // accelerator for the same keys from firing a second time.
-  win.webContents.on('before-input-event', (event, input) => {
-    const action = shortcutFor(input)
-    if (!action) return
-    event.preventDefault()
-    runShortcut(action)
-  })
-
-  // Right-click anywhere that is not a text field: the tray menu, so the
-  // frameless window has its controls on every platform.
-  win.webContents.on('context-menu', (event, params) => {
-    if (params.isEditable) return
-    event.preventDefault()
-    Menu.buildFromTemplate(trayMenuTemplate({ ...menuState(), status: lastStatus }, menuActions)).popup({ window: win })
-  })
-
-  win.on('resize', () => { applyZoom(); scheduleSave() })
-  win.on('move', scheduleSave)
-  win.on('show', refreshMenus)
-  win.on('hide', refreshMenus)
-  win.on('minimize', refreshMenus)
-  win.on('restore', refreshMenus)
-
-  win.on('close', (event) => {
-    rememberBounds()
-    saveState()
-    if (!quitting && HIDE_ON_CLOSE) {
-      event.preventDefault()
-      win.hide()
-      refreshMenus()
-    }
-  })
-
-  win.on('closed', () => { win = null })
-
-  if (compact) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-
-  // Dev: the Vite dev server. Packaged: the office server, which serves the
-  // built UI from its root — one port for the page, its assets and the
-  // WebSocket, with an http:// origin the server's allowlist accepts. Either
-  // way with the office token in the fragment, read now that the server has
-  // answered /health (it writes the file before it answers anything).
-  // The token goes into the page only once the server on the port has
-  // proved it holds it (serverHoldsToken): otherwise read-only
+  // Dev: the Vite dev server. Packaged: the server, which serves the built UI
+  // from its root — one port for the page, its assets and the WebSocket.
+  // Either way with the server token in the fragment, read now that the server
+  // has answered /health (it writes the file before it answers anything), and
+  // only once the server on the port has proved it holds it (serverHoldsToken)
   let token = readOfficeToken(TOKEN_FILE)
-  if (!token) console.warn(`[main] No office token in ${TOKEN_FILE}: the office is shown read-only`)
+  if (!token) console.warn(`[main] No server token in ${TOKEN_FILE}: the app cannot act on the game`)
   else if (!(await serverHoldsToken(token))) {
-    console.warn(`[main] The server on port ${SERVER_PORT} could not prove it holds the office token: the office is shown read-only`)
+    console.warn(`[main] The server on port ${SERVER_PORT} could not prove it holds the server token: not handing it over`)
     token = null
   }
-  if (!win || win.isDestroyed()) return
-  const url = officeLink(app.isPackaged ? SERVER_URL : VITE_URL, token)
-  officeUrl = url
-  console.log(`[main] Loading ${redactLink(url)}`)
-  win.loadURL(url)
+  pageUrl = officeLink(app.isPackaged ? SERVER_URL : VITE_URL, token)
+  console.log(`[main] Loading ${redactLink(pageUrl)}`)
 
   refreshMenus()
   createTrayIcon()
@@ -703,18 +415,19 @@ async function createWindow() {
 }
 
 // ---------------------------------------------------------------------------
-// The widget: a small always-on-top window (the page with ?widget)
+// The app window (the page with ?widget): the widget, a window or full screen
 // ---------------------------------------------------------------------------
 
-function widgetUrl() {
-  if (!officeUrl) return null
-  const [base, fragment] = officeUrl.split('#')
-  return `${base}?widget${fragment ? `#${fragment}` : ''}`
+/** The page URL with a query (?widget, ?toast, ?qa), the token fragment kept */
+function pageWith(query) {
+  if (!pageUrl) return null
+  const [base, fragment] = pageUrl.split('#')
+  return `${base}?${query}${fragment ? `#${fragment}` : ''}`
 }
 
 function createWidgetWindow() {
   if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
-  const url = widgetUrl()
+  const url = pageWith('widget')
   if (!url) return null
   const { workArea } = screen.getPrimaryDisplay()
   const saved = state.widgetBounds
@@ -750,6 +463,15 @@ function createWidgetWindow() {
   }
   widgetWin.webContents.on('will-navigate', (event) => event.preventDefault())
   widgetWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  widgetWin.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
+    console.error(`[main] The app failed to load ${redactLink(failedUrl)}: ${description} (${code})`)
+  })
+  widgetWin.webContents.once('did-finish-load', () => {
+    console.log('[main] App window loaded')
+    maybeCaptureScreenshot()
+  })
+  widgetWin.on('show', refreshMenus)
+  widgetWin.on('hide', refreshMenus)
   const remember = () => {
     if (!widgetWin || widgetWin.isDestroyed() || widgetWin.isFullScreen() || state.widgetMode === 'fullscreen') return
     const b = widgetWin.getBounds()
@@ -869,8 +591,8 @@ function toastBounds() {
 
 function ensureToastWindow() {
   if (toastWin && !toastWin.isDestroyed()) return Promise.resolve(toastWin)
-  if (!officeUrl) return Promise.resolve(null)
-  const [base, fragment] = officeUrl.split('#')
+  const url = pageWith('toast')
+  if (!url) return Promise.resolve(null)
   toastWin = new BrowserWindow({
     ...toastBounds(),
     frame: false,
@@ -891,7 +613,7 @@ function ensureToastWindow() {
   toastWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   toastWin.on('closed', () => { toastWin = null })
   const ready = new Promise((resolve) => toastWin.webContents.once('did-finish-load', () => resolve(toastWin)))
-  toastWin.loadURL(`${base}?toast${fragment ? `#${fragment}` : ''}`)
+  toastWin.loadURL(url)
   return ready
 }
 
@@ -906,11 +628,10 @@ async function showToast(event) {
 }
 
 // The design QA page (?qa): every moment-only design at once, from the tray menu
-let qaWin = null
 function openQa() {
   if (qaWin && !qaWin.isDestroyed()) { qaWin.show(); qaWin.focus(); return }
-  if (!officeUrl) return
-  const [base, fragment] = officeUrl.split('#')
+  const url = pageWith('qa')
+  if (!url) return
   qaWin = new BrowserWindow({
     width: 1100, height: 860, title: 'Claudex 디자인 QA', backgroundColor: '#0b0c10', autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
@@ -918,7 +639,7 @@ function openQa() {
   qaWin.webContents.on('will-navigate', (event) => event.preventDefault())
   qaWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   qaWin.on('closed', () => { qaWin = null })
-  qaWin.loadURL(`${base}?qa${fragment ? `#${fragment}` : ''}`)
+  qaWin.loadURL(url)
 }
 
 function hideToast() {
@@ -929,8 +650,9 @@ function toggleWidget() {
   const w = createWidgetWindow()
   if (!w) return
   if (w.isVisible()) { w.hide(); state.widgetHidden = true }
-  else { w.showInactive(); state.widgetHidden = false }
+  else { w.show(); w.focus(); state.widgetHidden = false }
   saveState()
+  refreshMenus()
 }
 
 // ---------------------------------------------------------------------------
@@ -938,14 +660,12 @@ function toggleWidget() {
 // ---------------------------------------------------------------------------
 
 function sendToWindows(channel, payload) {
-  for (const w of [win, widgetWin]) {
-    if (w && !w.isDestroyed()) w.webContents.send(channel, payload)
-  }
+  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.webContents.send(channel, payload)
 }
 
 function fromOurWindow(event) {
   const wc = event.sender
-  const ours = [win, widgetWin, toastWin, qaWin].some(w => w && !w.isDestroyed() && wc === w.webContents)
+  const ours = [widgetWin, toastWin, qaWin].some(w => w && !w.isDestroyed() && wc === w.webContents)
   if (!ours) return false
   try {
     return ALLOWED_ORIGINS.has(new URL(event.senderFrame.url).origin)
@@ -955,9 +675,9 @@ function fromOurWindow(event) {
 }
 
 /**
- * Tell the office a terminal's session is over (the hook's own SessionEnd
+ * Tell the server a terminal's session is over (the hook's own SessionEnd
  * never fires when the terminal is closed or the app quits under it).
- * Authenticated with the office token, like the hook.
+ * Authenticated with the server token, like the hook.
  */
 function postSessionEnded(sessionId) {
   const token = readOfficeToken(TOKEN_FILE)
@@ -973,7 +693,7 @@ function postSessionEnded(sessionId) {
   req.end(body)
 }
 
-/** Put another Pokémon on a session: the server checks the rules; this carries the office token */
+/** Put another Pokémon on a session: the server checks the rules; this carries the server token */
 function swapPokemon(sessionId, uid) {
   const token = readOfficeToken(TOKEN_FILE)
   if (!token) return Promise.resolve({ ok: false, reason: 'no-token' })
@@ -995,7 +715,7 @@ function swapPokemon(sessionId, uid) {
   })
 }
 
-/** POST to the office server with the office token; resolves to the JSON reply */
+/** POST to the server with the server token; resolves to the JSON reply */
 function serverPost(pathname, body = {}) {
   const token = readOfficeToken(TOKEN_FILE)
   if (!token) return Promise.resolve({ ok: false, reason: 'no-token' })
@@ -1050,7 +770,7 @@ function registerTerminalIpc() {
     }
   }))
   ipcMain.handle('terminals:pick-folder', guard(async () => {
-    const parent = win && !win.isDestroyed() ? win : undefined
+    const parent = widgetWin && !widgetWin.isDestroyed() ? widgetWin : undefined
     const r = await dialog.showOpenDialog(parent, { title: '포켓몬이 일할 폴더 선택', defaultPath: app.getPath('documents'), properties: ['openDirectory'] })
     return r.canceled ? null : r.filePaths[0]
   }))
@@ -1059,15 +779,14 @@ function registerTerminalIpc() {
   }))
   ipcMain.handle('terminals:buffer', guard((id) => terminals.buffer(String(id))))
   ipcMain.on('terminals:write', guard(({ id, data } = {}) => terminals.write(String(id), data)))
-  // Only a window on screen sizes a session: the hidden office window keeps its own
-  // terminal views, and their size must not win over the one the user is looking at
+  // Only a window on screen sizes a session: a hidden or minimized one must not win
+  // over the terminal the user is looking at
   ipcMain.on('terminals:resize', guard(({ id, cols, rows } = {}, event) => {
     const w = BrowserWindow.fromWebContents(event.sender)
     if (!w || !w.isVisible() || w.isMinimized()) return
     terminals.resize(String(id), Number(cols), Number(rows))
   }))
   ipcMain.handle('terminals:send', guard(({ id, text } = {}) => terminals.sendInstruction(String(id), text)))
-  ipcMain.handle('terminals:set-dex', guard(({ id, dex } = {}) => terminals.setDex(String(id), Number(dex))))
   ipcMain.handle('terminals:open-url', guard((url) => {
     try {
       const u = new URL(String(url))
@@ -1076,7 +795,6 @@ function registerTerminalIpc() {
   }))
   ipcMain.handle('terminals:rename', guard(({ id, title } = {}) => terminals.rename(String(id), String(title ?? ''))))
   ipcMain.handle('terminals:close', guard((id) => terminals.close(String(id))))
-  ipcMain.handle('widget:toggle', guard(() => toggleWidget()))
   // What a session needs on this PC (Claude Code, Git, Python), and their install pages
   ipcMain.handle('env:check', guard(() => checkPrereqs()))
   ipcMain.handle('env:open-link', guard((key) => {
@@ -1093,20 +811,13 @@ function registerTerminalIpc() {
   ipcMain.handle('game:release', guard((uid) => serverPost('/pokedex/release', { uid: String(uid) })))
   ipcMain.handle('game:swap', guard(({ sessionId, uid } = {}) => swapPokemon(String(sessionId), String(uid))))
   ipcMain.handle('update:get', guard(() => updater?.getState() ?? null))
-  ipcMain.handle('update:check', guard(() => updater?.check() ?? null))
   ipcMain.handle('update:install', guard(() => updater?.install() ?? null))
   ipcMain.handle('update:restart', guard(() => updater?.restart() ?? false))
   ipcMain.handle('widget:minimize', guard(() => { if (widgetWin && !widgetWin.isDestroyed()) widgetWin.minimize() }))
   ipcMain.handle('widget:get-mode', guard(() => state.widgetMode ?? (state.widgetExpanded ? 'window' : 'widget')))
   ipcMain.handle('widget:set-mode', guard((mode) => setWidgetMode(String(mode))))
-  ipcMain.handle('widget:get-expanded', guard(() => state.widgetExpanded === true))
-  ipcMain.handle('widget:set-expanded', guard((flag) => setWidgetMode(flag ? 'window' : 'widget') !== 'widget'))
   ipcMain.on('widget:resize', guard(({ width, height } = {}) => resizeWidget(Number(width), Number(height))))
   ipcMain.handle('widget:hide', guard(() => { if (widgetWin && !widgetWin.isDestroyed()) { widgetWin.hide(); state.widgetHidden = true; saveState() } }))
-  ipcMain.handle('widget:show-office', guard((terminalId) => {
-    showWindow()
-    if (terminalId && win && !win.isDestroyed()) win.webContents.send('terminals:focus', String(terminalId))
-  }))
 }
 
 // ---------------------------------------------------------------------------
@@ -1117,18 +828,7 @@ function createTrayIcon() {
   // One icon, however many times a window is created
   if (tray) { tray.dispose(); tray = null }
   try {
-    tray = createTray({
-      serverUrl: SERVER_URL,
-      getState: menuState,
-      actions: {
-        ...menuActions,
-        onSummary(summary) {
-          lastStatus = statusText(summary)
-          const title = windowTitle(summary)
-          if (win && !win.isDestroyed() && win.getTitle() !== title) win.setTitle(title)
-        },
-      },
-    })
+    tray = createTray({ serverUrl: SERVER_URL, getState: menuState, actions: menuActions })
     console.log('[main] Tray created')
   } catch (err) {
     tray = null
@@ -1162,20 +862,20 @@ if (app.isPackaged && !takeInstanceLock()) {
   // Startup (probe the port, start the server, wait for it, open the window)
   // takes seconds; one run at a time, so a Dock click or a second launch in
   // the meantime cannot spawn a second server and open a second window
-  const startOffice = singleFlight(createWindow)
-  const openOffice = () => startOffice().catch((err) => console.error('[main] Could not open the office:', err))
+  const startOnce = singleFlight(startApp)
+  const open = () => startOnce().catch((err) => console.error('[main] Could not start the app:', err))
 
   // Opened again (a Dock click, a second launch): wait for a startup in
   // progress, else show the window, else make one
   const reopen = () => {
     const action = reopenAction({
       quitting,
-      starting: startOffice.pending(),
-      hasWindow: !!win && !win.isDestroyed(),
+      starting: startOnce.pending(),
+      hasWindow: !!widgetWin && !widgetWin.isDestroyed(),
       windowCount: BrowserWindow.getAllWindows().length,
     })
     if (action === 'show') { const w = createWidgetWindow(); if (w) { w.show(); w.focus() } }
-    else if (action === 'create') openOffice()
+    else if (action === 'create') open()
   }
 
   app.on('second-instance', reopen)
@@ -1188,7 +888,7 @@ if (app.isPackaged && !takeInstanceLock()) {
     setInterval(() => updater.check(), 6 * 60 * 60 * 1000).unref?.()
     // A local build folder (the developer's own PC) is looked at every minute
     setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
-    return openOffice()
+    return open()
   })
 
   app.on('window-all-closed', () => {

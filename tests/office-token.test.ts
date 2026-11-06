@@ -1,21 +1,16 @@
 /**
- * src/officeToken.ts — how the page takes the office token from the link
+ * src/officeToken.ts — how the page takes the server token from the link
  * (`#token=` in the fragment), keeps it, strips it from the address bar and
- * offers it to the WebSocket; and how the permission card looks on a page
- * the server showed read-only. Node only: the location, history and storages
+ * offers it to the WebSocket. Node only: the location, history and storages
  * are fakes.
  */
 
-import React from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   OFFICE_TOKEN_KEY, WS_PROTOCOL, WS_TOKEN_PROTOCOL_PREFIX,
   captureOfficeToken, clearOfficeToken, getOfficeToken, officeWsProtocols, resetOfficeTokenMemory, setOfficeToken, splitTokenFromHash,
   type HashLocation, type ReplaceHistory, type TokenStorage,
 } from '../src/officeToken'
-import PermissionCards from '../src/components/PermissionCard'
-import type { PermissionCardState } from '../src/permissions'
 
 const TOKEN = 'ab'.repeat(32)
 const NEWER = 'cd'.repeat(32)
@@ -176,33 +171,10 @@ describe('officeWsProtocols (what useAgentSocket offers on every (re)connect)', 
     expect(officeWsUrl()).not.toContain('token')
   })
 
-  it('useAgentSocket builds its socket with it and reads the server\'s `auth` verdict', async () => {
+  it('useAgentSocket builds its socket with it and passes over the server\'s `auth` message', async () => {
     const { readFileSync } = await import('node:fs')
     const source = readFileSync(new URL('../src/hooks/useAgentSocket.ts', import.meta.url), 'utf8')
     expect(source).toContain('new WebSocket(url, officeWsProtocols())')
     expect(source).toMatch(/msg\.type === 'auth'/)
-  })
-})
-
-describe('the permission card on a read-only page', () => {
-  const card: PermissionCardState = {
-    id: 'p1', sessionId: 's-1', project: 'alpha', toolName: 'Bash', summary: 'git push',
-    suggestions: [], permissionMode: 'default', createdAt: 1_000, deadline: Date.now() + 60_000, status: 'pending', interactive: false,
-  } as PermissionCardState
-  const render = (readOnly: boolean) =>
-    renderToStaticMarkup(React.createElement(PermissionCards, { cards: [card], dispatch: () => {}, readOnly }))
-
-  it('shows which tool waits, offers no answer buttons, and points at the terminal', () => {
-    const html = render(true)
-    expect(html).toContain('Claude wants to run Bash')
-    expect(html).toContain('data-testid="permission-read-only"')
-    expect(html).not.toContain('perm-btn')
-  })
-
-  it('a trusted page keeps its Allow / Deny buttons', () => {
-    const html = render(false)
-    expect(html).toContain('perm-btn allow')
-    expect(html).toContain('perm-btn deny')
-    expect(html).not.toContain('permission-read-only')
   })
 })

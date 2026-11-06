@@ -5,8 +5,8 @@
  *
  * Every terminal is a real pseudo-console (node-pty / ConPTY) running
  * `claude --session-id <uuid>`, so the session id is known before Claude even
- * starts and the office can tie the terminal, the session and its Pokémon
- * together. The office hooks are attached to these sessions only, through
+ * starts and the server can tie the terminal, the session and its Pokémon
+ * together. Claudex's hooks are attached to these sessions only, through
  * `--settings` (a generated file) — ~/.claude/settings.json is never touched.
  *
  * Input reaches a terminal from two places, both inside the app over IPC: the
@@ -20,10 +20,9 @@ const os = require('os')
 const crypto = require('crypto')
 
 const MAX_BUFFER = 200_000 // characters of scrollback kept for a tab opened later
-const DEX_SIZE = 151
 
 function loadPty() {
-  // Loaded lazily: a missing native module must not stop the office window
+  // Loaded lazily: a missing native module must not stop the app window
   return require('node-pty')
 }
 
@@ -74,7 +73,7 @@ const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[()
 function plainText(data) { return String(data).replace(ANSI, ' ') }
 
 function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, titles = { get: () => null, set: () => {} } }) {
-  const terms = new Map() // id -> { id, sessionId, cwd, dex, pty, buffer, status, createdAt, exitCode }
+  const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
 
   function settings() {
@@ -85,7 +84,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   function info(t) {
     return {
       id: t.id, sessionId: t.sessionId, cwd: t.cwd, project: path.basename(t.cwd),
-      dex: t.dex, status: t.status, createdAt: t.createdAt, exitCode: t.exitCode ?? null,
+      status: t.status, createdAt: t.createdAt, exitCode: t.exitCode ?? null,
       asking: !!t.asking,
       title: titles.get(t.sessionId) ?? null,
     }
@@ -94,15 +93,6 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   function broadcastList() { send('terminals:list', list()) }
 
   function list() { return [...terms.values()].map(info) }
-
-  /** A Pokémon no other open terminal has, else any. */
-  function pickDex() {
-    const used = new Set([...terms.values()].filter(t => t.status !== 'exited').map(t => t.dex))
-    const free = []
-    for (let i = 1; i <= DEX_SIZE; i++) if (!used.has(i) && i !== 25) free.push(i) // 25 = the boss
-    const pool = free.length ? free : Array.from({ length: DEX_SIZE }, (_, i) => i + 1)
-    return pool[crypto.randomInt(pool.length)]
-  }
 
   function create({ cwd, resume, sessionId: wanted } = {}) {
     // No folder picked: the default one (Documents), else home
@@ -123,7 +113,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       env: { ...cleanEnv(process.env), POKEMON_OFFICE_TERMINAL: sessionId },
       useConpty: true,
     })
-    const t = { id: sessionId, sessionId, cwd: dir, dex: pickDex(), pty, buffer: '', status: 'running', createdAt: Date.now() }
+    const t = { id: sessionId, sessionId, cwd: dir, pty, buffer: '', status: 'running', createdAt: Date.now() }
     terms.set(t.id, t)
     t.scan = ''
     pty.onData((data) => {
@@ -195,14 +185,6 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
 
   function buffer(id) { return terms.get(id)?.buffer ?? '' }
 
-  function setDex(id, dex) {
-    const t = terms.get(id)
-    if (!t || !Number.isInteger(dex) || dex < 1 || dex > DEX_SIZE) return false
-    t.dex = dex
-    broadcastList()
-    return true
-  }
-
   function close(id) {
     const t = terms.get(id)
     if (!t) return
@@ -215,7 +197,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     for (const t of terms.values()) if (t.status !== 'exited') { try { t.pty.kill() } catch {} }
   }
 
-  return { create, write, sendInstruction, resize, buffer, list, setDex, rename, close, killAll }
+  return { create, write, sendInstruction, resize, buffer, list, rename, close, killAll }
 }
 
 module.exports = { createTerminalManager, writeSessionSettings, cleanEnv }

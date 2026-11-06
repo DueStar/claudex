@@ -22,7 +22,6 @@ contextBridge.exposeInMainWorld('pokeOffice', {
     write: (id, data) => ipcRenderer.send('terminals:write', { id, data }),
     resize: (id, cols, rows) => ipcRenderer.send('terminals:resize', { id, cols, rows }),
     send: (id, text) => ipcRenderer.invoke('terminals:send', { id, text }),
-    setDex: (id, dex) => ipcRenderer.invoke('terminals:set-dex', { id, dex }),
     close: (id) => ipcRenderer.invoke('terminals:close', id),
     rename: (id, title) => ipcRenderer.invoke('terminals:rename', { id, title }),
     // A file dropped on a terminal: its path on disk (File.path is gone since Electron 32)
@@ -31,7 +30,6 @@ contextBridge.exposeInMainWorld('pokeOffice', {
     openUrl: (url) => ipcRenderer.invoke('terminals:open-url', String(url)),
     onData: (fn) => on('terminals:data', fn),
     onList: (fn) => on('terminals:list', fn),
-    onFocus: (fn) => on('terminals:focus', fn),
   },
   cloud: {
     signIn: () => ipcRenderer.invoke('cloud:signin'),
@@ -55,22 +53,16 @@ contextBridge.exposeInMainWorld('pokeOffice', {
   },
   update: {
     get: () => ipcRenderer.invoke('update:get'),
-    check: () => ipcRenderer.invoke('update:check'),
     install: () => ipcRenderer.invoke('update:install'),
     restart: () => ipcRenderer.invoke('update:restart'),
     onState: (fn) => on('update:state', fn),
   },
   widget: {
-    toggle: () => ipcRenderer.invoke('widget:toggle'),
     hide: () => ipcRenderer.invoke('widget:hide'),
-    getExpanded: () => ipcRenderer.invoke('widget:get-expanded'),
-    setExpanded: (flag) => ipcRenderer.invoke('widget:set-expanded', !!flag),
     getMode: () => ipcRenderer.invoke('widget:get-mode'),
     minimize: () => ipcRenderer.invoke('widget:minimize'),
     setMode: (mode) => ipcRenderer.invoke('widget:set-mode', String(mode)),
     onMode: (fn) => on('widget:mode', fn),
-    onExpanded: (fn) => on('widget:expanded', fn),
     resize: (width, height) => ipcRenderer.send('widget:resize', { width, height }),
-    showOffice: (terminalId) => ipcRenderer.invoke('widget:show-office', terminalId ?? null),
   },
 })

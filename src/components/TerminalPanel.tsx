@@ -1,6 +1,6 @@
 /**
- * TerminalPanel — the Claude Code sessions that live inside the desktop app,
- * one tab per session, each tab wearing its session's Pokémon.
+ * TerminalPanel — a Claude Code session's terminal (TerminalView) and the
+ * 이어하기 picker (ResumePicker). The widget lays them out.
  */
 
 import React, { useEffect, useRef, useState } from 'react'
@@ -10,8 +10,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont } from '../termFont'
 import '@xterm/xterm/css/xterm.css'
-import { bridge, useTerminals, type PastSession, type TerminalInfo } from '../desktop'
-import { getAvatarPath, themedDisplayName, useTheme } from '../theme'
+import { bridge, type PastSession, type TerminalInfo } from '../desktop'
 
 const THEME = {
   background: '#101218',
@@ -114,9 +113,9 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
       return true
     })
 
-    // One session can be on screen in two windows (the widget and the office). Only a
-    // window the user can see sets the session's size, or the two fight over it and
-    // Claude Code draws for the wrong width
+    // Only a terminal the user can see sets the session's size (the widget's question
+    // card and the window's terminal card take turns), or Claude Code draws for the
+    // wrong width
     const doFit = () => {
       if (!hostRef.current || hostRef.current.offsetWidth === 0 || document.visibilityState !== 'visible') return
       try {
@@ -238,91 +237,3 @@ export const ResumePicker: React.FC<{
     </div>
   )
 }
-
-const TerminalPanel: React.FC = () => {
-  const terms = useTerminals()
-  useTheme()
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [picking, setPicking] = useState(false)
-
-  const resume = async (past: PastSession) => {
-    if (!bridge) return
-    setPicking(false)
-    setError(null)
-    const r = await bridge.terminals.create({ cwd: past.cwd, resume: past.id })
-    if ('error' in r) setError(r.error)
-    else setActiveId(r.id)
-  }
-
-  useEffect(() => {
-    if (!activeId || !terms.some(t => t.id === activeId)) setActiveId(terms[terms.length - 1]?.id ?? null)
-  }, [terms, activeId])
-
-  useEffect(() => bridge?.terminals.onFocus((id) => setActiveId(id)), [])
-
-  /** New session: in Documents straight away, or in a picked folder */
-  const open = async (pick = false) => {
-    if (!bridge) return
-    setError(null)
-    let cwd: string | undefined
-    if (pick) {
-      const chosen = await bridge.terminals.pickFolder()
-      if (!chosen) return
-      cwd = chosen
-    }
-    const r = await bridge.terminals.create(cwd ? { cwd } : {})
-    if ('error' in r) setError(r.error)
-    else setActiveId(r.id)
-  }
-
-  if (!bridge) {
-    return <div className="term-empty">터미널은 데스크톱 앱에서만 열 수 있어요.</div>
-  }
-
-  return (
-    <div className="term-panel">
-      <div className="term-tabs">
-        {terms.map(t => {
-          const name = themedDisplayName('assistant', 'Claude', `main-${t.sessionId}`)
-          return (
-            <button
-              key={t.id}
-              className={`term-tab${t.id === activeId ? ' active' : ''}${t.status === 'exited' ? ' exited' : ''}`}
-              onClick={() => setActiveId(t.id)}
-              title={`${name} — ${t.cwd}`}
-            >
-              <img src={getAvatarPath('assistant', `main-${t.sessionId}`)} alt="" />
-              <span className="term-tab-name">{name}</span>
-              <span className="term-tab-project">{t.project}</span>
-              <span
-                className="term-tab-close"
-                role="button"
-                aria-label={`${name} 닫기`}
-                onClick={(e) => { e.stopPropagation(); bridge!.terminals.close(t.id) }}
-              >×</span>
-            </button>
-          )
-        })}
-        <button className="term-new" onClick={() => open()} title="문서 폴더에서 새 Claude 세션 열기">＋ 몬스터볼 던지기</button>
-        <button className="term-new icon" onClick={() => open(true)} title="다른 폴더를 골라 새 세션 열기" aria-label="폴더 골라서 열기">📁</button>
-        <button className="term-new" onClick={() => setPicking(true)} title="예전 세션을 골라 이어서 하기">↺ 이어하기</button>
-      </div>
-      {picking && <ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={new Set(terms.filter(t => t.status === 'running').map(t => t.sessionId))} />}
-      {error && <div className="term-error">세션을 열 수 없어요: {error}</div>}
-      <div className="term-body">
-        {terms.length === 0 && (
-          <div className="term-empty">
-            <p>아직 일하는 포켓몬이 없어요.</p>
-            <button className="term-new big" onClick={() => open()}>＋ 몬스터볼 던지기 (문서 폴더)</button>
-            <button className="term-new big" onClick={() => open(true)}>📁 다른 폴더에서 열기</button>
-            <button className="term-new big" onClick={() => setPicking(true)}>↺ 예전 세션 이어하기</button>
-          </div>
-        )}
-        {terms.map(t => <TerminalView key={t.id} term={t} active={t.id === activeId} />)}
-      </div>
-    </div>
-  )
-}
-
-export default TerminalPanel

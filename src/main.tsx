@@ -1,42 +1,26 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
 import Widget from './Widget'
 import Toast from './Toast'
 import QaPage from './QaPage'
-import { isDesktop } from './desktop'
-import { loadRuntimeConfig } from './config'
 import { captureOfficeToken } from './officeToken'
 
-// The office link carries the token in its fragment (#token=...): keep it and
-// take it out of the address bar before the first render and the WebSocket
+// The page link carries the server token in its fragment (#token=...): keep it
+// and take it out of the address bar before the first render and the WebSocket
 // that presents it (src/officeToken.ts)
 captureOfficeToken()
 
-const isWidget = new URLSearchParams(window.location.search).has('widget')
-const isToast = new URLSearchParams(window.location.search).has('toast')
-const isQa = new URLSearchParams(window.location.search).has('qa')
+// Three pages, one bundle: the app (the widget window), the catch
+// notification (?toast) and the design QA page (?qa)
+const params = new URLSearchParams(window.location.search)
+const isToast = params.has('toast')
+const isQa = params.has('qa')
 if (isQa) document.documentElement.classList.add('qa-mode')
 else if (isToast) document.documentElement.classList.add('toast-mode')
-else if (isWidget) document.documentElement.classList.add('widget-mode')
-else if (isDesktop) document.documentElement.classList.add('desktop')
+else if (params.has('widget')) document.documentElement.classList.add('widget-mode')
 
-function render() {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      {isQa ? <QaPage /> : isToast ? <Toast /> : isWidget ? <Widget /> : <App />}
-    </React.StrictMode>,
-  )
-}
-
-// The boss's name, sprite and colour come from the server's office.config.json
-// (GET /config) and are applied before the first render, so nothing captures
-// the bundled name first. ?sim and ?video have no server, and the Vite dev
-// server may run without one: those render at once, and a server that does
-// not answer within loadRuntimeConfig's timeout leaves the build-time boss
-// in place. A promise chain rather than top-level await: the build target
-// rejects the latter.
-const params = new URLSearchParams(window.location.search)
-const standalone = params.has('sim') || params.has('video')
-const ready = standalone ? Promise.resolve(null) : loadRuntimeConfig()
-ready.then(render, render)
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    {isQa ? <QaPage /> : isToast ? <Toast /> : <Widget />}
+  </React.StrictMode>,
+)

@@ -6,8 +6,8 @@
  * resolves on PATH without Python installed, so a path alone proves nothing).
  *
  *   claude  Claude Code itself: the sessions run it
- *   git     Git for Windows: Claude Code and the office hooks run in its Git Bash
- *   python  Python 3: the office hooks build their events with it
+ *   git     Git for Windows: Claude Code and Claudex's hooks run in its Git Bash
+ *   python  Python 3: Claudex's hooks build their events with it
  */
 
 const { execFile } = require('child_process')

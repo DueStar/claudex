@@ -5,7 +5,7 @@
  */
 
 import { useSyncExternalStore } from 'react'
-import { assignPokemonToRole, setOwnedSpecies, POKEMON } from './theme'
+import { castSession, POKEMON } from './theme'
 
 import NATURES from './pokemon/natures.json'
 import BALL_DATA from './pokemon/balls.json'
@@ -146,17 +146,15 @@ const listeners = new Set<() => void>()
 
 function emit() { version++; listeners.forEach(l => l()) }
 
-/** Feed every socket message through here (the office and the widget both do). */
+/** Feed every socket message through here. */
 export function dispatchPokedex(msg: { type?: string; state?: DexState; event?: DexEvent } | null | undefined) {
   if (!msg || msg.type !== 'pokedex' || !msg.state) return
   state = msg.state
   // Each session is drawn as the party Pokémon working it
   for (const [sessionId, uid] of Object.entries(state.assign ?? {})) {
     const mon = state.mons?.[uid]
-    if (mon) assignPokemonToRole(`session:${sessionId}`, mon.dex, mon.shiny)
+    if (mon) castSession(sessionId, mon.dex, mon.shiny)
   }
-  // Workers borrow from the trainer's own Pokémon
-  setOwnedSpecies([...new Set(Object.values(state.mons ?? {}).map(m => m.dex))])
   if (msg.event) lastEvent = msg.event
   emit()
 }

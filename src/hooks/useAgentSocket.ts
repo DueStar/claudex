@@ -1,102 +1,50 @@
 /**
- * useAgentSocket — React hook for the Agent Office WebSocket connection.
+ * useAgentSocket — the app's WebSocket to the local server.
  *
- * Connects to the office server's /ws (officeWsUrl: the page's own origin
- * when the server serves the page, the configured port under Vite), receives
- * real-time agent events from the Claude Code hook pipeline, and exposes
- * them to the React tree.
+ * Connects to the server's /ws (officeWsUrl: the page's own origin when the
+ * server serves the page, the configured port under Vite), presenting the
+ * server token (src/officeToken.ts) as a subprotocol at every (re)connect.
  *
- * Features:
  *  - Auto-reconnect with exponential back-off (capped at 30 s)
- *  - Returns events as they arrive via onEvent callback style AND as a state array
- *  - Exposes `connected` boolean and `mcpServers` roster
  *  - Tracks the Claude Code sessions (one per terminal) from the snapshot and
- *    session_started / session_ended events, exposed as `sessions`
- *  - Gracefully falls back to mock/offline mode when the server is unavailable
- *  - Reports its own open/close to onEvent as `connection` actions, and the
- *    snapshot's `health` as a `health` event, so the office reducer (not this
- *    hook) owns the connection state the status strip shows
- *  - Presents the office token (src/officeToken.ts) as a subprotocol on every
- *    (re)connect, read afresh each time, and exposes the server's verdict as
- *    `trusted`: without the token the server sends the office read-only (no
- *    conversation text, no UI token), and the page says so
+ *    the session_* events, exposed as `sessions`
+ *  - Hands every event to `onEvent`; the snapshot's parts arrive the same way
+ *    (session_status for the meters, pokedex for the game, cloud for sign-in)
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { OfficeEvent, PendingPermission, ServerHealth, SessionInfo, SessionRegistry, SnapshotAgent } from '../types'
-import type { SessionStatus, MeterTotals } from '../meters'
-import type { TaskBoardInfo } from '../taskBoard'
+import type { ServerEvent, SessionInfo, SessionRegistry } from '../types'
+import type { SessionStatus } from '../meters'
 import { projectFromCwd } from '../mainState'
-import { officeHttpBase, officeWsUrl } from '../serverUrl'
+import { officeWsUrl } from '../serverUrl'
 import { officeWsProtocols } from '../officeToken'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export interface AgentSocketOptions {
   /** Called for every incoming event. Stable reference recommended (useCallback). */
-  onEvent?: (event: OfficeEvent) => void
+  onEvent?: (event: ServerEvent) => void
   /** WebSocket URL — defaults to officeWsUrl() (src/serverUrl.ts) */
   url?: string
-  /** Disable connection entirely (mock mode). Defaults to false. */
-  disabled?: boolean
 }
 
 export interface AgentSocketResult {
   /** Whether the WebSocket is currently open */
   connected: boolean
-  /** MCP server names discovered by the server (from ~/.claude/settings.json) */
-  mcpServers: string[]
-  /** Last N events received (capped at 50) */
-  events: OfficeEvent[]
-  /** True if the server has never been reachable since mount */
-  offline: boolean
   /** Claude Code sessions the server knows about (ended ones linger briefly) */
   sessions: SessionInfo[]
-  /**
-   * The server's `auth` message: true when this page's token was accepted,
-   * false when the office is shown read-only, null until a server says
-   * (an older server never does)
-   */
-  trusted: boolean | null
 }
 
-// ---------------------------------------------------------------------------
-// Server snapshot message (sent on first connect)
-// ---------------------------------------------------------------------------
-
+/** The first message on every connection (server/index.js) */
 interface SnapshotMessage {
   type: 'snapshot'
-  activeAgents: SnapshotAgent[]
-  sessions?: Array<SessionInfo & { agentIds?: string[]; agentCount?: number }>
-  /** Payroll / electricity / memory: the server's status store (server/status.js) */
-  statuses?: { sessions: SessionStatus[]; totals: MeterTotals }
-  /** Permission dialogs waiting on the office, and the token that answers them (server/permissions.js) */
-  pendingPermissions?: PendingPermission[]
-  /** Only on a trusted connection (one that presented the office token) */
-  uiToken?: string
-  /** Pipeline health: hooks seen, version, uptime (server/health.js) */
-  health?: ServerHealth
-  /** Each session's task board, no descriptions (server/tasks.js) */
-  taskBoards?: TaskBoardInfo[]
-  mcpServers: string[]
-  timestamp: number
+  sessions?: Array<SessionInfo>
+  /** The status line's numbers (server/status.js) */
+  statuses?: { sessions: SessionStatus[] }
+  /** The game state (server/pokedex.js) */
+  pokedex?: unknown
+  /** Who is signed in to the cloud (server/cloud.js) */
+  cloud?: unknown
 }
 
-/** First message on every connection: what this connection may see (server/index.js). */
-interface AuthMessage {
-  type: 'auth'
-  trusted: boolean
-}
-
-type ServerMessage = OfficeEvent | SnapshotMessage | AuthMessage
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const MAX_EVENTS     = 50
 const BACKOFF_INITIAL = 500   // ms
 const BACKOFF_MAX    = 30_000 // ms
 const BACKOFF_FACTOR = 2
@@ -105,12 +53,12 @@ const BACKOFF_FACTOR = 2
 // completes the handshake and closes straight away (origin rejected, 1008)
 // therefore keeps backing off instead of being hammered every 500 ms.
 const STABLE_OPEN_MS = 5_000
-// An ended session's pill lingers this long before it is dropped
+// An ended session lingers this long before it is dropped
 const ENDED_SESSION_LINGER_MS = 10_000
 
 /**
- * The session fields of a session_started/session_ended/session_registry
- * event or snapshot entry. Those three carry the whole record, so a missing
+ * The session fields of an event or snapshot entry. session_started /
+ * session_ended / session_registry carry the whole record, so a missing
  * `registry` there means the entry is gone: the caller passes `registry: null`
  * to clear it, while a partial update (undefined) keeps what we had.
  */
@@ -129,38 +77,24 @@ function toSessionInfo(id: string, src: SessionPatch, prev?: SessionInfo): Sessi
     reason:         src.reason         ?? prev?.reason,
     startedAt:      src.startedAt      ?? prev?.startedAt,
     lastActivityAt: src.lastActivityAt ?? prev?.lastActivityAt,
-    lastStatus:     src.lastStatus     ?? prev?.lastStatus,
-    lastStatusAt:   src.lastStatusAt   ?? prev?.lastStatusAt,
     main:           src.main           ?? prev?.main,
     hooked:         src.hooked         ?? prev?.hooked,
     registry:       src.registry === null ? undefined : (src.registry ?? prev?.registry),
   }
 }
 
-/** A full-record event as a patch: a `registry` the server left out is one that has gone (the event's own `id` is a chat row id, not the session's). */
-function fullRecord(msg: OfficeEvent, sessionId: string): SessionPatch {
-  return { ...msg, id: sessionId, registry: msg.registry ?? null }
+/** A full-record event as a patch: a `registry` the server left out is one that has gone. */
+function fullRecord(msg: ServerEvent, sessionId: string): SessionPatch {
+  const { type: _type, ...rest } = msg
+  return { ...rest, id: sessionId, registry: msg.registry ?? null } as SessionPatch
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
-
 export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketResult {
-  const {
-    onEvent,
-    url     = officeWsUrl(),
-    disabled = false,
-  } = options
+  const { onEvent, url = officeWsUrl() } = options
 
-  const [connected, setConnected]   = useState(false)
-  const [mcpServers, setMcpServers] = useState<string[]>([])
-  const [events, setEvents]         = useState<OfficeEvent[]>([])
-  const [offline, setOffline]       = useState(false)
-  const [sessions, setSessions]     = useState<SessionInfo[]>([])
-  const [trusted, setTrusted]       = useState<boolean | null>(null)
+  const [connected, setConnected] = useState(false)
+  const [sessions, setSessions]   = useState<SessionInfo[]>([])
 
-  // Refs so reconnect logic can read latest values without re-creating effects
   const wsRef          = useRef<WebSocket | null>(null)
   const retryCountRef  = useRef(0)
   const retryTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -177,29 +111,7 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
 
   useEffect(() => { onEventRef.current = onEvent }, [onEvent])
 
-  // ---------------------------------------------------------------------------
-  // Roster fetch (runs once on mount; refreshes after reconnect)
-  // ---------------------------------------------------------------------------
-  const fetchRoster = useCallback(async () => {
-    try {
-      const res = await fetch(`${officeHttpBase()}/roster`, { signal: AbortSignal.timeout(2000) })
-      if (!res.ok) return
-      const data = await res.json()
-      if (mountedRef.current && Array.isArray(data.mcpServers)) {
-        setMcpServers(data.mcpServers)
-      }
-    } catch {
-      // Server not reachable — roster will come via snapshot message
-    }
-  }, [])
-
-  // ---------------------------------------------------------------------------
-  // Push an event into the local events array and call the onEvent callback
-  // ---------------------------------------------------------------------------
-  const pushEvent = useCallback((event: OfficeEvent) => {
-    setEvents(prev => [...prev.slice(-(MAX_EVENTS - 1)), event])
-    onEventRef.current?.(event)
-  }, [])
+  const emit = useCallback((event: ServerEvent) => { onEventRef.current?.(event) }, [])
 
   // ---------------------------------------------------------------------------
   // Session bookkeeping — one entry per Claude Code terminal
@@ -220,7 +132,7 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
     }, ENDED_SESSION_LINGER_MS)
   }, [])
 
-  const trackSession = useCallback((msg: OfficeEvent) => {
+  const trackSession = useCallback((msg: ServerEvent) => {
     const id = msg.sessionId
     if (!id) return
     switch (msg.type) {
@@ -231,17 +143,10 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
         upsertSession(id, { ...fullRecord(msg, id), state: 'ended' })
         dropSessionLater(id)
         return
-      // The session's registry entry changed: status, name, attached to a hooked
-      // session, or gone (an unhooked session's state comes from it)
+      // The registry entry changed: status, name, attached to a hooked session, or gone
       case 'session_registry':
         upsertSession(id, fullRecord(msg, id))
         return
-      case 'agent_working':
-        // Main-thread activity (no agentId) is the session's own status
-        if (!msg.agentId) upsertSession(id, { project: msg.project, lastStatus: msg.status, lastStatusAt: msg.timestamp ?? Date.now() })
-        return
-      // The turn events: the pill's title / project / model follow them, and every
-      // session_* broadcast refreshes the server's main-thread record
       case 'session_prompt':
         upsertSession(id, { project: msg.project, title: msg.title, main: msg.main })
         return
@@ -265,84 +170,43 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
   }, [upsertSession, dropSessionLater])
 
   // ---------------------------------------------------------------------------
-  // Process a raw message from the WebSocket
+  // Messages
   // ---------------------------------------------------------------------------
   const handleMessage = useCallback((raw: string) => {
-    let msg: ServerMessage
+    let msg: ServerEvent | SnapshotMessage | { type: 'auth' }
     try {
       msg = JSON.parse(raw)
     } catch {
       return
     }
-
-    if (msg.type === 'auth') {
-      setTrusted((msg as AuthMessage).trusted === true)
-      return
-    }
+    if (!msg || typeof msg !== 'object' || msg.type === 'auth') return
 
     if (msg.type === 'snapshot') {
       const snap = msg as SnapshotMessage
       // The session is healthy: the next drop starts the back-off from scratch
       retryCountRef.current = 0
       clearStableTimer()
-      if (snap.mcpServers?.length) {
-        setMcpServers(snap.mcpServers)
-      }
       // The server's session list replaces ours (a reconnect may have missed ends)
       const snapSessions = (snap.sessions ?? []).filter(s => s?.id)
       setSessions(snapSessions.map(s => toSessionInfo(s.id, { ...s, registry: s.registry ?? null })))
       for (const s of snapSessions) if (s.state === 'ended') dropSessionLater(s.id)
       // The server's status store replaces ours too (a restart forgets sessions)
-      if (snap.statuses) {
-        pushEvent({ type: 'session_status', statuses: snap.statuses.sessions ?? [], totals: snap.statuses.totals })
-      }
-      // The server's pipeline health (hooks seen, version, uptime) for the status strip
-      if (snap.health) {
-        pushEvent({ type: 'health', health: snap.health, timestamp: snap.timestamp })
-      }
-      // The task boards replace ours as a whole (left alone by a server without them)
-      // Who is signed in to the cloud (server/cloud.js)
-      if ((snap as { cloud?: unknown }).cloud) {
-        pushEvent({ type: 'cloud', cloud: (snap as { cloud?: unknown }).cloud } as unknown as OfficeEvent)
-      }
-      // The game state (server/pokedex.js): the dex and every session's partner
-      if ((snap as { pokedex?: unknown }).pokedex) {
-        pushEvent({ type: 'pokedex', state: (snap as { pokedex?: unknown }).pokedex } as unknown as OfficeEvent)
-      }
-      if (Array.isArray(snap.taskBoards)) {
-        pushEvent({ type: 'task_board', boards: snap.taskBoards, timestamp: snap.timestamp })
-      }
-      // The whole roster goes to the office as one event, so it can reconcile:
-      // agents that completed or timed out while we were disconnected leave,
-      // agents still here are refreshed in place, new ones walk in (C35). The
-      // sessions ride along so the office seats a Claude per terminal, in the
-      // state the server's main record says.
-      pushEvent({
-        type: 'snapshot',
-        activeAgents: snap.activeAgents ?? [],
-        sessions: snapSessions.map(s => toSessionInfo(s.id, s)),
-        // The pending permission dialogs and the UI token ride along for
-        // src/permissions.ts (the token is left undefined on a read-only
-        // connection, and both by a server without them)
-        pendingPermissions: snap.pendingPermissions,
-        uiToken: snap.uiToken,
-        timestamp: snap.timestamp,
-      })
+      if (snap.statuses) emit({ type: 'session_status', statuses: snap.statuses.sessions ?? [] })
+      if (snap.cloud) emit({ type: 'cloud', cloud: snap.cloud } as unknown as ServerEvent)
+      if (snap.pokedex) emit({ type: 'pokedex', state: snap.pokedex } as unknown as ServerEvent)
       return
     }
 
-    // Regular office event
-    trackSession(msg as OfficeEvent)
-    pushEvent(msg as OfficeEvent)
-  }, [pushEvent, trackSession, dropSessionLater])
+    trackSession(msg as ServerEvent)
+    emit(msg as ServerEvent)
+  }, [emit, trackSession, dropSessionLater])
 
   // ---------------------------------------------------------------------------
-  // Connect / reconnect logic
+  // Connect / reconnect
   // ---------------------------------------------------------------------------
   const connect = useCallback(() => {
-    if (!mountedRef.current || disabled) return
+    if (!mountedRef.current) return
 
-    // Clean up any existing socket
     if (wsRef.current) {
       wsRef.current.onopen    = null
       wsRef.current.onmessage = null
@@ -354,11 +218,9 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
 
     let ws: WebSocket
     try {
-      // The token is read at each attempt: one captured in another tab since
-      // the last try (a new link after a rotation) is used at once
+      // The token is read at each attempt: one captured since the last try is used at once
       ws = new WebSocket(url, officeWsProtocols())
     } catch {
-      // WebSocket constructor itself threw — schedule retry
       scheduleReconnect()
       return
     }
@@ -367,17 +229,13 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
 
     ws.onopen = () => {
       if (!mountedRef.current) return
-      // Not a reset yet: an accept-then-close server must keep backing off (C33)
+      // Not a reset yet: an accept-then-close server must keep backing off
       clearStableTimer()
       stableTimerRef.current = setTimeout(() => {
         stableTimerRef.current = null
         if (mountedRef.current && wsRef.current === ws) retryCountRef.current = 0
       }, STABLE_OPEN_MS)
       setConnected(true)
-      setOffline(false)
-      // The office reducer keeps the connection phase (status strip); not a server event, so not in `events`
-      onEventRef.current?.({ type: 'connection', socket: 'open', timestamp: Date.now() })
-      fetchRoster()
     }
 
     ws.onmessage = (evt) => {
@@ -389,58 +247,30 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
       if (!mountedRef.current) return
       clearStableTimer()
       setConnected(false)
-      onEventRef.current?.({ type: 'connection', socket: 'closed', timestamp: Date.now() })
       scheduleReconnect()
     }
-
-    ws.onerror = () => {
-      // onerror is always followed by onclose — let onclose handle retry
-      if (retryCountRef.current === 0) {
-        // First failure: mark as offline
-        setOffline(true)
-      }
-    }
-  }, [url, disabled, fetchRoster, handleMessage])
+  }, [url, handleMessage])
 
   const scheduleReconnect = useCallback(() => {
-    if (!mountedRef.current || disabled) return
-
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current)
-    }
-
-    const delay = Math.min(
-      BACKOFF_INITIAL * Math.pow(BACKOFF_FACTOR, retryCountRef.current),
-      BACKOFF_MAX
-    )
+    if (!mountedRef.current) return
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    const delay = Math.min(BACKOFF_INITIAL * Math.pow(BACKOFF_FACTOR, retryCountRef.current), BACKOFF_MAX)
     retryCountRef.current += 1
-
     retryTimerRef.current = setTimeout(() => {
-      if (mountedRef.current && !disabled) {
-        connect()
-      }
+      if (mountedRef.current) connect()
     }, delay)
-  }, [connect, disabled])
+  }, [connect])
 
-  // ---------------------------------------------------------------------------
-  // Mount / unmount
-  // ---------------------------------------------------------------------------
   useEffect(() => {
     mountedRef.current = true
-
-    if (!disabled) {
-      connect()
-    }
-
+    connect()
     return () => {
       mountedRef.current = false
-
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current)
         retryTimerRef.current = null
       }
       clearStableTimer()
-
       if (wsRef.current) {
         wsRef.current.onopen    = null
         wsRef.current.onmessage = null
@@ -451,7 +281,7 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disabled])
+  }, [])
 
-  return { connected, mcpServers, events, offline, sessions, trusted }
+  return { connected, sessions }
 }

@@ -1,20 +1,18 @@
 'use strict'
 
 /**
- * The tray (menu-bar) icon: a pixel-art desk with the number of working
- * agents beside it, polled from the office server every few seconds, and a
- * menu to show/hide the office, switch the compact widget and always-on-top,
- * open the office in a browser, or quit.
+ * The tray icon: the app's sessions in its tooltip (polled from the server
+ * every few seconds), a click to show or hide the app, and a small menu.
  *
- * Icons come from electron/assets (scripts/generate-icons.mjs): the macOS
- * menu bar gets the monochrome `trayTemplate.png` (+ `@2x`), which macOS
- * tints for light/dark mode; Windows and Linux get the coloured ones.
+ * Icons come from electron/assets: the macOS menu bar gets the monochrome
+ * `trayTemplate.png` (+ `@2x`), which macOS tints for light/dark mode;
+ * Windows and Linux get the coloured ones.
  */
 
 const { Menu, Tray, nativeImage } = require('electron')
 const http = require('http')
 const path = require('path')
-const { APP_NAME, officeSummary, statusText, trayTitle, trayMenuTemplate } = require('./helpers.cjs')
+const { APP_NAME, sessionSummary, statusText, trayMenuTemplate } = require('./helpers.cjs')
 
 const ASSETS_DIR = path.join(__dirname, 'assets')
 
@@ -50,10 +48,10 @@ function fetchJson(url, timeoutMs = 2000) {
 /**
  * Create the tray.
  *
- *   serverUrl  the office server (http://127.0.0.1:<AGENT_OFFICE_PORT>, 3334 by default)
- *   getState   () => { visible, compact, alwaysOnTop } for the menu
- *   actions    { toggleWindow, setCompact, setAlwaysOnTop, openInBrowser, quit, onSummary? }
- *   pollMs     how often /agents and /sessions are read (default 5 s)
+ *   serverUrl  the server (http://127.0.0.1:<AGENT_OFFICE_PORT>, 3334 by default)
+ *   getState   () => { visible } for the menu
+ *   actions    { toggleWidget, openQa, quit }
+ *   pollMs     how often /sessions is read (default 5 s)
  *
  * Returns { tray, refresh, poll, dispose }. `refresh` rebuilds the menu after
  * the window state changes; `dispose` stops polling and removes the icon.
@@ -70,22 +68,17 @@ function createTray({ serverUrl, getState, actions, pollMs = 5000 }) {
   }
 
   async function poll() {
-    const [agents, sessions] = await Promise.all([
-      fetchJson(`${serverUrl}/agents`),
-      fetchJson(`${serverUrl}/sessions`),
-    ])
+    const sessions = await fetchJson(`${serverUrl}/sessions`)
     if (tray.isDestroyed()) return
-    summary = officeSummary({ agents, sessions })
+    summary = sessionSummary(sessions)
     tray.setToolTip(`${APP_NAME} — ${statusText(summary)}`)
-    if (process.platform === 'darwin') tray.setTitle(trayTitle(summary))
     refresh()
-    if (actions.onSummary) actions.onSummary(summary)
   }
 
   // With a context menu set, a click opens the menu on macOS and Linux;
   // Windows emits 'click' for the left button (the menu is on the right).
   tray.on('click', () => {
-    if (process.platform === 'win32') (actions.toggleMain || actions.toggleWindow)()
+    if (process.platform === 'win32') actions.toggleWidget()
   })
 
   refresh()

@@ -1,7 +1,7 @@
 /**
  * desktop.ts — the bridge to the desktop app (electron/preload.cjs). In a
- * plain browser `window.pokeOffice` is absent and every helper is a no-op, so
- * the office still runs as a web page (read-only, no terminals).
+ * plain browser `window.pokeOffice` is absent and every helper is a no-op
+ * (no terminals, no game actions).
  */
 
 import { useSyncExternalStore } from 'react'
@@ -11,7 +11,6 @@ export interface TerminalInfo {
   sessionId: string
   cwd: string
   project: string
-  dex: number
   status: 'running' | 'exited'
   createdAt: number
   exitCode: number | null
@@ -43,14 +42,12 @@ interface PokeOfficeBridge {
     write(id: string, data: string): void
     resize(id: string, cols: number, rows: number): void
     send(id: string, text: string): Promise<{ ok: boolean; reason?: string }>
-    setDex(id: string, dex: number): Promise<boolean>
     close(id: string): Promise<void>
     rename(id: string, title: string): Promise<boolean>
     pathForFile(file: File): string
     openUrl(url: string): Promise<void>
     onData(fn: (p: { id: string; data: string }) => void): () => void
     onList(fn: (list: TerminalInfo[]) => void): () => void
-    onFocus(fn: (id: string) => void): () => void
   }
   cloud: {
     signIn(): Promise<{ ok: boolean; reason?: string }>
@@ -74,23 +71,17 @@ interface PokeOfficeBridge {
   }
   update: {
     get(): Promise<UpdateState | null>
-    check(): Promise<UpdateState | null>
     install(): Promise<UpdateState | null>
     restart(): Promise<boolean>
     onState(fn: (s: UpdateState) => void): () => void
   }
   widget: {
-    toggle(): Promise<void>
     hide(): Promise<void>
-    getExpanded(): Promise<boolean>
-    setExpanded(flag: boolean): Promise<boolean>
     getMode(): Promise<WidgetMode>
     minimize(): Promise<void>
     setMode(mode: WidgetMode): Promise<WidgetMode>
     onMode(fn: (mode: WidgetMode) => void): () => void
-    onExpanded(fn: (flag: boolean) => void): () => void
     resize(width: number, height: number): void
-    showOffice(terminalId?: string | null): Promise<void>
   }
 }
 

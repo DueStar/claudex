@@ -1,22 +1,25 @@
 /**
- * Widget — the app. A transparent, always-on-top window: the session Pokémon
- * float freely above a bento of cards (limits, spend, launcher, party, and a
- * box to hand a Pokémon its next instruction). Expanded, the same widget grows
- * a terminal card beside it: one tab per Pokémon, the real Claude Code session.
+ * Widget — the app. A transparent, always-on-top window with a bento of cards
+ * (usage limits, launcher, Pokédex, party and sessions, and a box to hand a
+ * Pokémon its next instruction). As a window or full screen the same page grows
+ * a terminal card beside it: one tab per Pokémon, the real Claude Code session,
+ * and the Pokédex, box and log views.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+// terminal.css first: widget-expanded.css restyles the resume picker's frame
+import './styles/terminal.css'
 import './styles/widget.css'
 import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { officeWsUrl } from './serverUrl'
-import { dispatchMeters, useMeters, formatMoney, formatTokens, formatClockTime, contextTone, type SessionStatus } from './meters'
+import { dispatchMeters, useMeters, formatClockTime, contextTone, type SessionStatus } from './meters'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
-import { assignPokemonToRole, getPokemonFor, getSpritePath, getAvatarPath, themedDisplayName, useTheme, spriteUrl, displayHeight, pokemonById } from './theme'
+import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
-import { dispatchPokedex, usePokedex, useViewed, levelOf, TIER_LABEL, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
+import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
 import PokedexView from './components/PokedexView'
 import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 import BoxView from './components/BoxView'
@@ -55,8 +58,6 @@ interface Row {
   mood: Mood
   name: string
   sprite: string
-  avatar: string
-  height: number
   project: string
   /** The trainer's name for the session */
   title: string | null
@@ -65,18 +66,6 @@ interface Row {
 function pct(n: number | null | undefined): string {
   return typeof n === 'number' ? String(Math.round(n)) : '—'
 }
-
-/** A big-number card: label, value, unit, an optional bar and footnote */
-const Stat: React.FC<{ label: string; value: string; unit?: string; bar?: number | null; foot?: string; tone?: string }> = ({ label, value, unit, bar, foot, tone = 'ok' }) => (
-  <section className={`w-card w-stat tone-${tone}`}>
-    <div className="w-label">{label}</div>
-    <div className="w-value">{value}{unit && <span className="w-unit">{unit}</span>}</div>
-    {typeof bar === 'number' && (
-      <div className="w-bar" aria-hidden="true"><span style={{ width: `${Math.max(2, Math.min(100, bar))}%` }} /></div>
-    )}
-    {foot && <div className="w-foot">{foot}</div>}
-  </section>
-)
 
 /** One limit row: label, bar, percent, when it resets */
 const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null }> = ({ label, value, reset }) => (
@@ -167,15 +156,12 @@ const Widget: React.FC = () => {
       const terminal = terminals.find(t => t.sessionId === sessionId)
       const session = sessions.find(s => s.id === sessionId)
       const meter = meters.sessions.find(m => m.sessionId === sessionId)
-      const agentId = `main-${sessionId}`
       return {
         sessionId, terminal, session, meter,
         mood: moodOf(session, terminal),
-        name: themedDisplayName('assistant', 'Claude', agentId),
+        name: sessionName(sessionId, 'Claude'),
         title: terminal?.title ?? null,
-        sprite: getSpritePath(agentId, 'assistant'),
-        avatar: getAvatarPath('assistant', agentId),
-        height: displayHeight(getPokemonFor('assistant', agentId)),
+        sprite: sessionSprite(sessionId),
         project: terminal?.project ?? session?.project ?? meter?.project ?? '',
       }
     }).filter(r => r.mood !== 'ended' || r.terminal)
@@ -239,7 +225,7 @@ const Widget: React.FC = () => {
   // In widget mode, the first session waiting on a question (its own output, or the hooks' needs-you)
   const askRow = expanded ? undefined : withTerminal.find(r => r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you'))
 
-  // A new terminal (opened here, or from the office) becomes the one in front
+  // A new terminal becomes the one in front
   const lastCount = useRef(terminals.length)
   useEffect(() => {
     if (terminals.length > lastCount.current) setTarget(terminals[terminals.length - 1].sessionId)
@@ -252,7 +238,6 @@ const Widget: React.FC = () => {
   const sevenDay = limitOf('sevenDay')
   const fiveReset = resetOf('fiveHourResetsAt')
   const sevenReset = resetOf('sevenDayResetsAt')
-  const totals = meters.totals
 
   /** Where the next throw goes: a new session (optionally in a picked folder) or a resumed one */
   const [throwing, setThrowing] = useState<{ cwd?: string; resume?: PastSession } | null>(null)
@@ -278,7 +263,7 @@ const Widget: React.FC = () => {
     // Dress the session in its Pokémon first: the tab must never show a bare Poké Ball
     const sessionId = where.resume?.id ?? crypto.randomUUID()
     const mon = dex?.mons?.[uid]
-    if (mon) assignPokemonToRole(`session:${sessionId}`, mon.dex, mon.shiny)
+    if (mon) castSession(sessionId, mon.dex, mon.shiny)
     const r = await bridge.terminals.create(where.resume ? { cwd: where.resume.cwd, resume: where.resume.id } : { sessionId, ...(where.cwd ? { cwd: where.cwd } : {}) })
     if ('error' in r) { setNote(`세션을 열 수 없어요: ${r.error}`); return }
     const t = await bridge.game.throw(r.sessionId, uid)
@@ -573,7 +558,7 @@ ${update.notes}` : ''}${update.error ? `
                 onClick={() => setTarget(r.sessionId)}
                 title={r.terminal?.cwd}
               >
-                <img src={r.avatar} alt="" />
+                <img src={r.sprite} alt="" />
                 <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? r.name}</span>
                 <span className="w-term-tab-project">{r.title ? r.name : r.project}</span>
                 <span className="w-term-tab-dot" />
