@@ -1,7 +1,8 @@
 /**
  * PokedexView — the Pokédex (#1–649): a grid of every species (caught in
- * colour, seen as a silhouette, unknown as ?), filters by generation, tier and
- * caught, and a detail card with where and how each one was caught.
+ * colour, seen as a silhouette, unknown as ?) under a dashboard of totals,
+ * filters by generation, tier, caught and name, and a detail card with where
+ * and how each one was caught.
  */
 
 import React, { useMemo, useState } from 'react'
@@ -22,11 +23,26 @@ function date(ms: number) {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/** A dashboard tile: a number, and with a total its share as a bar */
+const Stat: React.FC<{ label: string; value: number; total?: number; hint?: string }> = ({ label, value, total, hint }) => {
+  const pct = total ? Math.min(100, (value / total) * 100) : 0
+  return (
+    <div className="dex-stat" title={hint}>
+      <span className="dex-stat-label">{label}</span>
+      <span className="dex-stat-value"><b>{value.toLocaleString()}</b>{total !== undefined && <small> / {total.toLocaleString()}</small>}</span>
+      {/* Kept without a total too (hidden), so every tile's number sits at the same height */}
+      <span className="dex-stat-bar" style={total === undefined ? { visibility: 'hidden' } : undefined}><i style={{ width: `${pct}%` }} /></span>
+      {total !== undefined && <span className="dex-stat-pct">{pct.toFixed(1)}%</span>}
+    </div>
+  )
+}
+
 const PokedexView: React.FC = () => {
   const { state } = usePokedex()
   const [gen, setGen] = useState<number | null>(null)
   const [tier, setTier] = useState<Tier | null>(null)
-  const [onlyCaught, setOnlyCaught] = useState(false)
+  const [show, setShow] = useState<'all' | 'caught' | 'missing'>('all')
+  const [query, setQuery] = useState('')
   const [pick, setPick] = useState<number | null>(null)
   const [releasing, setReleasing] = useState<string | null>(null)
   const { isNew } = useViewed()
@@ -34,9 +50,19 @@ const PokedexView: React.FC = () => {
   const caught = state?.caught ?? {}
   const seen = state?.seen ?? {}
   const all = POKEMON as Entry[]
+  const q = query.trim().toLowerCase()
   const list = useMemo(() => all.filter(p =>
-    (gen === null || p.gen === gen) && (tier === null || p.tier === tier) && (!onlyCaught || caught[p.id]),
-  ), [all, gen, tier, onlyCaught, caught])
+    (gen === null || p.gen === gen) && (tier === null || p.tier === tier)
+    && (show === 'all' || (show === 'caught' ? !!caught[p.id] : !caught[p.id]))
+    // Names only for what has been met: a search must not give an unseen one away
+    && (!q || String(p.id) === q.replace(/^0+/, '') || (!!(caught[p.id] || seen[p.id]) && (p.ko.includes(q) || p.en.toLowerCase().includes(q)))),
+  ), [all, gen, tier, show, q, caught, seen])
+  const total = state?.total ?? all.length
+  // Caught out of each tier's species
+  const byTier = useMemo(() => TIERS.map(t => {
+    const of = all.filter(p => p.tier === t)
+    return { t, total: of.length, caught: of.filter(p => caught[p.id]).length }
+  }), [all, caught])
 
   const caughtCount = Object.keys(caught).length
   const seenCount = Object.keys(seen).length
@@ -48,23 +74,54 @@ const PokedexView: React.FC = () => {
   return (
     <div className="dex">
       <div className="dex-top">
-        <div className="dex-sum">
-          <span><b>{caughtCount}</b> / {state?.total ?? all.length} 포획</span>
-          <span><b>{seenCount}</b> 발견</span>
-          <span><b>{shinyCount}</b> 이로치</span>
-          <span title="박스에 넣을 수 있는 개체 수 (파티 6마리 별도). 꽉 차면 새로 잡은 개체는 박사님께 가요">박스 <b>{state?.box.length ?? 0}</b> / {state?.boxLimit ?? 1200}</span>
+        <div className="dex-stats">
+          <Stat label="포획" value={caughtCount} total={total} />
+          <Stat label="발견" value={seenCount} total={total} hint="만났지만 아직 못 잡은 종도 포함" />
+          <Stat label="이로치" value={shinyCount} hint="1/4096" />
+          <Stat label="박스" value={state?.box.length ?? 0} total={state?.boxLimit ?? 1200} hint="파티 6마리 별도. 꽉 차면 새로 잡은 개체는 박사님께 가요" />
+          <div className="dex-stat dex-stat-tiers">
+            <span className="dex-stat-label">등급별 포획</span>
+            <div className="dex-tierbars">
+              {byTier.map(({ t, total: n, caught: c }) => (
+                <div key={t} className={`dex-tierbar tier-${t}`} title={`${TIER_LABEL[t]} ${c} / ${n}종 · 만날 확률 ${TIER_RATE[t]}`}>
+                  <span>{TIER_LABEL[t]}</span>
+                  <i><b style={{ width: `${n ? (c / n) * 100 : 0}%` }} /></i>
+                  <em>{c}<small>/{n}</small></em>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="dex-filters">
-          <button className={gen === null ? 'on' : ''} onClick={() => setGen(null)}>전체</button>
-          {GENS.map(g => <button key={g} className={gen === g ? 'on' : ''} onClick={() => setGen(g)}>{g}세대</button>)}
-          <span className="dex-sep" />
-          {TIERS.map(t => (
-            <button key={t} className={`tier-${t}${tier === t ? ' on' : ''}`} onClick={() => setTier(tier === t ? null : t)} title={`만날 확률 ${TIER_RATE[t]}`}>
-              {TIER_LABEL[t]}
-            </button>
-          ))}
-          <span className="dex-sep" />
-          <button className={onlyCaught ? 'on' : ''} onClick={() => setOnlyCaught(!onlyCaught)}>잡은 것만</button>
+        <div className="dex-filterbar">
+          <div className="dex-fgroup">
+            <span className="dex-flabel">세대</span>
+            <div className="dex-seg">
+              <button className={gen === null ? 'on' : ''} onClick={() => setGen(null)}>전체</button>
+              {GENS.map(g => <button key={g} className={gen === g ? 'on' : ''} onClick={() => setGen(g)} title={`${g}세대`}>{g}</button>)}
+            </div>
+          </div>
+          <div className="dex-fgroup">
+            <span className="dex-flabel">보기</span>
+            <div className="dex-seg">
+              <button className={show === 'all' ? 'on' : ''} onClick={() => setShow('all')}>전체</button>
+              <button className={show === 'caught' ? 'on' : ''} onClick={() => setShow('caught')}>잡은 것</button>
+              <button className={show === 'missing' ? 'on' : ''} onClick={() => setShow('missing')}>못 잡은 것</button>
+            </div>
+          </div>
+          <div className="dex-fgroup dex-fsearch">
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호 찾기" aria-label="이름이나 번호로 찾기" />
+            <span className="dex-result">{list.length}종</span>
+          </div>
+          <div className="dex-fgroup dex-frow">
+            <span className="dex-flabel">등급</span>
+            <div className="dex-chips">
+              {TIERS.map(t => (
+                <button key={t} className={`tier-${t}${tier === t ? ' on' : ''}`} onClick={() => setTier(tier === t ? null : t)} title={`만날 확률 ${TIER_RATE[t]}`}>
+                  {TIER_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -97,15 +154,26 @@ const PokedexView: React.FC = () => {
           {!detail && (
             <div className="dex-help">
               <p className="dex-help-title">포켓몬을 골라보세요</p>
-              <p>Claude가 도구를 한 번 쓸 때마다 풀숲을 한 걸음 걸어요. 걸음마다 3% 확률로 야생 포켓몬을 만나고, 등급에 따라 잡히거나 도망가요. 매일 첫 세션에는 아직 못 잡은 포켓몬이 꼭 한 마리 나타나요(출석 조우).</p>
-              <table className="dex-rates">
-                <tbody>
-                  {TIERS.map(t => (
-                    <tr key={t}><td className={`tier-${t}`}>{TIER_LABEL[t]}</td><td>{TIER_RATE[t]}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="dex-fine">이로치 1/4096 · 아직 못 잡은 종은 더 잘 나와요</p>
+              <section className="dex-box">
+                <h4>탐험 규칙</h4>
+                <div className="dex-tiles">
+                  <div><b>1걸음</b><span>Claude의 도구 1번</span></div>
+                  <div><b>3%</b><span>걸음당 조우</span></div>
+                  <div><b>매일 1</b><span>출석 조우(못 잡은 종)</span></div>
+                  <div><b>1/4096</b><span>이로치</span></div>
+                </div>
+                <p className="dex-fine">등급에 따라 잡히거나 도망가요. 아직 못 잡은 종은 더 잘 나와요.</p>
+              </section>
+              <section className="dex-box">
+                <h4>등급별 만날 확률</h4>
+                {TIERS.map(t => (
+                  <div key={t} className={`dex-rate tier-${t}`}>
+                    <span>{TIER_LABEL[t]}</span>
+                    <i><b style={{ width: `${Math.max(2, parseFloat(TIER_RATE[t]))}%` }} /></i>
+                    <em>{TIER_RATE[t]}</em>
+                  </div>
+                ))}
+              </section>
             </div>
           )}
           {detail && (
@@ -127,15 +195,15 @@ const PokedexView: React.FC = () => {
                 <>
                   <div className="dex-card-genus">{detail.genus}</div>
                   <p className="dex-card-flavor">{detail.flavor}</p>
-                  <dl className="dex-card-facts">
-                    <dt>키</dt><dd>{((detail.heightDm ?? 0) / 10).toFixed(1)} m</dd>
-                    <dt>몸무게</dt><dd>{((detail.weightHg ?? 0) / 10).toFixed(1)} kg</dd>
-                    <dt>잡은 곳</dt><dd>{dc.place}</dd>
-                    <dt>처음 잡은 날</dt><dd>{date(dc.firstAt)}</dd>
-                    <dt>방법</dt><dd>{HOW[dc.how] ?? dc.how}{dc.shiny ? ' · ✦ 이로치' : ''}</dd>
-                    {dc.via && <><dt>포획 경위</dt><dd>{sourceText(dc.via)} 포획</dd></>}
-                    <dt>잡은 횟수</dt><dd>{dc.count}마리</dd>
-                  </dl>
+                  <div className="dex-facts">
+                    <div><span>키</span><b>{((detail.heightDm ?? 0) / 10).toFixed(1)} m</b></div>
+                    <div><span>몸무게</span><b>{((detail.weightHg ?? 0) / 10).toFixed(1)} kg</b></div>
+                    <div><span>잡은 횟수</span><b>{dc.count}마리</b></div>
+                    <div><span>방법</span><b>{HOW[dc.how] ?? dc.how}{dc.shiny ? ' · ✦' : ''}</b></div>
+                    <div className="wide"><span>잡은 곳</span><b>{dc.place}</b></div>
+                    <div className="wide"><span>처음 잡은 날</span><b>{date(dc.firstAt)}</b></div>
+                    {dc.via && <div className="wide"><span>포획 경위</span><b>{sourceText(dc.via)} 포획</b></div>}
+                  </div>
                   {(() => {
                     const mine = Object.values(state?.mons ?? {}).filter(m => m.dex === detail.id)
                     if (!mine.length) return null

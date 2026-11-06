@@ -96,12 +96,16 @@ const BoxView: React.FC = () => {
           <div className="box-toolbar">
             <div className="box-title">박스 <span className={(state?.box.length ?? 0) >= (state?.boxLimit ?? 1200) ? 'full' : ''}>{state?.box.length ?? 0} / {state?.boxLimit ?? 1200}</span></div>
             <input className="box-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호" />
-            <div className="dex-filters">
-              {([['recent', '최근'], ['dex', '번호'], ['tier', '등급'], ['steps', '걸음']] as [Sort, string][]).map(([k, label]) => (
-                <button key={k} className={sort === k ? 'on' : ''} onClick={() => setSort(k)}>{label}</button>
-              ))}
-              <span className="dex-sep" />
-              <button className={shinyOnly ? 'on' : ''} onClick={() => setShinyOnly(v => !v)}>✦ 이로치</button>
+            <div className="dex-fgroup">
+              <span className="dex-flabel">정렬</span>
+              <div className="dex-seg">
+                {([['recent', '최근'], ['dex', '번호'], ['tier', '등급'], ['steps', '걸음']] as [Sort, string][]).map(([k, label]) => (
+                  <button key={k} className={sort === k ? 'on' : ''} onClick={() => setSort(k)}>{label}</button>
+                ))}
+              </div>
+            </div>
+            <div className="dex-seg">
+              <button className={shinyOnly ? 'on' : ''} onClick={() => setShinyOnly(v => !v)}>✦ 이로치만</button>
             </div>
           </div>
           <div className="box-grid">
@@ -123,17 +127,18 @@ const BoxView: React.FC = () => {
                 <b>{picked.shiny ? '✦ ' : ''}{p.ko}{genderMark(picked.gender)}</b>
                 <span className={`w-toast-tier tier-${tierOf(picked.dex)}`}>{TIER_LABEL[tierOf(picked.dex)]}</span>
               </div>
-              <dl className="dex-card-facts">
-                <dt>위치</dt><dd>{inParty ? '파티' : '박스'}{isWorking ? ' · 일하는 중' : ''}</dd>
-                <dt>성격</dt><dd>{n ? `${n.ko}${n.up ? ` (${n.up}↑ ${n.down}↓)` : ' (보정 없음)'}` : '—'}</dd>
-                <dt>레벨</dt><dd>Lv.{levelOf(picked)}{levelOf(picked) > (picked.metLevel ?? 5) ? <span className="dex-fine"> · 함께 +{levelOf(picked) - (picked.metLevel ?? 5)}</span> : null}{minutesToNext(picked) !== null ? <span className="dex-fine"> · 다음 레벨까지 {minutesToNext(picked)}분</span> : null}</dd>
-                <dt>볼</dt><dd className="box-ball-dd"><PokeBall ball={picked.ball} size={16} />{ballName(picked.ball)}<span className="dex-fine"> · {BALL_TIER_LABEL[BALL_BY_ID.get(picked.ball ?? 'poke-ball')?.tier ?? 'basic']}</span></dd>
-                <dt>성별</dt><dd>{picked.gender === 'male' ? '수컷' : picked.gender === 'female' ? '암컷' : picked.gender === 'none' ? '무성' : '—'}</dd>
-                <dt>걸음</dt><dd>{picked.steps}걸음{picked.evos ? ` · ${picked.evos}번 진화` : ''}</dd>
-                <dt>만난 곳</dt><dd>{picked.place || '—'} · {HOW[picked.how] ?? picked.how}</dd>
-                {picked.via && <><dt>포획 경위</dt><dd>{sourceText(picked.via)}</dd></>}
-                <dt>잡은 날</dt><dd>{new Date(picked.at).toLocaleDateString('ko-KR')}</dd>
-              </dl>
+              <div className="dex-facts">
+                <div><span>레벨</span><b>Lv.{levelOf(picked)}{levelOf(picked) > (picked.metLevel ?? 5) ? <small> · 함께 +{levelOf(picked) - (picked.metLevel ?? 5)}</small> : null}</b></div>
+                <div><span>다음 레벨까지</span><b>{minutesToNext(picked) !== null ? `${minutesToNext(picked)}분` : '—'}</b></div>
+                <div><span>위치</span><b>{inParty ? '파티' : '박스'}{isWorking ? ' · 일하는 중' : ''}</b></div>
+                <div><span>성별</span><b>{picked.gender === 'male' ? '수컷' : picked.gender === 'female' ? '암컷' : picked.gender === 'none' ? '무성' : '—'}</b></div>
+                <div><span>성격</span><b>{n ? n.ko : '—'}{n ? <small>{n.up ? ` ${n.up}↑ ${n.down}↓` : ' 보정 없음'}</small> : null}</b></div>
+                <div><span>걸음</span><b>{picked.steps}걸음{picked.evos ? <small> · {picked.evos}번 진화</small> : null}</b></div>
+                <div className="wide"><span>볼</span><b className="box-ball-dd"><PokeBall ball={picked.ball} size={16} />{ballName(picked.ball)}<small> · {BALL_TIER_LABEL[BALL_BY_ID.get(picked.ball ?? 'poke-ball')?.tier ?? 'basic']}</small></b></div>
+                <div className="wide"><span>만난 곳</span><b>{picked.place || '—'} · {HOW[picked.how] ?? picked.how}</b></div>
+                {picked.via && <div className="wide"><span>포획 경위</span><b>{sourceText(picked.via)}</b></div>}
+                <div className="wide"><span>잡은 날</span><b>{new Date(picked.at).toLocaleDateString('ko-KR')}</b></div>
+              </div>
 
               {!inParty && (
                 <div className="box-actions">
