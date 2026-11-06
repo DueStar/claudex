@@ -268,7 +268,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 }
 .w-chip:hover { color: var(--ink); }
 .w-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.w-input { display: flex; gap: 6px; align-items: stretch; }
+/* The textarea takes the full width and 보내기 sits under it, on the right */
+.w-input { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .w-input textarea {
   flex: 1;
   resize: none;
@@ -284,10 +285,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-input textarea::placeholder { color: var(--ink-3); }
 .w-input textarea:focus { outline: none; border-color: rgba(255, 216, 74, 0.6); }
 .w-send {
+  align-self: flex-end;
   font: inherit;
   font-weight: 700;
   font-size: 12px;
-  padding: 0 14px;
+  padding: 7px 16px;
   border: 0;
   border-radius: 12px;
   background: var(--accent);
@@ -372,10 +374,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row-top > .w-pill { margin-left: auto; }
 .w-row-top > .w-row-close { margin-left: 2px; }
 
-/* ---------- Instruction box: the note sits above it, 보내기 at the bottom ---------- */
+/* ---------- Instruction box: the note sits above it, 보내기 under it ---------- */
 .w-compose { gap: 6px; }
-.w-input { align-items: flex-end; }
-.w-send { height: 38px; align-self: flex-end; }
+.w-send { height: 34px; }
 .w-note { margin: 0; line-height: 1.45; animation: wNoteIn 0.2s ease-out both; }
 @keyframes wNoteIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 .w-row-swap, .w-row-top > .w-pill, .w-row-lv { flex: none; white-space: nowrap; }
