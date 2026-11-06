@@ -1,6 +1,6 @@
 'use strict'
 
-const { app, BrowserWindow, Menu, dialog, screen, shell, ipcMain } = require('electron')
+const { app, BrowserWindow, Menu, Notification, dialog, screen, shell, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { spawn } = require('child_process')
@@ -325,7 +325,23 @@ function menuState() {
   return { visible: !!widgetWin && !widgetWin.isDestroyed() && widgetWin.isVisible() }
 }
 
-const menuActions = { toggleWidget, quit: quitApp, openQa }
+/**
+ * Tray → 업데이트 확인: look now instead of waiting for the next check. When there
+ * is one, the widget opens on its 업데이트 button; otherwise a notification says why.
+ */
+async function checkUpdateNow() {
+  if (!updater) return
+  const st = await updater.check()
+  if (st.status === 'available' || st.status === 'downloading' || st.status === 'ready') {
+    const w = createWidgetWindow()
+    if (w) { w.show(); w.focus() }
+    return
+  }
+  const body = st.status === 'current' ? `최신 버전이에요 (${st.current})` : `업데이트를 확인하지 못했어요${st.error ? ` (${st.error})` : ''}`
+  if (Notification.isSupported()) new Notification({ title: APP_NAME, body, silent: true }).show()
+}
+
+const menuActions = { toggleWidget, quit: quitApp, openQa, checkUpdate: checkUpdateNow }
 
 function applicationMenuTemplate() {
   const isMac = process.platform === 'darwin'
@@ -880,10 +896,12 @@ if (app.isPackaged && !takeInstanceLock()) {
 
   app.whenReady().then(() => {
     registerTerminalIpc()
-    // Updates: a look at GitHub Releases shortly after start, then every 6 hours
+    // Updates: a look at GitHub Releases shortly after start, then every 30 minutes
+    // (a small file: latest.json is a plain download, no API rate limit). The app
+    // stays open for days, so 6 hours meant a release went unseen until the next morning.
     updater = createUpdater({ app, isPackaged: app.isPackaged, send: (channel, payload) => sendToWindows(channel, payload) })
     setTimeout(() => updater.check(), 15_000)
-    setInterval(() => updater.check(), 6 * 60 * 60 * 1000).unref?.()
+    setInterval(() => updater.check(), 30 * 60 * 1000).unref?.()
     // A local build folder (the developer's own PC) is looked at every minute
     setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
     return open()

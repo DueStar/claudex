@@ -43,4 +43,48 @@ describe('sprites', () => {
     expect(calls).toBe(1)
     expect(PNG.sync.read(readFileSync(a)).width).toBe(SPRITE_SIZE)
   })
+
+  it('a box icon comes from pokemondb by the default form\'s slug, trimmed but never scaled up', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sprites-'))
+    dirs.push(dir)
+    const urls: string[] = []
+    const fetchImpl = async (url: string) => { urls.push(url); return new Response(sample(), { status: 200 }) }
+    const { obtain } = mountSprites({ get() {} }, { runtimeDir: dir, uiDir: join(dir, 'ui'), fetchImpl })
+    const pika = PNG.sync.read(readFileSync(await obtain('icon', 25)))
+    await obtain('icon', 386)
+    expect(urls).toEqual([
+      'https://img.pokemondb.net/sprites/scarlet-violet/icon/pikachu.png',
+      'https://img.pokemondb.net/sprites/scarlet-violet/icon/deoxys-normal.png',
+    ])
+    // The sample's 150x60 block is wider than 128, so it comes down to 128 wide; a 50x50 icon stays 50x50
+    expect(pika.width).toBe(SPRITE_SIZE)
+    const small = new PNG({ width: 120, height: 112 })
+    for (let y = 30; y < 80; y++) for (let x = 40; x < 90; x++) small.data[(y * 120 + x) * 4 + 3] = 255
+    const fit = PNG.sync.read(fitPng(PNG.sync.write(small)))
+    expect([fit.width, fit.height]).toEqual([50, 50])
+  })
+
+  it('every species has a box icon slug', () => {
+    const { slugs } = JSON.parse(readFileSync(join(__dirname, '..', 'server', 'pokemon-icons.json'), 'utf8'))
+    for (let id = 1; id <= 1025; id++) expect(slugs[id], `#${id}`).toMatch(/^[a-z0-9-]+$/)
+  })
+
+  it('the route: an icon that cannot be had falls back to the HOME artwork, a bad kind or id is a 404', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sprites-'))
+    dirs.push(dir)
+    const routes: any = {}
+    const fetchImpl = async () => new Response('', { status: 404 })
+    mountSprites({ get: (path: string, fn: any) => { routes[path] = fn } }, { runtimeDir: dir, uiDir: join(dir, 'ui'), fetchImpl })
+    const call = async (kind: string, file: string) => {
+      const res: any = { code: 200, location: '', set() { return res }, type() { return res }, send() { return res },
+        status(c: number) { res.code = c; return res }, end() { return res },
+        redirect(c: number, to: string) { res.code = c; res.location = to; return res } }
+      await routes['/sprites/pokemon/:kind/:file']({ params: { kind, file } }, res)
+      return res
+    }
+    expect(await call('icon', '25.png')).toMatchObject({ code: 302, location: '/sprites/pokemon/art/25.png' })
+    expect(await call('art', '25.png')).toMatchObject({ code: 302, location: '/sprites/claudex-ball.png' })
+    expect((await call('icon', '0.png')).code).toBe(404)
+    expect((await call('icons', '25.png')).code).toBe(404)
+  })
 })

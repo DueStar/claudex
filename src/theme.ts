@@ -35,6 +35,17 @@ export function spriteUrl(id: number, shiny = false): string {
   return `/sprites/pokemon/${shiny ? 'art-shiny' : 'art'}/${id}.png`
 }
 
+/**
+ * The Scarlet/Violet box icon of a species (small, facing a little left), for
+ * where a session is drawn small: the panel beside the terminal and the tabs
+ * above it. The games have no shiny icon, so a shiny session shows ✨ in its
+ * name (sessionName) instead. 0 is the Poké Ball.
+ */
+export function iconUrl(id: number): string {
+  if (!id) return '/sprites/claudex-ball.png'
+  return `/sprites/pokemon/icon/${id}.png`
+}
+
 // ---------------------------------------------------------------------------
 // Session cast
 // ---------------------------------------------------------------------------
@@ -92,10 +103,9 @@ export function castSession(sessionId: string, dex: number, shiny = false) {
   changed()
 }
 
-/** The session's Pokémon artwork. */
+/** The session's Pokémon, as its box icon (the panel and the terminal tabs). */
 export function sessionSprite(sessionId: string): string {
-  const c = cast[sessionId]
-  return spriteUrl(c?.dex ?? 0, c?.shiny ?? false)
+  return iconUrl(cast[sessionId]?.dex ?? 0)
 }
 
 /** The name a session goes by: its Pokémon's (✨ when shiny), or `fallback` while it is a ball. */

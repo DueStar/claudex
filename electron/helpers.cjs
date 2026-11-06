@@ -353,13 +353,14 @@ function statusText(summary) {
 
 /**
  * The tray menu. `state` is { visible, status }; `actions` supplies
- * toggleWidget, openQa and quit.
+ * toggleWidget, openQa, checkUpdate and quit.
  */
 function trayMenuTemplate(state, actions) {
   return [
     { label: state.status ? `${APP_NAME} — ${state.status}` : APP_NAME, enabled: false },
     { type: 'separator' },
     { label: state.visible ? '숨기기' : '보이기', click: () => actions.toggleWidget() },
+    ...(actions.checkUpdate ? [{ label: '업데이트 확인', click: () => actions.checkUpdate() }] : []),
     ...(actions.openQa ? [{ label: '디자인 QA 페이지', click: () => actions.openQa() }] : []),
     { type: 'separator' },
     { label: `${APP_NAME} 끝내기`, click: () => actions.quit() },

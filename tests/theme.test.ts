@@ -28,10 +28,10 @@ describe('theme.ts session cast', () => {
     // no Pokémon yet: the name is the session's own, never "몬스터볼"
     expect(t.sessionName('aaa', 'Claude')).toBe('Claude')
     t.castSession('aaa', 7)
-    expect(t.sessionSprite('aaa')).toBe('/sprites/pokemon/art/7.png')
+    expect(t.sessionSprite('aaa')).toBe('/sprites/pokemon/icon/7.png')
     expect(t.sessionName('aaa', 'Claude')).toBe('꼬부기')
     t.castSession('aaa', 9, true)
-    expect(t.sessionSprite('aaa')).toBe('/sprites/pokemon/art-shiny/9.png')
+    expect(t.sessionSprite('aaa')).toBe('/sprites/pokemon/icon/9.png') // the games have no shiny box icon: ✨ in the name says it
     expect(t.sessionName('aaa', 'Claude')).toBe('✨거북왕')
   })
 
@@ -40,7 +40,7 @@ describe('theme.ts session cast', () => {
     t1.castSession('bbb', 25)
     vi.resetModules()
     const t2 = await import('../src/theme')
-    expect(t2.sessionSprite('bbb')).toBe('/sprites/pokemon/art/25.png')
+    expect(t2.sessionSprite('bbb')).toBe('/sprites/pokemon/icon/25.png')
   })
 
   it('ignores an unknown species and a corrupt saved cast', async () => {
@@ -48,7 +48,7 @@ describe('theme.ts session cast', () => {
     const t = await import('../src/theme')
     expect(t.sessionSprite('x')).toBe('/sprites/claudex-ball.png')
     expect(t.sessionSprite('y')).toBe('/sprites/claudex-ball.png')
-    expect(t.sessionSprite('z')).toBe('/sprites/pokemon/art/4.png')
+    expect(t.sessionSprite('z')).toBe('/sprites/pokemon/icon/4.png')
     t.castSession('w', 99999)
     expect(t.sessionSprite('w')).toBe('/sprites/claudex-ball.png')
   })

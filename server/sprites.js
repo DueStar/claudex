@@ -9,6 +9,11 @@
  *
  *   GET /sprites/pokemon/art/<id>.png        normal colours
  *   GET /sprites/pokemon/art-shiny/<id>.png  shiny
+ *   GET /sprites/pokemon/icon/<id>.png       the Scarlet/Violet box icon (small, facing a little
+ *                                            left; pokemondb.net, slugs in pokemon-icons.json): a
+ *                                            session in the panel and the terminal tabs. There is no
+ *                                            shiny icon. Kept at its own size (never scaled up); when
+ *                                            it cannot be had, the HOME artwork is sent instead.
  *   GET /sprites/items/<name>.png            an item's artwork (the Poké Ball), as is
  *   GET /sprites/balls/<id>.png              a Poké Ball: the bundled high-quality art when the
  *                                            build has it, else PokeAPI's small item icon
@@ -19,12 +24,16 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { PNG } from 'pngjs'
 
 export const SPRITE_SIZE = 128
 const SOURCE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home'
 const MAX_ID = 1025
+const ICON_SOURCE = 'https://img.pokemondb.net/sprites/scarlet-violet/icon'
+const ICON_SLUGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'pokemon-icons.json'), 'utf8')).slugs
+const KINDS = new Set(['art', 'art-shiny', 'icon'])
 const PARALLEL = 6
 const ITEMS = new Set(['poke-ball'])
 const BALL_ID = /^[a-z]+-ball$/
@@ -103,7 +112,10 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
     const job = (async () => {
       await slot()
       try {
-        const res = await fetchImpl(`${SOURCE}/${kind === 'art-shiny' ? 'shiny/' : ''}${id}.png`)
+        const url = kind === 'icon'
+          ? `${ICON_SOURCE}/${ICON_SLUGS[id]}.png`
+          : `${SOURCE}/${kind === 'art-shiny' ? 'shiny/' : ''}${id}.png`
+        const res = await fetchImpl(url, { headers: { 'User-Agent': 'Claudex' } })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const png = fitPng(Buffer.from(await res.arrayBuffer()))
         mkdirSync(join(cacheDir, kind), { recursive: true })
@@ -124,7 +136,7 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
     const { kind, file } = req.params
     const m = /^(\d{1,4})\.png$/.exec(file)
     const id = m ? Number(m[1]) : 0
-    if ((kind !== 'art' && kind !== 'art-shiny') || id < 1 || id > MAX_ID) return res.status(404).end()
+    if (!KINDS.has(kind) || id < 1 || id > MAX_ID || (kind === 'icon' && !ICON_SLUGS[id])) return res.status(404).end()
     res.set('Cache-Control', 'public, max-age=31536000, immutable')
     const local = join(uiDir, 'sprites', 'pokemon', kind, `${id}.png`)
     if (existsSync(local)) return res.type('png').send(readFileSync(local))
@@ -132,7 +144,8 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
       res.type('png').send(readFileSync(await obtain(kind, id)))
     } catch (err) {
       console.warn(`[sprites] ${kind}/${id}: ${err.message}`)
-      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/claudex-ball.png')
+      // No icon: the HOME artwork of the same Pokémon; no artwork: the Poké Ball stand-in
+      res.set('Cache-Control', 'no-store').redirect(302, kind === 'icon' ? `/sprites/pokemon/art/${id}.png` : '/sprites/claudex-ball.png')
     }
   })
 

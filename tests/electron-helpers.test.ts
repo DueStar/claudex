@@ -146,16 +146,17 @@ describe('the tray', () => {
     expect(h.statusText({ sessions: 3, working: 1, needsYou: 1 })).toBe('세션 3개 · 1개 일하는 중 · 1개 확인 필요')
   })
 
-  it('the menu: status, show or hide, the QA page, quit', () => {
-    const actions = { toggleWidget: vi.fn(), openQa: vi.fn(), quit: vi.fn() }
+  it('the menu: status, show or hide, check for an update, the QA page, quit', () => {
+    const actions = { toggleWidget: vi.fn(), openQa: vi.fn(), checkUpdate: vi.fn(), quit: vi.fn() }
     const labels = (t: any[]) => t.filter(i => i.type !== 'separator').map(i => i.label)
     const shown = h.trayMenuTemplate({ visible: true, status: '세션 1개' }, actions)
-    expect(labels(shown)).toEqual(['Claudex — 세션 1개', '숨기기', '디자인 QA 페이지', 'Claudex 끝내기'])
+    expect(labels(shown)).toEqual(['Claudex — 세션 1개', '숨기기', '업데이트 확인', '디자인 QA 페이지', 'Claudex 끝내기'])
     expect(shown[0].enabled).toBe(false)
     expect(labels(h.trayMenuTemplate({ visible: false, status: '' }, actions))).toContain('보이기')
     for (const item of shown.filter((i: any) => i.click)) item.click()
     expect(actions.toggleWidget).toHaveBeenCalledTimes(1)
     expect(actions.openQa).toHaveBeenCalledTimes(1)
+    expect(actions.checkUpdate).toHaveBeenCalledTimes(1)
     expect(actions.quit).toHaveBeenCalledTimes(1)
     // No QA action: no QA item
     expect(labels(h.trayMenuTemplate({ visible: true, status: '' }, { toggleWidget() {}, quit() {} }))).not.toContain('디자인 QA 페이지')
