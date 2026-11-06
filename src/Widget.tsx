@@ -240,7 +240,6 @@ const Widget: React.FC = () => {
     if ('error' in r) { setNote(`세션을 열 수 없어요: ${r.error}`); return }
     const t = await bridge.game.throw(r.sessionId, uid)
     if (!t.ok) setNote(`포켓몬을 보내지 못했어요 (${t.reason ?? '알 수 없음'})`)
-    else if (!where.resume) setNote('가랏! 처음 여는 폴더면 터미널에서 신뢰 확인을 해주세요.')
     setTarget(r.sessionId)
     if (where.resume) { setView('terminal'); setExpanded(true) }
   }
