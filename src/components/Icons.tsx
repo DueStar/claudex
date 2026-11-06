@@ -62,6 +62,10 @@ export const MinimizeIcon: React.FC<P> = (p) => (
 export const CloseIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M4 4l8 8M12 4l-8 8" /></Svg>
 )
+/** A paper plane: send the instruction */
+export const SendIcon: React.FC<P> = (p) => (
+  <Svg {...p}><path d="M14 2L7 9M14 2l-4.5 12-2.5-5-5-2.5z" /></Svg>
+)
 export const PlusIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M8 3v10M3 8h10" /></Svg>
 )

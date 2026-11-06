@@ -351,3 +351,30 @@ describe('app lifecycle', () => {
     expect(main).toContain("pageWith('qa')")
   })
 })
+
+describe('snapTarget: Windows Snap for the transparent window', () => {
+  // A 1920×1080 screen with a 40px taskbar at the bottom
+  const display = { bounds: { x: 0, y: 0, width: 1920, height: 1080 }, workArea: { x: 0, y: 0, width: 1920, height: 1040 } }
+
+  it('the left and right edges take that half of the work area, the top edge all of it', () => {
+    expect(h.snapTarget({ x: 0, y: 500 }, display)).toEqual({ zone: 'left', bounds: { x: 0, y: 0, width: 960, height: 1040 } })
+    expect(h.snapTarget({ x: 1919, y: 500 }, display)).toEqual({ zone: 'right', bounds: { x: 960, y: 0, width: 960, height: 1040 } })
+    expect(h.snapTarget({ x: 900, y: 0 }, display)).toEqual({ zone: 'full', bounds: { x: 0, y: 0, width: 1920, height: 1040 } })
+  })
+
+  it('away from the edges nothing snaps; a second screen uses its own edges', () => {
+    expect(h.snapTarget({ x: 20, y: 500 }, display)).toBeNull()
+    expect(h.snapTarget({ x: 900, y: 1079 }, display)).toBeNull()
+    expect(h.snapTarget(null, display)).toBeNull()
+    const right = { bounds: { x: 1920, y: 0, width: 1280, height: 1024 }, workArea: { x: 1920, y: 0, width: 1280, height: 984 } }
+    expect(h.snapTarget({ x: 1921, y: 400 }, right)).toEqual({ zone: 'left', bounds: { x: 1920, y: 0, width: 640, height: 984 } })
+  })
+
+  it('dragged off a snap, the window goes back to its own size under the cursor, on screen', () => {
+    const wa = display.workArea
+    expect(h.unsnapBounds({ x: 960, y: 200 }, { width: 1200, height: 760 }, wa, { width: 300, height: 540 }))
+      .toEqual({ x: 360, y: 184, width: 1200, height: 760 })
+    expect(h.unsnapBounds({ x: 10, y: 1000 }, { width: 1200, height: 760 }, wa, { width: 300, height: 540 }))
+      .toEqual({ x: 0, y: 280, width: 1200, height: 760 })
+  })
+})

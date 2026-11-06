@@ -222,7 +222,7 @@
 /* ---------- Party lineup and swaps ---------- */
 .w-party-head { display: flex; align-items: center; gap: 12px; }
 .w-party-slots { display: flex; gap: 7px; flex: 1; }
-.w-party-slots img { width: 24px; height: 24px; object-fit: contain; opacity: 0.45; filter: grayscale(0.3); }
+.w-party-slots img { width: 28px; height: 28px; object-fit: contain; opacity: 0.45; filter: grayscale(0.3); }
 .w-party-slots img.out { opacity: 1; filter: none; }
 .w-party-free { font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
 .w-row-swap {

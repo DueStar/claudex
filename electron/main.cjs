@@ -17,6 +17,8 @@ const {
   reopenAction,
   childSlot,
   clampBounds,
+  snapTarget,
+  unsnapBounds,
   readWindowState,
   writeWindowState,
   runtimeDirFromEnv,
@@ -439,6 +441,15 @@ function pageWith(query) {
   return `${base}?${query}${fragment ? `#${fragment}` : ''}`
 }
 
+/** The size of the half the window is snapped to, or null (see the 'moved' handler). */
+let snapped = null
+/** Change the mode the page shows without moving the window (it was moved by hand). */
+function setModeQuietly(mode) {
+  state.widgetMode = mode
+  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.webContents.send('widget:mode', mode)
+  saveState()
+}
+
 function createWidgetWindow() {
   if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
   const url = pageWith('widget')
@@ -490,12 +501,44 @@ function createWidgetWindow() {
     if (!widgetWin || widgetWin.isDestroyed() || widgetWin.isFullScreen() || state.widgetMode === 'fullscreen') return
     const b = widgetWin.getBounds()
     state.widgetBounds = b
-    if (state.widgetExpanded) state.widgetExpandedSize = { width: b.width, height: b.height }
+    // A snapped half is not the window's own size: keep the size it goes back to
+    const isSnapped = snapped && b.width === snapped.width && b.height === snapped.height
+    if (state.widgetExpanded && !isSnapped) state.widgetExpandedSize = { width: b.width, height: b.height }
     else state.widgetCompactSize = { width: b.width, height: b.height }
     scheduleSave()
   }
   widgetWin.on('move', remember)
   widgetWin.on('resize', remember)
+  // Snap like Windows does (a transparent window does not get Windows Snap):
+  // dropped with the cursor on the left or right edge it takes that half of
+  // the screen, on the top edge the whole of it; dragged off a snap it goes
+  // back to its own size. Only the window and full-screen modes snap.
+  widgetWin.on('moved', () => {
+    if (!widgetWin || widgetWin.isDestroyed() || !state.widgetExpanded) return
+    const mode = state.widgetMode ?? 'widget'
+    if (mode !== 'window' && mode !== 'fullscreen') return
+    const cursor = screen.getCursorScreenPoint()
+    const display = screen.getDisplayNearestPoint(cursor)
+    const snap = snapTarget(cursor, display)
+    if (snap?.zone === 'full') {
+      snapped = null
+      if (mode !== 'fullscreen') setWidgetMode('fullscreen')
+      else widgetWin.setBounds(snap.bounds)
+      return
+    }
+    if (snap) {
+      snapped = { width: snap.bounds.width, height: snap.bounds.height }
+      widgetWin.setBounds(snap.bounds)
+      if (mode === 'fullscreen') setModeQuietly('window')
+      return
+    }
+    if (mode === 'fullscreen' || snapped) {
+      snapped = null
+      const size = widgetSize(true, display.workArea)
+      widgetWin.setBounds(unsnapBounds(cursor, size, display.workArea, WIDGET_MIN))
+      if (mode === 'fullscreen') setModeQuietly('window')
+    }
+  })
   widgetWin.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
@@ -564,6 +607,7 @@ function setWidgetMode(mode) {
   const w = createWidgetWindow()
   if (!w) return state.widgetMode ?? 'widget'
   if (w.isFullScreen() && mode !== 'fullscreen') w.setFullScreen(false)
+  snapped = null
   state.widgetMode = mode
   if (mode === 'widget') {
     setWidgetExpanded(false)

@@ -268,7 +268,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 }
 .w-chip:hover { color: var(--ink); }
 .w-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-/* The textarea takes the full width and 보내기 sits under it, on the right */
+/* The textarea takes the full width and 보내기 sits under it, as wide as it */
 .w-input { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .w-input textarea {
   flex: 1;
@@ -285,7 +285,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-input textarea::placeholder { color: var(--ink-3); }
 .w-input textarea:focus { outline: none; border-color: rgba(255, 216, 74, 0.6); }
 .w-send {
-  align-self: flex-end;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font: inherit;
   font-weight: 700;
   font-size: 12px;
@@ -296,6 +300,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   color: var(--accent-ink);
   cursor: pointer;
 }
+.w-send:hover:not(:disabled) { background: var(--accent-hover); }
 .w-send:disabled { background: #2a2e39; color: var(--ink-3); cursor: default; }
 .w-note {
   font-size: 11.5px;

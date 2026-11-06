@@ -16,12 +16,13 @@ import { useAgentSocket } from './hooks/useAgentSocket'
 import { officeWsUrl } from './serverUrl'
 import { dispatchMeters, useMeters, formatClockTime, contextTone, type SessionStatus } from './meters'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
-import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, pokemonById } from './theme'
+import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
 import PokedexView from './components/PokedexView'
-import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import PatchNotes from './components/PatchNotes'
+import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 import BoxView from './components/BoxView'
 import TodayLog from './components/TodayLog'
 import { TerminalView, ResumePicker } from './components/TerminalPanel'
@@ -416,7 +417,7 @@ ${update.notes}` : ''}${update.error ? `
               <span className={`w-dex-box${dex && dex.box.length >= (dex.boxLimit ?? 1200) ? ' full' : ''}`}>박스 {dex?.box.length ?? 0}/{dex?.boxLimit ?? 1200} · 오늘 {(dex?.today ?? []).filter(e => e.kind === 'catch').length}마리</span></span>
             <span className="w-dex-recent">
               {(dex?.log ?? []).filter(e => e.kind === 'catch').slice(-6).reverse().map((e, i) => (
-                <img key={`${e.at}-${i}`} src={spriteUrl(e.id, !!e.shiny)} alt={e.name} title={e.name} />
+                <img key={`${e.at}-${i}`} src={iconUrl(e.id)} alt={e.name} title={`${e.shiny ? '✨ ' : ''}${e.name}`} />
               ))}
             </span>
           </button>
@@ -428,7 +429,7 @@ ${update.notes}` : ''}${update.error ? `
                 {(dex?.party ?? []).map(uid => {
                   const m = dex?.mons?.[uid]
                   const out = Object.values(dex?.assign ?? {}).includes(uid)
-                  return m ? <img key={uid} src={spriteUrl(m.dex, m.shiny)} alt={pokemonById(m.dex)?.ko} title={`${pokemonById(m.dex)?.ko}${out ? ' · 일하는 중' : ' · 쉬는 중'}`} className={out ? 'out' : ''} /> : null
+                  return m ? <img key={uid} src={iconUrl(m.dex)} alt={pokemonById(m.dex)?.ko} title={`${m.shiny ? '✨ ' : ''}${pokemonById(m.dex)?.ko}${out ? ' · 일하는 중' : ' · 쉬는 중'}`} className={out ? 'out' : ''} /> : null
                 })}
               </span>
               <span className="w-party-free">{dex ? `${freePartyCount(dex)}마리 대기` : ''}</span>
@@ -534,7 +535,9 @@ ${update.notes}` : ''}${update.error ? `
                 disabled={!chosen}
                 rows={2}
               />
-              <button className="w-send" onClick={send} disabled={!chosen || !text.trim()} aria-label="보내기">보내기</button>
+              <button className="w-send" onClick={send} disabled={!chosen || !text.trim()} >
+                <SendIcon size={14} /> 보내기
+              </button>
             </div>
           </section>
         </div>
@@ -656,6 +659,7 @@ ${update.notes}` : ''}${update.error ? `
           </div>
         </div>
       )}
+      <PatchNotes />
       {mode !== 'fullscreen' && <ResizeGrip />}
     </div>
   )

@@ -254,6 +254,35 @@ function clampBounds(bounds, workArea, min = { width: 1, height: 1 }) {
   return { x, y, width, height }
 }
 
+/**
+ * Where a window dropped at `cursor` snaps, like Windows Snap (which a
+ * transparent window does not get): the cursor against the left or right
+ * edge of the screen takes that half of the work area, against the top edge
+ * the whole of it. `display` is Electron's ({ bounds, workArea }). null when
+ * the cursor is not at an edge. Within `edge` pixels counts as at the edge.
+ */
+function snapTarget(cursor, display, edge = 8) {
+  if (!cursor || !display || !display.bounds || !display.workArea) return null
+  const { bounds: sb, workArea: wa } = display
+  if (!isFiniteNumber(cursor.x) || !isFiniteNumber(cursor.y)) return null
+  const half = Math.floor(wa.width / 2)
+  if (cursor.y <= sb.y + edge) return { zone: 'full', bounds: { x: wa.x, y: wa.y, width: wa.width, height: wa.height } }
+  if (cursor.x <= sb.x + edge) return { zone: 'left', bounds: { x: wa.x, y: wa.y, width: half, height: wa.height } }
+  if (cursor.x >= sb.x + sb.width - 1 - edge) return { zone: 'right', bounds: { x: wa.x + half, y: wa.y, width: wa.width - half, height: wa.height } }
+  return null
+}
+
+/**
+ * Where a snapped (or full-screen) window goes when it is dragged off its
+ * snap: back to its own `size`, under the cursor the way Windows restores a
+ * window, inside the work area.
+ */
+function unsnapBounds(cursor, size, workArea, min) {
+  const x = Math.round(cursor.x - size.width / 2)
+  const y = Math.round(cursor.y - 16)
+  return clampBounds({ x, y, width: size.width, height: size.height }, workArea, min)
+}
+
 // ---------------------------------------------------------------------------
 // window-state.json
 // ---------------------------------------------------------------------------
@@ -389,6 +418,8 @@ module.exports = {
   redactLink,
   isRect,
   clampBounds,
+  snapTarget,
+  unsnapBounds,
   sanitizeWindowState,
   readWindowState,
   writeWindowState,

@@ -104,7 +104,9 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 오늘 기록 탭(`TodayLog`, publicState.today)
    - 디자인 QA 페이지(`?qa`, 트레이 메뉴, `QaPage.tsx`)
    - 나중에 할 일: 설정 페이지(글자 크기 등을 한곳에 모으기)
-   - 캡처 팁: Claudex 터미널 안에서는 Electron 출력이 보이지 않는다. 오프스크린 paint 방식으로 캡처한다.
+   - 캡처 팁: Claudex 터미널 안에서는 Electron 창 캡처(`AGENT_OFFICE_SCREENSHOT`)가 흰 화면으로 나온다. 오프스크린 paint 방식으로 캡처한다.
+     - 격리 서버: `AGENT_OFFICE_HOME=<임시 폴더> AGENT_OFFICE_PORT=3344 node server/index.js` (먼저 `npx vite build`)
+     - 캡처 앱: `tools/_cache/shot/`(gitignore, main.cjs + 가짜 브리지 preload.cjs). 토큰 주소는 인자로 넘기면 Git Bash에서 실행이 127로 실패하므로 환경변수로 넘긴다: `SHOT_URL="http://127.0.0.1:3344/?widget#token=<토큰>" SHOT_OUT=<png> npx electron tools/_cache/shot` (SHOT_W·SHOT_H·SHOT_JS, SHOT_VERSION은 가짜 업데이트 상태의 현재 버전)
 4. **코드 서명**: 사용자는 비용을 쓸 수 없다. 무료로 할 수 있는 건 SignPath Foundation(오픈소스 무료 서명, 심사 있음, 포켓몬 IP 때문에 승인 불확실)뿐이다. 그 전까지는 서명 없이 배포하고 README에 SmartScreen 안내를 둔다. NSIS 수정도 남아 있다. macOS와 리더보드는 나중에 한다. 클라우드 저장 축소는 사용자가 고민 중이다.
 5. **이벤트 볼 지급 방식**(업적 보상 등)은 아직 미정이다.
 6. **같은 세션을 일반 터미널과 Claudex에서 동시에 이어 열지 않는다**(기록이 섞인다).
@@ -143,7 +145,8 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 남은 일: 앱 아이콘. 아이콘은 512px로 만들기 때문에 256px보다 작은 포켓볼은 쓰지 않는다(흐려진다). 60px 썸네일뿐이라 지금은 그린 아이콘이 유지된다. 사용자가 원본 크기 `Bag_Poké_Ball_SV_Sprite.png`를 Bulbagarden "Original file" 링크로 직접 받아 `Downloads`에 두면(자동 다운로드·우회 금지) 가져오기 → 릴리스 빌드 → **전체 재설치**(exe 아이콘은 재설치해야 바뀐다).
    - **원칙: 릴리스는 볼 그림을 가져온 PC에서 만든다.** 볼 그림이 없으면 `release.mjs`가 크게 경고하고, `--publish`는 거부한다.
 7. **재빌드와 재설치**(`%LOCALAPPDATA%\Claudex`). 띵동 소리가 안 나는지, `/health`의 `clients: 1`인지 확인한다. 1.3.4는 업데이트 버튼으로 받아서 업데이트 흐름도 같이 확인한다.
-7-1. **세션 그림은 SV 박스 아이콘** — 1.3.5에서 적용(사용자 결정, 2026-11-07: 도감·박스는 HOME 그림, 터미널 옆 패널과 위 세션 탭은 SV 아이콘)
+7-1. **세션 그림은 SV 박스 아이콘** — 1.3.5에서 적용(사용자 결정, 2026-11-07: 도감·박스는 HOME 그림, 터미널 옆 패널과 위 세션 탭은 SV 아이콘). 1.3.6에서 파티 줄과 도감 카드의 최근 잡은 포켓몬도 SV 아이콘으로 바꿨다. 교체·던지기 창과 알림은 HOME 그림 그대로다.
+7-2. **1.3.6 추가**: 업데이트 후 첫 실행에 패치노트 창(`src/patchNotes.ts`, `PatchNotes.tsx`: CHANGELOG의 Claudex 부분을 앱에 넣고, 마지막으로 본 버전은 localStorage `claudex-seen-version`). 처음 보는 PC는 현재 버전만 보여준다. **그래서 CHANGELOG는 사용자에게 보이는 글이다: 릴리스마다 `### x.y.z`를 한글로 쓴다**(테스트가 package.json 버전 항목이 있는지 확인한다). 창 모드 스냅은 투명 창이라 Windows 스냅이 안 돼서 `moved` 이벤트에서 직접 맞춘다(`snapTarget`·`unsnapBounds`, 좌우 반·위쪽 전체, 1/4은 위젯 최소 높이 540 때문에 뺐다).
    - `theme.ts`의 `iconUrl()`과 `sessionSprite()` → `/sprites/pokemon/icon/<id>.png` → `server/sprites.js`가 pokemondb에서 처음 쓸 때 받아 `<runtime dir>/sprites/icon/`에 둔다(잘라내기만 하고 키우지 않는다). 받지 못하면 HOME 그림으로 넘긴다. 그림은 각 PC가 직접 받으므로 Supabase 사용량과는 관계없다.
    - 종 번호 → 아이콘 이름은 `server/pokemon-icons.json`(`tools/fetch-pokemon-icons.py`로 생성). 폼이 있는 40종은 기본 폼 이름이다(`deoxys-normal` 등).
    - 이로치 아이콘은 없다. 이름의 ✨로 구분한다(`sessionName`).
