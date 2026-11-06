@@ -17,6 +17,8 @@ export interface TerminalInfo {
   exitCode: number | null
   /** The trainer's name for the session, if given */
   title: string | null
+  /** Claude Code is waiting on a question (folder trust, a permission, a choice) */
+  asking?: boolean
 }
 
 export interface PastSession {

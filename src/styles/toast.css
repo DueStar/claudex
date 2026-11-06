@@ -54,3 +54,5 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
 .toast-host .w-toast-via.warn { color: #ffb54a; }
 .toast-host .w-toast-ball { display: inline-flex; align-items: center; gap: 4px; color: #d7dae3; font-weight: 600; }
 .toast-host .w-toast-lv { font-weight: 700; color: #d7dae3; font-variant-numeric: tabular-nums; }
+/* the ball beside the level: a small mark, not the big picture rule above */
+.toast-host .w-toast .w-toast-ball img { width: 14px; height: 14px; max-width: none; }

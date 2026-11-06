@@ -8,6 +8,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont } from '../termFont'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, useTerminals, type PastSession, type TerminalInfo } from '../desktop'
 import { getAvatarPath, themedDisplayName, useTheme } from '../theme'
@@ -34,7 +35,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
       // Monaspace Neon for code. It has no Hangul, so Korean falls through to
       // Pretendard; the WebGL renderer keeps every glyph on the cell grid
       fontFamily: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', Consolas, monospace",
-      fontSize: 13,
+      fontSize: getTermFont(),
       lineHeight: 1.15,
       cursorBlink: true,
       scrollback: 5000,
@@ -71,6 +72,13 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     }
     host.addEventListener('dragover', onDragOver)
     host.addEventListener('drop', onDrop)
+    // Ctrl+wheel: bigger or smaller text, in every terminal at once
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      stepTermFont(e.deltaY < 0 ? 1 : -1)
+    }
+    host.addEventListener('wheel', onWheel, { passive: false })
 
     let disposed = false
     bridge.terminals.buffer(term.id).then((buf) => { if (!disposed && buf) xterm.write(buf) })
@@ -79,6 +87,10 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     // Ctrl+V pastes, Ctrl+C copies when there is a selection (else it is ^C for Claude)
     xterm.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true
+      // Ctrl+= / Ctrl+- / Ctrl+0: text size
+      if (e.ctrlKey && !e.altKey && (e.key === '=' || e.key === '+')) { stepTermFont(1); return false }
+      if (e.ctrlKey && !e.altKey && e.key === '-') { stepTermFont(-1); return false }
+      if (e.ctrlKey && !e.altKey && e.key === '0') { resetTermFont(); return false }
       // Shift+Enter: a new line in the prompt instead of sending it (Claude Code reads ESC+CR as a newline)
       if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.altKey) {
         bridge!.terminals.write(term.id, '\x1b\r')
@@ -118,6 +130,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     // below the bottom edge
     const refont = () => { if (disposed) return; xterm.options.fontFamily = xterm.options.fontFamily; doFit() }
     document.fonts.load("13px 'Monaspace Neon Var'").then(refont, () => {})
+    // The shared text size changed: apply it and fit again
+    const offFont = subscribeTermFont(() => { xterm.options.fontSize = getTermFont(); doFit() })
     document.fonts.addEventListener('loadingdone', refont)
     document.addEventListener('visibilitychange', doFit)
     window.addEventListener('focus', doFit)
@@ -126,6 +140,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
       disposed = true
       host.removeEventListener('dragover', onDragOver)
       host.removeEventListener('drop', onDrop)
+      host.removeEventListener('wheel', onWheel)
+      offFont()
       document.fonts.removeEventListener('loadingdone', refont)
       document.removeEventListener('visibilitychange', doFit)
       window.removeEventListener('focus', doFit)

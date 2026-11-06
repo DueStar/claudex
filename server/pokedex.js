@@ -315,6 +315,8 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
       pityMythical: PITY_MYTHICAL,
       total: species.length,
       log: state.log.slice(-30),
+      // Today's story (local day): catches, flees, evolutions, level-ups, releases
+      today: state.log.filter(e => localDay(e.at) === localDay(now())),
     }
   }
 
@@ -528,7 +530,7 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
       }
     }
     const fresh = uid ? state.mons[uid] : null
-    const event = { kind: caught ? 'catch' : 'flee', id: sp.id, name: sp.ko, tier, shiny, place, via, gender: fresh?.gender ?? null, nature: fresh?.nature ?? null, ball, level, sessionId, partner: mon?.dex, pity, attendance, uid, toProfessor, at: now() }
+    const event = { kind: caught ? 'catch' : 'flee', id: sp.id, name: sp.ko, tier, shiny, place, via, gender: fresh?.gender ?? null, nature: fresh?.nature ?? null, ball, level, newSpecies: caught && (state.caught[sp.id]?.count ?? 0) === 1, sessionId, partner: mon?.dex, pity, attendance, uid, toProfessor, at: now() }
     pushLog(event)
     return event
   }
@@ -540,7 +542,8 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
 
   function pushLog(event) {
     state.log.push(event)
-    if (state.log.length > 200) state.log = state.log.slice(-200)
+    if (state.log.length > 600) state.log = state.log.slice(-600)
+    return event
   }
 
   function isFinal(dex) {
@@ -636,7 +639,7 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
         if (last !== undefined && now() - last <= WORK_GAP_MS && now() > last) {
           const before = levelOf(mon)
           mon.workMs = (mon.workMs ?? 0) + (now() - last)
-          if (levelOf(mon) > before && !event) event = { kind: 'levelup', id: mon.dex, name: byId.get(mon.dex)?.ko, level: levelOf(mon), sessionId, uid: mon.uid, shiny: mon.shiny, at: now() }
+          if (levelOf(mon) > before && !event) event = pushLog({ kind: 'levelup', id: mon.dex, name: byId.get(mon.dex)?.ko, level: levelOf(mon), sessionId, uid: mon.uid, shiny: mon.shiny, at: now() })
         }
         lastWorkAt.set(sessionId, now())
         mon.steps += 1

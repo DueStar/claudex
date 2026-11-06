@@ -571,6 +571,7 @@ function trayMenuTemplate(state, actions) {
     { label: 'Reset window size', ...hint('resetBounds'), click: () => actions.resetBounds() },
     { type: 'separator' },
     { label: 'Open in browser', ...hint('openInBrowser'), click: () => actions.openInBrowser() },
+    ...(actions.openQa ? [{ label: '디자인 QA 페이지', click: () => actions.openQa() }] : []),
     { type: 'separator' },
     { label: `Quit ${APP_NAME}`, click: () => actions.quit() },
   ]

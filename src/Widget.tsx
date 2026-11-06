@@ -18,9 +18,11 @@ import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, TIER_LABEL, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
 import PokedexView from './components/PokedexView'
-import { BoxIcon, DexIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, TodayIcon, DexIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 import BoxView from './components/BoxView'
+import TodayLog from './components/TodayLog'
 import { TerminalView, ResumePicker } from './components/TerminalPanel'
+import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
@@ -116,9 +118,10 @@ const Widget: React.FC = () => {
     return bridge?.update.onState(setUpdate)
   }, [])
   const [renaming, setRenaming] = useState<string | null>(null)
+  const termFont = useTermFont()
   const [mode, setModeState] = useState<WidgetMode>('widget')
   const expanded = mode !== 'widget'
-  const [view, setView] = useState<'terminal' | 'dex' | 'box'>('terminal')
+  const [view, setView] = useState<'terminal' | 'dex' | 'box' | 'today'>('terminal')
   const { state: dex, lastEvent } = usePokedex()
   const { isNew } = useViewed()
   const hasNew = Object.keys(dex?.caught ?? {}).some(id => isNew(Number(id)))
@@ -197,6 +200,8 @@ const Widget: React.FC = () => {
   const FULL_NOTE = `파티의 포켓몬 ${dex?.partySize ?? 6}마리가 모두 일하고 있어서 새 세션을 열 수 없어요. 세션 하나를 닫으면 그 포켓몬이 돌아와요.`
   const chosen = sendable.find(r => r.sessionId === target) ?? sendable[0]
   const shown = withTerminal.find(r => r.sessionId === target) ?? chosen ?? withTerminal[0]
+  // In widget mode, the first session waiting on a question (its own output, or the hooks' needs-you)
+  const askRow = expanded ? undefined : withTerminal.find(r => r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you'))
 
   // A new terminal (opened here, or from the office) becomes the one in front
   const lastCount = useRef(terminals.length)
@@ -387,7 +392,7 @@ ${update.notes}` : ''}${update.error ? `
             <span className="w-label">도감</span>
             {hasNew && <span className="w-new-dot corner" aria-label="새로 잡은 포켓몬" />}
             <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span>
-              <span className={`w-dex-box${dex && dex.box.length >= (dex.boxLimit ?? 1200) ? ' full' : ''}`}>박스 {dex?.box.length ?? 0}/{dex?.boxLimit ?? 1200}</span></span>
+              <span className={`w-dex-box${dex && dex.box.length >= (dex.boxLimit ?? 1200) ? ' full' : ''}`}>박스 {dex?.box.length ?? 0}/{dex?.boxLimit ?? 1200} · 오늘 {(dex?.today ?? []).filter(e => e.kind === 'catch').length}마리</span></span>
             <span className="w-dex-recent">
               {(dex?.log ?? []).filter(e => e.kind === 'catch').slice(-6).reverse().map((e, i) => (
                 <img key={`${e.at}-${i}`} src={spriteUrl(e.id, !!e.shiny)} alt={e.name} title={e.name} />
@@ -479,6 +484,23 @@ ${update.notes}` : ''}${update.error ? `
             ))}
           </section>
 
+          {/* A question Claude Code cannot go on without (folder trust, a permission):
+              in widget mode its terminal opens right here, small, until it is answered */}
+          {askRow?.terminal && (
+            <section className="w-card w-ask" role="alert">
+              <div className="w-ask-head">
+                <span className="w-ask-dot" />
+                <b>{askRow.title ?? askRow.name}</b>
+                <span>의 확인이 필요해요</span>
+                <button className="w-ask-open" onClick={() => { setTarget(askRow.sessionId); setView('terminal'); setMode('window') }} title="창 모드로 펼쳐서 보기">펼치기</button>
+              </div>
+              <div className="w-ask-term">
+                <TerminalView key={`ask-${askRow.terminal.id}`} term={askRow.terminal} active />
+              </div>
+              <div className="w-ask-hint">↑↓로 고르고 Enter, 그만두려면 Esc</div>
+            </section>
+          )}
+
           <section className="w-card w-compose">
             <div className="w-input">
               <textarea
@@ -505,6 +527,7 @@ ${update.notes}` : ''}${update.error ? `
               <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')}><TerminalIcon size={14} />터미널</button>
               <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')}><DexIcon size={14} />도감{hasNew && <span className="w-new-dot" aria-label="새로 잡은 포켓몬" />}</button>
               <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')}><BoxIcon size={14} />박스</button>
+              <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')}><TodayIcon size={14} />오늘</button>
             </div>
             {view === 'terminal' && withTerminal.map(r => (
               <button
@@ -522,6 +545,13 @@ ${update.notes}` : ''}${update.error ? `
               </button>
             ))}
             <span className="w-term-spacer" />
+            {view === 'terminal' && (
+              <div className="w-view-switch w-font-switch" role="group" aria-label="글자 크기 (Ctrl+휠로도 바꿀 수 있어요)" title="글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-">
+                {FONT_PRESETS.map(p => (
+                  <button key={p.label} className={termFont === p.size ? 'on' : ''} onClick={() => setTermFont(p.size)} style={{ fontSize: 9 + FONT_PRESETS.indexOf(p) * 2 }}>가</button>
+                ))}
+              </div>
+            )}
             <div className="w-view-switch w-mode-switch" role="group" aria-label="화면 모드">
               <button className="icon-only" onClick={() => setMode('widget')} title="위젯 (작게, 항상 위)" aria-label="위젯"><WidgetModeIcon /></button>
               <button className={`icon-only${mode === 'window' ? ' on' : ''}`} onClick={() => setMode('window')} title="창 모드" aria-label="창 모드"><WindowModeIcon /></button>
@@ -531,6 +561,7 @@ ${update.notes}` : ''}${update.error ? `
           </div>
           {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}
           {view === 'box' && <div className="w-dex-body"><BoxView /></div>}
+          {view === 'today' && <div className="w-dex-body"><TodayLog /></div>}
           <div className="w-term-body" style={{ display: view === 'terminal' ? undefined : 'none' }}>
             {withTerminal.length === 0 && (
               <div className="w-term-empty">

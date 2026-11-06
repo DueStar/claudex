@@ -17,6 +17,34 @@ function durationOf(e: DexEvent): number {
   return rare ? 10000 : 5500
 }
 
+/** One notification card: the toast window shows it, and the QA page (?qa) lays every kind out */
+export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; onClick?: () => void }> = ({ t, leaving = false, onClick }) => (
+  <div
+    className={`w-toast kind-${t.kind} tier-${t.tier ?? 'common'}${t.shiny ? ' shiny' : ''}${leaving ? ' leaving' : ''}`}
+    onClick={onClick}
+    role="status"
+  >
+    <img src={spriteUrl(t.id, !!t.shiny)} alt="" />
+    <div className="w-toast-text">
+      {t.attendance && <span className="w-toast-badge">오늘의 출석 조우!</span>}
+      <span className="w-toast-line">
+        {t.kind === 'catch' && <><b>{t.shiny ? '✦ 빛나는 ' : ''}{t.name}{genderMark(t.gender)}</b>을(를) 잡았다!{t.pity ? ' (천장)' : ''}</>}
+        {t.kind === 'flee' && <>야생의 <b>{t.name}</b>이(가) 도망쳤다…</>}
+        {t.kind === 'evolve' && <><b>{t.fromName}</b>이(가) <b>{t.name}</b>(으)로 진화했다!</>}
+        {t.kind === 'levelup' && <><b>{t.shiny ? '✦ ' : ''}{t.name}</b>의 레벨이 <b>{t.level}</b>(으)로 올랐다!</>}
+      </span>
+      <span className="w-toast-sub">
+        {t.kind === 'catch' && t.level && <span className="w-toast-lv">Lv.{t.level}</span>}
+        {t.kind === 'catch' && t.ball && <span className="w-toast-ball"><PokeBall ball={t.ball} size={14} />{ballName(t.ball)}</span>}
+        {t.tier && <span className={`w-toast-tier tier-${t.tier}`}>{TIER_LABEL[t.tier]}</span>}
+        {t.nature ? `${NATURE_BY_ID.get(t.nature)?.ko} · ` : ''}{t.place}
+      </span>
+      {t.via && <span className="w-toast-via">{sourceText(t.via)} 포획</span>}
+      {t.toProfessor && <span className="w-toast-via warn">박스가 꽉 차서 박사님께 보냈어요 (도감엔 등록됨)</span>}
+    </div>
+  </div>
+)
+
 const Toast: React.FC = () => {
   const queue = useRef<DexEvent[]>([])
   const [current, setCurrent] = useState<DexEvent | null>(null)
@@ -49,31 +77,7 @@ const Toast: React.FC = () => {
 
   return (
     <div className="widget toast-host">
-      <div
-        key={`${t.at}-${t.id}`}
-        className={`w-toast kind-${t.kind} tier-${t.tier ?? 'common'}${t.shiny ? ' shiny' : ''}${leaving ? ' leaving' : ''}`}
-        onClick={dismiss}
-        role="status"
-      >
-        <img src={spriteUrl(t.id, !!t.shiny)} alt="" />
-        <div className="w-toast-text">
-          {t.attendance && <span className="w-toast-badge">오늘의 출석 조우!</span>}
-          <span className="w-toast-line">
-            {t.kind === 'catch' && <><b>{t.shiny ? '✦ 빛나는 ' : ''}{t.name}{genderMark(t.gender)}</b>을(를) 잡았다!{t.pity ? ' (천장)' : ''}</>}
-            {t.kind === 'flee' && <>야생의 <b>{t.name}</b>이(가) 도망쳤다…</>}
-            {t.kind === 'evolve' && <><b>{t.fromName}</b>이(가) <b>{t.name}</b>(으)로 진화했다!</>}
-            {t.kind === 'levelup' && <><b>{t.shiny ? '✦ ' : ''}{t.name}</b>의 레벨이 <b>{t.level}</b>(으)로 올랐다!</>}
-          </span>
-          <span className="w-toast-sub">
-            {t.kind === 'catch' && t.level && <span className="w-toast-lv">Lv.{t.level}</span>}
-            {t.kind === 'catch' && t.ball && <span className="w-toast-ball"><PokeBall ball={t.ball} size={14} />{ballName(t.ball)}</span>}
-            {t.tier && <span className={`w-toast-tier tier-${t.tier}`}>{TIER_LABEL[t.tier]}</span>}
-            {t.nature ? `${NATURE_BY_ID.get(t.nature)?.ko} · ` : ''}{t.place}
-          </span>
-          {t.via && <span className="w-toast-via">{sourceText(t.via)} 포획</span>}
-          {t.toProfessor && <span className="w-toast-via warn">박스가 꽉 차서 박사님께 보냈어요 (도감엔 등록됨)</span>}
-        </div>
-      </div>
+      <ToastCard key={`${t.at}-${t.id}`} t={t} leaving={leaving} onClick={dismiss} />
     </div>
   )
 }

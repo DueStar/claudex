@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import Widget from './Widget'
 import Toast from './Toast'
+import QaPage from './QaPage'
 import { isDesktop } from './desktop'
 import { loadRuntimeConfig } from './config'
 import { captureOfficeToken } from './officeToken'
@@ -14,14 +15,16 @@ captureOfficeToken()
 
 const isWidget = new URLSearchParams(window.location.search).has('widget')
 const isToast = new URLSearchParams(window.location.search).has('toast')
-if (isToast) document.documentElement.classList.add('toast-mode')
+const isQa = new URLSearchParams(window.location.search).has('qa')
+if (isQa) document.documentElement.classList.add('qa-mode')
+else if (isToast) document.documentElement.classList.add('toast-mode')
 else if (isWidget) document.documentElement.classList.add('widget-mode')
 else if (isDesktop) document.documentElement.classList.add('desktop')
 
 function render() {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      {isToast ? <Toast /> : isWidget ? <Widget /> : <App />}
+      {isQa ? <QaPage /> : isToast ? <Toast /> : isWidget ? <Widget /> : <App />}
     </React.StrictMode>,
   )
 }

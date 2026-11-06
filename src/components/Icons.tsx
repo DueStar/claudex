@@ -50,6 +50,10 @@ export const WindowModeIcon: React.FC<P> = (p) => (
 export const FullscreenIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" /></Svg>
 )
+/** A clock: today's log */
+export const TodayIcon: React.FC<P> = (p) => (
+  <Svg {...p}><circle cx="8" cy="8" r="6" /><path d="M8 4.8V8l2.2 1.6" /></Svg>
+)
 export const PlusIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M8 3v10M3 8h10" /></Svg>
 )

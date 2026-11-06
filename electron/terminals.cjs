@@ -63,6 +63,16 @@ function claudeCommand() {
   return fs.existsSync(local) ? local : 'claude.exe'
 }
 
+/**
+ * Claude Code is asking the user something it cannot go on without: the
+ * folder-trust question at start, a permission prompt, any numbered choice.
+ * Read from the terminal's own output (the trust question comes before any
+ * hook runs), with the escape codes taken out.
+ */
+const ASKING = /Do you trust|trust (the files in )?this folder|Do you want to (proceed|make this edit|create|allow|run)|Yes, (proceed|I trust)|[❯>]\s*1\.\s+Yes/i
+const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b[=>78]/g
+function plainText(data) { return String(data).replace(ANSI, ' ') }
+
 function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, titles = { get: () => null, set: () => {} } }) {
   const terms = new Map() // id -> { id, sessionId, cwd, dex, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
@@ -76,6 +86,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     return {
       id: t.id, sessionId: t.sessionId, cwd: t.cwd, project: path.basename(t.cwd),
       dex: t.dex, status: t.status, createdAt: t.createdAt, exitCode: t.exitCode ?? null,
+      asking: !!t.asking,
       title: titles.get(t.sessionId) ?? null,
     }
   }
@@ -114,9 +125,13 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     })
     const t = { id: sessionId, sessionId, cwd: dir, dex: pickDex(), pty, buffer: '', status: 'running', createdAt: Date.now() }
     terms.set(t.id, t)
+    t.scan = ''
     pty.onData((data) => {
       t.buffer = (t.buffer + data).slice(-MAX_BUFFER)
       send('terminals:data', { id: t.id, data })
+      // Only output since the user last answered counts
+      t.scan = (t.scan + plainText(data)).slice(-4000)
+      if (!t.asking && ASKING.test(t.scan)) { t.asking = true; broadcastList() }
     })
     pty.onExit(({ exitCode }) => {
       t.status = 'exited'
@@ -143,6 +158,11 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const t = terms.get(id)
     if (!t || t.status === 'exited' || typeof data !== 'string') return false
     t.pty.write(data)
+    // An answer (Enter, or Esc to dismiss) clears the question
+    if (/[\r\x1b]/.test(data)) {
+      t.scan = ''
+      if (t.asking) { t.asking = false; broadcastList() }
+    }
     return true
   }
 

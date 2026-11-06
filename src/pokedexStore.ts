@@ -83,6 +83,8 @@ export interface DexEvent {
   /** The box was full: the Pokédex counts it, the individual went to the professor */
   toProfessor?: boolean
   level?: number
+  /** The first catch of its species */
+  newSpecies?: boolean
   via?: CatchSource | null
   /** The ball it was caught in (server/balls.json id) */
   ball?: string | null
@@ -114,6 +116,8 @@ export interface DexState {
   pityMythical: number
   total: number
   log: DexEvent[]
+  /** Today's events (local day) */
+  today?: DexEvent[]
 }
 
 export const TIER_LABEL: Record<Tier, string> = {

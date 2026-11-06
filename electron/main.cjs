@@ -490,7 +490,7 @@ function menuState() {
   }
 }
 
-const menuActions = { toggleWindow, toggleWidget, toggleMain: toggleWidget, setCompact, setAlwaysOnTop, resetBounds, openInBrowser, quit: quitApp }
+const menuActions = { toggleWindow, toggleWidget, toggleMain: toggleWidget, setCompact, setAlwaysOnTop, resetBounds, openInBrowser, quit: quitApp, openQa }
 
 /** A keyboard shortcut (helpers.cjs SHORTCUTS), the same as its menu item. */
 function runShortcut(action) {
@@ -891,6 +891,22 @@ async function showToast(event) {
   w.setAlwaysOnTop(true, 'screen-saver')
 }
 
+// The design QA page (?qa): every moment-only design at once, from the tray menu
+let qaWin = null
+function openQa() {
+  if (qaWin && !qaWin.isDestroyed()) { qaWin.show(); qaWin.focus(); return }
+  if (!officeUrl) return
+  const [base, fragment] = officeUrl.split('#')
+  qaWin = new BrowserWindow({
+    width: 1100, height: 860, title: 'Claudex 디자인 QA', backgroundColor: '#0b0c10', autoHideMenuBar: true,
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
+  })
+  qaWin.webContents.on('will-navigate', (event) => event.preventDefault())
+  qaWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  qaWin.on('closed', () => { qaWin = null })
+  qaWin.loadURL(`${base}?qa${fragment ? `#${fragment}` : ''}`)
+}
+
 function hideToast() {
   if (toastWin && !toastWin.isDestroyed()) toastWin.hide()
 }
@@ -915,7 +931,7 @@ function sendToWindows(channel, payload) {
 
 function fromOurWindow(event) {
   const wc = event.sender
-  const ours = [win, widgetWin, toastWin].some(w => w && !w.isDestroyed() && wc === w.webContents)
+  const ours = [win, widgetWin, toastWin, qaWin].some(w => w && !w.isDestroyed() && wc === w.webContents)
   if (!ours) return false
   try {
     return ALLOWED_ORIGINS.has(new URL(event.senderFrame.url).origin)
