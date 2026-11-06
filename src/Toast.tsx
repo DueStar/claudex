@@ -63,6 +63,7 @@ const Toast: React.FC = () => {
             {t.kind === 'evolve' && <><b>{t.fromName}</b>이(가) <b>{t.name}</b>(으)로 진화했다!</>}
           </span>
           <span className="w-toast-sub">
+            {t.kind === 'catch' && t.level && <span className="w-toast-lv">Lv.{t.level}</span>}
             {t.kind === 'catch' && t.ball && <span className="w-toast-ball"><PokeBall ball={t.ball} size={14} />{ballName(t.ball)}</span>}
             {t.tier && <span className={`w-toast-tier tier-${t.tier}`}>{TIER_LABEL[t.tier]}</span>}
             {t.nature ? `${NATURE_BY_ID.get(t.nature)?.ko} · ` : ''}{t.place}

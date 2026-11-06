@@ -42,6 +42,10 @@ export interface CaughtInfo {
   via?: CatchSource | null
   /** The ball it was caught in (server/balls.json id) */
   ball?: string | null
+  /** Level when met, and the work time since (one level per 30 minutes) */
+  metLevel?: number
+  workMs?: number
+  level?: number
 }
 
 /** One Pokémon the trainer owns */
@@ -59,10 +63,14 @@ export interface Mon {
   via?: CatchSource | null
   /** The ball it was caught in (server/balls.json id) */
   ball?: string | null
+  /** Level when met, and the work time since (one level per 30 minutes) */
+  metLevel?: number
+  workMs?: number
+  level?: number
 }
 
 export interface DexEvent {
-  kind: 'catch' | 'flee' | 'evolve' | 'sendout' | 'swap' | 'release' | 'exchange'
+  kind: 'catch' | 'flee' | 'evolve' | 'sendout' | 'swap' | 'release' | 'exchange' | 'levelup'
   id: number
   name?: string
   tier?: Tier
@@ -74,6 +82,7 @@ export interface DexEvent {
   attendance?: boolean
   /** The box was full: the Pokédex counts it, the individual went to the professor */
   toProfessor?: boolean
+  level?: number
   via?: CatchSource | null
   /** The ball it was caught in (server/balls.json id) */
   ball?: string | null
@@ -206,4 +215,17 @@ export function ballName(id: string | null | undefined): string {
 /** The ball's picture (shipped with the app; Claudex's own ball when it is missing) */
 export function ballUrl(id: string | null | undefined): string {
   return `/sprites/balls/${BALL_BY_ID.has(id ?? '') ? id : 'poke-ball'}.png`
+}
+
+/** Levels: met level + one per 30 minutes of work, up to 100 (server/pokedex.js) */
+export const MINUTES_PER_LEVEL = 30
+export function levelOf(m: { metLevel?: number; workMs?: number } | null | undefined): number {
+  if (!m) return 1
+  return Math.min(100, (m.metLevel ?? 5) + Math.floor((m.workMs ?? 0) / (MINUTES_PER_LEVEL * 60000)))
+}
+/** Minutes of work left before the next level */
+export function minutesToNext(m: { metLevel?: number; workMs?: number }): number | null {
+  if (levelOf(m) >= 100) return null
+  const into = ((m.workMs ?? 0) / 60000) % MINUTES_PER_LEVEL
+  return Math.ceil(MINUTES_PER_LEVEL - into)
 }

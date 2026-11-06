@@ -66,6 +66,76 @@ export const RECATCH_DECAY = 0.9
 /** A legendary or mythical catch comes in a Master Ball this often */
 export const MASTER_FOR_LEGENDS = 0.01
 
+// ---------------------------------------------------------------------------
+// Levels: 1 to 100 like the games. A wild Pokémon is met at level 1–55 (by
+// how far it has evolved); every 30 minutes of real work with a trainer adds a
+// level. Work time is the time between a session's tool calls, gaps over five
+// minutes left out.
+// ---------------------------------------------------------------------------
+export const MAX_LEVEL = 100
+export const WILD_MAX_LEVEL = 55
+export const MINUTES_PER_LEVEL = 30
+const WORK_GAP_MS = 5 * 60 * 1000
+const STARTER_LEVEL = 5
+/** Ultra Beasts (Beast Ball): Nihilego … Blacephalon */
+export const ULTRA_BEASTS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806])
+/** Session time over which the Timer Ball grows (and the Quick Ball fades) */
+const TIMER_FULL_MIN = 120
+
+/** The moon is full (±1 day) on this date: 29.53-day cycle from the new moon of 2000-01-06 18:14 UTC */
+export function isFullMoon(t) {
+  const age = (((t - Date.UTC(2000, 0, 6, 18, 14)) / 86400000) % 29.530588853 + 29.530588853) % 29.530588853
+  return Math.abs(age - 14.765) <= 1
+}
+
+/**
+ * How much more likely each ball is in this situation (a multiplier on its
+ * weight; missing = ×1). ctx: wild (species), level (wild level), tier,
+ * partner (the working Pokémon, with its level), minutes (since the session
+ * opened), first (the session's first encounter), tool, terrain, night, at,
+ * caughtBefore, catchNo (today's catch count including this one).
+ */
+export function ballBoosts(ctx) {
+  const b = {}
+  const types = ctx.wild?.types ?? []
+  const t = Math.min(ctx.minutes ?? 0, TIMER_FULL_MIN) / TIMER_FULL_MIN
+  if (types.includes('bug') || types.includes('water')) b['net-ball'] = 3
+  if (types.includes('water')) b['dive-ball'] = 3
+  // Nest Ball: ×3 at level 1 down to ×0.5 at the wild maximum
+  const L = Math.max(1, Math.min(WILD_MAX_LEVEL, ctx.level ?? 1))
+  b['nest-ball'] = 3 - 2.5 * (L - 1) / (WILD_MAX_LEVEL - 1)
+  if (ctx.caughtBefore) b['repeat-ball'] = 3
+  // Timer Ball ×0.5 → ×3 over two hours of session; Quick Ball the other way, ×3 on the first encounter
+  b['timer-ball'] = 0.5 + 2.5 * t
+  b['quick-ball'] = ctx.first ? 3 : 3 - 2.5 * t
+  if (ctx.night || ctx.terrain === '동굴') b['dusk-ball'] = 3
+  if (ctx.catchNo && ctx.catchNo % 10 === 0) b['premier-ball'] = 3
+  const p = ctx.partner
+  if (p) {
+    // Luxury and Friend Balls: levels the trainer has raised the working Pokémon
+    const raised = (p.level ?? 0) - (p.metLevel ?? p.level ?? 0)
+    const bond = raised >= 20 ? 2 : raised >= 10 ? 1.5 : 1
+    b['luxury-ball'] = bond
+    b['friend-ball'] = bond
+    // Level Ball: the working Pokémon out-levels the wild one
+    if (p.level >= 4 * L) b['level-ball'] = 3
+    else if (p.level >= 2 * L) b['level-ball'] = 2
+    else if (p.level > L) b['level-ball'] = 1.5
+    // Love Ball: same species, the other gender
+    if (p.dex === ctx.wild?.id && p.gender && ctx.gender && p.gender !== 'none' && ctx.gender !== 'none' && p.gender !== ctx.gender) b['love-ball'] = 3
+  }
+  if (ctx.night && isFullMoon(ctx.at)) b['moon-ball'] = 3
+  if (ctx.terrain === '사파리존') b['safari-ball'] = 3
+  if (/^(Grep|Glob)$/.test(ctx.tool ?? '')) b['lure-ball'] = 3
+  if ((ctx.wild?.speed ?? 0) >= 100) b['fast-ball'] = 3
+  const kg = ctx.wild?.weightKg ?? 0
+  if (kg >= 300) b['heavy-ball'] = 3
+  else if (kg >= 200) b['heavy-ball'] = 2
+  else if (kg >= 100) b['heavy-ball'] = 1.5
+  if (ULTRA_BEASTS.has(ctx.wild?.id)) b['beast-ball'] = 50
+  return b
+}
+
 /** Where the step was taken: the tool decides the terrain, and the terrain favours some types */
 const TERRAIN = [
   { test: t => /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(t), name: '풀숲', types: ['grass', 'bug', 'normal'] },
@@ -144,6 +214,7 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     if (m.gender === undefined) m.gender = null
     if (m.nature === undefined) m.nature = null
     if (m.ball === undefined) m.ball = 'poke-ball' // caught before balls were kept
+    if (m.metLevel === undefined) { m.metLevel = STARTER_LEVEL; m.workMs = 0 } // before levels
   }
   let traitsBackfilled = false
   function backfillTraits() {
@@ -262,12 +333,32 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     return list[list.length - 1].id
   }
   const notMaster = wildBalls.filter(b => b.id !== 'master-ball')
-  /** A legendary or mythical comes in a Master Ball MASTER_FOR_LEGENDS of the time, else any other ball */
-  function rollBall(tier) {
+  /**
+   * The ball of a catch: the balls' weights × the situation's boosts (ballBoosts).
+   * A legendary or mythical comes in a Master Ball MASTER_FOR_LEGENDS of the time.
+   */
+  function rollBall(tier, ctx = {}) {
+    const boost = ballBoosts(ctx)
+    const weigh = (list) => list.map(b => ({ id: b.id, weight: b.weight * (boost[b.id] ?? 1) }))
     if (tier === 'legendary' || tier === 'mythical') {
-      return random() < MASTER_FOR_LEGENDS ? 'master-ball' : pickBall(notMaster)
+      return random() < MASTER_FOR_LEGENDS ? 'master-ball' : pickBall(weigh(notMaster))
     }
-    return pickBall(wildBalls)
+    return pickBall(weigh(wildBalls))
+  }
+
+  /** A Pokémon's level: met level + one per MINUTES_PER_LEVEL of work, up to MAX_LEVEL */
+  function levelOf(m) {
+    return Math.min(MAX_LEVEL, (m.metLevel ?? STARTER_LEVEL) + Math.floor((m.workMs ?? 0) / (MINUTES_PER_LEVEL * 60000)))
+  }
+  /** A wild Pokémon's level by how far it has evolved (legends and single-stage ones meet higher) */
+  function wildLevel(sp, tier) {
+    let stage = 0
+    for (let s = sp; s?.evolvesFrom; s = byId.get(s.evolvesFrom)) stage++
+    const [lo, hi] = tier === 'legendary' || tier === 'mythical' || tier === 'sub' ? [40, WILD_MAX_LEVEL]
+      : stage >= 2 ? [30, WILD_MAX_LEVEL]
+        : stage === 1 ? [16, 40]
+          : nextOf.has(sp.id) ? [2, 25] : [10, 45]
+    return lo + Math.floor(random() * (hi - lo + 1))
   }
   function rollNature() {
     return natures.length ? natures[Math.floor(random() * natures.length)].id : null
@@ -277,7 +368,8 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     const uid = `m${state.nextUid++}`
     state.mons[uid] = {
       uid, dex, steps: 0, evos: 0, shiny: !!info.shiny, how: info.how, place: info.place, at: now(),
-      gender: rollGender(dex), nature: rollNature(), via: info.via ?? null, ball: info.ball ?? 'poke-ball',
+      gender: info.gender !== undefined ? info.gender : rollGender(dex), nature: rollNature(), via: info.via ?? null, ball: info.ball ?? 'poke-ball',
+      metLevel: info.level ?? STARTER_LEVEL, workMs: 0,
     }
     markSeen(dex)
     recordSpecies(dex, info)
@@ -385,12 +477,26 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
     markSeen(sp.id)
     const caught = pity || random() < CATCH[tier]
     const place = attendance ? `${project || '이름 없는 마을'} (오늘의 출석)` : placeName(project, terrain, night)
+    const level = wildLevel(sp, tier)
+    // The session's first encounter (Quick Ball), counted even when it flees
+    const first = !attendance && !encounteredIn.has(sessionId)
+    if (!attendance) encounteredIn.add(sessionId)
     let uid = null
     let toProfessor = false
     let ball = null
     if (caught) {
-      ball = rollBall(tier)
-      const info = { place, sessionId, project, how: pity ? 'pity' : attendance ? 'attendance' : 'wild', shiny, via, ball }
+      const day = localDay(now())
+      if (state.daily?.day !== day) state.daily = { day, catches: 0 }
+      state.daily.catches += 1
+      const gender = rollGender(sp.id)
+      const caughtBefore = (state.caught[sp.id]?.count ?? 0) > 0
+      ball = rollBall(tier, {
+        wild: sp, level, tier, gender, first, tool, terrain: terrain.name, night, at: now(), caughtBefore,
+        catchNo: state.daily.catches,
+        minutes: sessionOpenedAt.has(sessionId) ? (now() - sessionOpenedAt.get(sessionId)) / 60000 : 0,
+        partner: mon ? { dex: mon.dex, gender: mon.gender, level: levelOf(mon), metLevel: mon.metLevel ?? STARTER_LEVEL } : null,
+      })
+      const info = { place, sessionId, project, how: pity ? 'pity' : attendance ? 'attendance' : 'wild', shiny, via, ball, level, gender }
       if (state.box.length >= BOX_LIMIT) {
         // A full box: the Pokédex still counts it, the individual goes to the professor
         toProfessor = true
@@ -403,10 +509,15 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
       }
     }
     const fresh = uid ? state.mons[uid] : null
-    const event = { kind: caught ? 'catch' : 'flee', id: sp.id, name: sp.ko, tier, shiny, place, via, gender: fresh?.gender ?? null, nature: fresh?.nature ?? null, ball, sessionId, partner: mon?.dex, pity, attendance, uid, toProfessor, at: now() }
+    const event = { kind: caught ? 'catch' : 'flee', id: sp.id, name: sp.ko, tier, shiny, place, via, gender: fresh?.gender ?? null, nature: fresh?.nature ?? null, ball, level, sessionId, partner: mon?.dex, pity, attendance, uid, toProfessor, at: now() }
     pushLog(event)
     return event
   }
+
+  // Per run: when each session was first seen, its last tool call, and whether it has met anything yet
+  const sessionOpenedAt = new Map()
+  const lastWorkAt = new Map()
+  const encounteredIn = new Set()
 
   function pushLog(event) {
     state.log.push(event)
@@ -455,13 +566,22 @@ export function createPokedex({ file, species, natures = [], balls = [], broadca
       const att = encounter(sessionId, mon, ev.tool, true, catchSource(ev, session))
       if (att) { save(); publish(att) }
     }
+    if (!sessionOpenedAt.has(sessionId)) sessionOpenedAt.set(sessionId, now())
     if (ev.type === 'agent_working' && !ev.failed) {
       if (mon) {
+        // Work time: the gap since this session's last tool call, unless it was a break
+        const last = lastWorkAt.get(sessionId)
+        if (last !== undefined && now() - last <= WORK_GAP_MS && now() > last) {
+          const before = levelOf(mon)
+          mon.workMs = (mon.workMs ?? 0) + (now() - last)
+          if (levelOf(mon) > before && !event) event = { kind: 'levelup', id: mon.dex, name: byId.get(mon.dex)?.ko, level: levelOf(mon), sessionId, uid: mon.uid, shiny: mon.shiny, at: now() }
+        }
+        lastWorkAt.set(sessionId, now())
         mon.steps += 1
         const evo = evolveIfDue(sessionId, mon)
         if (evo) event = evo
       }
-      if ((!event || event.kind === 'sendout') && random() < ENCOUNTER_PER_STEP) event = encounter(sessionId, mon, ev.tool, false, catchSource(ev, session))
+      if ((!event || event.kind === 'sendout' || event.kind === 'levelup') && random() < ENCOUNTER_PER_STEP) event = encounter(sessionId, mon, ev.tool, false, catchSource(ev, session))
     }
     if (fresh || event) {
       save()

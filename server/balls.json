@@ -1,5 +1,5 @@
 {
-  "_about": "The 27 Poké Balls. weight is the chance in percent that a catch comes in that ball (the catchable ones add up to 100). Tiers follow how hard each ball is to get in the games: basic = sold in every Poké Mart; special = sold only in some marts or given as a bonus (PokeAPI special-balls); apricorn = hand-made from Apricorns (apricorn-balls); limited = only at one place (Safari Zone, Bug-Catching Contest, Ultra Space); master = one per game. event balls (Park, Dream, Cherish) never come from a wild catch: like in the games, they are only given (catch: false). A legendary or mythical catch comes in a Master Ball 1% of the time (MASTER_FOR_LEGENDS in server/pokedex.js). art = the picture on Bulbagarden Archives; tools/import-balls.mjs bundles it.",
+  "_about": "The 27 Poké Balls. weight is the chance in percent that a catch comes in that ball (the catchable ones add up to 100). Tiers follow how hard each ball is to get in the games: basic = sold in every Poké Mart; special = sold only in some marts or given as a bonus (PokeAPI special-balls); apricorn = hand-made from Apricorns (apricorn-balls); limited = only at one place (Safari Zone, Ultra Space); master = one per game. event balls (Sport, Park, Dream, Cherish) never come from a wild catch: like in the games, they are only given (catch: false). A legendary or mythical catch comes in a Master Ball 1% of the time (MASTER_FOR_LEGENDS in server/pokedex.js). art = the picture on Bulbagarden Archives; tools/import-balls.mjs bundles it.",
   "tiers": {
     "basic": "흔한 볼",
     "special": "특수 볼",
@@ -174,16 +174,18 @@
       "ko": "사파리볼",
       "en": "Safari Ball",
       "tier": "limited",
-      "weight": 0.8,
+      "weight": 1.2,
       "art": "8/8d/Bag_Safari_Ball_SV_Sprite.png"
     },
     {
       "id": "sport-ball",
       "ko": "컴퍼티션볼",
       "en": "Sport Ball",
-      "tier": "limited",
-      "weight": 0.6,
-      "art": "6/68/Bag_Sport_Ball_SV_Sprite.png"
+      "tier": "event",
+      "weight": 0,
+      "art": "6/68/Bag_Sport_Ball_SV_Sprite.png",
+      "catch": false,
+      "why": "벌레잡기 대회(화·목·토) 전용이라 이벤트로만 받아요"
     },
     {
       "id": "park-ball",
@@ -210,7 +212,7 @@
       "ko": "울트라볼",
       "en": "Beast Ball",
       "tier": "limited",
-      "weight": 0.6,
+      "weight": 0.8,
       "art": "d/d1/Bag_Beast_Ball_SV_Sprite.png"
     },
     {

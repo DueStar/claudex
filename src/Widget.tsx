@@ -16,7 +16,7 @@ import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetM
 import { assignPokemonToRole, getPokemonFor, getSpritePath, getAvatarPath, themedDisplayName, useTheme, spriteUrl, displayHeight, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
-import { dispatchPokedex, usePokedex, useViewed, TIER_LABEL, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
+import { dispatchPokedex, usePokedex, useViewed, levelOf, TIER_LABEL, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
 import PokedexView from './components/PokedexView'
 import { BoxIcon, DexIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 import BoxView from './components/BoxView'
@@ -445,6 +445,7 @@ ${update.notes}` : ''}${update.error ? `
                       )}
                     </span>
                   )}
+                  {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title="함께 일한 30분마다 1레벨">Lv.{levelOf(monOf(r.sessionId))}</span>}
                   {r.terminal && renaming !== r.sessionId && (
                     <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title="세션 이름 바꾸기" aria-label="세션 이름 바꾸기">✎</button>
                   )}

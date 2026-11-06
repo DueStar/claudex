@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { createPokedex, catchSource, STARTERS, EVOLVE_AT, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT } from '../server/pokedex.js'
+import { createPokedex, catchSource, STARTERS, EVOLVE_AT, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, MINUTES_PER_LEVEL } from '../server/pokedex.js'
 
 const S = (id: number, ko: string, tier: string, evolvesFrom: number | null, types = ['normal'], captureRate = 255) =>
   ({ id, ko, types, tier, captureRate, evolvesFrom })
@@ -310,6 +310,53 @@ describe('pokedex', () => {
     // a : b = 0.9^3 : 0.9^1 = 0.81
     expect(picks[1] / picks[2]).toBeGreaterThan(0.7)
     expect(picks[1] / picks[2]).toBeLessThan(0.92)
+  })
+
+  it('levels: 30 minutes of work with a trainer is one level; breaks over 5 minutes do not count', () => {
+    let t = new Date('2026-11-06T14:00:00').getTime()
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const dex = createPokedex({ file: join(dir, 'p.json'), species: SPECIES, broadcast: () => {}, random: () => 0.99, now: () => t })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    const uid = dex.publicState().assign.s1
+    const mon = () => (dex as any)._state().mons[uid]
+    expect(mon().metLevel).toBe(5)
+    // a tool call every minute for 61 minutes: two levels
+    for (let i = 0; i <= 61; i++) { dex.noteEvent(work('s1'), {}); t += 60_000 }
+    expect(Math.floor(mon().workMs / 60000)).toBe(61)
+    expect(5 + Math.floor(mon().workMs / (MINUTES_PER_LEVEL * 60000))).toBe(7)
+    // an hour away, then one call: nothing added
+    t += 60 * 60_000
+    dex.noteEvent(work('s1'), {})
+    expect(Math.floor(mon().workMs / 60000)).toBe(61)
+  })
+
+  it('ball boosts follow the situation', () => {
+    const wild = { id: 7, types: ['water'], speed: 43, weightKg: 9 }
+    const at = Date.UTC(2026, 10, 6, 5)
+    let b = ballBoosts({ wild, level: 1, first: true, minutes: 0, at })
+    expect(b['net-ball']).toBe(3)
+    expect(b['dive-ball']).toBe(3)
+    expect(b['nest-ball']).toBe(3)
+    expect(b['quick-ball']).toBe(3)
+    expect(b['timer-ball']).toBe(0.5)
+    b = ballBoosts({ wild, level: 55, first: false, minutes: 240, at })
+    expect(b['nest-ball']).toBeCloseTo(0.5)
+    expect(b['timer-ball']).toBe(3)
+    expect(b['quick-ball']).toBe(0.5)
+    // a well-raised partner far above the wild one
+    b = ballBoosts({ wild, level: 10, at, partner: { dex: 4, level: 45, metLevel: 5, gender: 'male' } })
+    expect(b['luxury-ball']).toBe(2)
+    expect(b['friend-ball']).toBe(2)
+    expect(b['level-ball']).toBe(3)
+    expect(ballBoosts({ wild: { id: 793, types: ['rock'] }, level: 50, at })['beast-ball']).toBe(50)
+    expect(ballBoosts({ wild, level: 5, tool: 'Grep', at })['lure-ball']).toBe(3)
+    expect(ballBoosts({ wild: { id: 1, types: [], speed: 120, weightKg: 400 }, level: 5, at })).toMatchObject({ 'fast-ball': 3, 'heavy-ball': 3 })
+    expect(ballBoosts({ wild, level: 5, catchNo: 10, at })['premier-ball']).toBe(3)
+    // a known full moon: 2026-11-24 (UTC)
+    expect(isFullMoon(Date.UTC(2026, 10, 24, 12))).toBe(true)
+    expect(isFullMoon(Date.UTC(2026, 10, 9, 12))).toBe(false)
   })
 
   it('keeps the game on disk', async () => {
