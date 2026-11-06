@@ -133,15 +133,26 @@ function samePath(a, b) {
   }
 }
 
-/** First executable `name` on PATH, or null. */
-export function which(name, path = process.env.PATH ?? '') {
+/**
+ * First executable `name` on PATH, or null.
+ *
+ * On Windows the name on PATH carries an extension (`bash.exe`, not `bash`),
+ * so each PATHEXT suffix is tried as well as the bare name — without that
+ * every tool reads as missing however it is installed.
+ */
+export function which(name, path = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
+  const suffixes = platform === 'win32'
+    ? ['', ...(pathExt ?? '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)]
+    : ['']
   for (const dir of path.split(delimiter)) {
     if (!dir) continue
-    const candidate = join(dir, name)
-    try {
-      accessSync(candidate, constants.X_OK)
-      if (statSync(candidate).isFile()) return candidate
-    } catch {}
+    for (const suffix of suffixes) {
+      const candidate = join(dir, name + suffix)
+      try {
+        accessSync(candidate, constants.X_OK)
+        if (statSync(candidate).isFile()) return candidate
+      } catch {}
+    }
   }
   return null
 }
@@ -348,10 +359,10 @@ export function checkStatusLine({ settings, statusScript, home, pluginOnly }) {
     main.other ? `${COMMANDS.install} adds it and chains the one you have (${main.other})` : `${COMMANDS.install} adds it`)
 }
 
-export function checkTools(names = ['python3', 'bash', 'curl'], path = process.env.PATH) {
+export function checkTools(names = ['python3', 'bash', 'curl'], path = process.env.PATH, platform = process.platform, pathExt = process.env.PATHEXT) {
   const why = { python3: 'the hook parses every event with it, and the installer merges settings.json with it', bash: 'every hook command is `bash .../agent-tracker.sh`', curl: 'the hook POSTs to the server with it' }
   return names.map(name => {
-    const found = which(name, path)
+    const found = which(name, path, platform, pathExt)
     return found ? result(PASS, `${name}: ${found}`) : result(FAIL, `${name}: not on PATH — ${why[name] ?? 'needed'}`)
   })
 }

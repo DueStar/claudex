@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { listen, loadOffice, postEvent, removeOffice, type Office } from './helpers'
-import { runDoctor, checkNode, scriptPathIn, shellWords, inspectPlugin, COMMANDS, PASS, WARN, FAIL } from '../scripts/doctor.mjs'
+import { runDoctor, checkNode, scriptPathIn, shellWords, inspectPlugin, which, checkTools, COMMANDS, PASS, WARN, FAIL } from '../scripts/doctor.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DOCTOR = join(ROOT, 'scripts', 'doctor.mjs')
@@ -472,5 +472,50 @@ describe('npm run doctor (the script)', () => {
     const res = run(tmp('doctor-home-'), {}, ['--help'])
     expect(res.status).toBe(0)
     expect(res.stdout).toContain('Usage: npm run doctor')
+  })
+})
+
+describe('which / checkTools on PATH', () => {
+  /** A directory holding `names` as executable files. */
+  function binDir(...names: string[]) {
+    const dir = tmp('doctor-bin-')
+    for (const name of names) {
+      const file = join(dir, name)
+      writeFileSync(file, '')
+      chmodSync(file, 0o755)
+    }
+    return dir
+  }
+
+  it('finds a bare name on either platform', () => {
+    const dir = binDir('curl')
+    expect(which('curl', dir, 'linux')).toBe(join(dir, 'curl'))
+    expect(which('curl', dir, 'win32', '.EXE')).toBe(join(dir, 'curl'))
+  })
+
+  // The Windows bug this guards: PATH holds `bash.exe`, and looking only for
+  // `bash` reported every tool missing however it was installed.
+  it('finds a PATHEXT name on Windows but not on POSIX', () => {
+    const dir = binDir('bash.EXE')
+    expect(which('bash', dir, 'win32', '.COM;.EXE;.BAT;.CMD')).toBe(join(dir, 'bash.EXE'))
+    expect(which('bash', dir, 'linux')).toBeNull()
+  })
+
+  it('falls back to the default PATHEXT when the variable is unset', () => {
+    const dir = binDir('python3.CMD')
+    expect(which('python3', dir, 'win32', undefined)).toBe(join(dir, 'python3.CMD'))
+  })
+
+  it('returns null when nothing on PATH matches', () => {
+    expect(which('nope', binDir('curl'), 'win32', '.EXE')).toBeNull()
+  })
+
+  it('checkTools passes on the names it finds and fails on the rest', () => {
+    const dir = binDir('curl.EXE')
+    const [found, missing] = checkTools(['curl', 'bash'], dir, 'win32', '.EXE')
+    expect(found.level).toBe(PASS)
+    expect(found.title).toContain('curl')
+    expect(missing.level).toBe(FAIL)
+    expect(missing.title).toContain('bash: not on PATH')
   })
 })
