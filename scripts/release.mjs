@@ -11,7 +11,8 @@
  *
  * The version comes from package.json; bump it first. Pokémon artwork is never
  * in a release (package.json build.files excludes it; the app fetches it).
- * --publish uses the DueStar GitHub login of the gh CLI (gh auth token -u DueStar).
+ * --publish needs the gh CLI logged in as DueStar, and refuses to run without the
+ * Poké Ball art (tools/import-balls.mjs): releases are built on a PC that has it.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -35,7 +36,19 @@ const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, stdio
 console.log(`\n== Claudex ${version}`)
 const ballDir = join(root, 'public', 'sprites', 'balls')
 const balls = existsSync(ballDir) ? readdirSync(ballDir).length : 0
-console.log(balls ? `Poké Ball art: ${balls} bundled` : 'Poké Ball art: none bundled (the app falls back to PokeAPI item icons; see tools/import-balls.mjs)')
+if (balls) console.log(`Poké Ball art: ${balls} bundled`)
+else {
+  // Ball art is gitignored (it is Nintendo's), so only a PC that imported it can bundle it.
+  // A release built without it ships the small PokeAPI item icons to everyone.
+  const bar = '!'.repeat(72)
+  console.warn(`
+${bar}
+  NO POKÉ BALL ART on this PC: the build falls back to PokeAPI's small item icons.
+  Import it first: node tools/import-balls.mjs <folder with Bag_*_SV_Sprite.png>
+${bar}
+`)
+  if (publish) { console.error('Refusing to publish a release without the ball art.'); process.exit(1) }
+}
 // The games' Poké Ball as the app icon when its art was imported; the drawn icons come back after
 const ICONS = ['build/icon.png', 'electron/assets/icon.png', 'electron/assets/tray-16.png', 'electron/assets/tray-32.png', 'electron/assets/tray-48.png']
 run('python', ['-I', join(root, 'tools', 'build-icons.py'), root, '--official'], { shell: false })
@@ -78,9 +91,11 @@ const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`
 console.log(`\napp update ${appZip} ${mb(manifest.app.size)} · full ${fullZip} ${mb(manifest.full.size)} · electron ${electronVersion}`)
 
 if (publish) {
-  const token = execFileSync('gh', ['auth', 'token', '-u', 'DueStar'], { encoding: 'utf8' }).trim()
+  // Releases go out as DueStar only: check the gh CLI's active login instead of pulling its token
+  const login = execFileSync('gh', ['api', 'user', '--jq', '.login'], { encoding: 'utf8' }).trim()
+  if (login !== 'DueStar') { console.error(`gh is logged in as ${login}; switch with: gh auth switch -u DueStar`); process.exit(1) }
   run('gh', ['release', 'create', `v${version}`, '--repo', 'DueStar/claudex', '--title', `Claudex ${version}`, '--notes', notes || `Claudex ${version}`,
-    join(out, 'latest.json'), join(out, appZip), join(out, fullZip)], { env: { ...process.env, GH_TOKEN: token }, shell: false })
+    join(out, 'latest.json'), join(out, appZip), join(out, fullZip)], { shell: false })
 } else {
   console.log('Not published. Add --publish to create the GitHub release.')
 }

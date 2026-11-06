@@ -112,7 +112,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 8. **주기적인 "띵동" 소리** — 해결(2026-11-06, 462e17e). `electron/main.cjs`의 숨은 office 창(`show: false`)이 옛 office UI(`App.tsx`)를 돌리며 이벤트마다 `playNotification()`(880Hz→1100Hz)을 울렸다. 창과 UI를 통째로 걷어냈고 `/health`의 `clients`가 1이 됐다.
 
 ## 다음 할 일 (2026-11-06 집 PC 세션 끝, 순서대로)
-이번 세션에서 한 일: 옛 office UI와 숨은 창 제거(462e17e), 서버·훅의 office 기능 제거와 better-sqlite3 삭제(2c9b529). 권한 대화상자가 15초~10분 늦던 문제, 사파리존이 안 나오던 문제, Windows에서 status-line이 CR만 보내던 문제도 함께 고쳤다. 테스트는 Windows 기준선 대비 새 실패 0(449 통과 / 55 실패, 남은 실패는 원래 있던 파일권한·심볼릭링크·uid 문제).
+이번 세션에서 한 일: 옛 office UI와 숨은 창 제거(462e17e), 서버·훅의 office 기능 제거와 better-sqlite3 삭제(2c9b529). 권한 대화상자가 15초~10분 늦던 문제, 사파리존이 안 나오던 문제, Windows에서 status-line이 CR만 보내던 문제도 함께 고쳤다. 테스트는 Windows 기준선 대비 새 실패 0(449 통과 / 55 실패, 남은 실패는 원래 있던 파일권한·심볼릭링크·uid 문제). 테스트할 때 `AGENT_OFFICE_PORT`는 바꾸지 않는다: 3344로 두면 `static-ui`의 3334 출처 테스트 3개가 403으로 실패해서 58이 된다. `AGENT_OFFICE_HOME`만 임시 폴더로 둔다.
 
 1. **3단계: office 잔재 마저 제거**
    - 플러그인·설치기: `.claude-plugin/`, `commands/office.md`, `hooks/install-hooks.sh`(아직 19개 이벤트), `scripts/doctor.mjs`의 office 부분, 관련 테스트(`plugin`·`install-hooks`·`doctor`). 앱은 세션마다 `--settings`로 훅을 넣으므로 전역 설치기가 필요 없다. 지우기 전에 README의 플러그인 안내도 같이 정리한다.
@@ -128,18 +128,23 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 프로토콜: `X-Office-*` 헤더, WS 서브프로토콜 `agent-office`, `office-health:`. 앱·서버·훅이 한 번에 같이 바뀌어야 한다(훅은 앱이 세션마다 넣으므로 같이 배포된다).
    - 데이터 폴더: `~/.agent-office` → `~/.claudex`. 첫 실행 때 자동으로 옮긴다(pokedex.json, 클라우드 세션, auth-token, update-dir). **도감 데이터가 사라지면 안 되므로** 옮기기 전에 백업하고 테스트로 확인한다.
    - 훅, 업데이터, electron의 `runtimeDirFromEnv`
-3. **업데이트 버튼이 안 뜨는 이유 확인과 해결**
-   - push는 릴리스가 아니다. 업데이터는 GitHub 최신 릴리스의 `latest.json`을 본다(아직 1.3.3). 로컬 채널은 `~/.agent-office/update-dir`이 있어야 한다.
-   - 사용자에게 설명하고, 릴리스를 낼지(사용자 확인 필요) 로컬 채널로 확인할지 정한다.
+3. **업데이트 버튼** — 원인 확인, 1.3.4 릴리스로 해결(2026-11-07)
+   - 원인: GitHub 최신 릴리스가 v1.3.1이었고 설치본은 1.3.3이라 "최신"으로 판단했다. 로컬 채널 파일(`~/.agent-office/update-dir`)도 없었다. 위젯 버튼은 `status === 'available'`일 때만 뜬다(`src/Widget.tsx`).
+   - **원칙(사용자 지시): 사용자가 "푸시해"라고 하면 버전 올리기 → `release.mjs` 빌드 → `git push` → GitHub 릴리스까지 한다.** push만 하고 멈추지 않는다.
+   - `release.mjs --publish`는 이제 gh의 현재 로그인이 DueStar인지만 확인한다(`gh auth token`으로 토큰을 꺼내지 않는다).
 4. **포켓몬 교체 후 아이콘이 늦게 바뀌는 문제**: `castSession`이 pokedex 이벤트가 와야 갱신되는 것으로 보인다. 교체 즉시 로컬 상태를 바꾸도록 조사한다.
 5. **세션 이름 유지**: 왼쪽 패널에서 바꾼 이름이 재시작 뒤 사라진다. `window-state.json`의 `sessionTitles`에 저장은 하는데, resume 경로나 서버 쪽 제목이 덮어쓰는지 조사한다.
 6. **포켓볼 그림**(앱 안 볼, 설치 파일·작업표시줄 아이콘)
    - 원인: 볼 그림은 DMCA 때문에 `.gitignore`로 빠져 있고, 빌드하는 PC에 그림이 있어야 앱에 들어간다. 회사 노트북에는 있었지만 집 PC에는 없었다.
    - 집 PC `Downloads`에 `60px-Bag_*_SV_Sprite.png` 28개(60×60)가 있다. balls.json의 27종이 다 있고 Strange Ball 1개는 안 쓴다. 이벤트 볼도 받아만 둔다(`catch:false` 유지).
-   - 할 일: `tools/import-balls.mjs`가 `60px-` 접두사를 떼게 고친다. 아이콘용 원본 크기 파일(최소 `Bag_Poké_Ball_SV_Sprite.png`)은 사용자가 Bulbagarden "Original file" 링크로 직접 받는다(자동 다운로드·우회 금지).
-   - 가져오기 → 릴리스 빌드 → **전체 재설치**(exe 아이콘은 재설치해야 바뀐다)
-   - `release.mjs`가 볼 그림이 없으면 크게 경고하게 하고, "릴리스는 볼 그림이 있는 PC에서 만든다"는 원칙을 이 문서에 넣는다.
-7. **재빌드와 재설치**(`%LOCALAPPDATA%\Claudex`). 띵동 소리가 안 나는지, `/health`의 `clients: 1`인지 확인한다.
+   - 한 일(2026-11-07): `import-balls.mjs`가 `60px-` 같은 썸네일 접두사를 떼고, 같은 볼이 두 크기로 있으면 원본을 고른다. 27종을 가져와 1.3.4에 넣었다.
+   - 남은 일: 앱 아이콘. 아이콘은 512px로 만들기 때문에 256px보다 작은 포켓볼은 쓰지 않는다(흐려진다). 60px 썸네일뿐이라 지금은 그린 아이콘이 유지된다. 사용자가 원본 크기 `Bag_Poké_Ball_SV_Sprite.png`를 Bulbagarden "Original file" 링크로 직접 받아 `Downloads`에 두면(자동 다운로드·우회 금지) 가져오기 → 릴리스 빌드 → **전체 재설치**(exe 아이콘은 재설치해야 바뀐다).
+   - **원칙: 릴리스는 볼 그림을 가져온 PC에서 만든다.** 볼 그림이 없으면 `release.mjs`가 크게 경고하고, `--publish`는 거부한다.
+7. **재빌드와 재설치**(`%LOCALAPPDATA%\Claudex`). 띵동 소리가 안 나는지, `/health`의 `clients: 1`인지 확인한다. 1.3.4는 업데이트 버튼으로 받아서 업데이트 흐름도 같이 확인한다.
+7-1. **포켓몬 그림을 SV 박스 아이콘으로 바꿀지**(사용자 요청 조사, 2026-11-07, 결정 대기)
+   - 사용자가 원한 그림은 pokemondb.net/pokedex/all의 아이콘이다: `img.pokemondb.net/sprites/scarlet-violet/icon/<slug>.png`(스칼렛·바이올렛 박스 아이콘, 120×112, 왼쪽을 살짝 보는 외곽선 그림). 1025종이 다 있다.
+   - 지금 앱은 `server/sprites.js`가 PokeAPI의 Pokémon HOME 그림(`sprites/pokemon/other/home`, 512px 정면 3D 렌더)을 받는다. `tools/fetch-pokemon-art.py`도 pokemondb의 `sprites/home`을 받는다.
+   - 차이: SV 아이콘에는 이로치 버전이 없고(`icon/shiny/` 404), 실제 그림이 40~90px로 작아서 128px로 키우면 흐려진다. PokeAPI에는 SV 아이콘이 없어서 출처가 pokemondb로 바뀐다.
 8. **나중에**
    - 클라우드 동기화를 합집합 병합으로 바꾼다(지금은 잡은 종이 많은 쪽이 통째로 덮어쓴다).
    - 설정 페이지, 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명
