@@ -128,7 +128,7 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
       res.type('png').send(readFileSync(await obtain(kind, id)))
     } catch (err) {
       console.warn(`[sprites] ${kind}/${id}: ${err.message}`)
-      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/ball.svg')
+      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/claudex-ball.png')
     }
   })
 
@@ -151,7 +151,7 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
       res.set('Cache-Control', 'public, max-age=31536000, immutable').type('png').send(readFileSync(await obtainItem(m[1])))
     } catch (err) {
       console.warn(`[sprites] item ${m[1]}: ${err.message}`)
-      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/ball.svg')
+      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/claudex-ball.png')
     }
   })
 

@@ -156,3 +156,32 @@ export function freePartyCount(s: DexState | null): number {
   const busy = new Set(Object.values(s.assign ?? {}))
   return s.party.filter(uid => !busy.has(uid)).length
 }
+
+// ---------------------------------------------------------------------------
+// Pokédex entries the trainer has opened: a caught species whose entry was
+// never looked at wears a red "new" dot. Kept per PC (localStorage).
+// ---------------------------------------------------------------------------
+const VIEWED_KEY = 'claudex-dex-viewed'
+let viewed: Set<number> = (() => {
+  try { return new Set<number>(JSON.parse(localStorage.getItem(VIEWED_KEY) ?? '[]')) } catch { return new Set<number>() }
+})()
+let viewedVersion = 0
+const viewedListeners = new Set<() => void>()
+
+export function markViewed(id: number) {
+  if (viewed.has(id)) return
+  viewed = new Set(viewed).add(id)
+  try { localStorage.setItem(VIEWED_KEY, JSON.stringify([...viewed])) } catch {}
+  viewedVersion++
+  for (const l of viewedListeners) l()
+}
+
+/** The set of opened entries, and whether a caught species is still unseen */
+export function useViewed(): { viewed: Set<number>; isNew: (id: number) => boolean } {
+  useSyncExternalStore(
+    (cb) => { viewedListeners.add(cb); return () => viewedListeners.delete(cb) },
+    () => viewedVersion,
+    () => viewedVersion,
+  )
+  return { viewed, isNew: (id) => !!state?.caught?.[id] && !viewed.has(id) }
+}

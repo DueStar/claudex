@@ -7,7 +7,7 @@
 import React, { useMemo, useState } from 'react'
 import { POKEMON, spriteUrl, type PokemonEntry } from '../theme'
 import { bridge } from '../desktop'
-import { usePokedex, TIER_LABEL, TIER_RATE, TYPE_KO, NATURE_BY_ID, genderMark, sourceText, type Tier } from '../pokedexStore'
+import { usePokedex, useViewed, markViewed, TIER_LABEL, TIER_RATE, TYPE_KO, NATURE_BY_ID, genderMark, sourceText, type Tier } from '../pokedexStore'
 
 const GENS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 const TIERS: Tier[] = ['common', 'rare', 'sub', 'legendary', 'mythical']
@@ -28,6 +28,7 @@ const PokedexView: React.FC = () => {
   const [onlyCaught, setOnlyCaught] = useState(false)
   const [pick, setPick] = useState<number | null>(null)
   const [releasing, setReleasing] = useState<string | null>(null)
+  const { isNew } = useViewed()
 
   const caught = state?.caught ?? {}
   const seen = state?.seen ?? {}
@@ -79,13 +80,14 @@ const PokedexView: React.FC = () => {
                 key={p.id}
                 role="listitem"
                 className={`dex-cell ${cls} tier-${p.tier}${pick === p.id ? ' picked' : ''}`}
-                onClick={() => setPick(p.id)}
+                onClick={() => { setPick(p.id); if (c) markViewed(p.id) }}
                 title={c || s ? `${no(p.id)} ${p.ko}` : no(p.id)}
               >
                 {cls !== 'unknown' ? <img src={spriteUrl(p.id, !!c?.shiny)} alt="" loading="lazy" draggable={false} /> : <span className="dex-q">?</span>}
                 <span className="dex-no">{p.id}</span>
                 {c?.shiny && <span className="dex-shiny">✦</span>}
                 {c && c.count > 1 && <span className="dex-count">×{c.count}</span>}
+                {isNew(p.id) && <span className="dex-new" aria-label="새로 잡음" />}
               </button>
             )
           })}

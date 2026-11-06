@@ -16,7 +16,7 @@ import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetM
 import { assignPokemonToRole, getPokemonFor, getSpritePath, getAvatarPath, themedDisplayName, useTheme, spriteUrl, displayHeight, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
-import { dispatchPokedex, usePokedex, TIER_LABEL, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
+import { dispatchPokedex, usePokedex, useViewed, TIER_LABEL, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
 import PokedexView from './components/PokedexView'
 import { BoxIcon, DexIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 import BoxView from './components/BoxView'
@@ -120,6 +120,8 @@ const Widget: React.FC = () => {
   const expanded = mode !== 'widget'
   const [view, setView] = useState<'terminal' | 'dex' | 'box'>('terminal')
   const { state: dex, lastEvent } = usePokedex()
+  const { isNew } = useViewed()
+  const hasNew = Object.keys(dex?.caught ?? {}).some(id => isNew(Number(id)))
   // Catches, evolutions and rare escapes pop up above every window (the ?toast window)
   useEffect(() => {
     if (!lastEvent || !bridge) return
@@ -375,6 +377,7 @@ ${update.notes}` : ''}${update.error ? `
 
           <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title="도감 열기">
             <span className="w-label">도감</span>
+            {hasNew && <span className="w-new-dot corner" aria-label="새로 잡은 포켓몬" />}
             <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span>
               <span className={`w-dex-box${dex && dex.box.length >= (dex.boxLimit ?? 1200) ? ' full' : ''}`}>박스 {dex?.box.length ?? 0}/{dex?.boxLimit ?? 1200}</span></span>
             <span className="w-dex-recent">
@@ -491,7 +494,7 @@ ${update.notes}` : ''}${update.error ? `
           <div className="w-term-tabs" role="tablist">
             <div className="w-view-switch">
               <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')}><TerminalIcon size={14} />터미널</button>
-              <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')}><DexIcon size={14} />도감</button>
+              <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')}><DexIcon size={14} />도감{hasNew && <span className="w-new-dot" aria-label="새로 잡은 포켓몬" />}</button>
               <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')}><BoxIcon size={14} />박스</button>
             </div>
             {view === 'terminal' && withTerminal.map(r => (

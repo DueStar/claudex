@@ -283,6 +283,9 @@ function maybeCaptureScreenshot() {
   // Debug: POKEMON_OFFICE_AUTOTEST_EXPAND=1|0 forces the widget's mode for the capture
   if (process.env.POKEMON_OFFICE_AUTOTEST_EXPAND) setTimeout(() => setWidgetExpanded(process.env.POKEMON_OFFICE_AUTOTEST_EXPAND === '1'), 1500)
   // Debug: POKEMON_OFFICE_AUTOTEST_JS runs in the office page a second before the capture
+  // Debug: POKEMON_OFFICE_AUTOTEST_WIDGET_JS runs in the widget a second before the capture
+  const wjs = process.env.POKEMON_OFFICE_AUTOTEST_WIDGET_JS
+  if (wjs) setTimeout(() => { widgetWin?.webContents.executeJavaScript(wjs).catch((e) => console.error('[main] autotest widget js:', e.message)) }, Math.max(0, delay - 1500))
   const js = process.env.POKEMON_OFFICE_AUTOTEST_JS
   if (js) setTimeout(() => { win.webContents.executeJavaScript(js).catch((e) => console.error('[main] autotest js:', e.message)) }, Math.max(0, delay - 1500))
   setTimeout(async () => {

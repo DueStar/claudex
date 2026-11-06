@@ -1,10 +1,9 @@
 /**
- * Icons — small line icons (16px grid, currentColor) and the Poké Ball.
- * The Poké Ball is the games' item artwork, fetched on first use like the
- * Pokémon (server/sprites.js); until it arrives, the plain stand-in shows.
+ * Icons — small line icons (16px grid, currentColor) and Claudex's Poké Ball
+ * (an original drawing, tools/build-icons.py: the same ball as the app icon).
  */
 
-import React, { useState } from 'react'
+import React from 'react'
 
 type P = { size?: number; className?: string }
 const Svg: React.FC<P & { children: React.ReactNode }> = ({ size = 16, className, children }) => (
@@ -54,18 +53,14 @@ export const PlusIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M8 3v10M3 8h10" /></Svg>
 )
 
-/** The Poké Ball (item artwork), with the plain stand-in until it loads */
-export const PokeBall: React.FC<{ size?: number; className?: string }> = ({ size = 16, className }) => {
-  const [failed, setFailed] = useState(false)
-  return (
-    <img
-      className={`pokeball${className ? ` ${className}` : ''}`}
-      src={failed ? '/sprites/ball.svg' : '/sprites/items/poke-ball.png'}
-      width={size}
-      height={size}
-      alt=""
-      draggable={false}
-      onError={() => setFailed(true)}
-    />
-  )
-}
+/** Claudex's Poké Ball, the same picture as the app icon */
+export const PokeBall: React.FC<{ size?: number; className?: string }> = ({ size = 16, className }) => (
+  <img
+    className={`pokeball${className ? ` ${className}` : ''}`}
+    src="/sprites/claudex-ball.png"
+    width={size}
+    height={size}
+    alt=""
+    draggable={false}
+  />
+)

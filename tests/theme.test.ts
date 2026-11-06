@@ -26,7 +26,7 @@ describe('theme.ts casting', () => {
   it('a session is a Poké Ball until the server sends its Pokémon out, then that Pokémon', async () => {
     const t = await import('../src/theme')
     expect(t.getPokemonFor('assistant', 'main-aaa').id).toBe(0)
-    expect(t.getSpritePath('main-aaa', 'assistant')).toBe('/sprites/ball.svg')
+    expect(t.getSpritePath('main-aaa', 'assistant')).toBe('/sprites/claudex-ball.png')
     // no Pokémon yet: the name is the session's own, never "몬스터볼"
     expect(t.themedDisplayName('assistant', 'Claude', 'main-aaa')).toBe('Claude')
     t.assignPokemonToRole('session:aaa', 7)

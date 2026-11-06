@@ -298,7 +298,7 @@
 .dex-release.confirm { background: var(--danger); color: #fff; border-color: var(--danger); }
 
 /* ---------- PC box ---------- */
-.box { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.box { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .box-main { flex: 1; min-height: 0; display: flex; }
 .box-left { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .box-party { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
@@ -353,3 +353,28 @@
 
 /* Party: a little more room between the lineup and the session rows */
 .w-party-head { margin-bottom: 8px; }
+
+/* ---------- Dex and box cells: roomier, one even border, the same picture size ---------- */
+.dex-grid { grid-template-columns: repeat(auto-fill, 78px); grid-auto-rows: 78px; gap: 8px; }
+.dex-cell { width: 78px; height: 78px; box-shadow: none !important; border: 1px solid var(--line); }
+.dex-cell img { width: 62px; height: 62px; }
+.dex-cell.caught { border-color: color-mix(in srgb, var(--tier) 45%, transparent); }
+.dex-cell.caught.tier-legendary, .dex-cell.caught.tier-mythical { border-color: var(--tier); }
+.dex-cell.picked { border-color: var(--accent); }
+.box-grid { grid-template-columns: repeat(auto-fill, 72px); grid-auto-rows: 72px; gap: 8px; }
+.box-cell { width: 72px; height: 72px; box-shadow: none; border: 1px solid color-mix(in srgb, var(--tier, #a4a9b6) 40%, transparent); }
+.box-party-row .box-cell { width: 66px; height: 66px; }
+.box-cell img { width: 50px; height: 50px; }
+.box-cell.picked { border-color: var(--accent); }
+
+/* ---------- "New": a caught Pokémon whose entry was never opened ---------- */
+.dex-new, .w-new-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #ff4d4f; box-shadow: 0 0 0 2px var(--card), 0 0 6px rgba(255, 77, 79, 0.6);
+}
+.dex-new { position: absolute; right: 6px; top: 6px; }
+.dex-cell .dex-shiny { right: auto; left: 5px; top: auto; bottom: 3px; }
+.w-view-switch button { position: relative; }
+.w-view-switch .w-new-dot { position: absolute; top: 2px; right: 3px; width: 6px; height: 6px; }
+.w-dex { position: relative; }
+.w-new-dot.corner { position: absolute; top: 10px; right: 10px; }
