@@ -29,7 +29,7 @@ export function pokemonById(id: number): PokemonEntry | undefined { return id ==
 
 /** The Pokémon HOME artwork of a species (trimmed, fits 128 px); 0 is the Poké Ball */
 export function spriteUrl(id: number, shiny = false): string {
-  if (!id) return '/sprites/pokemon/ball.png'
+  if (!id) return '/sprites/ball.svg'
   return `/sprites/pokemon/${shiny ? 'art-shiny' : 'art'}/${id}.png`
 }
 

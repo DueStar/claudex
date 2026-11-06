@@ -36,6 +36,8 @@ export default defineConfig({
     // window, start-office.sh and the server's origin allowlist all expect 3333.
     strictPort: true,
     proxy: {
+      // Pokémon artwork comes from the server (fetched on first use), never from public/
+      '/sprites/pokemon': { target: `http://127.0.0.1:${SERVER_PORT}` },
       '/ws': {
         target: `ws://127.0.0.1:${SERVER_PORT}`,
         ws: true,

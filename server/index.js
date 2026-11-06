@@ -31,6 +31,7 @@ import { addMessage, getMessages, markSeen, addReaction, markInboxRead } from '.
 import db from './chat-db.js'
 import { mountStatus } from './status.js'
 import { mountRegistry, pidAlive } from './sessions.js'
+import { mountSprites } from './sprites.js'
 import { mountTasks } from './tasks.js'
 import { createPokedex } from './pokedex.js'
 import { createCloud } from './cloud.js'
@@ -3417,6 +3418,9 @@ setInterval(() => sweepStale(), 5 * 60_000).unref()
 // ---------------------------------------------------------------------------
 // Static UI — registered after every API route so /health, /chat, ... win
 // ---------------------------------------------------------------------------
+
+// Pokémon artwork: fetched from PokeAPI on first use, then a local file (server/sprites.js)
+mountSprites(app, { runtimeDir: RUNTIME_DIR, uiDir: UI_DIR })
 
 if (UI_AVAILABLE) {
   app.use(express.static(UI_DIR))
