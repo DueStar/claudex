@@ -463,3 +463,10 @@ html.qa-mode #root { min-height: 100vh; }
 .qa-item { max-width: 384px; }
 .qa-item.qa-row { max-width: none; }
 .qa-today { height: 420px; display: flex; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+
+/* ---------- More room around each Pokémon (pictures stay the same size) ---------- */
+.dex-grid { grid-template-columns: repeat(auto-fill, 92px); grid-auto-rows: 92px; gap: 10px; }
+.dex-cell { width: 92px; height: 92px; }
+.box-grid { grid-template-columns: repeat(auto-fill, 86px); grid-auto-rows: 86px; gap: 10px; }
+.box-cell { width: 86px; height: 86px; }
+.box-party-row .box-cell { width: 78px; height: 78px; }

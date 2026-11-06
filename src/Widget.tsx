@@ -398,7 +398,7 @@ ${update.notes}` : ''}${update.error ? `
                 <img key={`${e.at}-${i}`} src={spriteUrl(e.id, !!e.shiny)} alt={e.name} title={e.name} />
               ))}
             </span>
-            <span className="w-dex-pity" title="전설·환상 천장: 이만큼 만나면 다음은 확정">전설 {dex?.sinceLegend ?? 0}/{dex?.pity ?? 150}<br />환상 {dex?.sinceMythical ?? 0}/{dex?.pityMythical ?? 300}</span>
+            <span className="w-dex-pity" title="천장: 전설·환상 없이 만난 횟수예요. 150번이면 다음은 확정 전설, 300번이면 확정 환상이에요 (잡은 수가 아니에요)">전설 천장 {dex?.sinceLegend ?? 0}/{dex?.pity ?? 150}<br />환상 천장 {dex?.sinceMythical ?? 0}/{dex?.pityMythical ?? 300}</span>
           </button>
 
           <section className="w-card w-party">

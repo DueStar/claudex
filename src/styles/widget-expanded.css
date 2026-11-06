@@ -242,3 +242,5 @@
 .term-view .xterm .scrollbar > .slider { background: rgba(255, 255, 255, 0.08) !important; border-radius: 4px; }
 .term-view .xterm:hover .scrollbar > .slider { background: rgba(255, 255, 255, 0.16) !important; }
 .term-view .xterm .scrollbar.vertical { width: 8px !important; }
+/* Session tabs above the terminal: a smaller Pokémon */
+.w-term-tab img { width: 20px; height: 20px; }
