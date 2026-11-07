@@ -22,13 +22,13 @@ const DEFAULT_SERVER_PORT = 3334
 const VITE_DEV_PORT = 3333
 
 /**
- * The server's port from CLAUDEX_PORT (or AGENT_OFFICE_PORT): the same parse as
+ * The server's port from CLAUDEX_PORT: the same parse as
  * server/config.js readPort (which this file cannot import: the server is
  * ESM and the Electron main process is CommonJS), so the app, the server it
  * spawns and the hooks always agree. Anything that is not a port is 3334.
  */
 function serverPortFromEnv(env = process.env) {
-  const raw = env && (env.CLAUDEX_PORT || env.AGENT_OFFICE_PORT)
+  const raw = env && env.CLAUDEX_PORT
   if (typeof raw !== 'string' || raw === '') return DEFAULT_SERVER_PORT
   const text = raw.trim()
   if (!/^\d{1,5}$/.test(text)) return DEFAULT_SERVER_PORT

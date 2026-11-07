@@ -9,9 +9,6 @@
  *                    origin allowlist needs it.
  *   CLAUDEX_HOST     the bind address: IPv4 loopback only (see readHost).
  *
- * The AGENT_OFFICE_* names older setups used are still read when the
- * CLAUDEX_* one is unset.
- *
  * Everything here is pure (the environment comes in as an argument) so
  * tests/config.test.ts covers it without starting a server.
  */
@@ -55,13 +52,11 @@ export function readUiPort(env = process.env, log = console) {
   return readPortVar(env, 'UI_PORT', DEFAULT_UI_PORT, log)
 }
 
-/** CLAUDEX_<name>, or AGENT_OFFICE_<name> (older setups): the value and the name it came from */
+/** CLAUDEX_<name>: the value (undefined when unset or empty) and the name, for warnings */
 function readVar(env, name) {
-  for (const full of [`CLAUDEX_${name}`, `AGENT_OFFICE_${name}`]) {
-    const raw = env?.[full]
-    if (raw !== undefined && raw !== '') return { raw, name: full }
-  }
-  return { raw: undefined, name: `CLAUDEX_${name}` }
+  const full = `CLAUDEX_${name}`
+  const raw = env?.[full]
+  return { raw: raw === '' ? undefined : raw, name: full }
 }
 
 function readPortVar(env, key, fallback, log) {

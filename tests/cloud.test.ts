@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { afterAll, describe, expect, it } from 'vitest'
-import { createCloud, syncMark } from '../server/cloud.js'
+import { createCloud, syncMark, cloudCopy, CLOUD_LOG } from '../server/cloud.js'
 
 const dirs: string[] = []
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }) })
@@ -93,7 +93,8 @@ describe('cloud', () => {
     const upload = calls.find(c => c.url.includes('on_conflict=user_id'))
     const row = JSON.parse(upload.init.body)
     expect(row).toMatchObject({ caught_count: 4, seen_count: 4 })
-    expect(row.state).toEqual(game)
+    expect(row.state).toEqual(cloudCopy(game))
+    expect(row.state.assign).toBeUndefined() // this PC's sessions stay on this PC
   })
 
   it("a later sync pulls and merges before it uploads, so another PC's newer catches are not overwritten", async () => {
@@ -118,7 +119,7 @@ describe('cloud', () => {
     await cloud.finishSignIn({ code: 'x', state })
     expect(replaced).toBe(0)
     expect(getGame()).toBe(before)
-    expect(JSON.parse(calls.find(c => c.url.includes('on_conflict=user_id')).init.body).state).toEqual(before)
+    expect(JSON.parse(calls.find(c => c.url.includes('on_conflict=user_id')).init.body).state).toEqual(cloudCopy(before))
   })
 
   it('downloads the whole game only when another PC wrote since this one last did', async () => {
@@ -138,6 +139,16 @@ describe('cloud', () => {
     await cloud.syncNow()
     expect(calls.some(c => c.url.includes('select=state'))).toBe(true)
     expect(Object.keys(getGame().caught).sort()).toEqual(['1', '150'])
+  })
+
+  it('the cloud copy leaves out the fields only this PC uses and keeps the newest CLOUD_LOG events', () => {
+    const log = Array.from({ length: CLOUD_LOG + 50 }, (_, i) => ({ kind: 'catch', id: 1, at: i }))
+    const game = { version: 2, caught: { 1: {} }, assign: { s: 'm1' }, projects: { s: 'web' }, daily: { day: 'd', catches: 1 }, thrownAt: { s: 1 }, log }
+    const copy = cloudCopy(game)
+    expect(Object.keys(copy).sort()).toEqual(['caught', 'log', 'version'])
+    expect(copy.log).toHaveLength(CLOUD_LOG)
+    expect(copy.log[0].at).toBe(50)
+    expect(game.log).toHaveLength(CLOUD_LOG + 50) // the game itself is untouched
   })
 
   it('a step alone is not worth a sync; a logged event, the box, the party or a release is', () => {

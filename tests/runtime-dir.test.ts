@@ -54,13 +54,12 @@ describe('the data folder', () => {
     expect(runtimeDir(noEnv, h)).toBe(join(h, '.claudex'))
   })
 
-  it('leaves a folder the user chose alone (CLAUDEX_HOME, or AGENT_OFFICE_HOME from older setups)', () => {
+  it('leaves a folder the user chose alone (CLAUDEX_HOME)', () => {
     const h = home()
     legacyGame(h)
     expect(migrateRuntimeDir({ env: { CLAUDEX_HOME: '/x' }, home: h, log: quiet })).toBe('custom')
     expect(existsSync(join(h, '.claudex'))).toBe(false)
-    expect(runtimeDir({ CLAUDEX_HOME: '/x', AGENT_OFFICE_HOME: '/y' }, h)).toBe('/x')
-    expect(runtimeDir({ AGENT_OFFICE_HOME: '/y' }, h)).toBe('/y')
+    expect(runtimeDir({ CLAUDEX_HOME: '/x' }, h)).toBe('/x')
   })
 
   it('a failed copy leaves no half folder, and the old one stays in use', () => {
@@ -79,9 +78,9 @@ describe('the data folder', () => {
     expect(runtimeDir(noEnv, h)).toBe(join(h, '.agent-office'))
   })
 
-  it('reads CLAUDEX_* first, then AGENT_OFFICE_*', () => {
-    expect(envVar('PORT', { CLAUDEX_PORT: '1', AGENT_OFFICE_PORT: '2' })).toBe('1')
-    expect(envVar('PORT', { AGENT_OFFICE_PORT: '2' })).toBe('2')
+  it('reads CLAUDEX_<name> only (the old AGENT_OFFICE_ names are gone)', () => {
+    expect(envVar('PORT', { CLAUDEX_PORT: '1' })).toBe('1')
+    expect(envVar('PORT', { AGENT_OFFICE_PORT: '2' })).toBe('')
     expect(envVar('PORT', {})).toBe('')
   })
 })

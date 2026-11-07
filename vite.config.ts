@@ -7,7 +7,7 @@ import { pokedexData } from './vite.pokedex'
 // to 3334 like server/config.js readPort does, so a typo cannot split the
 // dev page from its server.
 function serverPort(): number {
-  const raw = process.env.CLAUDEX_PORT || process.env.AGENT_OFFICE_PORT || ''
+  const raw = process.env.CLAUDEX_PORT || ''
   const port = /^\d{1,5}$/.test(raw.trim()) ? Number(raw.trim()) : NaN
   return port >= 1 && port <= 65535 ? port : 3334
 }

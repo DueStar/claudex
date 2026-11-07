@@ -247,8 +247,8 @@ function maybeCaptureScreenshot() {
   const file = envVar('SCREENSHOT')
   if (!file) return
   const delay = Number(envVar('SCREENSHOT_DELAY_MS')) || 3000
-  // Debug: POKEMON_OFFICE_AUTOTEST="<cwd>|<instruction>" opens a terminal and sends the instruction as the widget would
-  const auto = process.env.POKEMON_OFFICE_AUTOTEST
+  // Debug: CLAUDEX_AUTOTEST="<cwd>|<instruction>" opens a terminal and sends the instruction as the widget would
+  const auto = process.env.CLAUDEX_AUTOTEST
   if (auto && terminals) {
     const [cwd, instruction] = auto.split('|')
     const t = terminals.create({ cwd })
@@ -266,14 +266,14 @@ function maybeCaptureScreenshot() {
       })
     }).on('error', () => {})
     if (instruction) setTimeout(() => terminals.sendInstruction(t.id, instruction), Math.max(500, delay / 2))
-    // POKEMON_OFFICE_AUTOTEST_KEYS: raw keys typed 5 s in; the words DOWN and ENTER stand for those keys
-    const keys = process.env.POKEMON_OFFICE_AUTOTEST_KEYS
+    // CLAUDEX_AUTOTEST_KEYS: raw keys typed 5 s in; the words DOWN and ENTER stand for those keys
+    const keys = process.env.CLAUDEX_AUTOTEST_KEYS
     if (keys) setTimeout(() => terminals.write(t.id, keys.split('DOWN').join(String.fromCharCode(27) + '[B').split('ENTER').join(String.fromCharCode(13))), 5000)
   }
-  // Debug: POKEMON_OFFICE_AUTOTEST_EXPAND=1|0 forces the widget's mode for the capture
-  if (process.env.POKEMON_OFFICE_AUTOTEST_EXPAND) setTimeout(() => setWidgetExpanded(process.env.POKEMON_OFFICE_AUTOTEST_EXPAND === '1'), 1500)
-  // Debug: POKEMON_OFFICE_AUTOTEST_WIDGET_JS runs in the app a second before the capture
-  const wjs = process.env.POKEMON_OFFICE_AUTOTEST_WIDGET_JS
+  // Debug: CLAUDEX_AUTOTEST_EXPAND=1|0 forces the widget's mode for the capture
+  if (process.env.CLAUDEX_AUTOTEST_EXPAND) setTimeout(() => setWidgetExpanded(process.env.CLAUDEX_AUTOTEST_EXPAND === '1'), 1500)
+  // Debug: CLAUDEX_AUTOTEST_WIDGET_JS runs in the app a second before the capture
+  const wjs = process.env.CLAUDEX_AUTOTEST_WIDGET_JS
   if (wjs) setTimeout(() => { widgetWin?.webContents.executeJavaScript(wjs).catch((e) => console.error('[main] autotest widget js:', e.message)) }, Math.max(0, delay - 1500))
   setTimeout(async () => {
     try {

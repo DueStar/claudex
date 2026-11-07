@@ -32,6 +32,19 @@ import { mergeGames, sameGame } from './merge.js'
 const PENDING_TTL_MS = 10 * 60 * 1000
 const SYNC_DEBOUNCE_MS = 30 * 1000
 
+/** How many of the newest log events the cloud copy keeps (each PC keeps its own LOG_LIMIT) */
+export const CLOUD_LOG = 200
+
+/**
+ * What the cloud keeps of a game: not the fields only this PC uses (merge.js
+ * always takes them from the local side: session assignments, the projects,
+ * today's catch number, session starts), and only the newest CLOUD_LOG events.
+ */
+export function cloudCopy(game) {
+  const { assign, projects, daily, thrownAt, ...rest } = game ?? {}
+  return Array.isArray(rest.log) ? { ...rest, log: rest.log.slice(-CLOUD_LOG) } : rest
+}
+
 /** What a sync is worth doing for: the log's newest event, the box, the party, the released (not steps or work time) */
 export function syncMark(game) {
   const last = game?.log?.[game.log.length - 1]
@@ -183,7 +196,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
       user_id: session.user.id,
       display_name: session.user.user_metadata?.full_name ?? session.user.email ?? null,
       ...summary(game),
-      state: game,
+      state: cloudCopy(game),
       updated_at: new Date(now()).toISOString(),
     }
     // Only updated_at comes back, so the upload costs no egress beyond a few bytes

@@ -8,7 +8,7 @@ Usage:  python -I tools/fetch-pokemon-traits.py <project-root>
                (the five "neutral" natures raise and lower nothing)
 
 Writes genderRate into src/pokemon/pokedex.json and server/pokemon-data.json,
-and the natures to src/pokemon/natures.json and server/natures.json.
+and the natures to server/natures.json (the app imports it from there too).
 """
 import json
 import sys
@@ -56,7 +56,7 @@ def main():
         for r in rows:
             r["genderRate"] = rates[r["id"]]
         p.write_text(json.dumps(rows, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    for rel in ("src/pokemon/natures.json", "server/natures.json"):
+    for rel in ("server/natures.json",):
         (ROOT / rel).write_text(json.dumps(natures, ensure_ascii=False, indent=1), encoding="utf-8")
     genderless = sum(1 for v in rates.values() if v == -1)
     print(f"ok: {len(rates)} gender rates ({genderless} genderless), {len(natures)} natures")

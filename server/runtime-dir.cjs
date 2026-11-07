@@ -5,7 +5,7 @@
  * the cloud session, the sprite cache), shared by the server, the app and the
  * hooks (hooks/post.cjs resolves it the same way).
  *
- *   CLAUDEX_HOME (or AGENT_OFFICE_HOME, which older setups set), else ~/.claudex
+ *   CLAUDEX_HOME, else ~/.claudex
  *
  * Until 1.3.8 the folder was ~/.agent-office (the project began as a fork of
  * Claude Office). migrateRuntimeDir copies it to ~/.claudex once, the first
@@ -19,9 +19,9 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-/** CLAUDEX_<name>, or the AGENT_OFFICE_<name> older setups still set */
+/** CLAUDEX_<name> from the environment, or '' */
 function envVar(name, env = process.env) {
-  return (env && (env[`CLAUDEX_${name}`] || env[`AGENT_OFFICE_${name}`])) || ''
+  return (env && env[`CLAUDEX_${name}`]) || ''
 }
 
 const LEGACY_NAME = '.agent-office'
@@ -42,7 +42,7 @@ function runtimeDir(env = process.env, home = os.homedir()) {
 
 /**
  * Copy ~/.agent-office to ~/.claudex when the new folder does not exist yet.
- * Returns what happened: 'custom' (CLAUDEX_HOME/AGENT_OFFICE_HOME is set: the
+ * Returns what happened: 'custom' (CLAUDEX_HOME is set: the
  * user chose the folder), 'present', 'nothing' (no old folder), 'copied', or
  * 'failed' (the error is logged; runtimeDir keeps using ~/.agent-office and
  * the next start tries again).

@@ -122,14 +122,14 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     let command = claudeCommand()
     let args = resume ? ['--resume', resume] : ['--session-id', sessionId]
     args.push('--settings', settings())
-    // Debug only: POKEMON_OFFICE_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
-    if (process.env.POKEMON_OFFICE_CLAUDE) { command = process.env.POKEMON_OFFICE_CLAUDE; args = [] }
+    // Debug only: CLAUDEX_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
+    if (process.env.CLAUDEX_CLAUDE) { command = process.env.CLAUDEX_CLAUDE; args = [] }
     const pty = loadPty().spawn(command, args, {
       name: 'xterm-256color',
       cols: 100,
       rows: 30,
       cwd: dir,
-      env: { ...cleanEnv(process.env), POKEMON_OFFICE_TERMINAL: sessionId },
+      env: cleanEnv(process.env),
       useConpty: true,
     })
     const t = { id: sessionId, sessionId, cwd: dir, pty, buffer: '', status: 'running', createdAt: Date.now() }

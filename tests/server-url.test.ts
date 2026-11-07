@@ -18,9 +18,9 @@ function at(url: string): PageLocation {
   return { protocol: u.protocol, hostname: u.hostname, host: u.host, port: u.port, origin: u.origin }
 }
 
-/** import.meta.env of a production bundle built with the given AGENT_OFFICE_PORT. */
+/** import.meta.env of a production bundle built with the given CLAUDEX_PORT. */
 const built = (port = '3334'): BuildEnv => ({ dev: false, port })
-/** import.meta.env under `vite` (dev) with the given AGENT_OFFICE_PORT. */
+/** import.meta.env under `vite` (dev) with the given CLAUDEX_PORT. */
 const dev = (port = '3334'): BuildEnv => ({ dev: true, port })
 
 describe('served by the office server', () => {
@@ -31,7 +31,7 @@ describe('served by the office server', () => {
     expect(serverWsUrl(loc, built())).toBe('ws://127.0.0.1:3334/ws')
   })
 
-  it('on a configured port (AGENT_OFFICE_PORT=4000): the page origin, whatever the bundle was built with', () => {
+  it('on a configured port (CLAUDEX_PORT=4000): the page origin, whatever the bundle was built with', () => {
     const loc = at('http://localhost:4000/?video')
     expect(serverHttpBase(loc, built('4000'))).toBe('http://localhost:4000')
     expect(serverWsUrl(loc, built('4000'))).toBe('ws://localhost:4000/ws')
@@ -71,7 +71,7 @@ describe('served by the Vite dev server', () => {
     expect(serverWsUrl(loc, dev('4000'))).toBe('ws://127.0.0.1:4000/ws')
   })
 
-  it('`vite --port 3400` (AGENT_OFFICE_UI_PORT): still dev, by import.meta.env.DEV', () => {
+  it('`vite --port 3400` (CLAUDEX_UI_PORT): still dev, by import.meta.env.DEV', () => {
     const loc = at('http://localhost:3400/')
     expect(isDevServerPage(loc, dev('4000'))).toBe(true)
     expect(serverHttpBase(loc, dev('4000'))).toBe('http://127.0.0.1:4000')

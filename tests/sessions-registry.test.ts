@@ -360,7 +360,7 @@ describe('the registry roster in the office', () => {
 
   beforeAll(async () => {
     regDir = mkdtempSync(join(tmpdir(), 'claude-sessions-office-'))
-    office = await loadServer({ env: { AGENT_OFFICE_REGISTRY_DIR: regDir } })
+    office = await loadServer({ env: { CLAUDEX_REGISTRY_DIR: regDir } })
     const port = await listen(office.server.httpServer)
     // The office page's socket (with the token: the broadcasts carry the prompt text)
     ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, serverProtocols(office.server))
@@ -656,7 +656,7 @@ describe('a permission dialog answered or dismissed in the terminal (the registr
 
   beforeAll(async () => {
     regDir = mkdtempSync(join(tmpdir(), 'claude-sessions-dialog-'))
-    office = await loadServer({ env: { AGENT_OFFICE_REGISTRY_DIR: regDir } })
+    office = await loadServer({ env: { CLAUDEX_REGISTRY_DIR: regDir } })
     await postEvent(office.server, { type: 'session_started', ...SESSION, source: 'startup' })
     await postEvent(office.server, { type: 'session_prompt', ...SESSION, promptId: 'p-1', text: 'write probe3.txt' })
     await registryStatus('busy')

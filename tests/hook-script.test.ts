@@ -869,7 +869,7 @@ describe('claudex-hook: the script', () => {
     hits.length = 0
     return new Promise<{ status: number | null; stdout: string; stderr: string; hits: Hit[]; body: any }>((resolve) => {
       const child = spawn(process.execPath, [HOOK], {
-        env: { ...process.env, AGENT_OFFICE_HOME: '', AGENT_OFFICE_PORT: '', AGENT_OFFICE_EVENT_URL: '', CLAUDEX_EVENT_URL: '', CLAUDEX_HOME: dir, CLAUDEX_PORT: String(port), ...env },
+        env: { ...process.env, CLAUDEX_EVENT_URL: '', CLAUDEX_HOME: dir, CLAUDEX_PORT: String(port), ...env },
       })
       let stdout = ''
       let stderr = ''
@@ -935,10 +935,10 @@ describe('claudex-hook: the script', () => {
     }
   })
 
-  it('posts to CLAUDEX_EVENT_URL when set, else to 127.0.0.1:$CLAUDEX_PORT/event; AGENT_OFFICE_* still read', async () => {
+  it('posts to CLAUDEX_EVENT_URL when set, else to 127.0.0.1:$CLAUDEX_PORT/event; CLAUDEX_* still read', async () => {
     const read = { ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: '/x/y.js' } }
     expect((await runScript(read, { CLAUDEX_EVENT_URL: `http://127.0.0.1:${port}/event?via=url` })).hits[0].url).toBe('/event?via=url')
-    expect((await runScript(read, { CLAUDEX_PORT: '', AGENT_OFFICE_PORT: String(port) })).hits).toHaveLength(1)
+    expect((await runScript(read, { CLAUDEX_PORT: String(port) })).hits).toHaveLength(1)
   })
 
   it('exits 0 at once, silently, when the server is down or stdin is not JSON', async () => {

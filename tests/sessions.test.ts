@@ -227,9 +227,9 @@ describe('stale sessions', () => {
     office = undefined
   })
 
-  it('a session with no events for AGENT_OFFICE_STALE_MINUTES ends on the sweep', async () => {
+  it('a session with no events for CLAUDEX_STALE_MINUTES ends on the sweep', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
-    office = await loadServer({ env: { AGENT_OFFICE_STALE_MINUTES: '1' } })
+    office = await loadServer({ env: { CLAUDEX_STALE_MINUTES: '1' } })
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
     office.server.sessions.get(ALPHA.sessionId).lastActivityAt = Date.now() - 2 * 60_000
@@ -281,7 +281,7 @@ describe('persistence', () => {
         { project: 'no-id', state: 'active', startedAt: now, lastActivityAt: now },
       ],
     }))
-    const office = await loadServer({ dir, env: { AGENT_OFFICE_STALE_MINUTES: '60' } })
+    const office = await loadServer({ dir, env: { CLAUDEX_STALE_MINUTES: '60' } })
     offices.push(office)
     expect(Array.from(office.server.sessions.keys())).toEqual(['fresh'])
     // The office worker list of an older file is left behind

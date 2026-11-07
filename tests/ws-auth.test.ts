@@ -360,7 +360,7 @@ describe('the page link at startup', () => {
     const uiDir = freshDir()
     dirs.push(uiDir)
     writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>Claudex</title>')
-    const office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
+    const office = await loadServer({ env: { CLAUDEX_UI_DIR: uiDir } })
     offices.push(office)
     const lines = await started(office)
     const port = (office.server.httpServer.address() as AddressInfo).port
@@ -369,7 +369,7 @@ describe('the page link at startup', () => {
   })
 
   it('points at the Vite dev server when the UI is not built', async () => {
-    const office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: join(freshDir(), 'nothing-here') } })
+    const office = await loadServer({ env: { CLAUDEX_UI_DIR: join(freshDir(), 'nothing-here') } })
     offices.push(office)
     const lines = await started(office)
     expect(lines.find(l => l.includes('Page: '))).toBe(`  Page: http://127.0.0.1:${office.server.UI_DEV_PORT}/#token=${office.server.AUTH_TOKEN}  (the Vite dev server)`)

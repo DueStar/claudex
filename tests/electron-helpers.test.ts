@@ -163,24 +163,24 @@ describe('the tray', () => {
   })
 })
 
-describe('the server port (AGENT_OFFICE_PORT)', () => {
+describe('the server port (CLAUDEX_PORT)', () => {
   it('serverPortFromEnv is 3334 when unset or empty', () => {
     expect(h.serverPortFromEnv({})).toBe(3334)
-    expect(h.serverPortFromEnv({ AGENT_OFFICE_PORT: '' })).toBe(3334)
+    expect(h.serverPortFromEnv({ CLAUDEX_PORT: '' })).toBe(3334)
     expect(h.DEFAULT_SERVER_PORT).toBe(3334)
   })
 
   it('parses a port, tolerating whitespace', () => {
-    expect(h.serverPortFromEnv({ AGENT_OFFICE_PORT: '4000' })).toBe(4000)
-    expect(h.serverPortFromEnv({ AGENT_OFFICE_PORT: ' 4123 ' })).toBe(4123)
-    expect(h.serverPortFromEnv({ AGENT_OFFICE_PORT: '65535' })).toBe(65535)
+    expect(h.serverPortFromEnv({ CLAUDEX_PORT: '4000' })).toBe(4000)
+    expect(h.serverPortFromEnv({ CLAUDEX_PORT: ' 4123 ' })).toBe(4123)
+    expect(h.serverPortFromEnv({ CLAUDEX_PORT: '65535' })).toBe(65535)
   })
 
   it('falls back to 3334 for anything that is not a port, exactly as server/config.js readPort does', async () => {
     const { readPort } = await import('../server/config.js')
     const quiet = { warn: () => {} }
     for (const raw of ['abc', '0', '70000', '-1', '33.34', '3334abc', '0x3334', '4000', ' 4001 ', '']) {
-      const env = { AGENT_OFFICE_PORT: raw }
+      const env = { CLAUDEX_PORT: raw }
       expect(h.serverPortFromEnv(env), raw).toBe(readPort(env, quiet))
     }
   })
@@ -251,7 +251,7 @@ describe('reusing a server already on the port', () => {
     const built = mkdtempSync(join(tmpdir(), 'claudex-ui-'))
     writeFileSync(join(built, 'index.html'), '<!doctype html><title>Claudex</title>')
     try {
-      const bare = await loadServer({ env: { AGENT_OFFICE_UI_DIR: empty } })
+      const bare = await loadServer({ env: { CLAUDEX_UI_DIR: empty } })
       try {
         const res = await request(bare.server.app).get('/health')
         expect(h.classifyHealth(res.status, res.text)).toBe('no-ui')
@@ -262,7 +262,7 @@ describe('reusing a server already on the port', () => {
       } finally {
         removeServer(bare)
       }
-      const office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: built } })
+      const office = await loadServer({ env: { CLAUDEX_UI_DIR: built } })
       try {
         const res = await request(office.server.app).get('/health')
         expect(h.classifyHealth(res.status, res.text)).toBe('usable')

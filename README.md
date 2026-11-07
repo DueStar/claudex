@@ -116,7 +116,7 @@ node scripts/release.mjs --publish   # 점검 후 GitHub 릴리스까지 (서명
 
 - **빌드할 때 받는 그림**: `tools/fetch-balls.mjs`가 볼 그림을 받아요. `tools/build-icons.py`는 앱 아이콘을 만들어요.
 - **저장소에 없는 것**: 포켓몬·볼 그림은 저장소에 넣지 않아요(`.gitignore`).
-- **시험 실행**: 실제 데이터를 건드리지 않으려면 `CLAUDEX_HOME=<임시 폴더> CLAUDEX_PORT=3344`로 실행하세요. 예전 이름(`AGENT_OFFICE_*`)도 계속 읽어요.
+- **시험 실행**: 실제 데이터를 건드리지 않으려면 `CLAUDEX_HOME=<임시 폴더> CLAUDEX_PORT=3344`로 실행하세요.
 
 ```
 claudex/

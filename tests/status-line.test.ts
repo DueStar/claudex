@@ -129,7 +129,7 @@ async function run(payload: unknown, home: string, { args = [], url = serverUrl,
   const out = await execScript(process.execPath, [SCRIPT, ...args], {
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     timeout: 10_000,
-    env: { ...process.env, AGENT_OFFICE_STATUS_URL: '', AGENT_OFFICE_HOME: '', AGENT_OFFICE_PORT: '', CLAUDEX_STATUS_URL: url, CLAUDEX_HOME: home, ...env },
+    env: { ...process.env, CLAUDEX_PORT: '', CLAUDEX_STATUS_URL: url, CLAUDEX_HOME: home, ...env },
   })
   return { out, ms: Date.now() - started }
 }
@@ -242,9 +242,9 @@ describe('status-line.cjs: statusLine', () => {
 })
 
 describe('older setups', () => {
-  it('still read AGENT_OFFICE_STATUS_URL and AGENT_OFFICE_HOME when the CLAUDEX_ names are unset', async () => {
+  it('still read CLAUDEX_STATUS_URL and CLAUDEX_HOME when the CLAUDEX_ names are unset', async () => {
     const home = claudexHome({ token: 'b'.repeat(64) })
-    await run(STATUS_JSON, home, { env: { CLAUDEX_STATUS_URL: '', CLAUDEX_HOME: '', AGENT_OFFICE_STATUS_URL: serverUrl, AGENT_OFFICE_HOME: home } })
+    await run(STATUS_JSON, home, { env: { CLAUDEX_STATUS_URL: serverUrl, CLAUDEX_HOME: home } })
     const [req] = await posted()
     expect(req.sig).toMatch(/^[0-9a-f]{64}$/)
   })

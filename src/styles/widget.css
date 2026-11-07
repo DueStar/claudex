@@ -41,14 +41,10 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 
 
 /* ---------- The bento ---------- */
-.w-bento {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-  gap: 6px;
-}
+/* One column of full-width cards; the party takes the rest */
+.w-bento { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.w-bento > .w-card { flex: none; }
+.w-bento > .w-party { flex: 1 1 auto; min-height: 0; }
 .w-card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -109,8 +105,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   border-radius: 10px;
   background: var(--card-2);
   border: 1px solid transparent;
+  cursor: pointer;
 }
-.w-row.chosen { border-color: rgba(255, 216, 74, 0.35); }
+.w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
 .w-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .w-row-name { font-weight: 650; font-size: 12.5px; }
 .w-row-project { color: var(--ink-3); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -125,7 +122,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-ctx.tone-danger span { background: var(--danger); }
 .w-row-num { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 
-.w-compose { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+/* The instruction box: the note sits above it, 보내기 inside it */
+.w-compose { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
 /* The textarea takes the full width; 보내기 is a small icon button inside it, bottom right */
 .w-input { position: relative; display: flex; }
 .w-input textarea {
@@ -162,13 +160,17 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 /* Nothing to send yet: the same button, greyed */
 .w-send:disabled { background: rgba(255, 255, 255, 0.07); color: var(--ink-3); cursor: default; }
 .w-note {
+  margin: 0;
   font-size: 11.5px;
+  line-height: 1.45;
   color: var(--ink-2);
   padding: 6px 9px;
   border-radius: 9px;
   background: var(--card-2);
   cursor: pointer;
+  animation: wNoteIn 0.2s ease-out both;
 }
+@keyframes wNoteIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
 /* Thin scrollbars that sit inside the cards */
 .w-party::-webkit-scrollbar { width: 6px; }
@@ -176,11 +178,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-party::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 3px; }
 .w-party::-webkit-scrollbar-thumb:hover { background: #3a3f4c; }
 .w-party::-webkit-scrollbar-button { display: none; height: 0; }
-
-/* ---------- Layout: one column of full-width cards; the party takes the rest ---------- */
-.w-bento { display: flex; flex-direction: column; }
-.w-bento > .w-card { flex: none; }
-.w-bento > .w-party { flex: 1 1 auto; min-height: 0; }
 
 /* ---------- Limits: two slim rows instead of four big tiles ---------- */
 .w-limits { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
@@ -200,10 +197,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-update.downloading { background: var(--card-2); color: var(--accent); cursor: default; }
 .w-update.ready { background: var(--accent); color: var(--accent-ink); }
 
-/* ---------- Session rows: a name you can change ---------- */
-.w-row { cursor: pointer; }
-.w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
-.w-row-label { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+/* ---------- Session rows: name and level on the left (a name you can change), status and swap on the right ---------- */
+.w-row-label { flex: 0 1 auto; display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+.w-row-top > .w-pill { margin-left: auto; }
+.w-row-top > .w-row-close { margin-left: 2px; }
+.w-row-swap, .w-row-top > .w-pill, .w-row-lv { flex: none; white-space: nowrap; }
 .w-row-label .w-row-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-row-label .w-row-project { white-space: nowrap; }
 .w-row-edit { opacity: 0; font: inherit; font-size: 11px; color: var(--ink-3); background: transparent; border: 0; padding: 0 2px; cursor: pointer; }
@@ -212,7 +210,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; font-weight: 650; color: var(--ink); background: var(--card); border: 1px solid var(--accent); border-radius: 7px; padding: 2px 7px; outline: none; }
 
 /* ---------- Limits while nothing has reported yet: a quiet shimmer, same widths ---------- */
-.w-limit.loading .w-bar { position: relative; overflow: hidden; }
+/* while a session starts, the bar fills the row */
+.w-limit.loading .w-bar { position: relative; overflow: hidden; grid-column: 2 / -1; }
+.w-limit.loading .w-limit-pct, .w-limit.loading .w-limit-reset { display: none; }
 .w-limit.loading .w-bar::after {
   content: ''; position: absolute; inset: 0; width: 40%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.10), transparent);
@@ -222,20 +222,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 @keyframes wLimitShimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @keyframes wLimitPulse { 50% { opacity: 0.45; } }
 
-/* Limits: a hint before any session; while a session starts, the bar fills the row */
+/* Limits: a hint before any session */
 .w-limits.idle { flex-direction: row; align-items: center; gap: 10px; padding: 11px 12px; }
 .w-limits-hint { font-size: 11px; color: var(--ink-3); }
-.w-limit.loading .w-bar { grid-column: 2 / -1; }
-.w-limit.loading .w-limit-pct, .w-limit.loading .w-limit-reset { display: none; }
-
-/* ---------- Session row: name and level on the left, status, swap and close on the right ---------- */
-.w-row-label { flex: 0 1 auto; }
-.w-row-top > .w-pill { margin-left: auto; }
-.w-row-top > .w-row-close { margin-left: 2px; }
-
-/* ---------- Instruction box: the note sits above it, 보내기 inside it ---------- */
-.w-compose { gap: 6px; }
-.w-note { margin: 0; line-height: 1.45; animation: wNoteIn 0.2s ease-out both; }
-@keyframes wNoteIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-.w-row-swap, .w-row-top > .w-pill, .w-row-lv { flex: none; white-space: nowrap; }
-.w-row-label { min-width: 0; }

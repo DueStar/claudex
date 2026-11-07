@@ -11,7 +11,6 @@
   flex-direction: column;
 }
 .widget.expanded .w-side { flex: 0 0 328px; width: 328px; }
-.w-bento { grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; }
 
 /* ---------- Launcher card ---------- */
 .w-launch {
@@ -39,6 +38,10 @@
 }
 .w-launch-main:hover { filter: brightness(1.08); }
 .w-launch-alt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 40px;
   font: inherit;
   font-size: 14px;
@@ -107,7 +110,8 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.w-term-tab img { width: 26px; height: 26px; image-rendering: pixelated; }
+/* Session tabs above the terminal: a small Pokémon */
+.w-term-tab img { width: 20px; height: 20px; }
 .w-term-tab:hover { background: var(--card-2); color: var(--ink); }
 .w-term-tab.on { background: var(--card-2); border-color: var(--line); color: var(--ink); }
 .w-term-tab-name { font-weight: 650; }
@@ -176,13 +180,14 @@
 .resume-warn-actions button { background: var(--card-2); color: var(--ink); border: 0; border-radius: 9px; padding: 7px 13px; font: inherit; cursor: pointer; }
 .resume-warn-actions button.danger { background: var(--danger); color: #fff; }
 
-/* ---------- Resize grip ---------- */
+/* ---------- Resize grip: small, and clear of the rounded corner ---------- */
 .w-grip {
   position: fixed;
-  right: 8px;
-  bottom: 8px;
-  width: 14px;
-  height: 14px;
+  right: 11px;
+  bottom: 11px;
+  width: 10px;
+  height: 10px;
+  opacity: 0.7;
   cursor: nwse-resize;
   background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.25) 50% 58%, transparent 58% 70%, rgba(255, 255, 255, 0.25) 70% 78%, transparent 78%);
   z-index: 60;
@@ -191,7 +196,7 @@
 /* ---------- Window and fullscreen modes: one opaque app, edge to edge ----------
    The widget floats with gaps that show the desktop; as a window the sidebar
    and the terminal fill the whole window with no transparent part. */
-.widget.mode-window, .widget.mode-fullscreen { background: #0b0c10; padding: 0; gap: 0; }
+.widget.mode-window, .widget.mode-fullscreen { background: #0b0c10; padding: 0; gap: 0; --head-h: 46px; }
 .widget.mode-window .w-side, .widget.mode-fullscreen .w-side {
   background: #0e1015;
   border-right: 1px solid var(--line);
@@ -215,11 +220,8 @@
 .pokeball { display: block; flex-shrink: 0; object-fit: contain; image-rendering: auto; }
 .w-view-switch button { display: inline-flex; align-items: center; gap: 5px; }
 .w-view-switch button.icon-only { padding: 4px 7px; }
-.w-launch-alt { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .w-icon { display: inline-flex; align-items: center; justify-content: center; }
 
-/* ---------- Resize grip: small, and clear of the rounded corner ---------- */
-.w-grip { right: 11px; bottom: 11px; width: 10px; height: 10px; opacity: 0.7; }
 .w-grip:hover { opacity: 1; }
 
 /* ---------- Window / fullscreen: the sidebar is open space, not cards in a box ---------- */
@@ -240,8 +242,6 @@
 .term-view .xterm .scrollbar > .slider { background: rgba(255, 255, 255, 0.08) !important; border-radius: 4px; }
 .term-view .xterm:hover .scrollbar > .slider { background: rgba(255, 255, 255, 0.16) !important; }
 .term-view .xterm .scrollbar.vertical { width: 8px !important; }
-/* Session tabs above the terminal: a smaller Pokémon */
-.w-term-tab img { width: 20px; height: 20px; }
 
 /* ---------- Tab bar: new session right after the open sessions; window controls at the far right ---------- */
 .w-term-new { flex: none; -webkit-app-region: no-drag; }
@@ -266,8 +266,7 @@
 }
 .w-notes-ok:hover { background: var(--accent-hover); }
 
-/* ---------- Window / fullscreen: the sidebar header and the tab bar share one height ---------- */
-.widget.mode-window, .widget.mode-fullscreen { --head-h: 46px; }
+/* ---------- Window / fullscreen: the sidebar header and the tab bar share one height (--head-h) ---------- */
 .widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head,
 .widget.mode-window .w-term-tabs, .widget.mode-fullscreen .w-term-tabs {
   height: var(--head-h);

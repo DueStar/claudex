@@ -158,7 +158,7 @@ describe('GET /health and the health broadcast', () => {
     uiDir = mkdtempSync(join(tmpdir(), 'agent-office-ui-'))
     mkdirSync(uiDir, { recursive: true })
     writeFileSync(join(uiDir, 'index.html'), '<!DOCTYPE html><html><body></body></html>')
-    office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
+    office = await loadServer({ env: { CLAUDEX_UI_DIR: uiDir } })
     port = await listen(office.server.httpServer)
   })
 

@@ -185,8 +185,8 @@ describe('expiry', () => {
     expect(restarted.summary()).toEqual({ sessions: [], rateLimits: expect.objectContaining({ fiveHour: 23.5, sevenDayResetsAt: 1738857600, at: 1_000 }) })
   })
 
-  it('the mounted store uses AGENT_OFFICE_STALE_MINUTES', async () => {
-    const office = await loadServer({ env: { AGENT_OFFICE_STALE_MINUTES: '1' } })
+  it('the mounted store uses CLAUDEX_STALE_MINUTES', async () => {
+    const office = await loadServer({ env: { CLAUDEX_STALE_MINUTES: '1' } })
     try {
       await postStatus(office.server, status())
       expect(store(office).expireStale(Date.now() + 59_000)).toEqual([])

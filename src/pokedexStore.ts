@@ -7,8 +7,8 @@
 import { useSyncExternalStore } from 'react'
 import { castSession, POKEMON } from './theme'
 
-import NATURES from './pokemon/natures.json'
-import BALL_DATA from './pokemon/balls.json'
+import NATURES from '../server/natures.json'
+import BALL_DATA from '../server/balls.json'
 
 export type Tier = 'common' | 'rare' | 'sub' | 'legendary' | 'mythical'
 
