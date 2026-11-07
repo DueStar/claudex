@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { pokedexData } from './vite.pokedex'
 
 // The office server's port, the same AGENT_OFFICE_PORT the server, the hook
 // and the scripts read (default 3334). A value that is not a port falls back
@@ -14,7 +15,7 @@ function officePort(): number {
 const SERVER_PORT = officePort()
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pokedexData()],
   // The built app is always served from an origin root: Vite on 3333 in dev,
   // the office server on its own port after `vite build` (it mounts dist/ at
   // /, and the packaged desktop app loads http://127.0.0.1:<port>/). Sprite
@@ -38,7 +39,6 @@ export default defineConfig({
     proxy: {
       // Pokémon artwork comes from the server (fetched on first use), never from public/
       '/sprites/pokemon': { target: `http://127.0.0.1:${SERVER_PORT}` },
-      '/sprites/items': { target: `http://127.0.0.1:${SERVER_PORT}` },
       '/sprites/balls': { target: `http://127.0.0.1:${SERVER_PORT}` },
       '/ws': {
         target: `ws://127.0.0.1:${SERVER_PORT}`,

@@ -1,8 +1,5 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
-import Widget from './Widget'
-import Toast from './Toast'
-import QaPage from './QaPage'
 import { captureOfficeToken } from './officeToken'
 
 // The page link carries the server token in its fragment (#token=...): keep it
@@ -19,8 +16,12 @@ if (isQa) document.documentElement.classList.add('qa-mode')
 else if (isToast) document.documentElement.classList.add('toast-mode')
 else if (params.has('widget')) document.documentElement.classList.add('widget-mode')
 
+// Each page loads only its own code: a catch notification opens a window per
+// catch and needs neither the terminal nor the Pokédex
+const Page = lazy(() => (isQa ? import('./QaPage') : isToast ? import('./Toast') : import('./Widget')))
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {isQa ? <QaPage /> : isToast ? <Toast /> : <Widget />}
+    <Suspense fallback={null}><Page /></Suspense>
   </React.StrictMode>,
 )

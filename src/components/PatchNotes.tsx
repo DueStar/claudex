@@ -17,14 +17,16 @@ export const PatchNotes: React.FC = () => {
       const current = state?.current
       if (!alive || !current) return
       const releases = notesToShow(parseChangelog(changelog), current, readSeenVersion())
+      // Seen as soon as it is shown: a widget <-> window swap builds a new page,
+      // which must not open the same notes again
+      writeSeenVersion(current)
       if (releases.length) setShow({ current, releases })
-      else writeSeenVersion(current)
     }).catch(() => {})
     return () => { alive = false }
   }, [])
 
   if (!show) return null
-  const close = () => { writeSeenVersion(show.current); setShow(null) }
+  const close = () => setShow(null)
   return (
     <div className="resume-backdrop" onClick={close}>
       <div className="resume-modal w-notes" onClick={e => e.stopPropagation()} role="dialog" aria-label="업데이트 소식">

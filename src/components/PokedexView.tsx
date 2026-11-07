@@ -5,8 +5,11 @@
  * and how each one was caught.
  */
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { readCarry, writeCarry } from '../carry'
 import { POKEMON, spriteUrl, type PokemonEntry } from '../theme'
+// Genus, flavor and weight: only this view shows them, and it is its own chunk
+import TEXT from 'virtual:pokedex-text'
 import { bridge } from '../desktop'
 import { PokeBall } from './Icons'
 import { ballName, levelOf, usePokedex, useViewed, markViewed, TIER_LABEL, TIER_RATE, TYPE_KO, NATURE_BY_ID, genderMark, sourceText, type Tier } from '../pokedexStore'
@@ -15,7 +18,7 @@ const GENS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 const TIERS: Tier[] = ['common', 'rare', 'sub', 'legendary', 'mythical']
 const HOW: Record<string, string> = { starter: '스타팅 포켓몬', gift: '여행의 시작부터 함께', wild: '야생에서 포획', evolve: '진화로 획득', pity: '야생에서 포획', attendance: '출석 보상' }
 
-type Entry = PokemonEntry & { genus?: string; flavor?: string; tier?: Tier; gen?: number; heightDm?: number; weightHg?: number }
+type Entry = PokemonEntry & { genus?: string; flavor?: string; weightHg?: number }
 
 function no(id: number) { return `No.${String(id).padStart(3, '0')}` }
 function date(ms: number) {
@@ -37,6 +40,25 @@ const Stat: React.FC<{ label: string; value: number; total?: number; hint?: stri
   )
 }
 
+/**
+ * Arrow keys across a grid of cells: the step up or down is the number of
+ * cells on the first row, read from the layout (the grid wraps to its width).
+ */
+function gridStep(grid: HTMLElement, key: string): number | null {
+  const cells = grid.querySelectorAll<HTMLElement>('.dex-cell')
+  let cols = 0
+  while (cols < cells.length && cells[cols].offsetTop === cells[0].offsetTop) cols++
+  switch (key) {
+    case 'ArrowLeft': return -1
+    case 'ArrowRight': return 1
+    case 'ArrowUp': return -Math.max(1, cols)
+    case 'ArrowDown': return Math.max(1, cols)
+    case 'Home': return -Infinity
+    case 'End': return Infinity
+    default: return null
+  }
+}
+
 const PokedexView: React.FC = () => {
   const { state } = usePokedex()
   const [gen, setGen] = useState<number | null>(null)
@@ -46,6 +68,19 @@ const PokedexView: React.FC = () => {
   const [pick, setPick] = useState<number | null>(null)
   const [releasing, setReleasing] = useState<string | null>(null)
   const { isNew } = useViewed()
+  // Where the grid was scrolled, kept across a widget <-> window swap (a new page)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const scrollSave = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useLayoutEffect(() => {
+    const top = readCarry().dexScroll
+    if (gridRef.current && typeof top === 'number') gridRef.current.scrollTop = top
+  }, [])
+  useEffect(() => () => { if (scrollSave.current) clearTimeout(scrollSave.current) }, [])
+  const onGridScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const top = e.currentTarget.scrollTop
+    if (scrollSave.current) clearTimeout(scrollSave.current)
+    scrollSave.current = setTimeout(() => writeCarry({ dexScroll: top }), 200)
+  }
 
   const caught = state?.caught ?? {}
   const seen = state?.seen ?? {}
@@ -67,7 +102,8 @@ const PokedexView: React.FC = () => {
   const caughtCount = Object.keys(caught).length
   const seenCount = Object.keys(seen).length
   const shinyCount = Object.values(caught).filter(c => c.shiny).length
-  const detail = pick ? all.find(p => p.id === pick) : null
+  const found = pick ? all.find(p => p.id === pick) : null
+  const detail: Entry | null = found ? { ...found, ...TEXT[found.id] } : null
   const dc = detail ? caught[detail.id] : undefined
   const ds = detail ? seen[detail.id] : undefined
 
@@ -126,8 +162,24 @@ const PokedexView: React.FC = () => {
       </div>
 
       <div className="dex-main">
-        <div className="dex-grid" role="list">
-          {list.map(p => {
+        <div
+          className="dex-grid"
+          role="list"
+          ref={gridRef}
+          onScroll={onGridScroll}
+          onKeyDown={e => {
+            const step = gridStep(e.currentTarget, e.key)
+            if (step === null || list.length === 0) return
+            e.preventDefault()
+            const at = list.findIndex(p => p.id === pick)
+            const next = Math.min(list.length - 1, Math.max(0, (at < 0 ? 0 : at) + step))
+            const id = list[next].id
+            setPick(id)
+            if (caught[id]) markViewed(id)
+            e.currentTarget.querySelector<HTMLElement>(`[data-id="${id}"]`)?.focus()
+          }}
+        >
+          {list.map((p, i) => {
             const c = caught[p.id]
             const s = seen[p.id]
             const cls = c ? 'caught' : s ? 'seen' : 'unknown'
@@ -135,6 +187,9 @@ const PokedexView: React.FC = () => {
               <button
                 key={p.id}
                 role="listitem"
+                data-id={p.id}
+                // One tab stop for the whole grid (the picked cell, else the first); arrows move inside it
+                tabIndex={pick === p.id || (i === 0 && !list.some(x => x.id === pick)) ? 0 : -1}
                 className={`dex-cell ${cls} tier-${p.tier}${pick === p.id ? ' picked' : ''}`}
                 onClick={() => { setPick(p.id); if (c) markViewed(p.id) }}
                 title={c || s ? `${no(p.id)} ${p.ko}` : no(p.id)}

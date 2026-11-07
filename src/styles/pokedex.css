@@ -113,6 +113,9 @@
   position: relative;
   width: 62px;
   height: 62px;
+  /* 1025 cells: the ones scrolled out of view skip layout and paint */
+  content-visibility: auto;
+  contain-intrinsic-size: 62px 62px;
   border-radius: 10px;
   background: var(--card-2);
   border: 1px solid transparent;
@@ -129,6 +132,7 @@
 .dex-cell.caught.tier-legendary, .dex-cell.caught.tier-mythical { box-shadow: inset 0 0 0 1px var(--tier), inset 0 -2px 0 var(--tier); }
 .dex-cell:hover { border-color: rgba(255, 255, 255, 0.18); }
 .dex-cell.picked { border-color: #ffd84a; }
+.dex-cell:focus-visible { outline: 2px solid #ffd84a; outline-offset: 1px; }
 .dex-q { color: #3a3f4c; font-weight: 700; font-size: 16px; }
 .dex-q.big { font-size: 48px; }
 .dex-no { position: absolute; left: 5px; top: 3px; font-size: 9px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
@@ -287,6 +291,7 @@
 .box-cell:hover { border-color: rgba(255, 255, 255, 0.2); }
 .box-cell.picked { border-color: #ffd84a; }
 .box-cell:disabled { opacity: 0.4; cursor: not-allowed; }
+.box-grid .box-cell { content-visibility: auto; } /* up to 1200 cells: off-screen ones skip paint (their size is set above) */
 .box-shiny { position: absolute; right: 4px; top: 2px; font-size: 10px; color: #fff3a0; }
 .box-working { position: absolute; left: 5px; top: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); }
 .box-actions { display: flex; gap: 6px; margin-top: 8px; }

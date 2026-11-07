@@ -1,10 +1,11 @@
 /**
  * carry — what the page should still show when the app swaps its window
  * (widget <-> window builds a new one) or starts again: the open tab, the
- * chosen session and an unsent instruction. Per PC, in localStorage.
+ * chosen session, an unsent instruction and where the Pokédex was scrolled.
+ * Per PC, in localStorage.
  */
 
-export interface Carried { view?: 'terminal' | 'dex' | 'box' | 'today'; target?: string | null; text?: string }
+export interface Carried { view?: 'terminal' | 'dex' | 'box' | 'today'; target?: string | null; text?: string; dexScroll?: number }
 
 const KEY = 'claudex-carry'
 

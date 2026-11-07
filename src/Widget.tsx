@@ -6,7 +6,7 @@
  * and the Pokédex, box and log views.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // terminal.css first: widget-expanded.css restyles the resume picker's frame
 import './styles/terminal.css'
 import './styles/widget.css'
@@ -20,13 +20,26 @@ import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, 
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
-import PokedexView from './components/PokedexView'
 import PatchNotes from './components/PatchNotes'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
-import BoxView from './components/BoxView'
-import TodayLog from './components/TodayLog'
-import { TerminalView, ResumePicker } from './components/TerminalPanel'
+// The views and the terminal (xterm) are their own chunks: the widget's first
+// paint needs none of them. They are fetched right after it (preloadViews), so
+// opening one later does not wait.
+const loadTerminal = () => import('./components/TerminalPanel')
+const loadDex = () => import('./components/PokedexView')
+const loadBox = () => import('./components/BoxView')
+const loadToday = () => import('./components/TodayLog')
+const TerminalView = lazy(() => loadTerminal().then(m => ({ default: m.TerminalView })))
+const ResumePicker = lazy(() => loadTerminal().then(m => ({ default: m.ResumePicker })))
+const PokedexView = lazy(loadDex)
+const BoxView = lazy(loadBox)
+const TodayLog = lazy(loadToday)
+function preloadViews() {
+  const go = () => { for (const load of [loadTerminal, loadDex, loadBox, loadToday]) load().catch(() => {}) }
+  if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2000 })
+  else setTimeout(go, 500)
+}
 import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
 
@@ -98,6 +111,7 @@ const ResizeGrip: React.FC = () => {
 
 const Widget: React.FC = () => {
   useTheme()
+  useEffect(preloadViews, [])
   const meters = useMeters()
   const terminals = useTerminals()
   const onEvent = useCallback((e: Parameters<typeof dispatchMeters>[0]) => { dispatchMeters(e); dispatchPokedex(e as never); dispatchCloud(e as never) }, [])
@@ -140,7 +154,9 @@ const Widget: React.FC = () => {
     bridge?.widget.getMode().then(setModeState).catch(() => {})
     return bridge?.widget.onMode((m) => setModeState(m))
   }, [])
+  const flushBeforeSwap = useRef<() => void>(() => {})
   const setMode = (m: WidgetMode) => {
+    flushBeforeSwap.current()
     setModeState(m)
     bridge?.widget.setMode(m)
   }
@@ -189,8 +205,22 @@ const Widget: React.FC = () => {
   const withTerminal = rows.filter(r => r.terminal)
   const [target, setTarget] = useState<string | null>(() => readCarry().target ?? null)
   const [text, setText] = useState(() => readCarry().text ?? '')
-  // Kept for the next window (a mode swap builds a new one) and the next start
-  useEffect(() => { writeCarry({ view, target, text }) }, [view, target, text])
+  // Kept for the next window (a mode swap builds a new one) and the next start.
+  // The tab and session are written at once; the instruction text at most every
+  // 300 ms while typing, and flushed before a swap and when the page goes away.
+  const carried = useRef({ view, target, text })
+  carried.current = { view, target, text }
+  const flushCarry = useRef(() => writeCarry(carried.current)).current
+  useEffect(() => { flushCarry() }, [view, target, flushCarry])
+  useEffect(() => {
+    const id = setTimeout(flushCarry, 300)
+    return () => clearTimeout(id)
+  }, [text, flushCarry])
+  useEffect(() => {
+    window.addEventListener('pagehide', flushCarry)
+    return () => window.removeEventListener('pagehide', flushCarry)
+  }, [flushCarry])
+  flushBeforeSwap.current = flushCarry
   const [note, setNote] = useState<string | null>(null)
   // A note goes away on its own after a few seconds
   useEffect(() => {
@@ -535,7 +565,7 @@ ${update.notes}` : ''}${update.error ? `
                 <button className="w-ask-open" onClick={() => { setTarget(askRow.sessionId); setView('terminal'); setMode('window') }} title="창 모드로 펼쳐서 보기">펼치기</button>
               </div>
               <div className="w-ask-term">
-                <TerminalView key={`ask-${askRow.terminal.id}`} term={askRow.terminal} active />
+                <Suspense fallback={null}><TerminalView key={`ask-${askRow.terminal.id}`} term={askRow.terminal} active /></Suspense>
               </div>
               <div className="w-ask-hint">↑↓로 고르고 Enter, 그만두려면 Esc</div>
             </section>
@@ -605,9 +635,11 @@ ${update.notes}` : ''}${update.error ? `
               <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title="닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)" aria-label="닫기"><CloseIcon size={14} /></button>
             </div>
           </div>
-          {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}
-          {view === 'box' && <div className="w-dex-body"><BoxView /></div>}
-          {view === 'today' && <div className="w-dex-body"><TodayLog /></div>}
+          <Suspense fallback={null}>
+            {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}
+            {view === 'box' && <div className="w-dex-body"><BoxView /></div>}
+            {view === 'today' && <div className="w-dex-body"><TodayLog /></div>}
+          </Suspense>
           <div className="w-term-body" style={{ display: view === 'terminal' ? undefined : 'none' }}>
             {withTerminal.length === 0 && (
               <div className="w-term-empty">
@@ -616,9 +648,11 @@ ${update.notes}` : ''}${update.error ? `
                 <button className="w-launch-alt wide" onClick={() => setPicking(true)}><SessionsIcon /> 예전 세션 이어하기</button>
               </div>
             )}
-            {withTerminal.map(r => r.terminal && (
-              <TerminalView key={r.terminal.id} term={r.terminal} active={view === 'terminal' && shown?.sessionId === r.sessionId} />
-            ))}
+            <Suspense fallback={null}>
+              {withTerminal.map(r => r.terminal && (
+                <TerminalView key={r.terminal.id} term={r.terminal} active={view === 'terminal' && shown?.sessionId === r.sessionId} />
+              ))}
+            </Suspense>
           </div>
         </section>
       )}
@@ -651,8 +685,8 @@ ${update.notes}` : ''}${update.error ? `
           </div>
         </div>
       )}
-      {picking && <ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
-        monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: pokemonById(m.dex)?.ko ?? '' } : null }} />}
+      {picking && <Suspense fallback={null}><ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
+        monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: pokemonById(m.dex)?.ko ?? '' } : null }} /></Suspense>}
       {throwing && dex && (
         <div className="resume-backdrop" onClick={() => setThrowing(null)}>
           <div className="resume-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="몬스터볼 던지기">

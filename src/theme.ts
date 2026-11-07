@@ -6,26 +6,26 @@
  */
 
 import { useSyncExternalStore } from 'react'
-import POKEDEX from './pokemon/pokedex.json'
+// The slim half of src/pokemon/pokedex.json (vite.pokedex.ts); the flavor
+// texts are in virtual:pokedex-text, loaded with the Pokédex view
+import POKEDEX from 'virtual:pokedex'
 
 export interface PokemonEntry {
   id: number
-  slug: string
   ko: string
   en: string
   types: string[]
   evolvesFrom: number | null
   /** Height in decimetres (PokeAPI) */
   heightDm?: number
-  w: number
-  h: number
-  bbox: number[]
+  gen?: number
+  tier?: 'common' | 'rare' | 'sub' | 'legendary' | 'mythical'
 }
 
 /** Stand-in while a session waits for the server to send its Pokémon out */
-const BALL: PokemonEntry = { id: 0, slug: 'poke-ball', ko: '몬스터볼', en: 'Poké Ball', types: [], evolvesFrom: null, heightDm: 2, w: 0, h: 0, bbox: [] }
+const BALL: PokemonEntry = { id: 0, ko: '몬스터볼', en: 'Poké Ball', types: [], evolvesFrom: null, heightDm: 2 }
 
-export const POKEMON: readonly PokemonEntry[] = POKEDEX as PokemonEntry[]
+export const POKEMON: readonly PokemonEntry[] = POKEDEX
 const BY_ID = new Map(POKEMON.map(p => [p.id, p]))
 export function pokemonById(id: number): PokemonEntry | undefined { return id === 0 ? BALL : BY_ID.get(id) }
 
