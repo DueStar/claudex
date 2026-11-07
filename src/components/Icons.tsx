@@ -66,6 +66,9 @@ export const CloseIcon: React.FC<P> = (p) => (
 export const SendIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M14 2L7 9M14 2l-4.5 12-2.5-5-5-2.5z" /></Svg>
 )
+export const SearchIcon: React.FC<P> = (p) => (
+  <Svg {...p}><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" /></Svg>
+)
 export const PlusIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M8 3v10M3 8h10" /></Svg>
 )

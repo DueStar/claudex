@@ -14,13 +14,13 @@ import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
-import { dispatchMeters, useMeters, formatClockTime, contextTone, type SessionStatus } from './meters'
+import { dispatchMeters, useMeters, formatClockTime, contextTone, limitNow, type SessionStatus } from './meters'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, type Mon } from './pokedexStore'
-import PatchNotes from './components/PatchNotes'
+import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
@@ -60,6 +60,18 @@ const PREREQ_LABEL = {
   claude: { name: 'Claude Code', why: '포켓몬이 일할 Claude 세션' },
   git: { name: 'Git for Windows', why: 'Claude Code가 쓰는 Git Bash' },
 } as const
+
+/** 이 / 가 after a name: 이 when the last Hangul syllable has a final consonant */
+function iga(name: string): string {
+  const c = name.charCodeAt(name.length - 1) - 0xac00
+  return c >= 0 && c < 11172 && c % 28 ? '이' : '가'
+}
+const ASK_LINES = [
+  (n: string) => `${n}에게 지시하기…`,
+  (n: string) => `${n}${iga(n)} 기다리고 있어요`,
+  (n: string) => `${n}에게 지시해 보세요`,
+]
+const askLine = (name: string, i: number) => ASK_LINES[i % ASK_LINES.length](name)
 
 const MOOD_LABEL: Record<Mood, string> = {
   working: '일하는 중', idle: '쉬는 중', 'needs-you': '확인 필요', error: '오류', ended: '종료',
@@ -123,6 +135,7 @@ const Widget: React.FC = () => {
     return bridge?.update.onState(setUpdate)
   }, [])
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [notesOpen, setNotesOpen] = useState(false)
   // Ctrl+1–4: 터미널 / 도감 / 박스 / 기록 (opens the window view from the widget too)
   // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
   useEffect(() => {
@@ -265,6 +278,8 @@ const Widget: React.FC = () => {
   const partyFull = freePartyCount(dex) <= 0
   const FULL_NOTE = `세션을 최대 ${dex?.partySize ?? 6}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.`
   const chosen = sendable.find(r => r.sessionId === target) ?? sendable[0]
+  // One line per chosen session, picked at random (not on every render)
+  const askPick = useMemo(() => Math.floor(Math.random() * ASK_LINES.length), [chosen?.sessionId])
   const shown = withTerminal.find(r => r.sessionId === target) ?? chosen ?? withTerminal[0]
   // In widget mode, the first session waiting on a question (its own output, or the hooks' needs-you)
   const askRow = expanded ? undefined : withTerminal.find(r => r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you'))
@@ -276,12 +291,13 @@ const Widget: React.FC = () => {
     lastCount.current = terminals.length
   }, [terminals])
 
-  const limitOf = (k: 'fiveHour' | 'sevenDay') => meters.sessions.map(m => m.rateLimits?.[k]).find(v => typeof v === 'number')
-  const resetOf = (k: 'fiveHourResetsAt' | 'sevenDayResetsAt') => meters.sessions.map(m => m.rateLimits?.[k]).find(v => typeof v === 'number')
-  const fiveHour = limitOf('fiveHour')
-  const sevenDay = limitOf('sevenDay')
-  const fiveReset = resetOf('fiveHourResetsAt')
-  const sevenReset = resetOf('sevenDayResetsAt')
+  // The last limits any session reported, kept by the server with no session open
+  const lim = meters.limits
+  const fiveHour = limitNow(lim?.fiveHour, lim?.fiveHourResetsAt)
+  const sevenDay = limitNow(lim?.sevenDay, lim?.sevenDayResetsAt)
+  // A window that has reset starts again at the next use: no reset time to show yet
+  const fiveReset = fiveHour === 0 ? undefined : lim?.fiveHourResetsAt
+  const sevenReset = sevenDay === 0 ? undefined : lim?.sevenDayResetsAt
 
   /** Where the next throw goes: a new session (optionally in a picked folder) or a resumed one */
   const [throwing, setThrowing] = useState<{ cwd?: string; resume?: PastSession } | null>(null)
@@ -377,7 +393,7 @@ const Widget: React.FC = () => {
         <div className="w-bento">
           <header className="w-card w-head">
             <PokeBall size={18} />
-            <span className="w-brand">Claudex</span>
+            <button className="w-brand" onClick={() => setNotesOpen(true)} title={`Claudex ${update?.current ?? ''} · 눌러서 패치노트 보기`}>Claudex</button>
             <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? '연결됨' : '서버 연결 끊김'} />
             {cloud?.enabled && (cloud.user ? (
               <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${new Date(cloud.lastSyncAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 동기화` : ''}`}>
@@ -472,8 +488,7 @@ ${update.notes}` : ''}${update.error ? `
           <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title="도감 열기">
             <span className="w-label">도감</span>
             {hasNew && <span className="w-new-dot corner" aria-label="새로 잡은 포켓몬" />}
-            <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span>
-              <span className={`w-dex-box${dex && dex.box.length >= (dex.boxLimit ?? 1200) ? ' full' : ''}`}>박스 {dex?.box.length ?? 0}/{dex?.boxLimit ?? 1200} · 오늘 {(dex?.today ?? []).filter(e => e.kind === 'catch').length}마리</span></span>
+            <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span></span>
             <span className="w-dex-recent">
               {(dex?.log ?? []).filter(e => e.kind === 'catch').slice(-6).reverse().map((e, i) => (
                 <img key={`${e.at}-${i}`} src={iconUrl(e.id)} alt={e.name} title={`${e.shiny ? '✨ ' : ''}${e.name}`} />
@@ -491,7 +506,6 @@ ${update.notes}` : ''}${update.error ? `
                   return m ? <img key={uid} src={iconUrl(m.dex)} alt={pokemonById(m.dex)?.ko} title={`${m.shiny ? '✨ ' : ''}${pokemonById(m.dex)?.ko}${out ? ' · 일하는 중' : ' · 쉬는 중'}`} className={out ? 'out' : ''} /> : null
                 })}
               </span>
-              <span className="w-party-free">{dex ? `${freePartyCount(dex)}마리 대기` : ''}</span>
             </div>
             {rows.length === 0 && <div className="w-empty">새 세션을 열면 여기 나타나요</div>}
             {rows.map(r => (
@@ -582,7 +596,7 @@ ${update.notes}` : ''}${update.error ? `
             <div className="w-input">
               <textarea
                 value={text}
-                placeholder={chosen ? `${chosen.title ?? chosen.name}에게 지시하기…` : '새 세션을 열면 지시할 수 있어요'}
+                placeholder={chosen ? askLine(chosen.name, askPick) : '새 세션을 열면 지시할 수 있어요'}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() }
@@ -672,6 +686,7 @@ ${update.notes}` : ''}${update.error ? `
         <ThrowPicker dex={dex} resume={!!throwing.resume} onPick={uid => throwBall(uid, throwing)} onClose={() => setThrowing(null)} />
       )}
       <PatchNotes />
+      {notesOpen && <PatchNotesHistory onClose={() => setNotesOpen(false)} />}
       {mode === 'widget' && <ResizeGrip />}
     </div>
   )

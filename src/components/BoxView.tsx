@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react'
 import { pokemonById, spriteUrl } from '../theme'
 import { bridge } from '../desktop'
 import { usePokedex, TIER_LABEL, NATURE_BY_ID, genderMark, sourceText, ballName, levelOf, minutesToNext, BALL_BY_ID, BALL_TIER_LABEL, type Mon, type Tier } from '../pokedexStore'
-import { PokeBall } from './Icons'
+import { PokeBall, SearchIcon } from './Icons'
 
 type Sort = 'recent' | 'dex' | 'tier' | 'steps'
 const TIER_RANK: Record<Tier, number> = { mythical: 0, legendary: 1, sub: 2, rare: 3, common: 4 }
@@ -53,7 +53,8 @@ const BoxView: React.FC = () => {
   const p = picked ? pokemonById(picked.dex) : undefined
   const n = picked?.nature ? NATURE_BY_ID.get(picked.nature) : undefined
 
-  const select = (uid: string) => { setPick(uid); setReleasing(false); setChoosing(false); setNote(null) }
+  // A second click on the picked one closes the panel
+  const select = (uid: string) => { setPick(pick === uid ? null : uid); setReleasing(false); setChoosing(false); setNote(null) }
   const exchange = async (partyUid: string) => {
     if (!picked || !bridge) return
     const r = await bridge.game.exchange(picked.uid, partyUid)
@@ -95,17 +96,22 @@ const BoxView: React.FC = () => {
           </div>
           <div className="box-toolbar">
             <div className="box-title">박스 <span className={(state?.box.length ?? 0) >= (state?.boxLimit ?? 1200) ? 'full' : ''}>{state?.box.length ?? 0} / {state?.boxLimit ?? 1200}</span></div>
-            <input className="box-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호" />
-            <div className="dex-fgroup">
-              <span className="dex-flabel">정렬</span>
-              <div className="dex-seg">
-                {([['recent', '최근'], ['dex', '번호'], ['tier', '등급'], ['steps', '걸음']] as [Sort, string][]).map(([k, label]) => (
-                  <button key={k} className={sort === k ? 'on' : ''} onClick={() => setSort(k)}>{label}</button>
-                ))}
+            <div className="box-tools">
+              <label className="box-search">
+                <input value={query} onChange={e => setQuery(e.target.value)} placeholder="이름 혹은 번호로 검색" aria-label="이름 혹은 번호로 검색" />
+                <SearchIcon size={13} />
+              </label>
+              <div className="dex-fgroup">
+                <span className="dex-flabel">정렬</span>
+                <div className="dex-seg">
+                  {([['recent', '최근'], ['dex', '번호'], ['tier', '등급'], ['steps', '걸음']] as [Sort, string][]).map(([k, label]) => (
+                    <button key={k} className={sort === k ? 'on' : ''} onClick={() => setSort(k)}>{label}</button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="dex-seg">
-              <button className={shinyOnly ? 'on' : ''} onClick={() => setShinyOnly(v => !v)}>✦ 이로치만</button>
+              <div className="dex-seg">
+                <button className={shinyOnly ? 'on' : ''} onClick={() => setShinyOnly(v => !v)} title="색이 다른 포켓몬만 보기">✦ 색이 다른 포켓몬</button>
+              </div>
             </div>
           </div>
           <div className="box-grid">
@@ -113,15 +119,10 @@ const BoxView: React.FC = () => {
           </div>
         </div>
 
+        {picked && p && (
         <aside className="dex-detail">
-          {!picked || !p ? (
-            <div className="dex-help">
-              <p className="dex-help-title">PC 박스</p>
-              <p>포켓몬을 눌러 개체 정보를 봐요. 박스 포켓몬은 쉬고 있는 파티 포켓몬과 자리를 바꾸거나 놓아줄 수 있어요.</p>
-              <p className="dex-fine">박스가 꽉 차면 새로 잡은 포켓몬은 도감에만 등록되고 박사님께 보내져요.</p>
-            </div>
-          ) : (
             <div className="dex-card">
+              <button className="box-close" onClick={() => setPick(null)} aria-label="닫기" title="닫기">×</button>
               <div className={`dex-card-art tier-${tierOf(picked.dex)}`}><img src={spriteUrl(picked.dex, picked.shiny)} alt="" /></div>
               <div className="dex-card-name">
                 <b>{picked.shiny ? '✦ ' : ''}{p.ko}{genderMark(picked.gender)}</b>
@@ -168,8 +169,8 @@ const BoxView: React.FC = () => {
               {inParty && <p className="dex-fine">파티 포켓몬이에요. 세션을 열 때 몬스터볼로 던질 수 있어요.</p>}
               {note && <p className="dex-fine">{note}</p>}
             </div>
-          )}
         </aside>
+        )}
       </div>
     </div>
   )

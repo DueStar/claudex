@@ -1,6 +1,7 @@
 /**
  * PatchNotes — after an update, the first start shows once what is new
  * (the CHANGELOG entries since the version this PC last ran).
+ * PatchNotesHistory — every release, opened from the Claudex name in the header.
  */
 
 import React, { useEffect, useState } from 'react'
@@ -26,16 +27,22 @@ export const PatchNotes: React.FC = () => {
   }, [])
 
   if (!show) return null
-  const close = () => setShow(null)
+  return <NotesModal title={`Claudex ${show.current} 새 소식`} releases={show.releases} onClose={() => setShow(null)} />
+}
+
+export const PatchNotesHistory: React.FC<{ onClose: () => void }> = ({ onClose }) =>
+  <NotesModal title="패치노트" releases={parseChangelog(changelog)} onClose={onClose} />
+
+const NotesModal: React.FC<{ title: string; releases: Release[]; onClose: () => void }> = ({ title, releases, onClose: close }) => {
   return (
     <div className="resume-backdrop" onClick={close}>
-      <div className="resume-modal w-notes" onClick={e => e.stopPropagation()} role="dialog" aria-label="업데이트 소식">
+      <div className="resume-modal w-notes" onClick={e => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="resume-head">
-          <span>Claudex {show.current} 새 소식</span>
+          <span>{title}</span>
           <button onClick={close} aria-label="닫기">×</button>
         </div>
         <div className="w-notes-body">
-          {show.releases.map(r => (
+          {releases.map(r => (
             <section key={r.version}>
               <h3>{r.version}</h3>
               <ul>{r.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>

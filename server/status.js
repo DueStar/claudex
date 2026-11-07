@@ -16,7 +16,12 @@
  * middleware in. Broadcasts `session_status` (one session); the WS snapshot
  * carries the whole summary as `statuses`. Memory only; a session nothing has
  * been heard from for `staleMs` is dropped (a `removed` session_status).
+ * The usage limits are the subscription's, not a session's: the last ones heard
+ * are kept apart (in `limitsFile` when given), so they still show with no
+ * session open or after a restart (`rateLimits` on the summary and each event).
  */
+
+import { readFileSync, writeFileSync } from 'node:fs'
 
 const MAX_STRING_LEN = 200
 
@@ -54,9 +59,18 @@ function sanitiseRateLimits(raw) {
 }
 
 /** The store: statuses keyed by session id. `now` is injectable for tests. */
-export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now() } = {}) {
+export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now(), limitsFile } = {}) {
   /** @type {Map<string, object>} sessionId -> status record */
   const statuses = new Map()
+  /** The last usage limits any session reported, with `at` (when) */
+  let limits
+  if (limitsFile) {
+    try {
+      const saved = JSON.parse(readFileSync(limitsFile, 'utf8'))
+      const clean = sanitiseRateLimits(saved)
+      if (clean) limits = { ...clean, at: clampNumber(saved.at) ?? 0 }
+    } catch { /* none yet */ }
+  }
 
   /** Ingest a validated body; returns the event to broadcast. */
   function ingest(body, t = now()) {
@@ -79,6 +93,14 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
       updatedAt: t,
     }
     statuses.set(id, rec)
+    if (rec.rateLimits) {
+      const changed = JSON.stringify(rec.rateLimits) !== JSON.stringify(limits && { ...limits, at: undefined })
+      limits = { ...rec.rateLimits, at: t }
+      // Written only on a change: the status line runs on every state change of every session
+      if (changed && limitsFile) {
+        try { writeFileSync(limitsFile, JSON.stringify(limits)) } catch (e) { console.warn(`[status] could not save the usage limits: ${e.message}`) }
+      }
+    }
     const used = rec.context.used
     console.log(
       `[status] ${rec.project ?? id} · ${rec.model ?? '?'}` +
@@ -86,7 +108,7 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
       (rec.rateLimits?.fiveHour !== undefined ? ` · 5h ${rec.rateLimits.fiveHour}%` : '') +
       (rec.rateLimits?.sevenDay !== undefined ? ` · 7d ${rec.rateLimits.sevenDay}%` : ''),
     )
-    return { type: 'session_status', sessionId: id, session: { ...rec }, timestamp: t }
+    return { type: 'session_status', sessionId: id, session: { ...rec }, rateLimits: limits, timestamp: t }
   }
 
   /** Drop sessions quiet for staleMs; returns the removal events to broadcast. */
@@ -105,7 +127,7 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
     const list = Array.from(statuses.values())
       .map(rec => ({ ...rec }))
       .sort((a, b) => b.updatedAt - a.updatedAt)
-    return { sessions: list }
+    return limits ? { sessions: list, rateLimits: { ...limits } } : { sessions: list }
   }
 
   return {
@@ -113,6 +135,7 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
     expireStale,
     summary,
     get: id => statuses.get(id),
+    get limits() { return limits },
     has: id => statuses.has(id),
     get size() { return statuses.size },
   }
@@ -125,9 +148,9 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
  * reachable as app.locals.status. The stale sweep runs every `sweepMs` on an
  * unref'd timer, so importing the server never keeps a process alive.
  */
-export function mountStatus(app, { requireToken, broadcast, staleMs, sweepMs = 60_000, now = () => Date.now() } = {}) {
+export function mountStatus(app, { requireToken, broadcast, staleMs, sweepMs = 60_000, now = () => Date.now(), limitsFile } = {}) {
   if (typeof requireToken !== 'function') throw new TypeError('mountStatus needs the requireToken middleware')
-  const store = createStatusStore({ staleMs, now })
+  const store = createStatusStore({ staleMs, now, limitsFile })
   app.locals.status = store
 
   app.post('/status', requireToken, (req, res) => {

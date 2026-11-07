@@ -1,4 +1,4 @@
-import type { SessionStatus, MeterTotals } from './meters'
+import type { SessionStatus, MeterTotals, SavedLimits } from './meters'
 
 /** What a session's main thread (its Claude) is doing — the server's `main.state` */
 export type MainState = 'working' | 'waiting' | 'idle' | 'needs-you' | 'error' | 'compacting'
@@ -106,6 +106,8 @@ export interface ServerEvent {
   // session_status: one session's numbers, or the snapshot's whole store (`statuses`)
   session?: SessionStatus
   statuses?: SessionStatus[]
+  /** session_status: the last usage limits any session reported (server/status.js) */
+  rateLimits?: SavedLimits
   totals?: MeterTotals
   removed?: boolean
   timestamp?: number

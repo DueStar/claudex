@@ -101,7 +101,6 @@ const PokedexView: React.FC = () => {
 
   const caughtCount = Object.keys(caught).length
   const seenCount = Object.keys(seen).length
-  const shinyCount = Object.values(caught).filter(c => c.shiny).length
   const found = pick ? all.find(p => p.id === pick) : null
   const detail: Entry | null = found ? { ...found, ...TEXT[found.id] } : null
   const dc = detail ? caught[detail.id] : undefined
@@ -113,16 +112,15 @@ const PokedexView: React.FC = () => {
         <div className="dex-stats">
           <Stat label="포획" value={caughtCount} total={total} />
           <Stat label="발견" value={seenCount} total={total} hint="만났지만 아직 못 잡은 종도 포함" />
-          <Stat label="이로치" value={shinyCount} hint="1/4096" />
           <Stat label="박스" value={state?.box.length ?? 0} total={state?.boxLimit ?? 1200} hint="파티 6마리 별도. 꽉 차면 새로 잡은 개체는 박사님께 가요" />
           <div className="dex-stat dex-stat-tiers">
             <span className="dex-stat-label">등급별 포획</span>
-            <div className="dex-tierbars">
+            <div className="dex-tiers">
               {byTier.map(({ t, total: n, caught: c }) => (
-                <div key={t} className={`dex-tierbar tier-${t}`} title={`${TIER_LABEL[t]} ${c} / ${n}종 · 만날 확률 ${TIER_RATE[t]}`}>
+                <div key={t} className={`dex-tiercol tier-${t}`} title={`${TIER_LABEL[t]} ${c} / ${n}종 · 만날 확률 ${TIER_RATE[t]}`}>
                   <span>{TIER_LABEL[t]}</span>
+                  <em>{c}<small> / {n}</small></em>
                   <i><b style={{ width: `${n ? (c / n) * 100 : 0}%` }} /></i>
-                  <em>{c}<small>/{n}</small></em>
                 </div>
               ))}
             </div>
@@ -208,17 +206,6 @@ const PokedexView: React.FC = () => {
         <aside className="dex-detail">
           {!detail && (
             <div className="dex-help">
-              <p className="dex-help-title">포켓몬을 골라보세요</p>
-              <section className="dex-box">
-                <h4>탐험 규칙</h4>
-                <div className="dex-tiles">
-                  <div><b>1걸음</b><span>Claude의 도구 1번</span></div>
-                  <div><b>3%</b><span>걸음당 조우</span></div>
-                  <div><b>매일 1</b><span>출석 조우(못 잡은 종)</span></div>
-                  <div><b>1/4096</b><span>이로치</span></div>
-                </div>
-                <p className="dex-fine">등급에 따라 잡히거나 도망가요. 아직 못 잡은 종은 더 잘 나와요.</p>
-              </section>
               <section className="dex-box">
                 <h4>등급별 만날 확률</h4>
                 {TIERS.map(t => (

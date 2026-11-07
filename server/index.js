@@ -683,7 +683,7 @@ app.options('*', (_req, res) => res.sendStatus(204))
 
 // Each session's context window and the usage limits: POST /status + GET /status
 // (server/status.js), fed by the Claude Code status line, keyed like `sessions`
-const status = mountStatus(app, { requireToken, broadcast, staleMs: STALE_SESSION_MS })
+const status = mountStatus(app, { requireToken, broadcast, staleMs: STALE_SESSION_MS, limitsFile: join(RUNTIME_DIR, 'usage-limits.json') })
 
 // Pipeline health: GET /health (server/health.js); POST /event stamps it, the desktop
 // app reads it. `sessions` counts every active session, registry-only ones included:

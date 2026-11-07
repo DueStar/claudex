@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { ServerEvent, SessionInfo, SessionRegistry } from '../types'
-import type { SessionStatus } from '../meters'
+import type { SessionStatus, SavedLimits } from '../meters'
 import { projectFromCwd } from '../mainState'
 import { serverWsUrl } from '../serverUrl'
 import { serverWsProtocols } from '../serverToken'
@@ -38,7 +38,7 @@ interface SnapshotMessage {
   type: 'snapshot'
   sessions?: Array<SessionInfo>
   /** The status line's numbers (server/status.js) */
-  statuses?: { sessions: SessionStatus[] }
+  statuses?: { sessions: SessionStatus[]; rateLimits?: SavedLimits }
   /** The game state (server/pokedex.js) */
   pokedex?: unknown
   /** Who is signed in to the cloud (server/cloud.js) */
@@ -191,7 +191,7 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
       setSessions(snapSessions.map(s => toSessionInfo(s.id, { ...s, registry: s.registry ?? null })))
       for (const s of snapSessions) if (s.state === 'ended') dropSessionLater(s.id)
       // The server's status store replaces ours too (a restart forgets sessions)
-      if (snap.statuses) emit({ type: 'session_status', statuses: snap.statuses.sessions ?? [] })
+      if (snap.statuses) emit({ type: 'session_status', statuses: snap.statuses.sessions ?? [], rateLimits: snap.statuses.rateLimits })
       if (snap.cloud) emit({ type: 'cloud', cloud: snap.cloud } as unknown as ServerEvent)
       if (snap.pokedex) emit({ type: 'pokedex', state: snap.pokedex } as unknown as ServerEvent)
       return

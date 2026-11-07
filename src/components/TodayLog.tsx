@@ -1,7 +1,9 @@
 /**
- * TodayLog — today's collecting story: what was caught (new species marked),
- * what got away, evolutions, level-ups and releases, newest first, with a
- * summary on top.
+ * TodayLog — the collecting story: what was caught (new species marked),
+ * what got away, evolutions, level-ups and releases, newest first under a
+ * heading per day, with today's summary on top. It is the save's log (the
+ * newest LOG_LIMIT events, server/pokedex.js), so it reaches back as far as
+ * that holds.
  */
 
 import React from 'react'
@@ -10,6 +12,15 @@ import { usePokedex, TIER_LABEL, ballName, genderMark, sourceText, type DexEvent
 import { PokeBall } from './Icons'
 
 const time = (t: number) => new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+const dayOf = (t: number) => new Date(t).toDateString()
+function dayLabel(t: number): string {
+  const d = new Date(t)
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (dayOf(t) === dayOf(Date.now())) return '오늘'
+  if (dayOf(t) === yesterday.toDateString()) return '어제'
+  return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+}
 
 function line(e: DexEvent): React.ReactNode {
   switch (e.kind) {
@@ -26,7 +37,8 @@ function line(e: DexEvent): React.ReactNode {
 
 const TodayLog: React.FC = () => {
   const { state } = usePokedex()
-  const today = [...(state?.today ?? [])].filter(e => e.kind !== 'sendout' && e.kind !== 'swap' && e.kind !== 'exchange').reverse()
+  const events = [...(state?.log ?? [])].filter(e => e.kind !== 'sendout' && e.kind !== 'swap' && e.kind !== 'exchange').reverse()
+  const today = events.filter(e => dayOf(e.at) === dayOf(Date.now()))
   const count = (k: string) => today.filter(e => e.kind === k).length
   const fresh = today.filter(e => e.kind === 'catch' && e.newSpecies).length
 
@@ -40,9 +52,11 @@ const TodayLog: React.FC = () => {
         <span><b>{count('levelup')}</b> 레벨업</span>
       </div>
       <div className="today-list">
-        {today.length === 0 && <div className="dex-empty">오늘은 아직 기록이 없어요. 세션에서 일하다 보면 야생 포켓몬을 만나요</div>}
-        {today.map((e, i) => (
-          <div key={`${e.at}-${i}`} className={`today-row kind-${e.kind} tier-${e.tier ?? 'common'}`}>
+        {events.length === 0 && <div className="dex-empty">아직 기록이 없어요. 세션에서 일하다 보면 야생 포켓몬을 만나요</div>}
+        {events.map((e, i) => (
+          <React.Fragment key={`${e.at}-${i}`}>
+          {(i === 0 || dayOf(events[i - 1].at) !== dayOf(e.at)) && <div className="today-day">{dayLabel(e.at)}</div>}
+          <div className={`today-row kind-${e.kind} tier-${e.tier ?? 'common'}`}>
             <span className="today-time">{time(e.at)}</span>
             <img src={spriteUrl(e.id, !!e.shiny)} alt="" loading="lazy" className={e.kind === 'flee' ? 'faded' : ''} />
             <div className="today-text">
@@ -61,6 +75,7 @@ const TodayLog: React.FC = () => {
               )}
             </div>
           </div>
+          </React.Fragment>
         ))}
       </div>
     </div>

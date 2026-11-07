@@ -45,9 +45,13 @@ export interface SessionStatus {
 /** The server's running totals (sent along, not shown) */
 export type MeterTotals = Record<string, number>
 
+/** The last usage limits heard, kept when their session is gone (`at`: when) */
+export type SavedLimits = RateLimitStatus & { at?: number }
+
 export interface MetersState {
   /** Most recently updated first */
   sessions: SessionStatus[]
+  limits?: SavedLimits
 }
 
 export type Tone = 'ok' | 'warn' | 'danger'
@@ -105,21 +109,30 @@ export function reduceMeters(prev: MetersState, event: ServerEvent): MetersState
   // Snapshot form: the server's whole store replaces ours (a reconnect
   // after a server restart must not keep rows the server forgot)
   if (event.statuses) {
-    return { sessions: event.statuses.filter(s => s?.sessionId).slice().sort(byRecency) }
+    return { sessions: event.statuses.filter(s => s?.sessionId).slice().sort(byRecency), limits: event.rateLimits }
   }
   if (!event.sessionId) return prev
   if (event.removed) {
     if (!prev.sessions.some(s => s.sessionId === event.sessionId)) return prev
-    return { sessions: prev.sessions.filter(s => s.sessionId !== event.sessionId) }
+    return { ...prev, sessions: prev.sessions.filter(s => s.sessionId !== event.sessionId) }
   }
   if (!event.session) return prev
   const next: SessionStatus = { ...event.session, sessionId: event.sessionId }
-  return { sessions: [...prev.sessions.filter(s => s.sessionId !== event.sessionId), next].sort(byRecency) }
+  return { sessions: [...prev.sessions.filter(s => s.sessionId !== event.sessionId), next].sort(byRecency), limits: event.rateLimits ?? prev.limits }
 }
 
 // ---------------------------------------------------------------------------
 // Presentation helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * A saved limit as it stands now: once its window has reset (resetsAt, in
+ * seconds, is past) nothing of it is used yet.
+ */
+export function limitNow(pct: number | undefined, resetsAt: number | undefined, now = Date.now()): number | undefined {
+  if (typeof pct !== 'number') return undefined
+  return typeof resetsAt === 'number' && resetsAt * 1000 <= now ? 0 : pct
+}
 
 /** Amber above 70 %, red above 90 % (context and the usage limits alike) */
 export function contextTone(used: number | null | undefined): Tone {

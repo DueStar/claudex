@@ -7,7 +7,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
 import { listen, loadServer, removeServer, type Office, type ServerModule } from './helpers'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createStatusStore, validateStatus } from '../server/status.js'
+import { limitNow } from '../src/meters'
 
 // Pass-through mock so the test can see the server reach for timingSafeEqual
 vi.mock('crypto', async (importOriginal) => {
@@ -76,6 +80,7 @@ describe('POST /status', () => {
         firstSeenAt: expect.any(Number),
         updatedAt: expect.any(Number),
       }],
+      rateLimits: { fiveHour: 23.5, fiveHourResetsAt: 1738425600, sevenDay: 41.2, sevenDayResetsAt: 1738857600, at: expect.any(Number) },
     })
 
     // A later status replaces, never duplicates; a report without a model keeps the one known
@@ -142,6 +147,15 @@ describe('validateStatus', () => {
   })
 })
 
+describe('limitNow', () => {
+  it('a saved limit whose window has reset reads 0', () => {
+    expect(limitNow(40, 100, 99_000)).toBe(40)
+    expect(limitNow(40, 100, 100_000)).toBe(0)
+    expect(limitNow(40, undefined)).toBe(40)
+    expect(limitNow(undefined, 100)).toBeUndefined()
+  })
+})
+
 describe('expiry', () => {
   it('drops sessions quiet for staleMs and returns removal events', () => {
     let t = 1_000
@@ -153,6 +167,22 @@ describe('expiry', () => {
     expect(s.expireStale()).toEqual([{ type: 'session_status', sessionId: SID, removed: true, timestamp: 61_001 }])
     expect(s.has(SID)).toBe(false)
     expect(s.has('later')).toBe(true)
+  })
+
+  it('keeps the last usage limits after their session is gone, and across a restart (limitsFile)', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'claudex-limits-')), 'usage-limits.json')
+    let t = 1_000
+    const s = createStatusStore({ staleMs: 60_000, now: () => t, limitsFile: file })
+    s.ingest(status())
+    t = 61_001
+    s.expireStale()
+    expect(s.size).toBe(0)
+    expect(s.summary().rateLimits).toMatchObject({ fiveHour: 23.5, sevenDay: 41.2, at: 1_000 })
+    // A status without limits leaves the saved ones alone
+    s.ingest(status({ sessionId: 'quiet', rateLimits: undefined }))
+    expect(s.limits).toMatchObject({ fiveHour: 23.5 })
+    const restarted = createStatusStore({ limitsFile: file })
+    expect(restarted.summary()).toEqual({ sessions: [], rateLimits: expect.objectContaining({ fiveHour: 23.5, sevenDayResetsAt: 1738857600, at: 1_000 }) })
   })
 
   it('the mounted store uses AGENT_OFFICE_STALE_MINUTES', async () => {
@@ -214,7 +244,10 @@ describe('WebSocket', () => {
   it('the snapshot carries the status summary', async () => {
     const client = await connect()
     const snapshot = await client.next(m => m.type === 'snapshot')
-    expect(snapshot.statuses).toEqual({ sessions: [expect.objectContaining({ sessionId: SID, project: 'claudex', rateLimits: expect.objectContaining({ fiveHour: 23.5 }) })] })
+    expect(snapshot.statuses).toEqual({
+      sessions: [expect.objectContaining({ sessionId: SID, project: 'claudex', rateLimits: expect.objectContaining({ fiveHour: 23.5 }) })],
+      rateLimits: expect.objectContaining({ fiveHour: 23.5 }),
+    })
   })
 
   it('broadcasts session_status to every client', async () => {
