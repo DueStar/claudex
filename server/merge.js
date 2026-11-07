@@ -20,7 +20,7 @@
  *   sameGame(a, b)             -> deep equality, key order ignored
  */
 
-import { BOX_LIMIT, PARTY_SIZE, STARTER_LEVEL, LOG_LIMIT } from './pokedex.js'
+import { BOX_LIMIT, PARTY_SIZE, LOG_LIMIT, RELEASED_LIMIT, monKey } from './pokedex.js'
 
 const clone = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)))
 const isGame = (g) => !!g && typeof g === 'object' && g.version === 2
@@ -73,10 +73,27 @@ const without = (obj, keys) => {
 // merge still recognises it on the PC that has it under the old uid.
 // ---------------------------------------------------------------------------
 
-/** The facts fixed at the catch (defaults as pokedex.js backfills old saves) */
-function identity(m) {
-  const fixed = [m.at ?? null, m.how ?? null, m.place ?? null, m.ball ?? 'poke-ball', m.metLevel ?? STARTER_LEVEL, !!m.shiny]
-  return `${m.originUid ?? m.uid}|${JSON.stringify(fixed)}`
+/** The first uid plus the facts fixed at the catch (pokedex.js monKey, which release() records) */
+const identity = monKey
+
+/**
+ * Released individuals on either side (monKey -> when, the earlier kept),
+ * newest RELEASED_LIMIT. An individual let go on one PC is dropped from the
+ * merge, so the copy uploaded before the release cannot bring it back.
+ */
+function mergeReleased(a, b) {
+  const out = {}
+  for (const side of [a, b]) {
+    if (!side || typeof side !== 'object') continue
+    for (const [k, at] of Object.entries(side)) {
+      const t = num(at)
+      if (!(k in out) || t < out[k]) out[k] = t
+    }
+  }
+  const keys = Object.keys(out)
+  if (keys.length <= RELEASED_LIMIT) return out
+  keys.sort((x, y) => out[y] - out[x] || cmp(x, y))
+  return Object.fromEntries(keys.slice(0, RELEASED_LIMIT).sort(cmp).map(k => [k, out[k]]))
 }
 
 // Fields the merge sets itself; everything else comes whole from one copy
@@ -114,7 +131,7 @@ function mergeMon(copies) {
  * Union of the individuals. Returns the merged `mons`, the next free uid
  * number, and for each side a map from its uids to the merged uids.
  */
-function mergeMons(L, R) {
+function mergeMons(L, R, released = {}) {
   const groups = new Map() // identity -> { copies, uids: Set, at }
   const sides = [[L, 'l'], [R, 'r']]
   for (const [g, side] of sides) {
@@ -123,6 +140,7 @@ function mergeMons(L, R) {
       // The key is the uid the game uses (state.mons[uid]); trust it over the field
       const mon = { ...m, uid: key }
       const id = identity(mon)
+      if (id in released) continue // let go on one of the PCs
       const grp = groups.get(id) ?? { id, copies: [], uids: new Set(), members: [] }
       grp.copies.push(mon)
       grp.uids.add(mon.uid)
@@ -282,7 +300,8 @@ export function mergeGames(local, remote) {
   const L = clone(local)
   const R = clone(remote)
 
-  const { mons, nextUid, mapL, mapR } = mergeMons(L, R)
+  const released = mergeReleased(L.released, R.released)
+  const { mons, nextUid, mapL, mapR } = mergeMons(L, R, released)
   const trainer = mergeTrainer(L.trainer, R.trainer)
 
   // The party is this PC's own (what it shows and sends out), cleaned to be
@@ -351,6 +370,7 @@ export function mergeGames(local, remote) {
     sinceMythical: num(L.sinceMythical),
     attendedOn: maxDay(L.attendedOn, R.attendedOn), // one attendance a day per trainer, whichever PC took it
     log: mergeLog(L, R, mapL, mapR, professor),
+    released,
   })
   if (L.daily !== undefined) out.daily = L.daily          // device-local: today's catch number (Premier Ball)
   if (L.thrownAt !== undefined) out.thrownAt = L.thrownAt // device-local: this PC's session starts

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { mergeGames, sameGame } from '../server/merge.js'
-import { BOX_LIMIT, PARTY_SIZE } from '../server/pokedex.js'
+import { BOX_LIMIT, PARTY_SIZE, monKey } from '../server/pokedex.js'
 
 const DAY = 86_400_000
 const T0 = Date.UTC(2026, 0, 1)
@@ -274,5 +274,35 @@ describe('mergeGames: idempotence', () => {
     expect(mergeGames(b, ba)).toEqual(ba)
     // the two PCs converge on the same individuals after each syncs once
     expect(mergeGames(b, ab).mons).toEqual(ab.mons)
+  })
+})
+
+describe('released individuals', () => {
+  const p = [mon('m1', 4, T0), mon('m2', 7, T0 + 1)]
+  const kept = mon('m3', 25, T0 + DAY)
+  const letGo = mon('m4', 16, T0 + 2 * DAY)
+  const before = game(p, [kept, letGo])
+  // This PC let m4 go after the last upload: the cloud copy still has it
+  const after = game(p, [kept], { released: { [monKey(letGo)]: T0 + 3 * DAY } })
+
+  it('a release sticks: the copy uploaded before it does not bring the Pokémon back', () => {
+    const merged = mergeGames(after, before)
+    expectValid(merged)
+    expect(individuals(merged)).toEqual(individuals(after))
+    expect(merged.released).toEqual(after.released)
+  })
+
+  it('the other PC drops it too on its next sync, and the release is remembered on both', () => {
+    const cloud = mergeGames(after, before) // what this PC uploads
+    const other = mergeGames(before, cloud) // the other PC still had m4
+    expectValid(other)
+    expect(Object.values(other.mons).some((m: any) => m.dex === 16)).toBe(false)
+    expect(other.released).toEqual(after.released)
+  })
+
+  it('stays idempotent and order-free with releases', () => {
+    const once = mergeGames(after, before)
+    expect(sameGame(mergeGames(after, once), once)).toBe(true)
+    expect(individuals(mergeGames(before, after))).toEqual(individuals(once))
   })
 })

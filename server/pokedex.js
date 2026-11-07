@@ -211,6 +211,19 @@ function localDay(ms) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/**
+ * Who an individual is across PCs (server/merge.js): uids come from each PC's
+ * own counter, so the first uid it was given plus the facts fixed at the
+ * catch (time to the ms, how, where, ball, met level, shiny).
+ */
+export function monKey(m) {
+  const fixed = [m.at ?? null, m.how ?? null, m.place ?? null, m.ball ?? 'poke-ball', m.metLevel ?? STARTER_LEVEL, !!m.shiny]
+  return `${m.originUid ?? m.uid}|${JSON.stringify(fixed)}`
+}
+
+/** How many released individuals the save remembers (the oldest are forgotten past this) */
+export const RELEASED_LIMIT = 5000
+
 function emptyState() {
   return {
     version: 2,
@@ -225,6 +238,7 @@ function emptyState() {
     encounters: 0, sinceLegend: 0, sinceMythical: 0,
     attendedOn: null,       // local date (YYYY-MM-DD) of the last attendance encounter
     log: [],
+    released: {},           // monKey -> when: individuals let go, so a cloud copy cannot bring them back
   }
 }
 
@@ -811,6 +825,8 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     if (at !== -1) state.box.splice(at, 1)
     delete state.mons[uid]
     for (const [sid, u] of Object.entries(state.assign)) if (u === uid) delete state.assign[sid]
+    // Remembered, so the next cloud sync does not bring it back from the copy uploaded before
+    state.released = { ...(state.released ?? {}), [monKey(mon)]: now() }
     const event = { kind: 'release', id: mon.dex, name: byId.get(mon.dex)?.ko, uid, at: now() }
     pushLog(event)
     save()
