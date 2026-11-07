@@ -124,9 +124,19 @@ const Widget: React.FC = () => {
   }, [])
   const [renaming, setRenaming] = useState<string | null>(null)
   // Ctrl+1–4: 터미널 / 도감 / 박스 / 기록 (opens the window view from the widget too)
+  // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
   useEffect(() => {
     const views = ['terminal', 'dex', 'box', 'today'] as const
     const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        // Stopped here so the terminal and the dex grid do not also take the arrow
+        e.preventDefault()
+        e.stopPropagation()
+        const step = !expanded ? 0 : e.key === 'ArrowRight' ? 1 : -1
+        setView(views[(views.indexOf(view) + step + views.length) % views.length])
+        setExpanded(true)
+        return
+      }
       if (!e.ctrlKey || e.altKey || e.shiftKey || !/^[1-4]$/.test(e.key)) return
       e.preventDefault()
       setView(views[Number(e.key) - 1])
@@ -498,7 +508,7 @@ ${update.notes}` : ''}${update.error ? `
                       className="w-row-rename"
                       autoFocus
                       defaultValue={r.title ?? ''}
-                      placeholder={`${r.name} · ${r.project}`}
+                      placeholder="새 세션"
                       maxLength={40}
                       onClick={e => e.stopPropagation()}
                       onKeyDown={e => {
@@ -513,11 +523,7 @@ ${update.notes}` : ''}${update.error ? `
                       title={r.terminal ? '더블클릭해서 세션 이름 바꾸기' : undefined}
                       onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
                     >
-                      {r.title ? (
-                        <><span className="w-row-name">{r.title}</span><span className="w-row-project">{r.name}</span></>
-                      ) : (
-                        <><span className="w-row-name">{r.name}</span><span className="w-row-project">{r.project}</span></>
-                      )}
+                      <span className="w-row-name">{r.title ?? '새 세션'}</span><span className="w-row-project">{r.name}</span>
                     </span>
                   )}
                   {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title="함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)">Lv.{levelOf(monOf(r.sessionId))}</span>}
@@ -611,8 +617,8 @@ ${update.notes}` : ''}${update.error ? `
                 title={r.terminal?.cwd}
               >
                 <img src={r.sprite} alt="" />
-                <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? r.name}</span>
-                <span className="w-term-tab-project">{r.title ? r.name : r.project}</span>
+                <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? '새 세션'}</span>
+                <span className="w-term-tab-project">{r.name}</span>
                 <span className="w-term-tab-dot" />
               </button>
             ))}
