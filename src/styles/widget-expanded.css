@@ -265,3 +265,13 @@
   border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
 }
 .w-notes-ok:hover { background: var(--accent-hover); }
+
+/* ---------- Window / fullscreen: the sidebar header and the tab bar share one height ---------- */
+.widget.mode-window, .widget.mode-fullscreen { --head-h: 46px; }
+.widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head,
+.widget.mode-window .w-term-tabs, .widget.mode-fullscreen .w-term-tabs {
+  height: var(--head-h);
+  box-sizing: border-box;
+  padding-top: 0;
+  padding-bottom: 0;
+}

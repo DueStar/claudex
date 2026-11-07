@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('claudex', {
   toast: {
     show: (event) => ipcRenderer.send('toast:show', event),
     done: () => ipcRenderer.send('toast:done'),
+    open: (id) => ipcRenderer.send('toast:open', Number(id)),
     onEvent: (fn) => on('toast:event', fn),
   },
   game: {
@@ -63,6 +64,7 @@ contextBridge.exposeInMainWorld('claudex', {
     minimize: () => ipcRenderer.invoke('widget:minimize'),
     setMode: (mode) => ipcRenderer.invoke('widget:set-mode', String(mode)),
     onMode: (fn) => on('widget:mode', fn),
+    onOpenDex: (fn) => on('widget:open-dex', fn),
     resize: (width, height) => ipcRenderer.send('widget:resize', { width, height }),
   },
 })

@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { readCarry, writeCarry } from '../carry'
+import { readCarry, writeCarry, freshDexPick } from '../carry'
 import { POKEMON, spriteUrl, type PokemonEntry } from '../theme'
 // Genus, flavor and weight: only this view shows them, and it is its own chunk
 import TEXT from 'virtual:pokedex-text'
@@ -65,7 +65,7 @@ const PokedexView: React.FC = () => {
   const [tier, setTier] = useState<Tier | null>(null)
   const [show, setShow] = useState<'all' | 'caught' | 'missing'>('all')
   const [query, setQuery] = useState('')
-  const [pick, setPick] = useState<number | null>(null)
+  const [pick, setPick] = useState<number | null>(() => freshDexPick())
   const [releasing, setReleasing] = useState<string | null>(null)
   const { isNew } = useViewed()
   // Where the grid was scrolled, kept across a widget <-> window swap (a new page)
@@ -75,6 +75,20 @@ const PokedexView: React.FC = () => {
     const top = readCarry().dexScroll
     if (gridRef.current && typeof top === 'number') gridRef.current.scrollTop = top
   }, [])
+  // A clicked notification picks a species (src/Widget.tsx); shown with every filter cleared
+  useEffect(() => {
+    // Not cleared after use: it expires on its own (freshDexPick), since the page that asked swaps away
+    const focus = (id: number) => {
+      setGen(null); setTier(null); setShow('all'); setQuery(''); setPick(id)
+      if (state?.caught?.[id]) markViewed(id)
+      requestAnimationFrame(() => gridRef.current?.querySelector<HTMLElement>(`[data-id="${id}"]`)?.scrollIntoView({ block: 'center' }))
+    }
+    const carried = freshDexPick()
+    if (carried !== null) focus(carried)
+    const onPick = (e: Event) => focus((e as CustomEvent<number>).detail)
+    window.addEventListener('claudex:dex-pick', onPick)
+    return () => window.removeEventListener('claudex:dex-pick', onPick)
+  }, [state])
   useEffect(() => () => { if (scrollSave.current) clearTimeout(scrollSave.current) }, [])
   const onGridScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const top = e.currentTarget.scrollTop

@@ -56,3 +56,21 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
 .toast-host .w-toast-lv { font-weight: 700; color: #d7dae3; font-variant-numeric: tabular-nums; }
 /* the ball beside the level: a small mark, not the big picture rule above */
 .toast-host .w-toast .w-toast-ball img { width: 14px; height: 14px; max-width: none; }
+
+/* ---------- Readability (2026-11-08): the name first, the details a step quieter but still legible ---------- */
+.toast-host .w-toast { position: relative; cursor: pointer; gap: 12px; }
+.toast-host .w-toast-text { gap: 4px; min-width: 0; }
+.toast-host .w-toast-line { font-size: 14px; line-height: 1.4; color: #c9cdd6; }
+.toast-host .w-toast-line b { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+.toast-host .w-toast-sub { font-size: 11.5px; color: #a3a8b5; flex-wrap: wrap; row-gap: 2px; white-space: normal; }
+.toast-host .w-toast-via { font-size: 11px; color: #8c91a0; max-width: 100%; }
+.toast-host .w-toast-badge { font-size: 10.5px; padding: 2px 8px; }
+.toast-host .w-toast:hover { border-color: rgba(255, 255, 255, 0.28); }
+.toast-host .w-toast-more {
+  position: absolute; top: 8px; right: 10px;
+  font-size: 10.5px; font-weight: 800; color: #1b1e27; background: #d7dae3;
+  padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums;
+}
+/* One picture box for every card, so the text starts at the same place */
+.toast-host .w-toast img { width: 64px; height: 60px; max-width: none; object-fit: contain; flex: none; }
+.toast-host .w-toast .w-toast-ball img { width: 14px; height: 14px; }

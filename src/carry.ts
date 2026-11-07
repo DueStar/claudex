@@ -5,7 +5,13 @@
  * Per PC, in localStorage.
  */
 
-export interface Carried { view?: 'terminal' | 'dex' | 'box' | 'today'; target?: string | null; text?: string; dexScroll?: number }
+export interface Carried { view?: 'terminal' | 'dex' | 'box' | 'today'; target?: string | null; text?: string; dexScroll?: number; dexPick?: { id: number; at: number } | null }
+
+/** A species to open the Pokédex at, if it was asked for in the last few seconds (a clicked notification) */
+export function freshDexPick(): number | null {
+  const p = readCarry().dexPick
+  return p && typeof p.id === 'number' && Date.now() - p.at < 5000 ? p.id : null
+}
 
 const KEY = 'claudex-carry'
 

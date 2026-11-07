@@ -136,6 +136,13 @@ const Widget: React.FC = () => {
   }, [])
   const [renaming, setRenaming] = useState<string | null>(null)
   const [notesOpen, setNotesOpen] = useState(false)
+  // A clicked notification: the Pokédex at that species (carried, since opening the window may swap pages)
+  useEffect(() => bridge?.widget.onOpenDex(id => {
+    writeCarry({ dexPick: { id, at: Date.now() }, dexScroll: undefined })
+    window.dispatchEvent(new CustomEvent('claudex:dex-pick', { detail: id }))
+    setView('dex')
+    setExpanded(true)
+  }), [])
   // Ctrl+1–4: 터미널 / 도감 / 박스 / 기록 (opens the window view from the widget too)
   // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
   useEffect(() => {
@@ -163,7 +170,9 @@ const Widget: React.FC = () => {
   const termFont = useTermFont()
   const [mode, setModeState] = useState<WidgetMode>(modeFromUrl)
   const expanded = mode !== 'widget'
-  const [view, setView] = useState<'terminal' | 'dex' | 'box' | 'today'>(() => readCarry().view ?? 'terminal')
+  const [view, setViewState] = useState<'terminal' | 'dex' | 'box' | 'today'>(() => readCarry().view ?? 'terminal')
+  // Noted for the carry at once: opening the window from the widget swaps pages before React re-renders
+  const setView = (v: typeof view) => { carried.current = { ...carried.current, view: v }; setViewState(v) }
   const { state: dex, lastEvent } = usePokedex()
   const { isNew } = useViewed()
   const hasNew = Object.keys(dex?.caught ?? {}).some(id => isNew(Number(id)))
@@ -425,7 +434,8 @@ ${update.notes}` : ''}${update.error ? `
             {!expanded && (
               <button className="w-icon" onClick={() => setMode('window')} title="창 모드로 펼쳐서 터미널 보기" aria-label="펼치기">⇤</button>
             )}
-            <button className="w-icon" onClick={() => bridge?.widget.hide()} title="숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)" aria-label="숨기기">–</button>
+            {/* As a window the right side has its own minimize and close */}
+            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title="숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)" aria-label="숨기기">–</button>}
           </header>
 
           {accountOpen && cloud?.user && (

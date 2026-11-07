@@ -61,6 +61,8 @@ interface ClaudexBridge {
   toast: {
     show(event: unknown): void
     done(): void
+    /** A notification was clicked: the app window opens the Pokédex at this species */
+    open(id: number): void
     onEvent(fn: (event: any) => void): () => void
   }
   game: {
@@ -81,6 +83,7 @@ interface ClaudexBridge {
     minimize(): Promise<void>
     setMode(mode: WidgetMode): Promise<WidgetMode>
     onMode(fn: (mode: WidgetMode) => void): () => void
+    onOpenDex(fn: (id: number) => void): () => void
     resize(width: number, height: number): void
   }
 }

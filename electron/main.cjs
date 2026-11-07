@@ -359,7 +359,9 @@ async function checkUpdateNow() {
 }
 
 const openLogs = () => { shell.openPath(log.dir).catch(() => {}) }
-const menuActions = { toggleWidget, quit: quitApp, openQa, checkUpdate: checkUpdateNow, openLogs }
+// The design QA page is for development: a dev run, or CLAUDEX_QA=1 on a packaged one
+const showQa = !app.isPackaged || envVar('QA') === '1'
+const menuActions = { toggleWidget, quit: quitApp, ...(showQa ? { openQa } : {}), checkUpdate: checkUpdateNow, openLogs }
 
 function applicationMenuTemplate() {
   const isMac = process.platform === 'darwin'
@@ -778,6 +780,18 @@ function hideToast() {
   if (toastWin && !toastWin.isDestroyed()) toastWin.hide()
 }
 
+/** A clicked notification: show the app and open the Pokédex at that species */
+function openDexAt(id) {
+  if (!Number.isInteger(id) || id < 1 || id > 2000) return
+  hideToast()
+  const w = createWidgetWindow()
+  if (!w) return
+  if (!w.isVisible()) { state.widgetHidden = false; saveState(); refreshMenus() }
+  w.show()
+  w.focus()
+  w.webContents.send('widget:open-dex', id)
+}
+
 function toggleWidget() {
   const w = createWidgetWindow()
   if (!w) return
@@ -939,6 +953,7 @@ function registerTerminalIpc() {
   ipcMain.handle('game:throw', guard(({ sessionId, uid } = {}) => serverPost('/pokedex/throw', { sessionId: String(sessionId), uid: String(uid) })))
   ipcMain.on('toast:show', guard((event) => { if (event && typeof event === 'object') showToast(event) }))
   ipcMain.on('toast:done', guard(() => hideToast()))
+  ipcMain.on('toast:open', guard((id) => openDexAt(Number(id))))
   ipcMain.handle('game:exchange', guard((o) => serverPost('/pokedex/exchange', { boxUid: String(o?.boxUid), partyUid: String(o?.partyUid) })))
   ipcMain.handle('game:release', guard((uid) => serverPost('/pokedex/release', { uid: String(uid) })))
   ipcMain.handle('game:swap', guard(({ sessionId, uid } = {}) => swapPokemon(String(sessionId), String(uid))))
