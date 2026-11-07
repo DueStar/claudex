@@ -19,8 +19,9 @@ import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetM
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
-import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, isFullyEvolved, genderMark, type Mon } from './pokedexStore'
+import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, type Mon } from './pokedexStore'
 import PatchNotes from './components/PatchNotes'
+import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
@@ -657,59 +658,12 @@ ${update.notes}` : ''}${update.error ? `
       )}
 
       {swapFor && dex && (
-        <div className="resume-backdrop" onClick={() => setSwapFor(null)}>
-          <div className="resume-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="포켓몬 교체">
-            <div className="resume-head">
-              <span>{pokemonById(monOf(swapFor)?.dex ?? 0)?.ko} 대신 보낼 포켓몬</span>
-              <button onClick={() => setSwapFor(null)} aria-label="닫기">×</button>
-            </div>
-            <div className="w-swap-list">
-              {(() => {
-                const busy = new Set(Object.values(dex.assign ?? {}))
-                const candidates = [...dex.party, ...dex.box.slice().reverse()].filter(uid => !busy.has(uid) && dex.mons[uid])
-                if (candidates.length === 0) return <div className="resume-empty">보낼 수 있는 포켓몬이 없어요. 야생 포켓몬을 더 잡아보세요!</div>
-                return candidates.map(uid => {
-                  const m = dex.mons[uid]
-                  const sp = pokemonById(m.dex)
-                  return (
-                    <button key={uid} className="w-swap-item" onClick={() => doSwap(swapFor, uid)}>
-                      <img src={spriteUrl(m.dex, m.shiny)} alt="" />
-                      <span className="w-swap-name">{m.shiny ? '✦ ' : ''}{sp?.ko}{genderMark(m.gender)}</span>
-                      <span className="w-swap-meta">{dex.party.includes(uid) ? '파티' : '박스'} · {m.steps}걸음{isFullyEvolved(m.dex) ? ' · 최종' : ''}</span>
-                    </button>
-                  )
-                })
-              })()}
-            </div>
-          </div>
-        </div>
+        <SwapPicker dex={dex} currentDex={monOf(swapFor)?.dex ?? 0} onPick={uid => doSwap(swapFor, uid)} onClose={() => setSwapFor(null)} />
       )}
       {picking && <Suspense fallback={null}><ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
         monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: pokemonById(m.dex)?.ko ?? '' } : null }} /></Suspense>}
       {throwing && dex && (
-        <div className="resume-backdrop" onClick={() => setThrowing(null)}>
-          <div className="resume-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="몬스터볼 던지기">
-            <div className="resume-head">
-              <span>{throwing.resume ? '이 세션에 보낼 포켓몬' : '누구를 보낼까요?'}</span>
-              <button onClick={() => setThrowing(null)} aria-label="닫기">×</button>
-            </div>
-            {throwing.resume && <div className="w-throw-hint">이 세션의 포켓몬이 다른 세션에서 일하고 있어서, 대신 보낼 포켓몬을 골라주세요.</div>}
-            <div className="w-swap-list">
-              {dex.party.map(uid => {
-                const m = dex.mons[uid]
-                if (!m) return null
-                const busy = busyUids.has(uid)
-                return (
-                  <button key={uid} className={`w-swap-item${busy ? ' busy' : ''}`} disabled={busy} onClick={() => throwBall(uid, throwing)}>
-                    <img src={spriteUrl(m.dex, m.shiny)} alt="" />
-                    <span className="w-swap-name">{m.shiny ? '✦ ' : ''}{pokemonById(m.dex)?.ko}</span>
-                    <span className="w-swap-meta">{busy ? '일하는 중' : `쉬는 중 · ${m.steps}걸음`}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+        <ThrowPicker dex={dex} resume={!!throwing.resume} onPick={uid => throwBall(uid, throwing)} onClose={() => setThrowing(null)} />
       )}
       <PatchNotes />
       {mode === 'widget' && <ResizeGrip />}
