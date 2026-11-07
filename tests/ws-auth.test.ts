@@ -198,6 +198,15 @@ function mode(path: string) {
   return statSync(path).mode & 0o777
 }
 
+// Windows has no POSIX permission bits: Node reports 0o666 (or 0o444 when
+// read-only) whatever the server asked for, chmod only toggles read-only,
+// there is no getuid, and a symlink needs admin rights or Developer Mode. The
+// checks that rest on those run on Linux (CI) and skip here; the rest of each
+// test still runs on Windows.
+const WINDOWS = process.platform === 'win32'
+/** The token file is private to this user (0600), where the OS has modes to say so */
+const expectPrivate = (file: string) => { if (!WINDOWS) expect(mode(file)).toBe(0o600) }
+
 /** start() on an ephemeral port with the banner captured; resolves once listening. */
 async function started(office: Office) {
   const lines: string[] = []
@@ -264,7 +273,7 @@ describe('the token file: reused when it is safe to trust, replaced otherwise', 
     expect(existsSync(tokenFile)).toBe(false)
     const lines = await started(office)
     expect(readFileSync(tokenFile, 'utf8')).toBe(office.server.AUTH_TOKEN)
-    expect(mode(tokenFile)).toBe(0o600)
+    expectPrivate(tokenFile)
     expect(lines.join('\n')).toContain(`Auth token written to: ${tokenFile}`)
   })
 
@@ -280,21 +289,21 @@ describe('the token file: reused when it is safe to trust, replaced otherwise', 
       expect(office.server.AUTH_TOKEN).not.toBe(content)
       await started(office)
       expect(readFileSync(tokenFile, 'utf8')).toBe(office.server.AUTH_TOKEN)
-      expect(mode(tokenFile)).toBe(0o600)
+      expectPrivate(tokenFile)
     })
   }
 
   for (const fileMode of [0o640, 0o604, 0o644, 0o660]) {
-    it(`replaces a token file other users could read (mode ${fileMode.toString(8)})`, async () => {
+    it.skipIf(WINDOWS)(`replaces a token file other users could read (mode ${fileMode.toString(8)})`, async () => {
       const { office, tokenFile } = await load(file => { writeFileSync(file, TOKEN); chmodSync(file, fileMode) })
       expect(office.server.AUTH_TOKEN).not.toBe(TOKEN)
       await started(office)
       expect(readFileSync(tokenFile, 'utf8')).toBe(office.server.AUTH_TOKEN)
-      expect(mode(tokenFile)).toBe(0o600)
+      expectPrivate(tokenFile)
     })
   }
 
-  it('replaces a token file owned by someone else (simulated: another uid)', async () => {
+  it.skipIf(!process.getuid)('replaces a token file owned by someone else (simulated: another uid)', async () => {
     const realUid = process.getuid!()
     const getuid = vi.spyOn(process, 'getuid').mockReturnValue(realUid + 4242)
     const { office, tokenFile } = await load(file => writeFileSync(file, TOKEN, { mode: 0o600 }))
@@ -313,7 +322,7 @@ describe('the token file: reused when it is safe to trust, replaced otherwise', 
     expect(statSync(tokenFile).uid).toBe(0)
   })
 
-  it('does not follow a symlink: neither reads the token through it nor writes the new one through it', async () => {
+  it.skipIf(WINDOWS)('does not follow a symlink: neither reads the token through it nor writes the new one through it', async () => {
     const elsewhere = freshDir()
     const target = join(elsewhere, 'planted')
     try {

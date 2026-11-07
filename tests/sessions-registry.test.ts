@@ -349,9 +349,11 @@ describe('the registry roster in the office', () => {
     return res.body.sessions.find((s: any) => s.id === id)
   }
   /** WS messages since the last call */
+  // The session broadcasts since the last call. The game (pokedex) and the
+  // pipeline health ride along on hook events; they have suites of their own.
   const fresh = async () => {
     await sleep(60)
-    const out = messages.slice(mark)
+    const out = messages.slice(mark).filter(m => m.type !== 'pokedex' && m.type !== 'health')
     mark = messages.length
     return out
   }
@@ -700,7 +702,8 @@ describe('a permission dialog answered or dismissed in the terminal (the registr
     expect(main().state).toBe('needs-you')
   })
 
-  it('a leftover file whose pid now belongs to another process is not a session (the reused pid check, in the server)', async () => {
+  // Rests on pid 1 being alive (init / launchd); Windows has no pid 1
+  it.skipIf(process.platform === 'win32')('a leftover file whose pid now belongs to another process is not a session (the reused pid check, in the server)', async () => {
     const ghost = '66666666-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
     writeFileSync(join(regDir, '1.json'), JSON.stringify(entry({ pid: 1, sessionId: ghost, status: 'waiting', procStart: '99999999' })))
     office.server.registry.scan()

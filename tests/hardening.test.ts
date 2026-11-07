@@ -23,6 +23,15 @@ vi.mock('crypto', async (importOriginal) => {
 
 const mode = (path: string) => statSync(path).mode & 0o777
 
+// Windows has no POSIX permission bits: Node reports 0o666 (or 0o444 when
+// read-only) whatever the server asked for, chmod only toggles read-only,
+// there is no getuid, and a symlink needs admin rights or Developer Mode. The
+// checks that rest on those run on Linux (CI) and skip here; the rest of each
+// test still runs on Windows.
+const WINDOWS = process.platform === 'win32'
+/** The token file is private to this user (0600), where the OS has modes to say so */
+const expectPrivate = (file: string) => { if (!WINDOWS) expect(mode(file)).toBe(0o600) }
+
 type Message = Record<string, any>
 interface Client { ws: WebSocket; next: (pred?: (m: Message) => boolean) => Promise<Message>; all: () => Message[] }
 
@@ -98,7 +107,7 @@ describe('start() and the token file (C09)', () => {
     await listening
 
     expect(readFileSync(tokenFile, 'utf8')).toBe(office.server.AUTH_TOKEN)
-    expect(mode(tokenFile)).toBe(0o600)
+    expectPrivate(tokenFile)
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
   })
