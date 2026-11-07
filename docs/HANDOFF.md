@@ -1,4 +1,4 @@
-# Claudex 인수인계 (2026-11-06, v1.3.2)
+# Claudex 인수인계 (2026-11-07, v1.3.7 + 1.3.8 준비)
 
 Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17ant/Claude-Office(MIT)를 포크했다.
 - 경로: `Documents\pokemon-office`
@@ -9,20 +9,21 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 - **push**: DueStar 계정으로만 한다. chanho-byte는 이 프로젝트에 쓰지 않는다. 토큰을 직접 꺼내지 말고 gh를 자격 증명 도우미로 쓴다.
   `git -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin main`
 - **커밋 작성자**: DueStar / hoo2031@gmail.com(저장소 로컬 설정). 커밋 끝에 Co-Authored-By 줄을 붙인다.
-- **테스트 판단 기준**: Windows에서는 원래 실패하는 테스트가 있다(파일권한·심링크·uid). 2c9b529 기준 449 통과 / 55 실패이고, "새 실패 0"이면 통과로 본다.
+- **테스트 판단 기준**: `npm test`가 Windows에서도 전부 통과해야 한다(2026-11-07부터, 395 통과 / 10 건너뜀). 파일 권한·getuid·심링크·pid 1처럼 Windows에 없는 것을 보는 검사만 이유를 적고 건너뛴다(Linux CI에서는 돈다). 실패가 하나라도 있으면 새로 생긴 것이다.
 - **포켓몬·볼 그림은 저장소에 넣지 않는다**(DMCA 대비, .gitignore).
-  - 포켓몬: 처음 볼 때 `server/sprites.js`가 PokeAPI HOME 그림을 받아 128px로 맞추고 `~/.agent-office/sprites`에 저장한다.
+  - 포켓몬: 처음 볼 때 `server/sprites.js`가 PokeAPI HOME 그림을 받아 128px로 맞추고 `~/.claudex/sprites`에 저장한다.
   - 볼: 빌드할 때 넣는다. 원본은 사용자가 손으로 받은 `~/Downloads/pokeball`이고 `node tools/import-balls.mjs <폴더>`로 가져온다. 결과는 `public/sprites/balls/`이며 gitignore 대상이다.
   - 볼 그림이 없으면 PokeAPI 아이템 아이콘을 쓰고, 그것도 없으면 `claudex-ball.png`(직접 그린 그림)를 쓴다.
 - **Bulbagarden Archives는 자동 다운로드를 막는다(403).** 우회하지 않는다.
 - **비밀 정보**: Supabase service/secret 키와 Google client secret은 받지 않는다. 공개 키만 `server/cloud-config.json`에 둔다.
 - **배포·릴리스·공개 작업은 사용자 확인 후에 한다.**
-- **시험 실행은 격리한다**: `AGENT_OFFICE_HOME=<임시 폴더> AGENT_OFFICE_PORT=3344`로 띄우고, Vite도 `AGENT_OFFICE_PORT=3344 npx vite --port 3333`로 띄운다(실제 서버 3334에 붙지 않게).
-  - 캡처: `AGENT_OFFICE_SCREENSHOT`
+- **시험 실행은 격리한다**: `CLAUDEX_HOME=<임시 폴더> CLAUDEX_PORT=3344`로 띄우고, Vite도 `CLAUDEX_PORT=3344 npx vite --port 3333`로 띄운다(실제 서버 3334에 붙지 않게). 예전 이름 `AGENT_OFFICE_*`도 계속 읽는다(테스트는 아직 예전 이름을 쓴다).
+  - 캡처: `CLAUDEX_SCREENSHOT`
   - 디버그 변수: `POKEMON_OFFICE_AUTOTEST(_EXPAND/_KEYS/_WIDGET_JS)`, `POKEMON_OFFICE_CLAUDE=powershell.exe`
 
 ## 빌드·업데이트
-- **빌드와 릴리스**: `node scripts/release.mjs [--publish]` — 노트는 CHANGELOG.md의 `### <버전>` 절을 UTF-8로 직접 읽는다. 셸로 한글 노트를 넘기면 cp949로 깨진다(1.3.6에서 실제로 깨져서 릴리스 본문과 latest.json을 다시 올렸다).
+- **업데이트 서명**(1.3.8부터): `latest.json`을 Ed25519 키로 서명하고, 앱은 `electron/update-key.cjs`의 공개 키로 확인한다(GitHub에서 받은 것만, 로컬 채널은 확인하지 않음). **개인 키는 이 PC의 `%USERPROFILE%\.claudex-release\signing-key.pem`에만 있다. 꼭 백업한다.** 다른 PC에서 릴리스하려면 이 파일을 옮기거나 `CLAUDEX_SIGNING_KEY`로 경로를 준다. 잃어버리면 새 키를 만들어야 하고(`scripts/signing-key.mjs`), 그러면 이미 설치된 앱은 앱 안 업데이트를 못 받아서 전체 zip으로 다시 설치해야 한다.
+- **빌드와 릴리스**: `node scripts/release.mjs [--publish]` — `--publish`는 빌드 전에 한 번에 점검하고 하나라도 아니면 멈춘다: gh가 DueStar인지, 커밋 안 한 변경이 없는지, origin/main이 HEAD와 같은지(푸시 먼저), 태그가 아직 없는지, CHANGELOG에 버전 절이 있는지, 볼 그림 27종, 서명 키. 노트는 CHANGELOG.md의 `### <버전>` 절을 UTF-8로 직접 읽는다. 셸로 한글 노트를 넘기면 cp949로 깨진다(1.3.6에서 실제로 깨져서 릴리스 본문과 latest.json을 다시 올렸다).
   1. vite 빌드와 `electron-builder --win dir`를 실행한다.
   2. 볼 그림이 있으면 앱 아이콘을 공식 몬스터볼로 만들고, 빌드가 끝나면 `git checkout`으로 직접 그린 아이콘으로 되돌린다.
   3. `build-info.json`(빌드 날짜)을 넣는다.
@@ -32,7 +33,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
   - GitHub `releases/latest/download/latest.json`을 확인하고 sha256을 검증한다.
   - 재시작하면 `pending-update.json`을 남기고 `app.relaunch`한다. 다음 시작 때 main.cjs 맨 앞(`applyPendingUpdate`)에서 robocopy로 `resources\app`을 교체하고 한 번 더 relaunch한다. 결과는 `userData/update.log`에 남는다. 앱이 꺼진 뒤 외부 PowerShell로 교체하는 방식은 Windows에서 실행되지 않아 버렸다(detached면 아예 실행되지 않고, attached면 앱과 같이 죽는다).
   - 수동 설치: `scripts\install-local.cmd`(Claudex를 닫고 `release\win-unpacked`를 설치한 뒤 실행한다).
-  - **로컬 채널**: `~/.agent-office/update-dir`에 `release` 폴더 경로를 적어 두었다. 1분마다 확인하고, 같은 버전이라도 빌드 날짜가 더 새로우면 업데이트로 본다.
+  - **로컬 채널**: `~/.claudex/update-dir`에 `release` 폴더 경로를 적어 두었다. 1분마다 확인하고, 같은 버전이라도 빌드 날짜가 더 새로우면 업데이트로 본다.
   - **exe는 바뀌지 않는다.** 아이콘처럼 exe에 들어가는 변경은 전체 설치가 필요하다.
 - **스마트 앱 컨트롤**: 서명이 없어서 막힌다. 해결하려면 코드 서명이 필요하다(Certum 오픈소스 인증서가 현실적). 아직 구매하지 않았다.
 
@@ -167,22 +168,21 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 개발 실행은 `%APPDATA%\Claudex-dev`를 쓴다.
    - 교훈: 서버 JS는 타입체크가 없어서 함수를 지울 때 `return { ... }` 같은 참조가 남아도 빌드가 통과한다. 전체 테스트를 기준선과 꼭 비교한다(이번에 20개가 새로 실패해서 잡았다).
 
-## 개선점 (2026-11-07 전체 점검, 중요한 순서)
-1. **Python 의존성 없애기**: 훅(`agent-tracker.py`/`.sh`)과 상태 줄이 Git Bash와 `python3`를 요구한다. Windows에는 `python3.exe`가 없어서 셔임을 만들어야 했다(이 PC도 그랬다). 훅을 Node로 옮기고 Claudex.exe를 `ELECTRON_RUN_AS_NODE=1`로 부르면 설치할 것이 Claude Code 하나로 줄어든다. 사용자에게 가장 큰 개선이다.
-2. **클라우드 동기화 병합**: 지금은 잡은 종이 많은 쪽이 통째로 덮어쓴다(`server/cloud.js`). 두 PC에서 따로 잡은 개체가 사라질 수 있다. 개체 uid 기준 합집합, 도감은 종별 최초 포획일·횟수 합치기로 바꾼다.
-3. **업데이트 진위 확인**: `latest.json`의 sha256은 같은 릴리스에서 오므로 무결성만 보장한다. 릴리스 계정이 털리면 그대로 통과한다. minisign 같은 서명 키로 `latest.json`을 서명하고 앱에 공개 키를 넣는다(코드 서명이 없을 때의 최소한).
-4. **office 잔재 3단계·이름 바꾸기**(위 1·2번): 플러그인·설치기·doctor, `X-Office-*`·`agent-office` 프로토콜, `~/.agent-office` → `~/.claudex` 이전. `doctor.test`·`install-hooks.test`·`plugin.test`·`open-office.test`가 같이 사라진다.
-5. **Windows 테스트 기준선 51개 실패**: 파일 권한(0600)·심링크·uid·`sleep` 같은 Unix 전제 테스트다. `process.platform === 'win32'`에서 이유를 적고 건너뛰게 하면 "새 실패 0" 비교 없이 `npm test`가 초록이 된다. CI에 windows-latest도 추가한다.
-6. **큰 파일 나누기**: `server/index.js` 1800줄(세션·main 상태 / 이벤트 처리 / 저장 / 라우트), `electron/main.cjs` 1000줄(창 관리는 `windows.cjs`로), `src/Widget.tsx` 690줄(사이드바·지시 입력·교체/던지기 창을 컴포넌트로). 지금 구조에서 실수가 잘 난다(이번 obtainItem처럼).
-7. **번들 1MB 한 덩어리**: 도감 데이터(`pokedex.json`)가 첫 화면에 같이 실린다. 도감·박스 화면과 데이터를 `import()`로 나누면 위젯 첫 표시가 빨라진다.
-8. **로그 파일**: 업데이트(`update.log`) 말고는 앱·서버 로그가 남지 않는다. Claudex 터미널 안에서는 Electron 출력도 안 보인다. `userData/logs/`에 크기 제한을 둔 로그를 남기고 트레이에 "로그 폴더 열기"를 둔다. 사용자 문의 대응이 쉬워진다.
-9. **창 전환 다듬기**: 위젯↔창 전환 중 패치노트 창이 새 창에서 다시 뜰 수 있다(확인 전이면). 스크롤 위치도 맨 아래로 간다. 지시 입력 저장(`claudex-carry`)은 글자마다 localStorage에 쓴다(가볍게 묶어 쓰기).
-10. **도감 그리드 성능**: 1025칸을 한 번에 그린다. 아직 문제는 없지만 이미지가 늘면 가상 스크롤(보이는 줄만)로 바꾼다. 키보드로 칸을 옮겨 다니는 접근성도 없다.
-11. **릴리스 자동 점검**: `release.mjs --publish` 앞에 "push가 끝났는지(ahead 0)", "CHANGELOG에 이 버전이 있는지", "볼 그림 27종"을 한 번에 확인하고 하나라도 아니면 멈추게 한다(v1.3.7 태그 사고 재발 방지).
-12. **낡은 주석·이름**: `server/index.js`의 Host 헤더 설명(`GET /agents`), 곳곳의 "office" 표현은 2번 이름 바꾸기 때 같이 정리한다.
+7-6. **2026-11-07 개선점 12개 적용(1.3.7 뒤, 아직 릴리스 안 함)**
+   - **훅이 Python 없이 돈다**: `hooks/claudex-hook.cjs`(이벤트 만들기, 예전 `agent-tracker.py`를 그대로 옮김)와 `hooks/status-line.cjs`, 둘이 쓰는 `hooks/post.cjs`(서명·POST). 세션 설정(`electron/terminals.cjs`)이 `ELECTRON_RUN_AS_NODE=1 "<Claudex.exe>" "<스크립트>"`로 부른다. Claude Code는 훅을 Git Bash에서 돌리므로 POSIX 형식이다. 실제 `claude -p` 세션으로 훅 7건이 서명된 채 들어오는 것을 확인했다. 필요 프로그램 검사에서 Python을 뺐다(Claude Code·Git만).
+   - **office 잔재 제거**: 플러그인(`.claude-plugin`, `commands/`), 전역 설치기(`install-hooks.sh`, `hooks.json`), `doctor`·`open-office`·`rotate-token`·`sync-plugin-version`, office 시절 `release.yml` 워크플로, 관련 테스트. package.json의 저장소·작성자·스크립트, 이슈 템플릿, README·CONTRIBUTING도 Claudex로.
+   - **이름 바꾸기**: 데이터 폴더 `~/.claudex`(`server/runtime-dir.cjs`). 첫 실행 때 `~/.agent-office`를 임시 폴더에 통째로 복사한 뒤 이름을 바꿔 넣는다. 옛 폴더는 지우지 않고 `MOVED-TO-CLAUDEX.txt`만 남긴다. 복사가 끝나기 전(실패 포함)에는 옛 폴더를 계속 쓰므로 도감이 빈 채로 시작할 일이 없다. 이 PC의 실제 데이터는 1.4MB. 환경변수 `CLAUDEX_*`(예전 이름도 읽음), 헤더 `X-Claudex-*`, WS 서브프로토콜 `claudex`, `claudex-health:`. `src/officeToken.ts` → `serverToken.ts` 등 식별자.
+   - **클라우드 동기화 합치기**(`server/merge.js`, 에이전트 작업 + 검토): uid는 PC마다 따로 매기므로 개체는 "처음 받은 uid + 잡을 때 정해진 정보(시각·경위·장소·볼·만난 레벨·이로치)"(`pokedex.js` `monKey`)로 알아본다. 겹치면 먼저 잡은 쪽이 uid를 갖고 다른 쪽은 새 uid와 `originUid`. 도감은 종별 합집합(횟수는 최대, 첫 날짜는 이른 쪽). 파티는 이 PC 것. 박스 1200을 넘으면 최근 포획부터 박사님께(기록에 남김). 합치기 전 게임은 `pokedex.json.before-sync`. **놓아준 개체는 `state.released`(최근 5000)에 남겨서 다음 동기화가 클라우드 사본에서 되살리지 않게 했다**(검토 중 찾은 버그: PC 한 대에서도 놓아주기가 안 먹혔다).
+   - **업데이트 서명·릴리스 점검**: 위 "빌드·업데이트" 참고. 1.3.7 설치본은 서명을 확인하지 않으므로 1.3.8은 그대로 받는다.
+   - **로그**: `userData/logs/claudex.log`(1MB 넘으면 `claudex.old.log`), main 콘솔·서버 출력·페이지 오류·렌더러 종료. 트레이 "로그 폴더 열기".
+   - **첫 화면**: 페이지별 지연 로딩(알림 창은 자기 코드만), 터미널·도감·박스·기록은 별도 조각을 위젯이 뜬 직후 미리 받는다. 도감 설명문은 빌드 때 따로 떼어 낸다(`vite.pokedex.ts`, `virtual:pokedex`·`virtual:pokedex-text`). 첫 조각 954KB → 146KB.
+   - **도감 그리드**: 화면 밖 칸은 그리지 않음(`content-visibility`, 박스도), 방향키·Home·End로 이동(탭 정지는 하나), 창 전환 뒤에도 스크롤 위치 유지.
+   - **창 전환**: 패치노트는 띄우는 순간 본 것으로 기록(전환해도 다시 안 뜸), 지시 입력 저장은 300ms마다 묶어 쓰고 전환 직전에 바로 쓴다.
+   - **파일 나누기**: `server/index.js` 1793 → 1492줄(`auth.js`·`guards.js`·`events.js`·`ws-protocol.js`), `Widget.tsx`에서 교체·던지기 창을 `components/PartyPickers.tsx`로. **남은 것**: `server/index.js`의 main 상태 기계와 `processEvent`(약 600줄), `electron/main.cjs`의 창 관리(약 1050줄, `electron-helpers.test`가 main.cjs 소스 문자열을 검사하므로 옮기면 그 테스트도 같이 고쳐야 한다).
+   - **Windows 테스트**: 위 "테스트 판단 기준". 레지스트리 테스트 2개는 Windows 문제가 아니라 게임·health 방송이 섞여서 깨져 있던 것이라 기대값을 고쳤다. CI는 windows-latest와 ubuntu-latest.
+   - **남은 제약**: 놓아주기를 뺀 "지움"(예: 다른 PC에서의 진화 취소 같은 것)은 없다. 같은 개체를 두 PC에서 동시에 키우면 큰 쪽 걸음 수가 이긴다(더하지 않음).
 
 8. **나중에**
-   - 클라우드 동기화를 합집합 병합으로 바꾼다(지금은 잡은 종이 많은 쪽이 통째로 덮어쓴다).
    - 설정 페이지, 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)
    - 공식 효과음은 보류(7번)
