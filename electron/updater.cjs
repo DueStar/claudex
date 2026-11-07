@@ -37,6 +37,20 @@ function newer(a, b) {
   return false
 }
 
+/**
+ * True when `manifest.signature` is the release key's Ed25519 signature over
+ * the rest of the manifest (scripts/signing.mjs signs JSON.stringify of it
+ * without the signature; JSON.parse keeps key order, so this re-serialises
+ * the same bytes). The zip's sha256 is inside, so the zip is covered too.
+ */
+function verifyManifest(manifest, publicKey = require('./update-key.cjs')) {
+  if (!manifest || typeof manifest.signature !== 'string') return false
+  const { signature, ...body } = manifest
+  try {
+    return crypto.verify(null, Buffer.from(JSON.stringify(body), 'utf8'), crypto.createPublicKey(publicKey), Buffer.from(signature, 'base64'))
+  } catch { return false }
+}
+
 /** GET with redirects (GitHub release downloads redirect to their CDN) */
 function get(url, { onProgress, maxBytes = 300 * 1024 * 1024 } = {}, hops = 0) {
   return new Promise((resolve, reject) => {
@@ -102,6 +116,10 @@ function createUpdater({ app, send, isPackaged }) {
         ? { ...JSON.parse(fs.readFileSync(path.join(local, 'latest.json'), 'utf8')), localDir: local }
         : JSON.parse((await get(LATEST, { maxBytes: 64 * 1024 })).toString('utf8'))
       if (!m || typeof m.version !== 'string') throw new Error('bad manifest')
+      // GitHub's manifest must carry the release key's signature. The local
+      // channel is a folder on this PC that the user pointed the app at, so
+      // an unsigned build there (no key on this PC) is still accepted.
+      if (!local && !verifyManifest(m)) throw new Error('unsigned or tampered manifest')
       if (!isNewer(m)) { publish({ status: 'current', latest: m.version, error: null }); return state }
       manifest = m
       publish({
@@ -195,4 +213,4 @@ function applyPendingUpdate(app) {
   return ok
 }
 
-module.exports = { createUpdater, applyPendingUpdate, newer, REPO }
+module.exports = { createUpdater, applyPendingUpdate, newer, verifyManifest, REPO }

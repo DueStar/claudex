@@ -12,8 +12,17 @@
  *
  * The version comes from package.json; bump it first. Pokémon artwork is never
  * in a release (package.json build.files excludes it; the app fetches it).
- * --publish needs the gh CLI logged in as DueStar, and refuses to run without the
- * Poké Ball art (tools/import-balls.mjs): releases are built on a PC that has it.
+ * latest.json is signed with the release key (scripts/signing.mjs; make it
+ * once with scripts/signing-key.mjs) and the app ignores a GitHub manifest the
+ * key does not verify.
+ *
+ * --publish checks everything first and stops before building when any of it
+ * is off (preflight below): gh logged in as DueStar, the working tree clean
+ * and pushed (the release tag goes on GitHub's main, so an unpushed commit
+ * would tag the wrong one — v1.3.7 did), no v<version> release yet, a
+ * CHANGELOG section for the version, every Poké Ball's art imported
+ * (tools/import-balls.mjs: releases are built on a PC that has it), and the
+ * signing key.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -21,6 +30,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, rmSync, statSync, writeFileSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { signManifest, signingKeyPath } from './signing.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
@@ -50,8 +60,38 @@ const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, stdio
 
 console.log(`\n== Claudex ${version}`)
 const ballDir = join(root, 'public', 'sprites', 'balls')
-const balls = existsSync(ballDir) ? readdirSync(ballDir).length : 0
-if (balls) console.log(`Poké Ball art: ${balls} bundled`)
+const ballIds = JSON.parse(readFileSync(join(root, 'server', 'balls.json'), 'utf8')).balls.map(b => b.id)
+const missingBalls = ballIds.filter(id => !existsSync(join(ballDir, `${id}.png`)))
+const balls = ballIds.length - missingBalls.length
+const hasKey = existsSync(signingKeyPath())
+
+if (publish) preflight()
+/** Everything --publish needs, checked before a minute of building: all problems at once, then stop */
+function preflight() {
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
+  const problems = []
+  try {
+    const login = execFileSync('gh', ['api', 'user', '--jq', '.login'], { encoding: 'utf8' }).trim()
+    if (login !== 'DueStar') problems.push(`gh is logged in as ${login} (gh auth switch -u DueStar)`)
+  } catch { problems.push('gh is not logged in') }
+  if (git('status', '--porcelain', '--untracked-files=no')) problems.push('uncommitted changes (the build would ship code that is not on GitHub)')
+  const head = git('rev-parse', 'HEAD')
+  let remote = ''
+  try { remote = (git('ls-remote', 'origin', 'refs/heads/main').split(/\s+/)[0] || '') } catch {}
+  if (remote !== head) problems.push(`origin/main is ${remote.slice(0, 7) || '?'} but HEAD is ${head.slice(0, 7)}: push first (the release tag goes on GitHub's main)`)
+  try { if (git('ls-remote', '--tags', 'origin', `refs/tags/v${version}`)) problems.push(`tag v${version} already exists: bump the version`) } catch {}
+  if (!changelogNotes(version)) problems.push(`CHANGELOG.md has no "### ${version}" section (the app shows it as patch notes)`)
+  if (missingBalls.length) problems.push(`Poké Ball art missing: ${missingBalls.join(', ')} (node tools/import-balls.mjs <folder>)`)
+  if (!hasKey) problems.push(`no signing key at ${signingKeyPath()} (copy it from the PC that has it; make a new one only with scripts/signing-key.mjs, which breaks in-app updates for installed apps)`)
+  if (problems.length) {
+    console.error(`\nNot publishing ${version}:\n${problems.map(p => `  - ${p}`).join('\n')}\n`)
+    process.exit(1)
+  }
+  console.log('Preflight: all checks passed')
+}
+
+if (missingBalls.length === 0) console.log(`Poké Ball art: all ${balls} bundled`)
+else if (balls) console.warn(`Poké Ball art: ${balls} bundled, missing ${missingBalls.join(', ')}`)
 else {
   // Ball art is gitignored (it is Nintendo's), so only a PC that imported it can bundle it.
   // A release built without it ships the small PokeAPI item icons to everyone.
@@ -62,7 +102,6 @@ ${bar}
   Import it first: node tools/import-balls.mjs <folder with Bag_*_SV_Sprite.png>
 ${bar}
 `)
-  if (publish) { console.error('Refusing to publish a release without the ball art.'); process.exit(1) }
 }
 // The games' Poké Ball as the app icon when its art was imported; the drawn icons come back after
 const ICONS = ['build/icon.png', 'electron/assets/icon.png', 'electron/assets/tray-16.png', 'electron/assets/tray-32.png', 'electron/assets/tray-48.png']
@@ -93,7 +132,7 @@ run(TAR, ['-a', '-c', '-f', join(out, fullZip), '-C', out, 'win-unpacked'], { sh
 
 const sha = createHash('sha256').update(readFileSync(join(out, appZip))).digest('hex')
 const electronVersion = JSON.parse(readFileSync(join(root, 'node_modules', 'electron', 'package.json'), 'utf8')).version
-const manifest = {
+const unsigned = {
   version,
   electron: electronVersion,
   notes,
@@ -101,14 +140,16 @@ const manifest = {
   app: { file: appZip, sha256: sha, size: statSync(join(out, appZip)).size },
   full: { file: fullZip, size: statSync(join(out, fullZip)).size },
 }
+// Signed when the key is on this PC (always, for --publish: preflight). An
+// unsigned build still serves the local update channel.
+const manifest = hasKey ? signManifest(unsigned) : unsigned
+if (!hasKey) console.warn('latest.json is NOT signed (no signing key): installed apps would refuse it from GitHub')
 writeFileSync(join(out, 'latest.json'), JSON.stringify(manifest, null, 2))
 const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`
 console.log(`\napp update ${appZip} ${mb(manifest.app.size)} · full ${fullZip} ${mb(manifest.full.size)} · electron ${electronVersion}`)
 
 if (publish) {
-  // Releases go out as DueStar only: check the gh CLI's active login instead of pulling its token
-  const login = execFileSync('gh', ['api', 'user', '--jq', '.login'], { encoding: 'utf8' }).trim()
-  if (login !== 'DueStar') { console.error(`gh is logged in as ${login}; switch with: gh auth switch -u DueStar`); process.exit(1) }
+  // DueStar's login was checked in preflight (the gh CLI's active login, never its token)
   run('gh', ['release', 'create', `v${version}`, '--repo', 'DueStar/claudex', '--title', `Claudex ${version}`, '--notes', notes || `Claudex ${version}`,
     join(out, 'latest.json'), join(out, appZip), join(out, fullZip)], { shell: false })
 } else {
