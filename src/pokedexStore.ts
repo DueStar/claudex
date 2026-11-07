@@ -70,7 +70,7 @@ export interface Mon {
 }
 
 export interface DexEvent {
-  kind: 'catch' | 'flee' | 'evolve' | 'sendout' | 'swap' | 'release' | 'exchange' | 'levelup'
+  kind: 'catch' | 'flee' | 'evolve' | 'sendout' | 'swap' | 'release' | 'exchange' | 'levelup' | 'professor'
   id: number
   name?: string
   tier?: Tier

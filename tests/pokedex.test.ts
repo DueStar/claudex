@@ -477,4 +477,18 @@ describe('pokedex', () => {
     expect(saved.trainer.starter).toBe(1)
     expect(saved.assign.s1).toBe(saved.party[0])
   })
+
+  it("takes a synced (merged) game: the game before it is backed up, this PC's assignments in it are kept, old individuals upgraded", () => {
+    const { dex, file } = setup([0])
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'x' })
+    const before = JSON.parse(JSON.stringify(dex.exportState()))
+    const merged = { ...before, caught: { ...before.caught, 150: { count: 1, firstAt: 1 } }, mons: { ...before.mons, m99: { uid: 'm99', dex: 150, steps: 0, evos: 0, at: 1 } }, box: ['m99'], nextUid: 100 }
+    expect(dex.importState(merged)).toBe(true)
+    expect(JSON.parse(readFileSync(`${file}.before-sync`, 'utf8'))).toEqual(before)
+    const st = dex.publicState()
+    expect(st.caught[150]).toBeTruthy()
+    expect(st.remembered).toEqual(before.assign)
+    expect(st.mons.m99).toMatchObject({ ball: 'poke-ball', metLevel: 5, workMs: 0 })
+    expect(dex.importState({ version: 1 })).toBe(false)
+  })
 })

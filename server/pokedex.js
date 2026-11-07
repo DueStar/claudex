@@ -69,6 +69,8 @@ export const THINK_STEP_MS = 60 * 1000
 /** A session's waiting steps are taken this far apart at most (the server's setting) */
 export const STEP_SPACING_MS = 8 * 1000
 const MAX_PENDING_STEPS = 300
+/** The saved log keeps this many events */
+export const LOG_LIMIT = 600
 
 // ---------------------------------------------------------------------------
 // Levels: 1 to 100 like the games. A wild Pokémon is met at level 1–55 (by
@@ -100,7 +102,7 @@ export function levelFrom(metLevel, workMs) {
   return { level, into: left, need: level < MAX_LEVEL ? minutesForLevel(level) : null }
 }
 const WORK_GAP_MS = 5 * 60 * 1000
-const STARTER_LEVEL = 5
+export const STARTER_LEVEL = 5
 /** Ultra Beasts (Beast Ball): Nihilego … Blacephalon */
 export const ULTRA_BEASTS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806])
 /** Session time over which the Timer Ball grows (and the Quick Ball fades) */
@@ -234,12 +236,16 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
   for (const s of species) if (s.evolvesFrom) (nextOf.get(s.evolvesFrom) ?? nextOf.set(s.evolvesFrom, []).get(s.evolvesFrom)).push(s.id)
 
   let state = load()
-  for (const m of Object.values(state.mons ?? {})) {
-    if (m.gender === undefined) m.gender = null
-    if (m.nature === undefined) m.nature = null
-    if (m.ball === undefined) m.ball = 'poke-ball' // caught before balls were kept
-    if (m.metLevel === undefined) { m.metLevel = STARTER_LEVEL; m.workMs = 0 } // before levels
+  /** Individuals saved by older versions get the fields added since (on load and on a synced game) */
+  function upgradeMons() {
+    for (const m of Object.values(state.mons ?? {})) {
+      if (m.gender === undefined) m.gender = null
+      if (m.nature === undefined) m.nature = null
+      if (m.ball === undefined) m.ball = 'poke-ball' // caught before balls were kept
+      if (m.metLevel === undefined) { m.metLevel = STARTER_LEVEL; m.workMs = 0 } // before levels
+    }
   }
+  upgradeMons()
   let traitsBackfilled = false
   function backfillTraits() {
     if (traitsBackfilled) return
@@ -616,7 +622,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
 
   function pushLog(event) {
     state.log.push(event)
-    if (state.log.length > 600) state.log = state.log.slice(-600)
+    if (state.log.length > LOG_LIMIT) state.log = state.log.slice(-LOG_LIMIT)
     return event
   }
 
@@ -815,10 +821,23 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
   /** The whole saved game (for the cloud copy) */
   function exportState() { return state }
 
-  /** Take a game from the cloud: keep this PC's live session assignments out of it */
+  /**
+   * Take a synced game: this PC's game merged with the cloud's (server/merge.js),
+   * which already carries this PC's own session assignments and party. The
+   * game as it was is copied to pokedex.json.before-sync first, so a bad merge
+   * can be undone by hand; without that copy nothing is replaced.
+   */
   function importState(next) {
     if (!next || next.version !== 2) return false
-    state = { ...emptyState(), ...next, assign: {}, projects: {} }
+    try {
+      writeFileSync(`${file}.before-sync`, JSON.stringify(state))
+    } catch (err) {
+      console.error('[pokedex] could not back up before a sync, keeping this game:', err.message)
+      return false
+    }
+    state = { ...emptyState(), ...next }
+    upgradeMons()
+    traitsBackfilled = false
     save()
     publish(null)
     return true

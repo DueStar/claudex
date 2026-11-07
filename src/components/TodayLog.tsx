@@ -18,6 +18,8 @@ function line(e: DexEvent): React.ReactNode {
     case 'evolve': return <><b>{e.fromName}</b> → <b>{e.name}</b> 진화</>
     case 'levelup': return <><b>{e.name}</b> Lv.{e.level}</>
     case 'release': return <><b>{e.name}</b>을(를) 놓아줬다</>
+    // A cloud sync filled the box past its limit: the newest went to the professor (server/merge.js)
+    case 'professor': return <>박스가 꽉 차서 <b>{e.name ?? `No.${e.id}`}</b>을(를) 박사님께 보냈다</>
     default: return <><b>{e.name}</b></>
   }
 }

@@ -11,13 +11,16 @@
  * it expires. Tokens never reach the page; the page only learns who is signed
  * in and when the game last synced (`cloud` broadcasts, the snapshot).
  *
- * Sync: the whole game state is upserted to public.trainers (one row per user,
- * protected by row-level security: each user reads and writes only their own).
- * See supabase/schema.sql.
+ * Sync: the game is kept in public.trainers (one row per user, protected by
+ * row-level security: each user reads and writes only their own; see
+ * supabase/schema.sql). Every sync reads the cloud copy, merges it with this
+ * PC's game (server/merge.js: a union, so catches made on another PC are never
+ * lost), takes the merged game here and uploads it.
  */
 
 import { readFileSync, writeFileSync, existsSync, unlinkSync, chmodSync } from 'fs'
 import { createHash, randomBytes } from 'crypto'
+import { mergeGames, sameGame } from './merge.js'
 
 const PENDING_TTL_MS = 10 * 60 * 1000
 const SYNC_DEBOUNCE_MS = 30 * 1000
@@ -93,7 +96,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     }
   }
 
-  /** GET /auth/callback: trade the code for a session, then pull or push the game */
+  /** GET /auth/callback: trade the code for a session, then sync the game */
   async function finishSignIn({ code, state }) {
     const p = state && pending.get(state)
     if (!enabled || !code || !p) return { ok: false, reason: 'unknown-sign-in' }
@@ -101,7 +104,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     try {
       saveSession(toSession(await authRequest('pkce', { auth_code: code, code_verifier: p.verifier })))
       lastError = null
-      await reconcile()
+      await sync()
       publish()
       return { ok: true }
     } catch (err) {
@@ -145,9 +148,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     }
   }
 
-  async function push() {
-    if (!session) return
-    const game = getGame()
+  async function upload(game) {
     const row = {
       user_id: session.user.id,
       display_name: session.user.user_metadata?.full_name ?? session.user.email ?? null,
@@ -161,28 +162,31 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
   }
 
   /**
-   * After sign-in: the cloud copy wins when it has caught more species than
-   * this PC (signing in on a new PC brings the dex along); otherwise this PC's
-   * game is uploaded.
+   * Read the cloud copy, merge it with this PC's game, take the merged game
+   * here (when it adds anything) and upload it. Neither side wins outright:
+   * the merge is a union, so a PC that caught different Pokémon from another
+   * keeps its catches and gains the other's. The read, merge and replace
+   * happen with no await in between, so a catch made meanwhile is not lost;
+   * if another PC uploads between our read and our upload, its catches are
+   * still on that PC and come back with its next sync.
    */
-  async function reconcile() {
-    const rows = await rest(`trainers?select=state,caught_count&user_id=eq.${session.user.id}`)
-    const remote = rows?.[0]
-    const local = summary(getGame())
-    if (remote && remote.caught_count > local.caught_count && remote.state) {
-      replaceGame(remote.state)
-      lastSyncAt = now()
-    } else {
-      await push()
-    }
+  async function sync() {
+    if (!session) return
+    const rows = await rest(`trainers?select=state&user_id=eq.${session.user.id}`)
+    const remote = rows?.[0]?.state
+    const local = getGame()
+    const merged = mergeGames(local, remote)
+    let game = merged
+    if (!sameGame(merged, local) && replaceGame(merged) !== false) game = getGame()
+    await upload(game)
   }
 
-  /** The game changed: upload it, at most every SYNC_DEBOUNCE_MS */
+  /** The game changed: sync it, at most every SYNC_DEBOUNCE_MS */
   function noteGameChanged() {
     if (!session || syncTimer) return
     syncTimer = setTimeout(async () => {
       syncTimer = null
-      try { await push() } catch (err) { lastError = err.message === 'signed-out' ? null : `동기화 실패: ${err.message}` }
+      try { await sync() } catch (err) { lastError = err.message === 'signed-out' ? null : `동기화 실패: ${err.message}` }
       publish()
     }, SYNC_DEBOUNCE_MS)
     syncTimer.unref?.()
@@ -200,5 +204,5 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     return { ok: true }
   }
 
-  return { enabled, startSignIn, finishSignIn, noteGameChanged, signOut, publicState, syncNow: push }
+  return { enabled, startSignIn, finishSignIn, noteGameChanged, signOut, publicState, syncNow: sync }
 }

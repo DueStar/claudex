@@ -15,7 +15,7 @@ afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true 
 
 const CONFIG = { supabaseUrl: 'https://abc.supabase.co', publishableKey: 'sb_publishable_x' }
 
-function setup(remote: any = null) {
+function setup(remote: any = null, onReplace: () => void = () => {}) {
   const dir = mkdtempSync(join(tmpdir(), 'cloud-'))
   dirs.push(dir)
   const calls: any[] = []
@@ -37,10 +37,10 @@ function setup(remote: any = null) {
     callbackUrl: 'http://127.0.0.1:3334/auth/callback',
     broadcast: (m: any) => sent.push(m),
     getGame: () => game,
-    replaceGame: (g: any) => { game = g },
+    replaceGame: (g: any) => { onReplace(); game = g },
     fetchImpl: fetchImpl as any,
   })
-  return { cloud, calls, sent, dir, getGame: () => game }
+  return { cloud, calls, sent, dir, getGame: () => game, setGame: (g: any) => { game = g }, setRemote: (r: any) => { remote = r } }
 }
 
 describe('cloud', () => {
@@ -73,12 +73,49 @@ describe('cloud', () => {
     expect(existsSync(join(dir, 'cloud-session.json'))).toBe(true)
   })
 
-  it('a cloud copy with more species wins on sign-in (a new PC brings the dex along)', async () => {
-    const remoteGame = { version: 2, caught: { 1: {}, 2: {}, 3: {} } }
-    const { cloud, getGame } = setup({ state: remoteGame, caught_count: 3 })
+  it("on sign-in the cloud copy is merged with this PC's game, not swapped in: both sides' catches are kept and the merged game is uploaded", async () => {
+    const mon = (uid: string, dex: number, at: number) => ({ uid, dex, steps: 0, evos: 0, shiny: false, how: 'wild', place: '숲', at, ball: 'poke-ball', metLevel: 10, workMs: 0 })
+    // The cloud has caught more species, but this PC has a catch the cloud lacks
+    const remoteGame = { version: 2, caught: { 1: { count: 1, firstAt: 10 }, 2: { count: 1, firstAt: 20 }, 3: { count: 1, firstAt: 30 } }, seen: { 1: 1, 2: 1, 3: 1 }, mons: { m1: mon('m1', 1, 10), m2: mon('m2', 2, 20), m3: mon('m3', 3, 30) }, party: ['m1'], box: ['m2', 'm3'], nextUid: 4, encounters: 9 }
+    const { cloud, calls, getGame, setGame } = setup({ state: remoteGame, caught_count: 3 })
+    setGame({ version: 2, caught: { 1: { count: 1, firstAt: 10 }, 25: { count: 1, firstAt: 40 } }, seen: { 1: 1, 25: 1 }, mons: { m1: mon('m1', 1, 10), m2: mon('m2', 25, 40) }, party: ['m1'], box: ['m2'], nextUid: 3, encounters: 4, assign: { s1: 'm1' } })
     const state = new URL(new URL(cloud.startSignIn().url!).searchParams.get('redirect_to')!).searchParams.get('state')!
     await cloud.finishSignIn({ code: 'x', state })
-    expect(getGame()).toEqual(remoteGame)
+    const game = getGame()
+    expect(Object.keys(game.caught).sort()).toEqual(['1', '2', '25', '3'])
+    expect(Object.values<any>(game.mons).map(m => m.dex).sort((a, b) => a - b)).toEqual([1, 2, 3, 25])
+    expect(game.party).toEqual(['m1'])
+    expect(game.assign).toEqual({ s1: 'm1' }) // this PC's sessions keep their Pokémon
+    expect(game.encounters).toBe(9)
+    const upload = calls.find(c => c.url.includes('on_conflict=user_id'))
+    const row = JSON.parse(upload.init.body)
+    expect(row).toMatchObject({ caught_count: 4, seen_count: 4 })
+    expect(row.state).toEqual(game)
+  })
+
+  it("a later sync pulls and merges before it uploads, so another PC's newer catches are not overwritten", async () => {
+    const { cloud, calls, getGame, setRemote } = setup()
+    const state = new URL(new URL(cloud.startSignIn().url!).searchParams.get('redirect_to')!).searchParams.get('state')!
+    await cloud.finishSignIn({ code: 'x', state })
+    // Another PC uploaded a catch meanwhile
+    setRemote({ state: { version: 2, caught: { 1: {}, 150: { count: 1, firstAt: 5 } }, seen: { 1: 1, 150: 1 } } })
+    calls.length = 0
+    await cloud.syncNow()
+    expect(calls.findIndex(c => c.url.includes('trainers?select='))).toBeLessThan(calls.findIndex(c => c.url.includes('on_conflict=user_id')))
+    expect(Object.keys(getGame().caught).sort()).toEqual(['1', '150'])
+    const row = JSON.parse(calls.find(c => c.url.includes('on_conflict=user_id')).init.body)
+    expect(row.caught_count).toBe(2)
+  })
+
+  it("with nothing new in the cloud, this PC's game is left as it is (no replace) and uploaded", async () => {
+    let replaced = 0
+    const { cloud, calls, getGame } = setup(null, () => { replaced++ })
+    const before = getGame()
+    const state = new URL(new URL(cloud.startSignIn().url!).searchParams.get('redirect_to')!).searchParams.get('state')!
+    await cloud.finishSignIn({ code: 'x', state })
+    expect(replaced).toBe(0)
+    expect(getGame()).toBe(before)
+    expect(JSON.parse(calls.find(c => c.url.includes('on_conflict=user_id')).init.body).state).toEqual(before)
   })
 
   it('refuses a callback it did not start, and signs out cleanly', async () => {
