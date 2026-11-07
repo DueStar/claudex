@@ -31,11 +31,19 @@ const { createTerminalManager } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
+const { createLog, teeConsole } = require('./logs.cjs')
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'Claudex-dev'))
 // An update staged by the last run goes in before anything else loads; then start again on the new code
 if (applyPendingUpdate(app)) { app.relaunch(); app.exit(0) }
+
+// userData/logs/claudex.log: the console of this process and of the server
+const log = createLog(path.join(app.getPath('userData'), 'logs'))
+teeConsole(log)
+console.log(`[main] Claudex ${app.getVersion()} starting (electron ${process.versions.electron}${app.isPackaged ? '' : ', dev'})`)
+process.on('uncaughtException', (err) => { console.error('[main] uncaught:', err?.stack || err) })
+process.on('unhandledRejection', (err) => { console.error('[main] unhandled rejection:', err?.stack || err) })
 let updater = null
 
 const PRELOAD = path.join(__dirname, 'preload.cjs')
@@ -193,10 +201,12 @@ function startServer() {
 
   child.stdout.on('data', (data) => {
     process.stdout.write(`[server] ${data}`)
+    log.write(`[server] ${data}`)
   })
 
   child.stderr.on('data', (data) => {
     process.stderr.write(`[server] ${data}`)
+    log.write(`[server] [stderr] ${data}`)
   })
 
   // Only this child's own end clears the slot: a duplicate that lost the
@@ -344,7 +354,8 @@ async function checkUpdateNow() {
   if (Notification.isSupported()) new Notification({ title: APP_NAME, body, silent: true }).show()
 }
 
-const menuActions = { toggleWidget, quit: quitApp, openQa, checkUpdate: checkUpdateNow }
+const openLogs = () => { shell.openPath(log.dir).catch(() => {}) }
+const menuActions = { toggleWidget, quit: quitApp, openQa, checkUpdate: checkUpdateNow, openLogs }
 
 function applicationMenuTemplate() {
   const isMac = process.platform === 'darwin'
@@ -523,6 +534,13 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   win.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
     console.error(`[main] The app failed to load ${redactLink(failedUrl)}: ${description} (${code})`)
+  })
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[main] The page's process ended: ${details.reason} (exit ${details.exitCode})`)
+  })
+  // The page's own errors, so a broken screen leaves a trace in the log
+  win.webContents.on('console-message', (_event, level, message, line, source) => {
+    if (level >= 3) log.write(`[page] [error] ${message} (${String(source).split('/').pop()}:${line})`)
   })
   win.webContents.once('did-finish-load', () => {
     console.log(`[main] App window loaded (${kind})`)
