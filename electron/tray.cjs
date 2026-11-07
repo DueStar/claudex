@@ -48,7 +48,7 @@ function fetchJson(url, timeoutMs = 2000) {
 /**
  * Create the tray.
  *
- *   serverUrl  the server (http://127.0.0.1:<AGENT_OFFICE_PORT>, 3334 by default)
+ *   serverUrl  the server (http://127.0.0.1:<CLAUDEX_PORT>, 3334 by default)
  *   getState   () => { visible } for the menu
  *   actions    { toggleWidget, openQa, checkUpdate, quit }
  *   pollMs     how often /sessions is read (default 5 s)

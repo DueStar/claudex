@@ -16,7 +16,7 @@ import express from 'express'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, officeProtocols, postEvent, removeOffice, type Office } from './helpers'
+import { listen, loadServer, serverProtocols, postEvent, removeServer, type Office } from './helpers'
 import {
   DEFAULT_POLL_MS, REGISTRY_STATES, REGISTRY_WAIT_SUMMARY,
   mainFromRegistry, mountRegistry, parseRegistryEntry, pidAlive,
@@ -358,10 +358,10 @@ describe('the registry roster in the office', () => {
 
   beforeAll(async () => {
     regDir = mkdtempSync(join(tmpdir(), 'claude-sessions-office-'))
-    office = await loadOffice({ env: { AGENT_OFFICE_REGISTRY_DIR: regDir } })
+    office = await loadServer({ env: { AGENT_OFFICE_REGISTRY_DIR: regDir } })
     const port = await listen(office.server.httpServer)
     // The office page's socket (with the token: the broadcasts carry the prompt text)
-    ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, officeProtocols(office.server))
+    ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, serverProtocols(office.server))
     ws.on('message', raw => messages.push(JSON.parse(raw.toString())))
     await new Promise<void>((res, rej) => { ws.once('open', () => res()); ws.once('error', rej) })
     await waitFor('the snapshot', () => messages.some(m => m.type === 'snapshot'))
@@ -374,7 +374,7 @@ describe('the registry roster in the office', () => {
     for (const child of children) await killAndReap(child)
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    removeOffice(office)
+    removeServer(office)
     try { rmSync(regDir, { recursive: true, force: true }) } catch {}
   })
 
@@ -654,13 +654,13 @@ describe('a permission dialog answered or dismissed in the terminal (the registr
 
   beforeAll(async () => {
     regDir = mkdtempSync(join(tmpdir(), 'claude-sessions-dialog-'))
-    office = await loadOffice({ env: { AGENT_OFFICE_REGISTRY_DIR: regDir } })
+    office = await loadServer({ env: { AGENT_OFFICE_REGISTRY_DIR: regDir } })
     await postEvent(office.server, { type: 'session_started', ...SESSION, source: 'startup' })
     await postEvent(office.server, { type: 'session_prompt', ...SESSION, promptId: 'p-1', text: 'write probe3.txt' })
     await registryStatus('busy')
   })
   afterAll(() => {
-    removeOffice(office)
+    removeServer(office)
     try { rmSync(regDir, { recursive: true, force: true }) } catch {}
   })
 

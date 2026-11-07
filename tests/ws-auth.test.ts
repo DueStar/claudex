@@ -17,8 +17,8 @@ import { join } from 'node:path'
 import request from 'supertest'
 import WebSocket from 'ws'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { listen, loadOffice, officeProtocols, postEvent, removeOffice, type Office } from './helpers'
-import { WS_PROTOCOL, WS_TOKEN_PROTOCOL_PREFIX, officeWsProtocols } from '../src/officeToken'
+import { listen, loadServer, serverProtocols, postEvent, removeServer, type Office } from './helpers'
+import { WS_PROTOCOL, WS_TOKEN_PROTOCOL_PREFIX, serverWsProtocols } from '../src/serverToken'
 
 type Message = Record<string, any>
 
@@ -71,7 +71,7 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
   }
 
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     const { server } = office
     // A session with a prompt and a reply
     server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
@@ -84,7 +84,7 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
     for (const ws of sockets) ws.terminate()
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    removeOffice(office)
+    removeServer(office)
   })
 
   /** What every read-only snapshot must not carry. */
@@ -128,8 +128,8 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
   })
 
   it('the file token as a subprotocol: trusted, the full snapshot with the text; the token is not echoed', async () => {
-    const client = await open(officeProtocols(office.server), { Origin: 'http://localhost:3333' })
-    expect(client.ws.protocol).toBe('agent-office')
+    const client = await open(serverProtocols(office.server), { Origin: 'http://localhost:3333' })
+    expect(client.ws.protocol).toBe('claudex')
     expect(await client.next()).toEqual({ type: 'auth', trusted: true })
     const snapshot = await client.next()
     expect(snapshot.sessions.find((s: Message) => s.id === ALPHA.sessionId).main).toMatchObject({ lastPrompt: 'deploy the hotfix to prod', lastReply: 'Pushed the hotfix; prod is green.' })
@@ -137,16 +137,16 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
   })
 
   it('the page\'s own subprotocol list (src/officeToken.ts) is what the server trusts', async () => {
-    expect(officeWsProtocols(office.server.AUTH_TOKEN)).toEqual(officeProtocols(office.server))
-    const client = await open(officeWsProtocols(office.server.AUTH_TOKEN))
+    expect(serverWsProtocols(office.server.AUTH_TOKEN)).toEqual(serverProtocols(office.server))
+    const client = await open(serverWsProtocols(office.server.AUTH_TOKEN))
     expect(await client.next()).toEqual({ type: 'auth', trusted: true })
-    const tokenless = await open(officeWsProtocols(null))
-    expect(tokenless.ws.protocol).toBe('agent-office')
+    const tokenless = await open(serverWsProtocols(null))
+    expect(tokenless.ws.protocol).toBe('claudex')
     expect(await tokenless.next()).toEqual({ type: 'auth', trusted: false })
   })
 
   it('one broadcast, two variants: the trusted client gets the text, the read-only one the same event without it', async () => {
-    const trusted = await open(officeProtocols(office.server))
+    const trusted = await open(serverProtocols(office.server))
     const readOnly = await open()
     for (const c of [trusted, readOnly]) await c.next(m => m.type === 'snapshot')
 
@@ -220,7 +220,7 @@ describe('the token file: reused when it is safe to trust, replaced otherwise', 
     while (offices.length) {
       const office = offices.pop()!
       if (office.server.httpServer.listening) await stop(office)
-      removeOffice(office)
+      removeServer(office)
     }
   })
 
@@ -228,7 +228,7 @@ describe('the token file: reused when it is safe to trust, replaced otherwise', 
     const dir = freshDir()
     const tokenFile = join(dir, 'auth-token')
     setup(tokenFile, dir)
-    const office = await loadOffice({ dir, env })
+    const office = await loadServer({ dir, env })
     offices.push(office)
     return { office, tokenFile }
   }
@@ -252,7 +252,7 @@ describe('the token file: reused when it is safe to trust, replaced otherwise', 
     const token = readFileSync(tokenFile, 'utf8')
     expect(token).toBe(first.server.AUTH_TOKEN)
     await stop(first)
-    const second = await loadOffice({ dir: first.dir })
+    const second = await loadServer({ dir: first.dir })
     offices.push(second)
     expect(second.server.AUTH_TOKEN).toBe(token)
   })
@@ -342,7 +342,7 @@ describe('the page link at startup', () => {
     while (offices.length) {
       const office = offices.pop()!
       if (office.server.httpServer.listening) await stop(office)
-      removeOffice(office)
+      removeServer(office)
     }
     while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true })
   })
@@ -351,16 +351,16 @@ describe('the page link at startup', () => {
     const uiDir = freshDir()
     dirs.push(uiDir)
     writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>Claudex</title>')
-    const office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
+    const office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
     offices.push(office)
     const lines = await started(office)
     const port = (office.server.httpServer.address() as AddressInfo).port
     expect(lines).toContain(`  Page: http://127.0.0.1:${port}/#token=${office.server.AUTH_TOKEN}`)
-    expect(office.server.officeLink(`http://127.0.0.1:${port}/`)).toBe(`http://127.0.0.1:${port}/#token=${office.server.AUTH_TOKEN}`)
+    expect(office.server.appLink(`http://127.0.0.1:${port}/`)).toBe(`http://127.0.0.1:${port}/#token=${office.server.AUTH_TOKEN}`)
   })
 
   it('points at the Vite dev server when the UI is not built', async () => {
-    const office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: join(freshDir(), 'nothing-here') } })
+    const office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: join(freshDir(), 'nothing-here') } })
     offices.push(office)
     const lines = await started(office)
     expect(lines.find(l => l.includes('Page: '))).toBe(`  Page: http://127.0.0.1:${office.server.UI_DEV_PORT}/#token=${office.server.AUTH_TOKEN}  (the Vite dev server)`)
@@ -368,7 +368,7 @@ describe('the page link at startup', () => {
 
   it('the fragment never reaches the server: a request for the link\'s page carries no token', async () => {
     // What a browser sends for http://127.0.0.1:<port>/#token=... is GET / — the fragment stays in the browser
-    const office = await loadOffice()
+    const office = await loadServer()
     offices.push(office)
     const seen: string[] = []
     office.server.httpServer.on('request', req => { seen.push(req.url ?? '') })

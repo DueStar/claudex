@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, postEvent, removeOffice, type Office } from './helpers'
+import { listen, loadServer, postEvent, removeServer, type Office } from './helpers'
 import { HEALTH_THROTTLE_MS, createHealth, readVersion } from '../server/health.js'
 
 const PKG_VERSION: string = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version
@@ -158,7 +158,7 @@ describe('GET /health and the health broadcast', () => {
     uiDir = mkdtempSync(join(tmpdir(), 'agent-office-ui-'))
     mkdirSync(uiDir, { recursive: true })
     writeFileSync(join(uiDir, 'index.html'), '<!DOCTYPE html><html><body></body></html>')
-    office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
+    office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
     port = await listen(office.server.httpServer)
   })
 
@@ -167,7 +167,7 @@ describe('GET /health and the health broadcast', () => {
     office.server.app.locals.health.stop()
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    removeOffice(office)
+    removeServer(office)
     try { rmSync(uiDir, { recursive: true, force: true }) } catch {}
   })
 

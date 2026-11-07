@@ -1,27 +1,24 @@
 ---
-name: Bug report
-about: Something in the office is wrong or does not match what Claude Code is doing
+name: 버그 신고
+about: Claudex가 이상하게 동작해요
 title: ''
 labels: bug
 assignees: ''
 ---
 
-**What happened**
-A clear sentence or two. If the office shows something different from what Claude Code did, say what each one showed.
+**무슨 일이 있었나요**
+한두 문장으로 적어 주세요.
 
-**Steps to reproduce**
+**다시 일어나게 하는 방법**
 1. ...
 2. ...
 
-**Expected**
-What you expected the office to show or do.
+**기대한 동작**
 
-**Environment**
-- Claude Code version (`claude --version`):
-- OS (macOS / Linux / Windows via WSL or Git Bash):
-- Node version (`node --version`):
-- How you run the office: `npm run build && npm run server` / `bash scripts/start-office.sh` / `npm run dev:all` / desktop app (`npm run pack` or `npm run build:electron`)
-- Hooks installed with `npm run install-hooks`? (yes / no / edited by hand)
+**환경**
+- Claudex 버전(트레이 메뉴 또는 패치노트 창):
+- Claude Code 버전(`claude --version`):
+- Windows 버전:
 
-**Logs or screenshots**
-`~/.agent-office/chat-ai.log`, the server output, a hook error Claude Code printed, or a screenshot of the office. Strip anything private.
+**로그와 스크린샷**
+트레이 메뉴 "로그 폴더 열기"의 `claudex.log`를 붙여 주세요. 개인 정보는 지워 주세요.

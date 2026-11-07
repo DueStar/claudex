@@ -2,7 +2,7 @@
  * status.js — each Claude Code session's context window and the
  * subscription's usage limits, live.
  *
- * Fed by hooks/status-line.sh, the `statusLine` command Claude Code runs on
+ * Fed by hooks/status-line.cjs, the `statusLine` command Claude Code runs on
  * every state change of an interactive session (the app's sessions get it
  * through their --settings file, electron/terminals.cjs): the numbers are the
  * ones Claude Code hands its status line.

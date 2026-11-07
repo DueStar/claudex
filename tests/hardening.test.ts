@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, postAuthed, postEvent, removeOffice, type Office, type OfficeServer } from './helpers'
+import { listen, loadServer, postAuthed, postEvent, removeServer, type Office, type ServerModule } from './helpers'
 
 // Pass-through mock so the test can see the server reach for timingSafeEqual
 vi.mock('crypto', async (importOriginal) => {
@@ -55,8 +55,8 @@ const settle = (ms = 150) => new Promise(res => setTimeout(res, ms))
 
 describe('token comparison (C40)', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('uses crypto.timingSafeEqual and rejects prefixes, extensions and same-length impostors', async () => {
     const { timingSafeEqual } = await import('crypto')
@@ -82,11 +82,11 @@ describe('start() and the token file (C09)', () => {
   const offices: Office[] = []
   afterEach(() => {
     vi.restoreAllMocks()
-    while (offices.length) removeOffice(offices.pop())
+    while (offices.length) removeServer(offices.pop())
   })
 
   it('writes the token (0600) only once the port is bound', async () => {
-    const office = await loadOffice()
+    const office = await loadServer()
     offices.push(office)
     const tokenFile = join(office.dir, 'auth-token')
     expect(existsSync(tokenFile)).toBe(false)
@@ -107,10 +107,10 @@ describe('start() and the token file (C09)', () => {
     // Instance B: a second `node server/index.js` against the same runtime
     // dir, imported before A has written a token — so it mints its own
     // (a later start would reuse A's, tests/ws-auth.test.ts)
-    const a = await loadOffice()
+    const a = await loadServer()
     offices.push(a)
     const tokenFile = join(a.dir, 'auth-token')
-    const b = await loadOffice({ dir: a.dir })
+    const b = await loadServer({ dir: a.dir })
     expect(existsSync(tokenFile)).toBe(false)
 
     // Instance A: a real office that binds an ephemeral port and writes its token
@@ -145,8 +145,8 @@ describe('start() and the token file (C09)', () => {
 
 describe('signed requests authenticate the hook without the token on the wire', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   /** A request signed the way the hook signs it: HMAC(token, method\npath\nts\nbody). */
   function signed(method: 'post' | 'get', path: string, bodyObj: unknown, opts: { token?: string; ts?: number } = {}) {
@@ -154,7 +154,7 @@ describe('signed requests authenticate the hook without the token on the wire', 
     const ts = String(opts.ts ?? Date.now())
     const key = opts.token ?? office.server.AUTH_TOKEN
     const sig = createHmac('sha256', key).update(`${method.toUpperCase()}\n${path}\n${ts}\n`).update(body).digest('hex')
-    let req = request(office.server.app)[method](path).set('X-Office-Timestamp', ts).set('X-Office-Signature', sig)
+    let req = request(office.server.app)[method](path).set('X-Claudex-Timestamp', ts).set('X-Claudex-Signature', sig)
     if (bodyObj !== undefined) req = req.set('Content-Type', 'application/json').send(body)
     return req
   }
@@ -174,7 +174,7 @@ describe('signed requests authenticate the hook without the token on the wire', 
 
   it('a bad signature, or one over a different body, is 401', async () => {
     const ts = String(Date.now())
-    const bad = request(office.server.app).post('/event').set('X-Office-Timestamp', ts).set('X-Office-Signature', 'f'.repeat(64)).set('Content-Type', 'application/json').send(JSON.stringify(event()))
+    const bad = request(office.server.app).post('/event').set('X-Claudex-Timestamp', ts).set('X-Claudex-Signature', 'f'.repeat(64)).set('Content-Type', 'application/json').send(JSON.stringify(event()))
     expect((await bad).status).toBe(401)
     // A signature wrong only because a different token was used
     expect((await signed('post', '/event', event(), { token: 'not-the-token' })).status).toBe(401)
@@ -193,8 +193,8 @@ describe('signed requests authenticate the hook without the token on the wire', 
 
 describe('Host-header guard defeats DNS rebinding (finding 30)', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('a non-loopback Host is 421 on every route; the three loopback forms (any port) pass', async () => {
     for (const path of ['/sessions', '/status', '/pokedex', '/registry', '/health']) {
@@ -228,14 +228,14 @@ describe('Host-header guard defeats DNS rebinding (finding 30)', () => {
 
 describe('runtime files are private (C17)', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it.skipIf(process.platform === 'win32')('agents.json is 0600 and the runtime dir 0700, even when an older build left them world-readable', async () => {
     await postEvent(office.server, { type: 'session_started', sessionId: 's-private', project: 'p', cwd: '/tmp/p', source: 'startup' })
     expect(mode(join(office.dir, 'agents.json'))).toBe(0o600)
     chmodSync(office.dir, 0o755)
-    const again = await loadOffice({ dir: office.dir })
+    const again = await loadServer({ dir: office.dir })
     expect(again.server.RUNTIME_DIR).toBe(office.dir)
     expect(mode(office.dir)).toBe(0o700)
   })
@@ -245,12 +245,12 @@ describe('errors are JSON without stack traces or paths (C18)', () => {
   let office: Office
   let errors: ReturnType<typeof vi.spyOn>
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     errors = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
   afterAll(() => {
     errors.mockRestore()
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('malformed JSON is a 400', async () => {

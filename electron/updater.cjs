@@ -80,7 +80,7 @@ function get(url, { onProgress, maxBytes = 300 * 1024 * 1024 } = {}, hops = 0) {
 
 /**
  * A local channel for whoever builds Claudex on this PC: when
- * ~/.agent-office/update-dir (or CLAUDEX_UPDATE_DIR) names a folder, the update
+ * ~/.claudex/update-dir (or CLAUDEX_UPDATE_DIR) names a folder, the update
  * comes from that folder's latest.json and zip (what scripts/release.mjs leaves
  * in release/), checked every minute, and a build counts as newer by its date
  * even when the version number is the same. No GitHub release is needed.
@@ -88,7 +88,7 @@ function get(url, { onProgress, maxBytes = 300 * 1024 * 1024 } = {}, hops = 0) {
 function localUpdateDir() {
   if (process.env.CLAUDEX_UPDATE_DIR) return process.env.CLAUDEX_UPDATE_DIR
   try {
-    const home = process.env.AGENT_OFFICE_HOME || path.join(os.homedir(), '.agent-office')
+    const home = require('../server/runtime-dir.cjs').runtimeDir()
     const dir = fs.readFileSync(path.join(home, 'update-dir'), 'utf8').trim()
     return dir && fs.existsSync(path.join(dir, 'latest.json')) ? dir : null
   } catch { return null }

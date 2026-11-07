@@ -1,10 +1,24 @@
 /**
- * hooks/status-line.sh — the Claude Code statusLine command: POSTs the
+ * hooks/status-line.cjs — the Claude Code statusLine command: POSTs the
  * session's context and rate-limit numbers to /status and prints the line
- * Claude Code displays. Runs the real script against a capture server.
+ * Claude Code displays. Runs the real script (in Node, as the app runs it in
+ * Node mode) against a capture server.
  */
 
-import { execFileSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
+
+/** execFileSync's shape (stdout as a string), without blocking this process */
+function execScript(cmd: string, args: string[], { input, env, timeout }: { input: string; env: NodeJS.ProcessEnv; timeout: number }): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { env })
+    let out = ''
+    const timer = setTimeout(() => child.kill(), timeout)
+    child.stdout.setEncoding('utf8').on('data', (c: string) => { out += c })
+    child.on('error', reject)
+    child.on('exit', (code) => { clearTimeout(timer); code === 0 ? resolve(out) : reject(new Error(`exit ${code}`)) })
+    child.stdin.end(input)
+  })
+}
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -13,7 +27,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-const SCRIPT = fileURLToPath(new URL('../hooks/status-line.sh', import.meta.url))
+const SCRIPT = fileURLToPath(new URL('../hooks/status-line.cjs', import.meta.url))
+const POST = fileURLToPath(new URL('../hooks/post.cjs', import.meta.url))
 
 /**
  * The stdin JSON Claude Code 2.1.300 gives a statusLine command: the shape
@@ -74,8 +89,8 @@ beforeAll(async () => {
     req.on('end', () => {
       captured.push({
         url: req.url ?? '', authorization: req.headers.authorization,
-        ts: req.headers['x-office-timestamp'] as string | undefined,
-        sig: req.headers['x-office-signature'] as string | undefined,
+        ts: req.headers['x-claudex-timestamp'] as string | undefined,
+        sig: req.headers['x-claudex-signature'] as string | undefined,
         body: JSON.parse(data),
       })
       res.setHeader('Content-Type', 'application/json')
@@ -97,36 +112,39 @@ afterAll(() => new Promise<void>(resolve => server.close(() => resolve())))
 beforeEach(() => { captured.length = 0 })
 afterEach(() => { while (homes.length) rmSync(homes.pop()!, { recursive: true, force: true }) })
 
-/** A fresh AGENT_OFFICE_HOME, optionally with an auth token. */
-function officeHome({ token }: { token?: string } = {}) {
+/** A fresh CLAUDEX_HOME, optionally with an auth token. */
+function claudexHome({ token }: { token?: string } = {}) {
   const home = mkdtempSync(join(tmpdir(), 'claudex-status-'))
   homes.push(home)
   if (token) writeFileSync(join(home, 'auth-token'), token)
   return home
 }
 
-function run(payload: unknown, home: string, { args = [], url = serverUrl, env = {} }: { args?: string[]; url?: string; env?: Record<string, string> } = {}) {
+/**
+ * Run the script, asynchronously: the capture server lives in this process,
+ * so a synchronous run would keep it from answering until the POST timed out.
+ */
+async function run(payload: unknown, home: string, { args = [], url = serverUrl, env = {} }: { args?: string[]; url?: string; env?: Record<string, string> } = {}) {
   const started = Date.now()
-  const out = execFileSync('bash', [SCRIPT, ...args], {
+  const out = await execScript(process.execPath, [SCRIPT, ...args], {
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
-    encoding: 'utf8',
     timeout: 10_000,
-    env: { ...process.env, AGENT_OFFICE_STATUS_URL: url, AGENT_OFFICE_HOME: home, AGENT_OFFICE_PREV_STATUSLINE: '', ...env },
+    env: { ...process.env, AGENT_OFFICE_STATUS_URL: '', AGENT_OFFICE_HOME: '', AGENT_OFFICE_PORT: '', CLAUDEX_STATUS_URL: url, CLAUDEX_HOME: home, ...env },
   })
   return { out, ms: Date.now() - started }
 }
 
-/** The backgrounded curl lands shortly after the script exits. */
+/** The POST has landed by the time the script exits; the wait is a margin. */
 async function posted(count = 1, ms = 3000): Promise<Captured[]> {
   const deadline = Date.now() + ms
   while (captured.length < count && Date.now() < deadline) await new Promise(r => setTimeout(r, 25))
   return captured
 }
 
-describe('status-line.sh: statusLine', () => {
+describe('status-line.cjs: statusLine', () => {
   it('prints "<model> · ctx <used>% · $<cost>" and POSTs a session_status SIGNED (no token on the wire)', async () => {
-    const home = officeHome({ token: 'a'.repeat(64) })
-    const { out } = run(STATUS_JSON, home)
+    const home = claudexHome({ token: 'a'.repeat(64) })
+    const { out } = await run(STATUS_JSON, home)
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
 
     const [req] = await posted()
@@ -140,7 +158,7 @@ describe('status-line.sh: statusLine', () => {
   })
 
   it('posts without an Authorization or signature header when there is no token file', async () => {
-    const { out } = run(STATUS_JSON, officeHome())
+    const { out } = await run(STATUS_JSON, claudexHome())
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
     const [req] = await posted()
     expect(req.authorization).toBeUndefined()
@@ -148,9 +166,9 @@ describe('status-line.sh: statusLine', () => {
     expect(req.body.type).toBe('session_status')
   })
 
-  it('posts to 127.0.0.1:$AGENT_OFFICE_PORT/status when AGENT_OFFICE_STATUS_URL is unset', async () => {
+  it('posts to 127.0.0.1:$CLAUDEX_PORT/status when CLAUDEX_STATUS_URL is unset', async () => {
     const port = new URL(serverUrl).port
-    const { out } = run(STATUS_JSON, officeHome(), { env: { AGENT_OFFICE_STATUS_URL: '', AGENT_OFFICE_PORT: port } })
+    const { out } = await run(STATUS_JSON, claudexHome(), { env: { CLAUDEX_STATUS_URL: '', CLAUDEX_PORT: port } })
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
     const [req] = await posted()
     expect(req).toBeDefined()
@@ -158,17 +176,19 @@ describe('status-line.sh: statusLine', () => {
     expect(req.body).toEqual(EXPECTED_EVENT)
   })
 
-  it('AGENT_OFFICE_STATUS_URL wins over AGENT_OFFICE_PORT', async () => {
+  it('CLAUDEX_STATUS_URL wins over CLAUDEX_PORT', async () => {
     const closedPort = new URL(closedUrl).port
-    run(STATUS_JSON, officeHome(), { env: { AGENT_OFFICE_PORT: closedPort } })
+    await run(STATUS_JSON, claudexHome(), { env: { CLAUDEX_PORT: closedPort } })
     const [req] = await posted()
     expect(req).toBeDefined()
     expect(req.body.type).toBe('session_status')
   })
 
   it('defaults to 127.0.0.1:3334/status (never `localhost`, which may resolve to [::1])', () => {
-    const source = readFileSync(SCRIPT, 'utf8')
-    expect(source).toContain('SERVER_URL="${AGENT_OFFICE_STATUS_URL:-http://127.0.0.1:${AGENT_OFFICE_PORT:-3334}/status}"')
+    const source = readFileSync(POST, 'utf8')
+    expect(source).toContain(': 3334')
+    expect(source).toContain('return `http://127.0.0.1:${port}/${kind}`')
+    expect(source).not.toContain('localhost:')
   })
 
   it('handles the early-session shape: null used_percentage, no rate_limits, no cost yet, no effort', async () => {
@@ -183,7 +203,7 @@ describe('status-line.sh: statusLine', () => {
       context_window: { total_input_tokens: 0, total_output_tokens: 0, context_window_size: 200000, used_percentage: null, remaining_percentage: null, current_usage: null },
       exceeds_200k_tokens: false,
     }
-    const { out } = run(early, officeHome())
+    const { out } = await run(early, claudexHome())
     expect(out).toBe('Opus · ctx 0% · $0.00\n')
     const [req] = await posted()
     expect(req.body).toEqual({
@@ -195,28 +215,37 @@ describe('status-line.sh: statusLine', () => {
 
   it('falls back to cwd for the project when workspace is absent, and forwards spend_limit', async () => {
     const payload = { ...STATUS_JSON, workspace: undefined, cwd: '/srv/apps/billing-api', rate_limits: { spend_limit: { used_percentage: 62.8, resets_at: 1740787200, used_usd: 314.12, limit_usd: 500, period: 'monthly' } } }
-    run(payload, officeHome())
+    await run(payload, claudexHome())
     const [req] = await posted()
     expect(req.body.project).toBe('billing-api')
     expect(req.body.rateLimits).toEqual({ spendLimit: 62.8, spendLimitResetsAt: 1740787200 })
   })
 
-  it('still prints the line, exits 0 and does not wait when the server is down', () => {
-    const { out, ms } = run(STATUS_JSON, officeHome({ token: 't' }), { url: closedUrl })
+  it('still prints the line, exits 0 and does not wait when the server is down', async () => {
+    const { out, ms } = await run(STATUS_JSON, claudexHome({ token: 't' }), { url: closedUrl })
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
-    // The curl is backgrounded with --max-time 1; the script itself is one python3 call
+    // A refused connection answers at once (the POST's own timeout is 1 s)
     expect(ms).toBeLessThan(1500)
     expect(captured).toHaveLength(0)
   })
 
   it('exits 0 on garbage stdin and posts nothing', async () => {
-    const { out } = run('this is not json', officeHome())
+    const { out } = await run('this is not json', claudexHome())
     expect(out).toBe('Claude · ctx 0% · $0.00\n')
     await new Promise(r => setTimeout(r, 300))
     expect(captured).toHaveLength(0)
   })
 
-  it('exits 0 and prints nothing on empty stdin', () => {
-    expect(run('', officeHome()).out).toBe('')
+  it('exits 0 and prints nothing on empty stdin', async () => {
+    expect((await run('', claudexHome())).out).toBe('')
+  })
+})
+
+describe('older setups', () => {
+  it('still read AGENT_OFFICE_STATUS_URL and AGENT_OFFICE_HOME when the CLAUDEX_ names are unset', async () => {
+    const home = claudexHome({ token: 'b'.repeat(64) })
+    await run(STATUS_JSON, home, { env: { CLAUDEX_STATUS_URL: '', CLAUDEX_HOME: '', AGENT_OFFICE_STATUS_URL: serverUrl, AGENT_OFFICE_HOME: home } })
+    const [req] = await posted()
+    expect(req.sig).toMatch(/^[0-9a-f]{64}$/)
   })
 })

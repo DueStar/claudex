@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import request from 'supertest'
-import { loadOffice, removeOffice, type Office } from './helpers'
+import { loadServer, removeServer, type Office } from './helpers'
 
 const INDEX_HTML = '<!DOCTYPE html><html><body><div id="root"></div></body></html>'
 // 1x1 PNG
@@ -28,11 +28,11 @@ describe('built UI served from the server root', () => {
     mkdirSync(join(uiDir, 'sprites', 'effects'), { recursive: true })
     writeFileSync(join(uiDir, 'index.html'), INDEX_HTML)
     writeFileSync(join(uiDir, 'sprites', 'effects', 'typing.png'), SPRITE)
-    office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
+    office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: uiDir } })
   })
 
   afterAll(() => {
-    removeOffice(office)
+    removeServer(office)
     try { rmSync(uiDir, { recursive: true, force: true }) } catch {}
   })
 
@@ -73,9 +73,9 @@ describe('without a build', () => {
   beforeAll(async () => {
     // A dist dir that does not exist
     const missing = join(mkdtempSync(join(tmpdir(), 'agent-office-noui-')), 'dist')
-    office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: missing } })
+    office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: missing } })
   })
-  afterAll(() => removeOffice(office))
+  afterAll(() => removeServer(office))
 
   it('GET / is a JSON 404 that says how to build the UI', async () => {
     expect(office.server.UI_AVAILABLE).toBe(false)
@@ -92,8 +92,8 @@ describe('without a build', () => {
 
 describe('loopback origin allowlist', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   const allowed = [
     'http://localhost:3333',   // Vite dev server

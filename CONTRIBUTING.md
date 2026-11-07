@@ -2,34 +2,29 @@
 
 Thanks for helping. A few ground rules so a pull request lands quickly.
 
-## What we are building
+## What Claudex is
 
-Claude Office is an office that tells the truth about Claude Code: every
-session, agent, wait, failure and dollar, live. Work that makes the office more
-truthful (hook fidelity, session and worker lifecycle, meters, incident
-signals, install/uninstall) comes first. New costume skins are not the
-priority; the plan is to make skins data (a folder you drop in) before adding
-another one, so a skin PR will wait for that. Seasonal variants on the incident
-axis are welcome once the art exists.
+A Windows desktop app that runs Claude Code sessions with Pokémon partners:
+the sessions are real terminals, and the game (encounters, the Pokédex, the
+box) follows what Claude Code really does, through the app's own hooks.
 
 ## Before you open a PR
 
-- Run `npm test`. It runs the Vitest suite against a temp `AGENT_OFFICE_HOME`,
-  so it never touches your real `~/.agent-office`. CI
-  (`.github/workflows/ci.yml`) runs, on every pull request and in this order:
-  `tsc --noEmit`, `claude plugin validate . --strict`, `npm test` and
-  `vite build`; all four must pass.
-- Add or update a test for behaviour you change (`tests/`); the server, the
-  hook script and the installer all have harnesses to extend.
+- Run `npm test`. It runs the Vitest suite against a temp `CLAUDEX_HOME`, so
+  it never touches your real `~/.claudex`. It must pass on Windows: a check
+  that only makes sense on Unix (file modes, symlinks, uids) skips there with
+  its reason. CI (`.github/workflows/ci.yml`) runs `tsc --noEmit`, `npm test`
+  and `vite build` on Windows and Linux.
+- Add or update a test for behaviour you change (`tests/`).
 - Keep the README true: if you change a command, a port, a hook event or a
   default, change the line that documents it in the same PR.
+- User-facing changes get a line in CHANGELOG.md under the next version: the
+  app shows it as patch notes after an update.
 - One change per PR; describe what you saw before and after, and name the
-  Claude Code version and OS you tested on.
+  Claude Code version and Windows version you tested on.
 
 ## Style
 
 - Match the surrounding code; no reformatting-only diffs.
-- No attribution footers, `Co-Authored-By` lines or tool-generated trailers in
-  commits or PR descriptions.
-- Office-themed assets are fan art (see [NOTICE.md](NOTICE.md)); do not add more
-  third-party likenesses, logos or quoted lines.
+- No Pokémon or Poké Ball artwork in the repository (see [NOTICE.md](NOTICE.md)):
+  the app fetches Pokémon art on first use, and ball art is bundled at build time.

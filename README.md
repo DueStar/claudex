@@ -74,12 +74,13 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows 데스크톱 앱이에�
 
 필요한 프로그램이 없으면 앱이 설치 링크를 보여줘요.
 - [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) (로그인된 상태)
-- [Git for Windows](https://git-scm.com/downloads/win): 훅이 Git Bash로 돌아가요.
-- [Python 3](https://www.python.org/downloads/windows/)
+- [Git for Windows](https://git-scm.com/downloads/win): Claude Code가 Git Bash를 써요.
+
+Python 같은 다른 프로그램은 필요 없어요. 세션 기록(훅)은 Claudex가 직접 돌려요.
 
 > 코드 서명이 아직 없어요. SmartScreen 경고가 뜨면 **추가 정보 → 실행**을 눌러 주세요. Windows 11의 스마트 앱 컨트롤이 켜져 있으면 실행이 막혀요.
 
-포켓몬 그림은 앱에 들어 있지 않아요. 처음 볼 때 [PokeAPI 이미지 저장소](https://github.com/PokeAPI/sprites)에서 받아 `%USERPROFILE%\.agent-office\sprites`에 저장하고, 그다음부터는 저장된 파일을 써요.
+포켓몬 그림은 앱에 들어 있지 않아요. 처음 볼 때 [PokeAPI 이미지 저장소](https://github.com/PokeAPI/sprites)에서 받아 `%USERPROFILE%\.claudex\sprites`에 저장하고, 그다음부터는 저장된 파일을 써요.
 
 ## 어떻게 동작하나요
 
@@ -89,14 +90,17 @@ Claudex (Electron)
  │                                        │ 훅·상태줄
  ├─ 로컬 서버 127.0.0.1:3334 <────────────┘
  │    ├─ 세션 상태, 한도
- │    ├─ 게임 (server/pokedex.js → ~/.agent-office/pokedex.json)
+ │    ├─ 게임 (server/pokedex.js → ~/.claudex/pokedex.json)
  │    ├─ 포켓몬 그림 (server/sprites.js, 처음 쓸 때 받아서 저장)
  │    └─ 클라우드 동기화 (server/cloud.js, Supabase)
  └─ 위젯 / 도감 / 박스 / 알림 창 (React)
 ```
 
 - **훅은 Claudex가 띄운 세션에만 걸려요**: Claude Code의 전역 설정(`~/.claude/settings.json`)은 건드리지 않아요.
-- **서버는 로컬에서만 열려요**: 서버는 `127.0.0.1`에서만 열리고, 바꾸는 요청에는 `~/.agent-office/auth-token`이 필요해요.
+- **서버는 로컬에서만 열려요**: 서버는 `127.0.0.1`에서만 열리고, 바꾸는 요청에는 `~/.claudex/auth-token`이 필요해요.
+- **업데이트는 서명을 확인해요**: 앱은 릴리스 키로 서명된 `latest.json`만 받아들여요.
+- **데이터 폴더**: 1.3.7까지 쓰던 `~/.agent-office`는 1.3.8 첫 실행 때 `~/.claudex`로 복사돼요. 옛 폴더는 그대로 남아 있으니, 잘 돌아가는 걸 확인한 뒤 지워도 돼요.
+- **로그**: 트레이 메뉴 "로그 폴더 열기"에서 `claudex.log`를 볼 수 있어요.
 - **로그인 토큰은 서버에만 있어요**: 클라우드 로그인 토큰은 화면 쪽으로 넘어가지 않아요.
 
 ## 개발
@@ -105,13 +109,14 @@ Claudex (Electron)
 npm install
 npm run dev:electron        # 개발 실행
 npx vitest run tests/pokedex.test.ts tests/sprites.test.ts tests/theme.test.ts
-node scripts/release.mjs "변경 내용"            # 빌드 (release/)
-node scripts/release.mjs "변경 내용" --publish  # GitHub 릴리스까지
+npm test                    # Windows에서도 전부 통과해야 해요
+node scripts/release.mjs             # 빌드 (release/), 노트는 CHANGELOG.md의 "### <버전>"
+node scripts/release.mjs --publish   # 점검 후 GitHub 릴리스까지 (서명 키 필요)
 ```
 
 - **빌드할 때 받는 그림**: `tools/fetch-balls.mjs`가 볼 그림을 받아요. `tools/build-icons.py`는 앱 아이콘을 만들어요.
 - **저장소에 없는 것**: 포켓몬·볼 그림은 저장소에 넣지 않아요(`.gitignore`).
-- **시험 실행**: 실제 데이터를 건드리지 않으려면 `AGENT_OFFICE_HOME=<임시 폴더> AGENT_OFFICE_PORT=3344`로 실행하세요.
+- **시험 실행**: 실제 데이터를 건드리지 않으려면 `CLAUDEX_HOME=<임시 폴더> CLAUDEX_PORT=3344`로 실행하세요. 예전 이름(`AGENT_OFFICE_*`)도 계속 읽어요.
 
 ```
 claudex/

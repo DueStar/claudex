@@ -20,10 +20,10 @@ const {
   readWindowState,
   writeWindowState,
   runtimeDirFromEnv,
-  readOfficeToken,
-  officeLink,
+  readServerToken,
+  appLink,
   redactLink,
-  officeProofMatches,
+  serverProofMatches,
   healthChallenge,
 } = require('./helpers.cjs')
 const { createTray } = require('./tray.cjs')
@@ -32,6 +32,7 @@ const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
+const { envVar, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'Claudex-dev'))
@@ -42,6 +43,9 @@ if (applyPendingUpdate(app)) { app.relaunch(); app.exit(0) }
 const log = createLog(path.join(app.getPath('userData'), 'logs'))
 teeConsole(log)
 console.log(`[main] Claudex ${app.getVersion()} starting (electron ${process.versions.electron}${app.isPackaged ? '' : ', dev'})`)
+// ~/.agent-office (versions up to 1.3.7) -> ~/.claudex, once, before anything
+// reads the token or starts the server (server/runtime-dir.cjs)
+migrateRuntimeDir()
 process.on('uncaughtException', (err) => { console.error('[main] uncaught:', err?.stack || err) })
 process.on('unhandledRejection', (err) => { console.error('[main] unhandled rejection:', err?.stack || err) })
 let updater = null
@@ -49,10 +53,10 @@ let updater = null
 const PRELOAD = path.join(__dirname, 'preload.cjs')
 const REPO_ROOT = path.join(__dirname, '..')
 
-// The server's port: AGENT_OFFICE_PORT, default 3334 (helpers.cjs mirrors
+// The server's port: CLAUDEX_PORT, default 3334 (helpers.cjs mirrors
 // server/config.js). The same number goes to the server child's environment,
 // the window's load URL, the navigation allowlist and the tray's poller, so
-// `AGENT_OFFICE_PORT=4000 electron .` — or the variable in the environment a
+// `CLAUDEX_PORT=4000 electron .` — or the variable in the environment a
 // packaged app is launched with — moves the whole desktop app at once.
 const SERVER_PORT = serverPortFromEnv(process.env)
 const { serverUrl: SERVER_URL, healthUrl: HEALTH_URL, viteUrl: VITE_URL, allowedOrigins } = serverUrls(SERVER_PORT)
@@ -188,8 +192,8 @@ function startServer() {
   const packaged = app.isPackaged
   const command = packaged ? process.execPath : (process.env.npm_node_execpath || 'node')
   // The child binds the port this process resolved, so an unparsable
-  // AGENT_OFFICE_PORT falls back to 3334 on both sides alike.
-  const env = { ...process.env, AGENT_OFFICE_PORT: String(SERVER_PORT) }
+  // CLAUDEX_PORT falls back to 3334 on both sides alike.
+  const env = { ...process.env, CLAUDEX_PORT: String(SERVER_PORT) }
   if (packaged) env.ELECTRON_RUN_AS_NODE = '1'
 
   console.log(`[main] Spawning server: ${command} ${SERVER_ENTRY} (port ${SERVER_PORT})`)
@@ -234,15 +238,15 @@ function stopServer() {
 }
 
 // ---------------------------------------------------------------------------
-// Debug aid: AGENT_OFFICE_SCREENSHOT=<file.png> captures the app a moment
-// after its page has loaded (AGENT_OFFICE_SCREENSHOT_DELAY_MS, default 3000),
+// Debug aid: CLAUDEX_SCREENSHOT=<file.png> captures the app a moment
+// after its page has loaded (CLAUDEX_SCREENSHOT_DELAY_MS, default 3000),
 // then quits; an open notification goes to <file>-toast.png.
 // ---------------------------------------------------------------------------
 
 function maybeCaptureScreenshot() {
-  const file = process.env.AGENT_OFFICE_SCREENSHOT
+  const file = envVar('SCREENSHOT')
   if (!file) return
-  const delay = Number(process.env.AGENT_OFFICE_SCREENSHOT_DELAY_MS) || 3000
+  const delay = Number(envVar('SCREENSHOT_DELAY_MS')) || 3000
   // Debug: POKEMON_OFFICE_AUTOTEST="<cwd>|<instruction>" opens a terminal and sends the instruction as the widget would
   const auto = process.env.POKEMON_OFFICE_AUTOTEST
   if (auto && terminals) {
@@ -318,7 +322,7 @@ async function serverHoldsToken(token) {
   const res = await httpGet(`${HEALTH_URL}?challenge=${challenge}`)
   if (!res || res.statusCode !== 200) return false
   try {
-    return officeProofMatches(token, challenge, JSON.parse(res.body).proof)
+    return serverProofMatches(token, challenge, JSON.parse(res.body).proof)
   } catch {
     return false
   }
@@ -412,7 +416,7 @@ async function startApp() {
         APP_NAME,
         `The ${APP_NAME} server did not start on port ${SERVER_PORT}.\n\n` +
         `If something else is using that port, stop it and open ${APP_NAME} again, ` +
-        `or launch it with AGENT_OFFICE_PORT set to a free port.`,
+        `or launch it with CLAUDEX_PORT set to a free port.`,
       )
       quitApp()
       return
@@ -428,13 +432,13 @@ async function startApp() {
   // Either way with the server token in the fragment, read now that the server
   // has answered /health (it writes the file before it answers anything), and
   // only once the server on the port has proved it holds it (serverHoldsToken)
-  let token = readOfficeToken(TOKEN_FILE)
+  let token = readServerToken(TOKEN_FILE)
   if (!token) console.warn(`[main] No server token in ${TOKEN_FILE}: the app cannot act on the game`)
   else if (!(await serverHoldsToken(token))) {
     console.warn(`[main] The server on port ${SERVER_PORT} could not prove it holds the server token: not handing it over`)
     token = null
   }
-  pageUrl = officeLink(app.isPackaged ? SERVER_URL : VITE_URL, token)
+  pageUrl = appLink(app.isPackaged ? SERVER_URL : VITE_URL, token)
   console.log(`[main] Loading ${redactLink(pageUrl)}`)
 
   refreshMenus()
@@ -808,7 +812,7 @@ function fromOurWindow(event) {
  * Authenticated with the server token, like the hook.
  */
 function postSessionEnded(sessionId) {
-  const token = readOfficeToken(TOKEN_FILE)
+  const token = readServerToken(TOKEN_FILE)
   if (!token) return
   const body = JSON.stringify({ type: 'session_ended', sessionId, reason: 'terminal closed' })
   const req = http.request(`${SERVER_URL}/event`, {
@@ -823,7 +827,7 @@ function postSessionEnded(sessionId) {
 
 /** Put another Pokémon on a session: the server checks the rules; this carries the server token */
 function swapPokemon(sessionId, uid) {
-  const token = readOfficeToken(TOKEN_FILE)
+  const token = readServerToken(TOKEN_FILE)
   if (!token) return Promise.resolve({ ok: false, reason: 'no-token' })
   const body = JSON.stringify({ sessionId, uid })
   return new Promise((resolve) => {
@@ -845,7 +849,7 @@ function swapPokemon(sessionId, uid) {
 
 /** POST to the server with the server token; resolves to the JSON reply */
 function serverPost(pathname, body = {}) {
-  const token = readOfficeToken(TOKEN_FILE)
+  const token = readServerToken(TOKEN_FILE)
   if (!token) return Promise.resolve({ ok: false, reason: 'no-token' })
   const data = JSON.stringify(body)
   return new Promise((resolve) => {

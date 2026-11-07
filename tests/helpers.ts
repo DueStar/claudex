@@ -2,7 +2,7 @@
  * Shared helpers for the server tests.
  *
  * server/index.js keeps its state at module level (the sessions, the game,
- * ...). `loadOffice()` re-evaluates the module with AGENT_OFFICE_HOME pointed
+ * ...). `loadServer()` re-evaluates the module with AGENT_OFFICE_HOME pointed
  * at a fresh temp dir, so every call is a brand-new server that never touches
  * the real ~/.agent-office. Importing
  * the module does not bind port 3334 or write the auth token — only
@@ -18,12 +18,12 @@ import { join } from 'node:path'
 import request from 'supertest'
 import { vi } from 'vitest'
 
-export type OfficeServer = typeof import('../server/index.js')
+export type ServerModule = typeof import('../server/index.js')
 
 export interface Office {
   /** Runtime dir this instance writes to (its AGENT_OFFICE_HOME). */
   dir: string
-  server: OfficeServer
+  server: ServerModule
 }
 
 export interface LoadOptions {
@@ -34,7 +34,7 @@ export interface LoadOptions {
 }
 
 /** Import a fresh copy of server/index.js against a temp runtime dir. */
-export async function loadOffice(opts: LoadOptions = {}): Promise<Office> {
+export async function loadServer(opts: LoadOptions = {}): Promise<Office> {
   const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'claudex-test-'))
   process.env.AGENT_OFFICE_HOME = dir
   // The registry roster (server/sessions.js) reads Claude Code's own
@@ -55,8 +55,8 @@ export async function loadOffice(opts: LoadOptions = {}): Promise<Office> {
   }
 }
 
-/** Remove a temp runtime dir created by loadOffice. */
-export function removeOffice(office: Office | undefined) {
+/** Remove a temp runtime dir created by loadServer. */
+export function removeServer(office: Office | undefined) {
   if (!office) return
   try { rmSync(office.dir, { recursive: true, force: true }) } catch {}
 }
@@ -65,7 +65,7 @@ export function removeOffice(office: Office | undefined) {
  * POST a JSON body to a token-protected route (/event, /status, /pokedex/*,
  * ...) with the server's own bearer token, or a bad one.
  */
-export function postAuthed(server: OfficeServer, path: string, body: unknown, token: string = server.AUTH_TOKEN) {
+export function postAuthed(server: ServerModule, path: string, body: unknown, token: string = server.AUTH_TOKEN) {
   return request(server.app)
     .post(path)
     .set('Authorization', `Bearer ${token}`)
@@ -73,17 +73,17 @@ export function postAuthed(server: OfficeServer, path: string, body: unknown, to
 }
 
 /** POST /event with the server's own bearer token (or a bad one). */
-export function postEvent(server: OfficeServer, body: unknown, token: string = server.AUTH_TOKEN) {
+export function postEvent(server: ServerModule, body: unknown, token: string = server.AUTH_TOKEN) {
   return postAuthed(server, '/event', body, token)
 }
 
 /**
  * The WebSocket subprotocols the app's page offers when it has the token
- * (src/officeToken.ts): `new WebSocket(url, officeProtocols(server))` is a
+ * (src/officeToken.ts): `new WebSocket(url, serverProtocols(server))` is a
  * trusted connection, prompt / reply text included. A client that offers
  * none gets no conversation text (server/index.js, "The WebSocket").
  */
-export function officeProtocols(server: OfficeServer, token: string = server.AUTH_TOKEN): string[] {
+export function serverProtocols(server: ServerModule, token: string = server.AUTH_TOKEN): string[] {
   return [server.WS_PROTOCOL, `${server.WS_TOKEN_PROTOCOL_PREFIX}${token}`]
 }
 

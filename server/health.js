@@ -3,8 +3,8 @@
  * reached it, how long ago, and what is it running.
  *
  * The most common support question is "nothing appears": is the server up,
- * are the hooks installed and firing? The desktop app checks /health before it
- * starts a server of its own, and scripts/doctor.mjs prints it.
+ * are the hooks firing? The desktop app checks /health before it starts a
+ * server of its own.
  *
  *   GET /health → { status: 'ok', clients, sessions,
  *                   lastHookAt (ms epoch | null), hooksSeen (since boot),
@@ -138,18 +138,17 @@ export function createHealth({
 /**
  * Mount GET /health on an Express app and return the health record (also
  * reachable as app.locals.health). The route stays open, like every other
- * GET: scripts/doctor.mjs, the start script and the plugin command poll it
- * without a token.
+ * GET: the desktop app polls it without a token.
  */
 export function mountHealth(app, opts = {}) {
   const health = createHealth(opts)
   app.locals.health = health
 
   // GET /health?challenge=<hex> also answers `proof`: HMAC-SHA256 of the
-  // office token over 'office-health:' + the challenge (opts.prove). The
-  // openers (npm run open, start-office.sh, the desktop app) check it before
-  // they hand the token to whatever answers on the port: a process that
-  // squats the port while the office is down cannot produce it
+  // server token over 'claudex-health:' + the challenge (opts.prove). The
+  // desktop app checks it before it hands the token to whatever answers on
+  // the port: a process that squats the port while the server is down
+  // cannot produce it
   app.get('/health', (req, res) => {
     const challenge = typeof req.query.challenge === 'string' ? req.query.challenge : ''
     const proof = opts.prove && /^[0-9a-f]{16,128}$/.test(challenge) ? opts.prove(challenge) : undefined

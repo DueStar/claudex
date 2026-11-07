@@ -1,47 +1,35 @@
 /**
- * hooks/agent-tracker.sh — the Python (hooks/agent-tracker.py) that turns a
- * Claude Code hook payload into a server event. The bash wrapper reads stdin, pipes the
- * payload into the Python (never through an environment variable or an
- * argument: a big tool_response would hit the exec's single-argument limit)
- * and curls the result, so the heredoc is lifted out (the same awk the repo
- * uses by hand) and run against real 2.1.x payload shapes exactly as the
- * wrapper runs it: `python3 -I -c <source>` with the payload on stdin. The
- * last group runs the whole script with a fake `curl` on PATH.
+ * hooks/claudex-hook.cjs — turns a Claude Code hook payload into a server
+ * event (buildEvent), run against real 2.1.x payload shapes. The last group
+ * runs the whole script the way a session does (stdin in, a signed POST out,
+ * nothing on stdout) against a capture server.
  */
 
-import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { createHash, createHmac } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-const TRACKER = fileURLToPath(new URL('../hooks/agent-tracker.sh', import.meta.url))
-
-// The event builder lives beside the script (it used to be a heredoc inside it)
-const PYTHON_FILE = fileURLToPath(new URL('../hooks/agent-tracker.py', import.meta.url))
-const PYTHON = readFileSync(PYTHON_FILE, 'utf8')
-if (!PYTHON.includes('hook_event_name')) throw new Error('could not read hooks/agent-tracker.py')
-
-// A home with no token file, so the developer's real ~/.agent-office never changes what the tests see
-const NO_MARKER_HOME = mkdtempSync(join(tmpdir(), 'claudex-hook-home-'))
-afterAll(() => rmSync(NO_MARKER_HOME, { recursive: true, force: true }))
+const require = createRequire(import.meta.url)
+const HOOK = fileURLToPath(new URL('../hooks/claudex-hook.cjs', import.meta.url))
+const { buildEvent } = require(HOOK)
 
 /**
- * The hook's Python against a payload (on stdin, as the wrapper does): its
- * stdout content lines. The Python prints the event, then its POST signature
- * (empty here — these runs set no OFFICE_TOKEN); the empty signature line is
- * dropped so the tests speak to the event. The live wrapper reads the lines
- * positionally (sed -n), so the empty line there is harmless.
+ * The hook's event for a payload, as a list of JSON lines (empty: nothing is
+ * sent). A string payload is parsed as the script parses stdin: not JSON or
+ * not an object means nothing.
  */
-function runHookLines(payload: unknown, env: Record<string, string> = {}): string[] {
-  const out = execFileSync('python3', ['-I', PYTHON_FILE], {
-    input: typeof payload === 'string' ? payload : JSON.stringify(payload),
-    encoding: 'utf8',
-    env: { ...process.env, AGENT_OFFICE_HOME: NO_MARKER_HOME, ...env },
-  }).trim()
-  return out ? out.split('\n').filter(line => line !== '') : []
+function runHookLines(payload: unknown): string[] {
+  let parsed: unknown
+  try { parsed = typeof payload === 'string' ? JSON.parse(payload || '{}') : JSON.parse(JSON.stringify(payload)) } catch { return [] }
+  const event = buildEvent(parsed)
+  return event ? [JSON.stringify(event)] : []
 }
 
 /** Canonical JSON as the hook's call_key writes it: keys sorted, no spaces. */
@@ -58,14 +46,14 @@ function callKeyOf(toolName: string, input: unknown): string {
   return createHash('sha256').update(`${toolName}\0${canonical(input)}`).digest('hex').slice(0, 16)
 }
 
-/** Run the hook's Python against a payload; null when it printed nothing. */
+/** The hook's event for a payload; null when it sends nothing. */
 function runHook(payload: unknown): Record<string, any> | null {
   const lines = runHookLines(payload)
   if (lines.length > 1) throw new Error(`expected one line, got ${lines.length}: ${lines.join(' | ')}`)
   return lines.length ? JSON.parse(lines[0]) : null
 }
 
-describe('agent-tracker.sh: Agent tool', () => {
+describe('claudex-hook: Agent tool', () => {
   it('PreToolUse Agent -> agent_working with tool Agent (a step in the Safari Zone), the task in the status (Task alias too)', () => {
     expect(runHook({
       hook_event_name: 'PreToolUse',
@@ -90,7 +78,7 @@ describe('agent-tracker.sh: Agent tool', () => {
   })
 })
 
-describe('agent-tracker.sh: inside a subagent', () => {
+describe('claudex-hook: inside a subagent', () => {
   it('PreToolUse Bash with agent_id -> agent_working tagged with the subagent', () => {
     expect(runHook({
       hook_event_name: 'PreToolUse',
@@ -164,7 +152,7 @@ describe('agent-tracker.sh: inside a subagent', () => {
  * Payloads captured verbatim from Claude Code 2.1.300 (scratchpad/hookcap,
  * 2026-10-14). Only the capture's own bookkeeping keys were dropped.
  */
-describe('agent-tracker.sh: captured 2.1.300 payloads', () => {
+describe('claudex-hook: captured 2.1.300 payloads', () => {
   const common = {
     session_id: '8cf68f64-5433-40f7-a130-557fc7f67e42',
     transcript_path: '/root/.claude/projects/-tmp-claude-0--home-user-Claude-Office-c25c5511-f321-521a-825b-f189ac4d57e8-scratchpad-hookcap/8cf68f64-5433-40f7-a130-557fc7f67e42.jsonl',
@@ -371,7 +359,7 @@ describe('agent-tracker.sh: captured 2.1.300 payloads', () => {
  * Code 2.1.300 (scratchpad/hookcap/events.jsonl, 2026-10-14): session_id,
  * transcript_path and cwd are in the base schema of every hook event.
  */
-describe('agent-tracker.sh: sessions', () => {
+describe('claudex-hook: sessions', () => {
   const base = {
     session_id: 'c25c5511-f321-521a-825b-f189ac4d57e8',
     transcript_path: '/root/.claude/projects/-tmp-claude-0--home-user-Claude-Office-c25c5511-f321-521a-825b-f189ac4d57e8-scratchpad-hookcap/c25c5511-f321-521a-825b-f189ac4d57e8.jsonl',
@@ -498,7 +486,7 @@ describe('agent-tracker.sh: sessions', () => {
   })
 })
 
-describe('agent-tracker.sh: MCP tools', () => {
+describe('claudex-hook: MCP tools', () => {
   it('PreToolUse mcp__github__get_me -> mcp_call', () => {
     expect(runHook({ hook_event_name: 'PreToolUse', tool_name: 'mcp__github__get_me', tool_input: {} }))
       .toEqual({ type: 'mcp_call', server: 'github', tool: 'get_me' })
@@ -518,7 +506,7 @@ describe('agent-tracker.sh: MCP tools', () => {
   })
 })
 
-describe('agent-tracker.sh: every tool call is activity', () => {
+describe('claudex-hook: every tool call is activity', () => {
   it('PreToolUse of a tool without a specific status line -> a generic "using <tool>" working status, main thread or worker', () => {
     expect(runHook({ hook_event_name: 'PreToolUse', tool_name: 'WebFetch', tool_input: { url: 'https://example.com' } }))
       .toEqual({ type: 'agent_working', status: 'using WebFetch', tool: 'WebFetch' })
@@ -557,7 +545,7 @@ describe('agent-tracker.sh: every tool call is activity', () => {
 
 })
 
-describe('agent-tracker.sh: ignored payloads', () => {
+describe('claudex-hook: ignored payloads', () => {
   it('prints nothing for an empty payload or one with neither a tool_name nor a session', () => {
     expect(runHook({ hook_event_name: 'UserPromptSubmit', prompt: 'hello' })).toBeNull()
     expect(runHook({ hook_event_name: 'Stop', last_assistant_message: 'x' })).toBeNull()
@@ -579,7 +567,7 @@ describe('agent-tracker.sh: ignored payloads', () => {
  * capture's own bookkeeping keys were dropped. None of these carries a
  * tool_name except PermissionRequest.
  */
-describe('agent-tracker.sh: the main thread (session_* events)', () => {
+describe('claudex-hook: the main thread (session_* events)', () => {
   const HOOKCAP = '/tmp/claude-0/-home-user-Claude-Office/c25c5511-f321-521a-825b-f189ac4d57e8/scratchpad/hookcap'
   const PROJECTS = '/root/.claude/projects/-tmp-claude-0--home-user-Claude-Office-c25c5511-f321-521a-825b-f189ac4d57e8-scratchpad-hookcap'
   /** Common keys of a captured session: session_id, transcript_path, cwd, scratchpad_dir */
@@ -853,109 +841,114 @@ describe('agent-tracker.sh: the main thread (session_* events)', () => {
 })
 
 /**
- * The whole script, with a fake `curl` on PATH that records its argv AND the
- * body it was handed on stdin (the hook sends the body with --data-binary @-,
- * so neither the token nor the event text is ever on argv). The payload
- * reaches the Python on stdin, stdout stays empty (on UserPromptSubmit it
- * would be injected into Claude's context) and the exit code is 0.
+ * The whole script as a session runs it: the payload on stdin, the event
+ * POSTed to the server (signed when there is a token, the token itself never
+ * sent), nothing on stdout (on UserPromptSubmit it would be injected into
+ * Claude's context) and exit code 0.
  */
-describe('agent-tracker.sh: the bash wrapper', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'agent-office-tracker-'))
-  const bin = join(dir, 'bin')
-  const officeHome = join(dir, 'office')
-  const log = join(dir, 'curl.jsonl')
-  mkdirSync(bin)
-  mkdirSync(officeHome)
-  writeFileSync(join(bin, 'curl'), `#!/usr/bin/env bash\npython3 -c 'import json,sys; print(json.dumps({"argv": sys.argv[1:], "stdin": sys.stdin.read()}))' "$@" >> "$FAKE_CURL_LOG"\n`)
-  chmodSync(join(bin, 'curl'), 0o755)
-  afterAll(() => rmSync(dir, { recursive: true, force: true }))
-
-  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-
-  /** Run the script on a payload; resolve with its stdout/status and what curl was given (the POST is backgrounded). */
-  async function runScript(payload: unknown, extraEnv: Record<string, string> = {}) {
-    rmSync(log, { force: true })
-    const env: Record<string, string | undefined> = { ...process.env, PATH: `${bin}:${process.env.PATH}`, AGENT_OFFICE_HOME: officeHome, FAKE_CURL_LOG: log }
-    // The caller's own office settings must not leak into the script under test
-    delete env.AGENT_OFFICE_EVENT_URL
-    delete env.AGENT_OFFICE_PORT
-    Object.assign(env, extraEnv)
-    const res = spawnSync('bash', [TRACKER], {
-      input: typeof payload === 'string' ? payload : JSON.stringify(payload),
-      encoding: 'utf8',
-      maxBuffer: 16 * 1024 * 1024,
-      env,
+describe('claudex-hook: the script', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'claudex-hook-'))
+  interface Hit { url: string; headers: Record<string, string | string[] | undefined>; raw: string }
+  const hits: Hit[] = []
+  let server: Server
+  let port = 0
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      let raw = ''
+      req.setEncoding('utf8')
+      req.on('data', (c: string) => { raw += c })
+      req.on('end', () => { hits.push({ url: req.url ?? '', headers: req.headers, raw }); res.end('{"ok":true}') })
     })
-    // The fake curl's `>>` creates the log before its python has written the
-    // line, so wait for a complete line, not just for the file (a read in that
-    // window parsed '' and failed under full-suite load)
-    const complete = () => existsSync(log) && readFileSync(log, 'utf8').endsWith('\n')
-    for (let i = 0; i < 60 && !complete(); i++) await sleep(50)
-    const calls = complete() ? readFileSync(log, 'utf8').trim().split('\n').map(l => JSON.parse(l) as { argv: string[]; stdin: string }) : []
-    const args = calls[0]?.argv ?? null
-    const body = calls[0]?.stdin ? JSON.parse(calls[0].stdin) : null
-    return { stdout: res.stdout, stderr: res.stderr, status: res.status, calls, args, body }
+    await new Promise<void>(r => server.listen(0, '127.0.0.1', r))
+    port = (server.address() as AddressInfo).port
+  })
+  afterAll(() => { server.close(); rmSync(dir, { recursive: true, force: true }) })
+
+  /** Run the script (asynchronously: the capture server lives in this process) */
+  function runScript(payload: unknown, env: Record<string, string> = {}) {
+    hits.length = 0
+    return new Promise<{ status: number | null; stdout: string; stderr: string; hits: Hit[]; body: any }>((resolve) => {
+      const child = spawn(process.execPath, [HOOK], {
+        env: { ...process.env, AGENT_OFFICE_HOME: '', AGENT_OFFICE_PORT: '', AGENT_OFFICE_EVENT_URL: '', CLAUDEX_EVENT_URL: '', CLAUDEX_HOME: dir, CLAUDEX_PORT: String(port), ...env },
+      })
+      let stdout = ''
+      let stderr = ''
+      child.stdout.setEncoding('utf8').on('data', (c: string) => { stdout += c })
+      child.stderr.setEncoding('utf8').on('data', (c: string) => { stderr += c })
+      child.on('exit', (status) => resolve({ status, stdout, stderr, hits: [...hits], body: hits[0] ? JSON.parse(hits[0].raw) : null }))
+      child.stdin.end(typeof payload === 'string' ? payload : JSON.stringify(payload))
+    })
   }
 
   const session = { session_id: 's-wrap', cwd: '/home/me/proj', transcript_path: '/t/s-wrap.jsonl' }
 
-  it('UserPromptSubmit: nothing on stdout, exit 0, the session_prompt goes to curl as one JSON body on stdin, never argv', async () => {
+  it('UserPromptSubmit: nothing on stdout, exit 0, the session_prompt POSTed to /event', async () => {
     const run = await runScript({ ...session, prompt_id: 'p1', hook_event_name: 'UserPromptSubmit', prompt: 'fix the bug' })
     expect(run.status).toBe(0)
     expect(run.stdout).toBe('')
     expect(run.stderr).toBe('')
-    expect(run.calls).toHaveLength(1)
-    expect(run.args?.slice(0, 4)).toEqual(['-sf', '-X', 'POST', 'http://127.0.0.1:3334/event'])
-    expect(run.args).toContain('--data-binary')
+    expect(run.hits).toHaveLength(1)
+    expect(run.hits[0].url).toBe('/event')
     expect(run.body).toEqual({ type: 'session_prompt', text: 'fix the bug', isWakeup: false, promptId: 'p1', sessionId: 's-wrap', project: 'proj', cwd: '/home/me/proj', transcriptPath: '/t/s-wrap.jsonl' })
     // No token file: nothing to sign with, and never an Authorization header
-    expect(run.args?.some(a => /Authorization/i.test(a))).toBe(false)
-    expect(run.args?.some(a => /X-Office-Signature/i.test(a))).toBe(false)
-    // The prompt text travels on stdin, not on the command line
-    expect(run.args?.some(a => a.includes('fix the bug'))).toBe(false)
+    expect(run.hits[0].headers.authorization).toBeUndefined()
+    expect(run.hits[0].headers['x-claudex-signature']).toBeUndefined()
   })
 
-  it('a 300 KB tool_response reaches the Python (stdin, not an argument that would fail with E2BIG); the event carries none of it', async () => {
+  it('a 300 KB tool_response is read whole from stdin; the event carries none of it', async () => {
     const run = await runScript({
       ...session, hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: { file_path: '/x/big.txt' },
       tool_response: { file: { content: 'x'.repeat(300_000) } },
     })
     expect(run.status).toBe(0)
     expect(run.stdout).toBe('')
-    expect(run.stderr).toBe('')
     expect(run.body).toMatchObject({ type: 'session_tool_done', toolName: 'Read', sessionId: 's-wrap' })
-    expect(JSON.stringify(run.body)).not.toContain('xxxx')
+    expect(run.hits[0].raw).not.toContain('xxxx')
   })
 
-  it('with a token file it SIGNS the request (X-Office-Timestamp/Signature headers) and never puts the token on argv; an ignored event never calls curl', async () => {
+  it('Korean text arrives intact as UTF-8', async () => {
+    const run = await runScript({ ...session, hook_event_name: 'UserPromptSubmit', prompt: '버그 고쳐줘 ✨' })
+    expect(run.body.text).toBe('버그 고쳐줘 ✨')
+  })
+
+  it('with a token file it SIGNS the request over the exact body, and never sends the token; an ignored event posts nothing', async () => {
     const token = 'a'.repeat(64)
-    writeFileSync(join(officeHome, 'auth-token'), token + '\n')
+    writeFileSync(join(dir, 'auth-token'), token + '\n')
     try {
       const run = await runScript({ ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: '/x/y.js' } })
       expect(run.status).toBe(0)
-      // The token is nowhere on the command line, and no Authorization header
-      expect(run.args?.some(a => a.includes(token))).toBe(false)
-      expect(run.args?.some(a => /Authorization/i.test(a))).toBe(false)
-      // It is signed instead: a timestamp and a 64-hex signature ride as headers
-      const headers = (run.args ?? []).filter((_, i) => run.args?.[i - 1] === '-H')
-      expect(headers.some(h => /^X-Office-Timestamp: \d+$/.test(h))).toBe(true)
-      expect(headers.some(h => /^X-Office-Signature: [0-9a-f]{64}$/.test(h))).toBe(true)
+      const h = run.hits[0].headers
+      expect(h.authorization).toBeUndefined()
+      expect(JSON.stringify(h)).not.toContain(token)
+      const ts = String(h['x-claudex-timestamp'])
+      expect(ts).toMatch(/^\d+$/)
+      const expected = createHmac('sha256', token).update(`POST\n/event\n${ts}\n`).update(run.hits[0].raw).digest('hex')
+      expect(h['x-claudex-signature']).toBe(expected)
       expect(run.body).toMatchObject({ type: 'agent_working', status: 'reading y.js' })
 
       const quiet = await runScript({ ...session, hook_event_name: 'Setup', trigger: 'init' })
       expect(quiet.status).toBe(0)
       expect(quiet.stdout).toBe('')
-      expect(quiet.calls).toEqual([])
+      expect(quiet.hits).toEqual([])
     } finally {
-      rmSync(join(officeHome, 'auth-token'), { force: true })
+      rmSync(join(dir, 'auth-token'), { force: true })
     }
   })
 
-  it('posts to AGENT_OFFICE_EVENT_URL when set, else to 127.0.0.1:$AGENT_OFFICE_PORT/event, else to port 3334', async () => {
+  it('posts to CLAUDEX_EVENT_URL when set, else to 127.0.0.1:$CLAUDEX_PORT/event; AGENT_OFFICE_* still read', async () => {
     const read = { ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: '/x/y.js' } }
-    // The default host is pinned to 127.0.0.1, not 'localhost' (no IPv6 ::1 squatter)
-    expect((await runScript(read)).args?.[3]).toBe('http://127.0.0.1:3334/event')
-    expect((await runScript(read, { AGENT_OFFICE_PORT: '3998' })).args?.[3]).toBe('http://127.0.0.1:3998/event')
-    expect((await runScript(read, { AGENT_OFFICE_PORT: '3998', AGENT_OFFICE_EVENT_URL: 'http://127.0.0.1:4100/event' })).args?.[3]).toBe('http://127.0.0.1:4100/event')
+    expect((await runScript(read, { CLAUDEX_EVENT_URL: `http://127.0.0.1:${port}/event?via=url` })).hits[0].url).toBe('/event?via=url')
+    expect((await runScript(read, { CLAUDEX_PORT: '', AGENT_OFFICE_PORT: String(port) })).hits).toHaveLength(1)
+  })
+
+  it('exits 0 at once, silently, when the server is down or stdin is not JSON', async () => {
+    const started = Date.now()
+    const down = await runScript({ ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: {} }, { CLAUDEX_PORT: '9' })
+    expect(down.status).toBe(0)
+    expect(down.stdout + down.stderr).toBe('')
+    expect(Date.now() - started).toBeLessThan(1500)
+    const junk = await runScript('not json')
+    expect(junk.status).toBe(0)
+    expect(junk.hits).toEqual([])
   })
 })

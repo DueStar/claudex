@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadOffice, removeOffice } from './helpers'
+import { loadServer, removeServer } from './helpers'
 
 const require = createRequire(import.meta.url)
 const h = require('../electron/helpers.cjs')
@@ -199,7 +199,7 @@ describe('the server port (AGENT_OFFICE_PORT)', () => {
   it('main.cjs takes the port from the env, passes it to the server child and the tray, and hard-codes no port', () => {
     const main = readFileSync(join(ROOT, 'electron/main.cjs'), 'utf8')
     expect(main).toContain('serverPortFromEnv(process.env)')
-    expect(main).toContain('AGENT_OFFICE_PORT: String(SERVER_PORT)')
+    expect(main).toContain('CLAUDEX_PORT: String(SERVER_PORT)')
     expect(main).toContain('serverUrl: SERVER_URL')
     const code = main.split('\n').filter(line => !/^\s*(\/\/|\*|\/\*)/.test(line)).join('\n')
     expect(code).not.toMatch(/\b3334\b/)
@@ -243,7 +243,7 @@ describe('reusing a server already on the port', () => {
     const text = h.serverConflictMessage(4000)
     expect(text).toContain('port 4000')
     expect(text).toContain('npm run build')
-    expect(text).toContain('AGENT_OFFICE_PORT')
+    expect(text).toContain('CLAUDEX_PORT')
   })
 
   it('against the real server: a checkout without a build is a conflict for the packaged app, a built one is reused', async () => {
@@ -251,7 +251,7 @@ describe('reusing a server already on the port', () => {
     const built = mkdtempSync(join(tmpdir(), 'claudex-ui-'))
     writeFileSync(join(built, 'index.html'), '<!doctype html><title>Claudex</title>')
     try {
-      const bare = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: empty } })
+      const bare = await loadServer({ env: { AGENT_OFFICE_UI_DIR: empty } })
       try {
         const res = await request(bare.server.app).get('/health')
         expect(h.classifyHealth(res.status, res.text)).toBe('no-ui')
@@ -260,16 +260,16 @@ describe('reusing a server already on the port', () => {
         expect(h.classifyIndex(index.status, index.headers['content-type'])).toBe('no-ui')
         expect(h.serverPlan(h.classifyHealth(res.status, res.text), true)).toBe('conflict')
       } finally {
-        removeOffice(bare)
+        removeServer(bare)
       }
-      const office = await loadOffice({ env: { AGENT_OFFICE_UI_DIR: built } })
+      const office = await loadServer({ env: { AGENT_OFFICE_UI_DIR: built } })
       try {
         const res = await request(office.server.app).get('/health')
         expect(h.classifyHealth(res.status, res.text)).toBe('usable')
         const index = await request(office.server.app).get('/')
         expect(h.classifyIndex(index.status, index.headers['content-type'])).toBe('usable')
       } finally {
-        removeOffice(office)
+        removeServer(office)
       }
     } finally {
       rmSync(empty, { recursive: true, force: true })

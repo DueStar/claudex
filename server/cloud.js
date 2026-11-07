@@ -3,7 +3,7 @@
  * the cloud.
  *
  * Sign-in is the OAuth PKCE flow with a loopback redirect:
- *   1. the desktop app asks POST /auth/start (office token) for a sign-in URL
+ *   1. the desktop app asks POST /auth/start (server token) for a sign-in URL
  *      and opens it in the user's browser;
  *   2. Google -> Supabase -> GET /auth/callback?code=...&state=... here;
  *   3. this server trades the code (with the verifier it kept) for a session.

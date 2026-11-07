@@ -177,7 +177,7 @@ const NIGHT_TYPES = ['ghost', 'dark', 'psychic']
 /**
  * What brought a Pokémon out: the tool call (a readable label from the hook's
  * status line) and the request the session was working on (its first 40
- * characters, only as much as the office's logPrompts setting keeps).
+ * characters, only as much as the server's logPrompts setting keeps).
  */
 export function catchSource(ev, session) {
   const tool = String(ev?.tool ?? '')

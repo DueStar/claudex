@@ -1,10 +1,10 @@
 /**
  * Claudex server — the local HTTP + WebSocket server behind the app.
  *
- * Runs on 127.0.0.1:3334, or AGENT_OFFICE_PORT (server/config.js).
+ * Runs on 127.0.0.1:3334, or CLAUDEX_PORT (server/config.js).
  * - The app's page connects via ws://127.0.0.1:<port>/ws
- * - The Claude Code hook (hooks/agent-tracker.sh) POSTs to /event, the status
- *   line (hooks/status-line.sh) to /status
+ * - The Claude Code hook (hooks/claudex-hook.cjs) POSTs to /event, the status
+ *   line (hooks/status-line.cjs) to /status
  * - GET /sessions lists the Claude Code sessions, hooked ones and the ones only
  *   Claude Code's session registry knows about (server/sessions.js)
  * - The game (server/pokedex.js), the Pokémon artwork (server/sprites.js) and
@@ -27,12 +27,13 @@ import { createPokedex, STEP_SPACING_MS } from './pokedex.js'
 import { createCloud } from './cloud.js'
 import { mountHealth, readVersion } from './health.js'
 import { readPort, readUiPort, readHost } from './config.js'
+import runtimeDirs from './runtime-dir.cjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// The port and the Vite dev port come from AGENT_OFFICE_PORT /
-// AGENT_OFFICE_UI_PORT (server/config.js); the bind host is read in start().
+// The port and the Vite dev port come from CLAUDEX_PORT / CLAUDEX_UI_PORT
+// (server/config.js); the bind host is read in start().
 const PORT = readPort()
 const UI_DEV_PORT = readUiPort()
 
@@ -40,14 +41,16 @@ const UI_DEV_PORT = readUiPort()
 // Runtime dir + auth token
 //
 // Everything the server writes (auth token, agents.json, pokedex.json, the
-// cloud session) lives in ~/.agent-office, or AGENT_OFFICE_HOME when set
-// (tests point it at a temp dir). The token is read or generated here but
-// only written to disk by start(), once the port is bound, so importing this
-// module has no side effects outside RUNTIME_DIR and a second instance that
-// loses the port race never clobbers the running instance's token.
+// cloud session) lives in ~/.claudex, or CLAUDEX_HOME when set (tests point
+// it at a temp dir; server/runtime-dir.cjs, which also copies the folder
+// older versions used, ~/.agent-office, the first time). The token is read
+// or generated here but only written to disk by start(), once the port is
+// bound, so importing this module has no side effects outside RUNTIME_DIR,
+// and a second instance that loses the port race never clobbers the running
+// instance's token.
 //
 // Threat model. The server only listens on loopback (127.0.0.1;
-// AGENT_OFFICE_HOST may spell it 127.0.0.1 or localhost, anything else is
+// CLAUDEX_HOST may spell it 127.0.0.1 or localhost, anything else is
 // refused by readHost, with the reason, and 127.0.0.1 is bound). Browsers on other
 // origins are kept out by the origin allowlist below (every other origin
 // gets 403 / a 1008 close) and by the JSON content type, which makes
@@ -55,7 +58,7 @@ const UI_DEV_PORT = readUiPort()
 // machine — another local user's included — which can reach the port freely
 // and send any Origin it likes (Origin only binds browsers). So the one
 // secret that separates this user from the rest is the bearer token in
-// ~/.agent-office/auth-token, the 0600 file only this user can read: the
+// ~/.claudex/auth-token, the 0600 file only this user can read: the
 // hook, the status line and the desktop app send it (the hook signs with it,
 // see "Request signing"), and the app's page gets it in its URL fragment and
 // presents it when it opens the WebSocket. Everything that reports a session,
@@ -67,11 +70,13 @@ const UI_DEV_PORT = readUiPort()
 //
 // The token is stable across restarts: a start reuses the one in the file
 // when the file is still safe to trust (readTokenFile), so a page that
-// remembered it keeps working after the server restarts. `npm run
-// rotate-token` deletes the file, and the next start writes a new one.
+// remembered it keeps working after the server restarts. Deleting the file
+// rotates it: the next start writes a new one.
 // ---------------------------------------------------------------------------
 
-const RUNTIME_DIR = process.env.AGENT_OFFICE_HOME || join(homedir(), '.agent-office')
+runtimeDirs.migrateRuntimeDir()
+const RUNTIME_DIR = runtimeDirs.runtimeDir()
+const envVar = (name) => runtimeDirs.envVar(name)
 try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }) } catch {}
 // mkdirSync's mode is ignored when the dir already exists, so a dir an older
 // build left group/world-readable keeps those bits. Tighten it to 0700.
@@ -146,12 +151,12 @@ function writeTokenFile() {
 
 /**
  * The server's answer to an opener's /health challenge: HMAC-SHA256 of the
- * token over 'office-health:' + challenge. Only a holder of the token can
- * make it, so an opener knows it is about to hand the token to this office
- * and not to a process that took the port while the office was down.
+ * token over 'claudex-health:' + challenge. Only a holder of the token can
+ * make it, so an opener knows it is about to hand the token to this server
+ * and not to a process that took the port while the server was down.
  */
-function officeProof(token, challenge) {
-  return createHmac('sha256', token).update(`office-health:${challenge}`).digest('hex')
+function serverProof(token, challenge) {
+  return createHmac('sha256', token).update(`claudex-health:${challenge}`).digest('hex')
 }
 
 /** Constant-time comparison of a supplied token with ours. */
@@ -175,7 +180,7 @@ function bearerToken(req) {
 // local user can read in `ps` / /proc/<pid>/cmdline. A bearer token on that
 // argv leaks to anyone on the machine, and since the token is stable across
 // restarts (#41) the leak stays useful — a port squatter that answered the
-// first POST while the office was down would own the token for good. So the
+// first POST while the server was down would own the token for good. So the
 // hook no longer sends the token at all: it signs each request with
 // HMAC-SHA256(token, method\npath\ntimestamp\nbody) and sends the timestamp
 // and the signature as headers. A reader of the argv sees only a signature
@@ -208,8 +213,8 @@ function requestSignature(method, path, timestamp, rawBody) {
  * it is empty for a GET, which signs an empty body.
  */
 function signatureValid(req) {
-  const ts = req.headers['x-office-timestamp']
-  const sig = req.headers['x-office-signature']
+  const ts = req.headers['x-claudex-timestamp']
+  const sig = req.headers['x-claudex-signature']
   if (typeof ts !== 'string' || typeof sig !== 'string' || !/^[0-9a-f]+$/.test(sig)) return false
   const tnum = Number(ts)
   if (!Number.isFinite(tnum) || Math.abs(Date.now() - tnum) > SIGNATURE_WINDOW_MS) return false
@@ -224,11 +229,11 @@ function tokenAuthed(req) {
 }
 
 function unauthorized(res, body) {
-  res.setHeader('WWW-Authenticate', 'Bearer realm="agent-office"')
+  res.setHeader('WWW-Authenticate', 'Bearer realm="claudex"')
   return res.status(401).json(body)
 }
 
-/** Express middleware: the route needs the office's token (bearer or a valid signature). */
+/** Express middleware: the route needs the server's token (bearer or a valid signature). */
 function requireToken(req, res, next) {
   if (tokenAuthed(req)) return next()
   unauthorized(res, { error: 'Unauthorized' })
@@ -238,13 +243,13 @@ function requireToken(req, res, next) {
 // ---------------------------------------------------------------------------
 // Allowed origins
 //
-// The office UI is served from this server (PORT, 3334 by default: `npm run
+// The server UI is served from this server (PORT, 3334 by default: `npm run
 // build`, the packaged desktop app) or from the Vite dev server (UI_DEV_PORT,
 // 3333 by default), and browsers reach either as localhost, 127.0.0.1 or ::1
 // — the Origin header spells it whichever way the page was opened, so match
 // the loopback host rather than a fixed string. Anything else (other ports,
 // `null`, `file://`) is refused. 3333 stays allowed next to a configured
-// AGENT_OFFICE_UI_PORT: `npm run dev` ignores that variable and still opens
+// CLAUDEX_UI_PORT: `npm run dev` ignores that variable and still opens
 // Vite on 3333 (vite.config.ts).
 // ---------------------------------------------------------------------------
 
@@ -299,17 +304,17 @@ function isAllowedHost(hostHeader) {
 // http://127.0.0.1:<PORT>/ is the whole app on one port: the packaged
 // Electron app loads this URL, and `npm run build && npm run server` works in
 // a plain browser. `npm run dev` keeps using Vite on 3333 instead. Tests point
-// AGENT_OFFICE_UI_DIR at a temp dir.
+// CLAUDEX_UI_DIR at a temp dir.
 // ---------------------------------------------------------------------------
 
-const UI_DIR = process.env.AGENT_OFFICE_UI_DIR || join(__dirname, '..', 'dist')
+const UI_DIR = envVar('UI_DIR') || join(__dirname, '..', 'dist')
 const UI_AVAILABLE = existsSync(join(UI_DIR, 'index.html'))
 
 const VERSION = readVersion()
 
 // Sessions nothing has been heard from for this long are assumed gone (a
 // missed SessionEnd, Claude Code killed) and are ended by the stale sweep.
-const STALE_SESSION_MS = (Number(process.env.AGENT_OFFICE_STALE_MINUTES) || 120) * 60_000
+const STALE_SESSION_MS = (Number(envVar('STALE_MINUTES')) || 120) * 60_000
 
 // ---------------------------------------------------------------------------
 // Session tracking — one Claude Code session (terminal) per session_id
@@ -335,9 +340,9 @@ const STALE_SESSION_MS = (Number(process.env.AGENT_OFFICE_STALE_MINUTES) || 120)
 const sessions = new Map()
 
 // Claude Code's config dir (CLAUDE_CONFIG_DIR moves it) holds the registry;
-// tests point AGENT_OFFICE_REGISTRY_DIR at a temp dir
+// tests point CLAUDEX_REGISTRY_DIR at a temp dir
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
-const REGISTRY_DIR = process.env.AGENT_OFFICE_REGISTRY_DIR || join(CLAUDE_DIR, 'sessions')
+const REGISTRY_DIR = envVar('REGISTRY_DIR') || join(CLAUDE_DIR, 'sessions')
 
 /** @type {Map<string, ReturnType<typeof setTimeout>>} sessionId -> timer that forgets an ended session */
 const sessionTimers = new Map()
@@ -934,15 +939,14 @@ app.options('*', (_req, res) => res.sendStatus(204))
 const status = mountStatus(app, { requireToken, broadcast, staleMs: STALE_SESSION_MS })
 
 // Pipeline health: GET /health (server/health.js); POST /event stamps it, the desktop
-// app and `npm run doctor` read it. `sessions` counts every active session, registry-only
-// ones included: "2 sessions, 0 hooks seen" is the picture the doctor needs when the
-// hooks are not installed.
-const health = mountHealth(app, { broadcast, uiAvailable: UI_AVAILABLE, prove: challenge => officeProof(AUTH_TOKEN, challenge), counts: () => ({ clients: wss?.clients.size ?? 0, sessions: Array.from(sessions.values()).filter(s => s.state === 'active').length }) })
+// app reads it. `sessions` counts every active session, registry-only ones included:
+// "2 sessions, 0 hooks seen" says the hooks are not reaching the server.
+const health = mountHealth(app, { broadcast, uiAvailable: UI_AVAILABLE, prove: challenge => serverProof(AUTH_TOKEN, challenge), counts: () => ({ clients: wss?.clients.size ?? 0, sessions: Array.from(sessions.values()).filter(s => s.state === 'active').length }) })
 
 // The registry roster (server/sessions.js): Claude Code's own session registry
 // adds the sessions nothing has hooks for, and ends them when their process
 // goes. Nothing is read until start() — importing the module stays side-effect
-// free and the tests point AGENT_OFFICE_REGISTRY_DIR at a temp dir.
+// free and the tests point CLAUDEX_REGISTRY_DIR at a temp dir.
 const registry = mountRegistry(app, {
   sessions,
   broadcast,
@@ -1042,7 +1046,7 @@ app.post('/pokedex/swap', requireToken, (req, res) => {
 })
 
 /**
- * POST /event — receives hook events from hooks/agent-tracker.sh
+ * POST /event — receives hook events from hooks/claudex-hook.cjs
  *
  * Requires the token (a bearer token, or the hook's request signature).
  * Answers { ok: true }.
@@ -1531,10 +1535,10 @@ app.use(jsonErrorHandler)
 // authenticated at the handshake with the file token. Browsers cannot set
 // headers on a WebSocket, so the page sends it as a subprotocol value:
 //
-//   Sec-WebSocket-Protocol: agent-office, agent-office.token.<token>
+//   Sec-WebSocket-Protocol: claudex, claudex.token.<token>
 //
 // (a header, never part of a URL, so it stays out of history and access
-// logs). The server answers with plain `agent-office`, so the token is not
+// logs). The server answers with plain `claudex`, so the token is not
 // echoed back. src/officeToken.ts builds the same list.
 //
 // A connection that presents the token is trusted: the full snapshot and
@@ -1543,8 +1547,8 @@ app.use(jsonErrorHandler)
 // is, first thing: { type: 'auth', trusted }.
 // ---------------------------------------------------------------------------
 
-const WS_PROTOCOL = 'agent-office'
-const WS_TOKEN_PROTOCOL_PREFIX = 'agent-office.token.'
+const WS_PROTOCOL = 'claudex'
+const WS_TOKEN_PROTOCOL_PREFIX = 'claudex.token.'
 
 /** The token a WebSocket handshake offered as a subprotocol, or ''. */
 function wsTokenFrom(req) {
@@ -1557,7 +1561,7 @@ function wsTokenFrom(req) {
   return ''
 }
 
-/** The subprotocol the server agrees to: `agent-office` when offered, never the token. */
+/** The subprotocol the server agrees to: `claudex` when offered, never the token. */
 function handleProtocols(protocols) {
   return protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false
 }
@@ -1690,7 +1694,7 @@ function broadcast(payload) {
  * used to overwrite the file with its own token and then die on EADDRINUSE,
  * so every hook event to the surviving server was a 401 until it was
  * restarted. Now the loser exits without touching the file.
- * The host comes from AGENT_OFFICE_HOST here, at start, so a refused value
+ * The host comes from CLAUDEX_HOST here, at start, so a refused value
  * is logged next to the banner: whatever it says, 127.0.0.1 is bound
  * (readHost in server/config.js has the reasons).
  * @param {{ port?: number, host?: string }} [opts] — tests bind an ephemeral port
@@ -1737,13 +1741,13 @@ export function start({ port = PORT, host = readHost() } = {}) {
     const address = httpServer.address()
     const linkHost = address && typeof address === 'object' && address.family === 'IPv6' ? `[${address.address}]` : '127.0.0.1'
     const base = UI_AVAILABLE ? `http://${linkHost}:${bound}` : `http://127.0.0.1:${UI_DEV_PORT}`
-    console.log(`  Page: ${officeLink(base)}${UI_AVAILABLE ? '' : '  (the Vite dev server)'}`)
+    console.log(`  Page: ${appLink(base)}${UI_AVAILABLE ? '' : '  (the Vite dev server)'}`)
     console.log()
   })
 }
 
 /** The page URL with the token in its fragment, the one way the page learns it. */
-function officeLink(base) {
+function appLink(base) {
   return `${base.replace(/\/+$/, '')}/#token=${AUTH_TOKEN}`
 }
 
@@ -1773,7 +1777,7 @@ export {
   WS_PROTOCOL,
   WS_TOKEN_PROTOCOL_PREFIX,
   redactForReadOnly,
-  officeLink,
+  appLink,
   PORT,
   UI_DEV_PORT,
   isAllowedOrigin,

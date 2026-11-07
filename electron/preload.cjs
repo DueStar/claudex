@@ -1,7 +1,7 @@
 'use strict'
 
 // The page's only door to the app: a narrow API over IPC (contextIsolation +
-// sandbox stay on, the page never gets Node). Exposed as window.pokeOffice.
+// sandbox stay on, the page never gets Node). Exposed as window.claudex.
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
@@ -11,7 +11,7 @@ function on(channel, fn) {
   return () => ipcRenderer.removeListener(channel, listener)
 }
 
-contextBridge.exposeInMainWorld('pokeOffice', {
+contextBridge.exposeInMainWorld('claudex', {
   isDesktop: true,
   terminals: {
     list: () => ipcRenderer.invoke('terminals:list'),

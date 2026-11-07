@@ -22,13 +22,13 @@ const DEFAULT_SERVER_PORT = 3334
 const VITE_DEV_PORT = 3333
 
 /**
- * The server's port from AGENT_OFFICE_PORT: the same parse as
+ * The server's port from CLAUDEX_PORT (or AGENT_OFFICE_PORT): the same parse as
  * server/config.js readPort (which this file cannot import: the server is
  * ESM and the Electron main process is CommonJS), so the app, the server it
  * spawns and the hooks always agree. Anything that is not a port is 3334.
  */
 function serverPortFromEnv(env = process.env) {
-  const raw = env && env.AGENT_OFFICE_PORT
+  const raw = env && (env.CLAUDEX_PORT || env.AGENT_OFFICE_PORT)
   if (typeof raw !== 'string' || raw === '') return DEFAULT_SERVER_PORT
   const text = raw.trim()
   if (!/^\d{1,5}$/.test(text)) return DEFAULT_SERVER_PORT
@@ -101,7 +101,7 @@ function serverPlan(found, packaged) {
 function serverConflictMessage(port) {
   return `Another Claudex server is already running on port ${port}, but it has no built page to show ` +
     '(a checkout started with `npm run server` before `npm run build`, say).\n\n' +
-    `Stop that server, or run \`npm run build\` in its checkout, or launch ${APP_NAME} with AGENT_OFFICE_PORT set to a free port.`
+    `Stop that server, or run \`npm run build\` in its checkout, or launch ${APP_NAME} with CLAUDEX_PORT set to a free port.`
 }
 
 // ---------------------------------------------------------------------------
@@ -162,23 +162,22 @@ function childSlot() {
 // file in the runtime dir (server/index.js, "The WebSocket"). The page cannot
 // read files, so the app hands it the token in the URL fragment,
 // http://127.0.0.1:3334/#token=<token>, which is never sent to a server; the
-// page keeps it and strips it from the address bar (src/officeToken.ts).
+// page keeps it and strips it from the address bar (src/serverToken.ts).
 // ---------------------------------------------------------------------------
 
 // What the server writes: 32 random bytes as 64 lowercase hex digits
-const OFFICE_TOKEN_PATTERN = /^[0-9a-f]{64}$/
+const SERVER_TOKEN_PATTERN = /^[0-9a-f]{64}$/
 
-/** The runtime dir, as the server resolves it: AGENT_OFFICE_HOME, else ~/.agent-office. */
+/** The runtime dir, as the server resolves it (server/runtime-dir.cjs): CLAUDEX_HOME, else ~/.claudex. */
 function runtimeDirFromEnv(env = process.env, home = os.homedir()) {
-  const dir = env && env.AGENT_OFFICE_HOME
-  return typeof dir === 'string' && dir !== '' ? dir : path.join(home, '.agent-office')
+  return require('../server/runtime-dir.cjs').runtimeDir(env, home)
 }
 
 /** The server token in `file`, or null when it is missing, unreadable or not a token. */
-function readOfficeToken(file) {
+function readServerToken(file) {
   try {
     const token = fs.readFileSync(file, 'utf8').trim()
-    return OFFICE_TOKEN_PATTERN.test(token) ? token : null
+    return SERVER_TOKEN_PATTERN.test(token) ? token : null
   } catch {
     return null
   }
@@ -186,15 +185,15 @@ function readOfficeToken(file) {
 
 /**
  * Whether a /health answer proves it comes from the server holding `token`:
- * `proof` must be HMAC-SHA256(token, 'office-health:' + challenge), the
+ * `proof` must be HMAC-SHA256(token, 'claudex-health:' + challenge), the
  * challenge being fresh random hex the caller sent (server/index.js
- * officeProof). Compared in constant time. The app checks it before it hands
+ * serverProof). Compared in constant time. The app checks it before it hands
  * the token to whatever answers on the port.
  */
-function officeProofMatches(token, challenge, proof) {
+function serverProofMatches(token, challenge, proof) {
   if (typeof token !== 'string' || !token || typeof proof !== 'string' || !/^[0-9a-f]{64}$/.test(proof)) return false
   const { createHmac, timingSafeEqual } = require('crypto')
-  const expected = createHmac('sha256', token).update(`office-health:${challenge}`).digest()
+  const expected = createHmac('sha256', token).update(`claudex-health:${challenge}`).digest()
   return timingSafeEqual(expected, Buffer.from(proof, 'hex'))
 }
 
@@ -204,9 +203,9 @@ function healthChallenge() {
 }
 
 /** The page URL with the token in its fragment (the bare page without a token). */
-function officeLink(base, token) {
+function appLink(base, token) {
   const root = `${String(base).replace(/\/+$/, '')}/`
-  return typeof token === 'string' && OFFICE_TOKEN_PATTERN.test(token) ? `${root}#token=${token}` : root
+  return typeof token === 'string' && SERVER_TOKEN_PATTERN.test(token) ? `${root}#token=${token}` : root
 }
 
 /** A URL fit for a log line: a token in its fragment is masked. */
@@ -381,12 +380,12 @@ module.exports = {
   singleFlight,
   reopenAction,
   childSlot,
-  OFFICE_TOKEN_PATTERN,
+  SERVER_TOKEN_PATTERN,
   runtimeDirFromEnv,
-  readOfficeToken,
-  officeProofMatches,
+  readServerToken,
+  serverProofMatches,
   healthChallenge,
-  officeLink,
+  appLink,
   redactLink,
   isRect,
   clampBounds,

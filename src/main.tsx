@@ -1,11 +1,11 @@
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
-import { captureOfficeToken } from './officeToken'
+import { captureServerToken } from './serverToken'
 
 // The page link carries the server token in its fragment (#token=...): keep it
 // and take it out of the address bar before the first render and the WebSocket
-// that presents it (src/officeToken.ts)
-captureOfficeToken()
+// that presents it (src/serverToken.ts)
+captureServerToken()
 
 // Three pages, one bundle: the app (the widget window), the catch
 // notification (?toast) and the design QA page (?qa)

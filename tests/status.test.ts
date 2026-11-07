@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, removeOffice, type Office, type OfficeServer } from './helpers'
+import { listen, loadServer, removeServer, type Office, type ServerModule } from './helpers'
 import { createStatusStore, validateStatus } from '../server/status.js'
 
 // Pass-through mock so the test can see the server reach for timingSafeEqual
@@ -31,7 +31,7 @@ function status(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function postStatus(server: OfficeServer, body: unknown, token: string = server.AUTH_TOKEN) {
+function postStatus(server: ServerModule, body: unknown, token: string = server.AUTH_TOKEN) {
   return request(server.app).post('/status').set('Authorization', `Bearer ${token}`).send(body as object)
 }
 
@@ -39,8 +39,8 @@ const store = (office: Office) => office.server.app.locals.status
 
 describe('POST /status', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('returns 401 without a bearer token or with a wrong one, and stores nothing', async () => {
     const none = await request(office.server.app).post('/status').send(status())
@@ -103,8 +103,8 @@ describe('POST /status', () => {
 
 describe('POST /status token comparison', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('runs the same constant-time check as POST /event: wrong-length and same-length impostors get 401, the token 200', async () => {
     const { timingSafeEqual } = await import('crypto')
@@ -119,7 +119,7 @@ describe('POST /status token comparison', () => {
       expect(res.status, JSON.stringify(bad)).toBe(401)
       expect(res.body).toEqual({ error: 'Unauthorized' })
       // The shared requireToken middleware answers, not a status.js copy of the check
-      expect(res.headers['www-authenticate']).toBe('Bearer realm="agent-office"')
+      expect(res.headers['www-authenticate']).toBe('Bearer realm="claudex"')
     }
     expect(store(office).has(SID)).toBe(false)
 
@@ -156,7 +156,7 @@ describe('expiry', () => {
   })
 
   it('the mounted store uses AGENT_OFFICE_STALE_MINUTES', async () => {
-    const office = await loadOffice({ env: { AGENT_OFFICE_STALE_MINUTES: '1' } })
+    const office = await loadServer({ env: { AGENT_OFFICE_STALE_MINUTES: '1' } })
     try {
       await postStatus(office.server, status())
       expect(store(office).expireStale(Date.now() + 59_000)).toEqual([])
@@ -165,7 +165,7 @@ describe('expiry', () => {
       expect(events[0]).toMatchObject({ type: 'session_status', sessionId: SID, removed: true })
       expect((await request(office.server.app).get('/status')).body.sessions).toEqual([])
     } finally {
-      removeOffice(office)
+      removeServer(office)
     }
   })
 })
@@ -198,7 +198,7 @@ describe('WebSocket', () => {
   }
 
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     await postStatus(office.server, status())
     const port = await listen(office.server.httpServer)
     url = `ws://127.0.0.1:${port}/ws`
@@ -208,7 +208,7 @@ describe('WebSocket', () => {
     for (const ws of sockets) ws.terminate()
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('the snapshot carries the status summary', async () => {

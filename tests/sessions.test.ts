@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, officeProtocols, postEvent, removeOffice, type Office } from './helpers'
+import { listen, loadServer, serverProtocols, postEvent, removeServer, type Office } from './helpers'
 
 // Two terminals: the fields the tracker puts on every event of each
 const ALPHA = {
@@ -30,8 +30,8 @@ const BETA = {
 
 describe('POST /event', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('is 401 without the token or with a wrong one, and nothing happens', async () => {
     const body = { type: 'session_started', ...ALPHA, source: 'startup' }
@@ -65,8 +65,8 @@ describe('POST /event', () => {
 
 describe('session_started (SessionStart)', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('creates an active session and lists it in GET /sessions', async () => {
     const res = await postEvent(office.server, { type: 'session_started', ...ALPHA, source: 'startup', model: 'claude-haiku-5-5' })
@@ -115,8 +115,8 @@ describe('session_started (SessionStart)', () => {
 
 describe('tool calls (agent_working)', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('the first event naming an unknown session creates it with source "implicit"', () => {
     const ev = office.server.processEvent({ type: 'agent_working', status: 'reading App.tsx', tool: 'Read', ...ALPHA })
@@ -160,13 +160,13 @@ describe('tool calls (agent_working)', () => {
 describe('session_ended (SessionEnd)', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
   })
   afterAll(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('marks the session ended and forgets it after 60 s', () => {
@@ -223,13 +223,13 @@ describe('stale sessions', () => {
   let office: Office | undefined
   afterEach(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
     office = undefined
   })
 
   it('a session with no events for AGENT_OFFICE_STALE_MINUTES ends on the sweep', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
-    office = await loadOffice({ env: { AGENT_OFFICE_STALE_MINUTES: '1' } })
+    office = await loadServer({ env: { AGENT_OFFICE_STALE_MINUTES: '1' } })
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
     office.server.sessions.get(ALPHA.sessionId).lastActivityAt = Date.now() - 2 * 60_000
@@ -243,11 +243,11 @@ describe('stale sessions', () => {
 describe('persistence', () => {
   const offices: Office[] = []
   afterEach(() => {
-    while (offices.length) removeOffice(offices.pop())
+    while (offices.length) removeServer(offices.pop())
   })
 
   it('sessions are saved to agents.json and restored on a fresh import of the same runtime dir (ended ones are not)', async () => {
-    const first = await loadOffice()
+    const first = await loadServer()
     offices.push(first)
     first.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup', model: 'claude-haiku-5-5' })
     first.server.processEvent({ type: 'session_prompt', ...ALPHA, text: 'fix the dex' })
@@ -261,7 +261,7 @@ describe('persistence', () => {
       main: expect.objectContaining({ state: 'working', lastPrompt: 'fix the dex' }),
     })])
 
-    const second = await loadOffice({ dir: first.dir })
+    const second = await loadServer({ dir: first.dir })
     offices.push(second)
     expect(Array.from(second.server.sessions.keys())).toEqual([ALPHA.sessionId])
     expect(second.server.sessions.get(ALPHA.sessionId)).toMatchObject({ project: 'alpha', model: 'claude-haiku-5-5', main: { state: 'working', lastPrompt: 'fix the dex' } })
@@ -281,7 +281,7 @@ describe('persistence', () => {
         { project: 'no-id', state: 'active', startedAt: now, lastActivityAt: now },
       ],
     }))
-    const office = await loadOffice({ dir, env: { AGENT_OFFICE_STALE_MINUTES: '60' } })
+    const office = await loadServer({ dir, env: { AGENT_OFFICE_STALE_MINUTES: '60' } })
     offices.push(office)
     expect(Array.from(office.server.sessions.keys())).toEqual(['fresh'])
     // The office worker list of an older file is left behind
@@ -291,7 +291,7 @@ describe('persistence', () => {
   it('ignores a corrupt agents.json', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'claudex-test-'))
     writeFileSync(join(dir, 'agents.json'), '{ not json')
-    const office = await loadOffice({ dir })
+    const office = await loadServer({ dir })
     offices.push(office)
     expect(office.server.sessions.size).toBe(0)
   })
@@ -302,7 +302,7 @@ describe('WebSocket snapshot', () => {
   let ws: WebSocket | undefined
 
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, text: 'secret plan' })
   })
@@ -311,13 +311,13 @@ describe('WebSocket snapshot', () => {
     ws?.terminate()
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('carries the sessions, the status-line store, the game and the cloud — and nothing of the old office', async () => {
     const port = await listen(office.server.httpServer)
     const snapshot = await new Promise<any>((resolve, reject) => {
-      ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, officeProtocols(office.server))
+      ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, serverProtocols(office.server))
       // The first message says whether the connection is trusted; the snapshot follows
       ws.on('message', raw => { const m = JSON.parse(raw.toString()); if (m.type === 'snapshot') resolve(m) })
       ws.once('error', reject)

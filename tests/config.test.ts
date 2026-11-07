@@ -15,7 +15,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import {
   DEFAULT_HOST, DEFAULT_PORT, DEFAULT_UI_PORT, readHost, readPort, readUiPort,
 } from '../server/config.js'
-import { loadOffice, removeOffice, type Office } from './helpers'
+import { loadServer, removeServer, type Office } from './helpers'
 
 /** A logger that records instead of printing. */
 function recorder() {
@@ -137,7 +137,7 @@ describe('the server on a configured port', () => {
     for (const office of offices) {
       await new Promise<void>(res => office.server.wss.close(() => res()))
       await new Promise<void>(res => office.server.httpServer.close(() => res()))
-      removeOffice(office)
+      removeServer(office)
     }
   })
 
@@ -151,7 +151,7 @@ describe('the server on a configured port', () => {
 
   it('start() with AGENT_OFFICE_PORT set listens there, writes the token and answers GET /health', async () => {
     const port = await freePort()
-    const office = await loadOffice({ env: { AGENT_OFFICE_PORT: String(port) } })
+    const office = await loadServer({ env: { AGENT_OFFICE_PORT: String(port) } })
     offices.push(office)
     expect(office.server.PORT).toBe(port)
     await started(office)
@@ -164,7 +164,7 @@ describe('the server on a configured port', () => {
 
   it('a non-loopback AGENT_OFFICE_HOST is logged as refused, with the reason, and 127.0.0.1 is bound', async () => {
     const port = await freePort()
-    const office = await loadOffice({ env: { AGENT_OFFICE_PORT: String(port) } })
+    const office = await loadServer({ env: { AGENT_OFFICE_PORT: String(port) } })
     offices.push(office)
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     spies.push(error)
@@ -186,8 +186,8 @@ describe('the server on a configured port', () => {
 describe('the port-derived surfaces (AGENT_OFFICE_PORT=4000)', () => {
   let office: Office
 
-  beforeAll(async () => { office = await loadOffice({ env: { AGENT_OFFICE_PORT: '4000' } }) })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer({ env: { AGENT_OFFICE_PORT: '4000' } }) })
+  afterAll(() => removeServer(office))
 
   it('the origin allowlist accepts the configured port (and Vite) and rejects 3334', async () => {
     const { isAllowedOrigin } = office.server
@@ -206,8 +206,8 @@ describe('the port-derived surfaces (AGENT_OFFICE_PORT=4000)', () => {
 
 describe('AGENT_OFFICE_UI_PORT widens the origin allowlist', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice({ env: { AGENT_OFFICE_UI_PORT: '3400' } }) })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer({ env: { AGENT_OFFICE_UI_PORT: '3400' } }) })
+  afterAll(() => removeServer(office))
 
   it('allows the configured Vite port and still 3333 and the server port', () => {
     expect(office.server.UI_DEV_PORT).toBe(3400)

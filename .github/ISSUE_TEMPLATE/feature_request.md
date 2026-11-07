@@ -1,21 +1,15 @@
 ---
-name: Feature request
-about: Something the office should show or do
+name: 기능 제안
+about: Claudex에 있었으면 하는 것
 title: ''
 labels: enhancement
 assignees: ''
 ---
 
-**What should the office do**
-One paragraph. If it reflects something Claude Code really does (a hook event, a status-line field, a state), name it — truth features come first; see CONTRIBUTING.md.
+**무엇이 있었으면 하나요**
 
-**Why**
-What you would do with it, or what you are missing today.
+**왜 필요한가요**
+지금 무엇이 불편한지, 생기면 어떻게 쓸지 적어 주세요.
 
-**Environment** (if it matters)
-- Claude Code version (`claude --version`):
-- OS (macOS / Linux / Windows via WSL or Git Bash):
-- How you run the office: `npm run build && npm run server` / `bash scripts/start-office.sh` / `npm run dev:all` / desktop app
-
-**Anything else**
-Sketches, screenshots, links to the hook or status-line docs.
+**그 밖에**
+스케치, 스크린샷, 참고 링크

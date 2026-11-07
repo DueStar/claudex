@@ -14,7 +14,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, officeProtocols, postEvent, removeOffice, type Office } from './helpers'
+import { listen, loadServer, serverProtocols, postEvent, removeServer, type Office } from './helpers'
 
 const ALPHA = {
   sessionId: 'aaaaaaaa-1111-4111-8111-111111111111',
@@ -61,8 +61,8 @@ function raise(office: Office, body: Record<string, unknown>) {
 
 describe('session_prompt (UserPromptSubmit)', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('a new session starts with an idle main record', () => {
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
@@ -161,11 +161,11 @@ describe('session_prompt (UserPromptSubmit)', () => {
 describe('the transcript stays behind the token', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'count /etc please' })
     office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-1', text: '/etc has 154 entries.', backgroundTasks: [], crons: 0 })
   })
-  afterAll(() => removeOffice(office))
+  afterAll(() => removeServer(office))
 
   it('GET /sessions leaves the prompt and reply text out of main unless the token is presented; the WS snapshot keeps them', async () => {
     const open = await request(office.server.app).get('/sessions')
@@ -181,13 +181,13 @@ describe('the transcript stays behind the token', () => {
 describe('main-thread tool calls (agent_working without an agent)', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
   })
   afterAll(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('moves Claude to working and logs the change once, not on every tool call', () => {
@@ -235,13 +235,13 @@ describe('main-thread tool calls (agent_working without an agent)', () => {
 describe('session_needs_you (PermissionRequest / Notification)', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'write probe.txt' })
   })
   afterAll(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('PermissionRequest -> parked, then needs-you with {kind, toolName, summary, since, promptId} once the 300 ms debounce runs out', () => {
@@ -368,13 +368,13 @@ describe('session_needs_you (PermissionRequest / Notification)', () => {
 describe('session_tool_done (main-thread PostToolUse / PostToolBatch)', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'write probe.txt' })
   })
   afterAll(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('a headless auto-deny (PermissionRequest, PostToolBatch ~60 ms later) never shows: the parked wait is withdrawn, nothing is broadcast', () => {
@@ -438,13 +438,13 @@ describe('a permission hand comes down for the call that raised it, not another 
   const PUSH = '1111aaaa2222bbbb'    // the hook's callKey of `git push origin main`
   const STATUS = '3333cccc4444dddd'  // ...and of `git status`, allow-listed, running beside it
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'push it' })
   })
   afterAll(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('the sibling\'s PostToolUse leaves the hand up (inside the debounce, and long after it); the asking call\'s own lowers it', () => {
@@ -503,13 +503,13 @@ describe('a permission a worker asked for (PermissionRequest inside a subagent)'
   const OTHER = 'ac5ff55b850b4fecf'   // another worker of the session
   const RM = '5555eeee6666ffff'
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'explore' })
   })
   afterAll(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
   })
   const ask = () => raise(office, { ...ALPHA, kind: 'permission', promptId: 'p-1', toolName: 'Bash', summary: 'rm x', agentId: SUB, callKey: RM })
 
@@ -559,11 +559,11 @@ describe('a permission a worker asked for (PermissionRequest inside a subagent)'
 describe('session_turn_end (Stop)', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'count /etc' })
   })
-  afterAll(() => removeOffice(office))
+  afterAll(() => removeServer(office))
 
   it('with no background task: idle, the reply is stored, needs-you cleared', () => {
     raise(office, { ...ALPHA, kind: 'permission', promptId: 'p-1', toolName: 'Bash', summary: 'ls /etc' })
@@ -639,10 +639,10 @@ describe('session_turn_end (Stop)', () => {
 describe('session_error (StopFailure) and session_compact (Pre/PostCompact)', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
   })
-  afterAll(() => removeOffice(office))
+  afterAll(() => removeServer(office))
 
   it('an API error -> error with {error, detail}; detail clamped to 200 by POST /event; the next tool call clears it', async () => {
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'go' })
@@ -711,10 +711,10 @@ describe('session_error (StopFailure) and session_compact (Pre/PostCompact)', ()
 describe('session_cwd (CwdChanged) and session_model (PostModelSwitch)', () => {
   let office: Office
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup', model: 'claude-haiku-5-5' })
   })
-  afterAll(() => removeOffice(office))
+  afterAll(() => removeServer(office))
 
   it('a cd moves the session to the new project; the broadcast is the session with oldCwd', () => {
     const ev = office.server.processEvent({ type: 'session_cwd', ...ALPHA, cwd: '/home/me/beta', project: 'beta', oldCwd: '/home/me/alpha' })
@@ -751,10 +751,10 @@ describe('session_cwd (CwdChanged) and session_model (PostModelSwitch)', () => {
 
 describe('lifecycle: session_ended resets main, a resume starts it idle again', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
+  beforeAll(async () => { office = await loadServer() })
   afterAll(() => {
     vi.useRealTimers()
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('an ended session is idle with no prompt, reply or needs-you left (parked ones dropped); the resumed session starts idle', () => {
@@ -784,7 +784,7 @@ describe('where main travels', () => {
   let ws: WebSocket | undefined
   const messages: any[] = []
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'ship it' })
     raise(office, { ...ALPHA, kind: 'permission', promptId: 'p-1', toolName: 'Bash', summary: 'git push' })
@@ -795,7 +795,7 @@ describe('where main travels', () => {
     ws?.terminate()
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('GET /sessions (with the token) carries main per session', async () => {
@@ -811,7 +811,7 @@ describe('where main travels', () => {
   it('the WS snapshot carries main (text included, for the office page with the token), and a needs-you that outlives the debounce is broadcast with needsYou and main', async () => {
     const port = await listen(office.server.httpServer)
     const snapshot = await new Promise<any>((resolve, reject) => {
-      ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, officeProtocols(office.server))
+      ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, serverProtocols(office.server))
       ws.on('message', raw => {
         const msg = JSON.parse(raw.toString())
         messages.push(msg)
@@ -854,11 +854,11 @@ describe('where main travels', () => {
 describe('persistence', () => {
   const offices: Office[] = []
   afterEach(() => {
-    while (offices.length) removeOffice(offices.pop())
+    while (offices.length) removeServer(offices.pop())
   })
 
   it('main is saved in agents.json with its session and restored on a fresh import of the same runtime dir', async () => {
-    const first = await loadOffice()
+    const first = await loadServer()
     offices.push(first)
     first.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     first.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-1', text: 'count in the background' })
@@ -870,7 +870,7 @@ describe('persistence', () => {
       lastPrompt: 'count in the background', lastPromptAt: expect.any(Number), lastReply: 'Counting.', lastReplyAt: expect.any(Number),
     })
 
-    const second = await loadOffice({ dir: first.dir })
+    const second = await loadServer({ dir: first.dir })
     offices.push(second)
     expect(second.server.sessions.get(ALPHA.sessionId).main).toEqual(saved.sessions[0].main)
     const list = await request(second.server.app).get('/sessions')
@@ -891,7 +891,7 @@ describe('persistence', () => {
         { id: 'partial', project: 'partial', state: 'active', startedAt: now, lastActivityAt: now, agentIds: [], main: { state: 'working', since: now, lastPrompt: 'x' } },
       ],
     }))
-    const office = await loadOffice({ dir })
+    const office = await loadServer({ dir })
     offices.push(office)
     expect(office.server.sessions.get('older').main).toEqual({ state: 'idle', since: expect.any(Number), waitingOn: 0 })
     expect(office.server.sessions.get('junk').main).toEqual({ state: 'idle', since: expect.any(Number), waitingOn: 0 })
@@ -901,8 +901,8 @@ describe('persistence', () => {
 
 describe('POST /event body limit', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('takes a session event well over 10 KB (2000 non-ASCII characters escape to six bytes each) and still refuses one over 64 KB; everything else keeps 10 KB', async () => {
     const text = '☃'.repeat(2000)

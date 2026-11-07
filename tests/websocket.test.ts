@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import request from 'supertest'
 import WebSocket from 'ws'
-import { listen, loadOffice, postEvent, removeOffice, type Office } from './helpers'
+import { listen, loadServer, postEvent, removeServer, type Office } from './helpers'
 
 type Message = Record<string, any>
 
@@ -48,7 +48,7 @@ describe('WebSocket /ws', () => {
   const clients: WebSocket[] = []
 
   beforeAll(async () => {
-    office = await loadOffice()
+    office = await loadServer()
     office.server.processEvent({ type: 'session_started', sessionId: 's-ws-1', project: 'dex', cwd: '/home/me/dex', source: 'startup' })
     port = await listen(office.server.httpServer)
     url = `ws://127.0.0.1:${port}/ws`
@@ -58,7 +58,7 @@ describe('WebSocket /ws', () => {
     for (const ws of clients) ws.terminate()
     await new Promise<void>(res => office.server.wss.close(() => res()))
     await new Promise<void>(res => office.server.httpServer.close(() => res()))
-    removeOffice(office)
+    removeServer(office)
   })
 
   it('sends a snapshot with the sessions and the game on connect', async () => {
@@ -112,8 +112,8 @@ describe('WebSocket /ws', () => {
 
 describe('HTTP origin check', () => {
   let office: Office
-  beforeAll(async () => { office = await loadOffice() })
-  afterAll(() => removeOffice(office))
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
 
   it('returns 403 for a disallowed origin and allows localhost:3333 or no origin', async () => {
     const evil = await request(office.server.app).get('/health').set('Origin', 'http://evil.example')

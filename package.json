@@ -2,15 +2,17 @@
   "name": "claudex",
   "productName": "Claudex",
   "version": "1.3.7",
-  "description": "Pokémon-skinned desktop office for Claude Code sessions (personal, local use)",
-  "author": "W17ANT",
+  "description": "Claude Code sessions with Pokémon partners: a Windows desktop app (personal, non-commercial)",
+  "author": "DueStar",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/W17ant/Claude-Office.git"
+    "url": "https://github.com/DueStar/claudex.git"
   },
-  "homepage": "https://github.com/W17ant/Claude-Office",
-  "bugs": "https://github.com/W17ant/Claude-Office/issues",
+  "homepage": "https://github.com/DueStar/claudex",
+  "bugs": {
+    "url": "https://github.com/DueStar/claudex/issues"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -23,15 +25,8 @@
     "electron": "electron .",
     "start": "npm run dev:electron",
     "server": "node server/index.js",
-    "open": "node scripts/open-office.mjs",
-    "rotate-token": "node scripts/rotate-token.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "install-hooks": "bash hooks/install-hooks.sh",
-    "install-status-line": "bash hooks/install-hooks.sh --status-line-only",
-    "uninstall-hooks": "bash hooks/install-hooks.sh --uninstall",
-    "doctor": "node scripts/doctor.mjs",
-    "version": "node scripts/sync-plugin-version.mjs && git add .claude-plugin/plugin.json",
     "release": "node scripts/release.mjs"
   },
   "dependencies": {
@@ -74,39 +69,13 @@
       "electron/**",
       "server/**",
       "hooks/**",
-      "!dist/sprites/pokemon/**",
-      "!dist/rooms/pokemon-*.png"
+      "!dist/sprites/pokemon/**"
     ],
     "npmRebuild": false,
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "icon": "build/icon.png",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
-      ]
-    },
     "win": {
       "icon": "build/icon.png",
       "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "differentialPackage": false
-    },
-    "linux": {
-      "icon": "build/icon.png",
-      "category": "Development",
-      "target": [
-        "AppImage"
+        "dir"
       ]
     }
   },

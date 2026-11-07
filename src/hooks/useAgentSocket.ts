@@ -1,9 +1,9 @@
 /**
  * useAgentSocket — the app's WebSocket to the local server.
  *
- * Connects to the server's /ws (officeWsUrl: the page's own origin when the
+ * Connects to the server's /ws (serverWsUrl: the page's own origin when the
  * server serves the page, the configured port under Vite), presenting the
- * server token (src/officeToken.ts) as a subprotocol at every (re)connect.
+ * server token (src/serverToken.ts) as a subprotocol at every (re)connect.
  *
  *  - Auto-reconnect with exponential back-off (capped at 30 s)
  *  - Tracks the Claude Code sessions (one per terminal) from the snapshot and
@@ -16,13 +16,13 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import type { ServerEvent, SessionInfo, SessionRegistry } from '../types'
 import type { SessionStatus } from '../meters'
 import { projectFromCwd } from '../mainState'
-import { officeWsUrl } from '../serverUrl'
-import { officeWsProtocols } from '../officeToken'
+import { serverWsUrl } from '../serverUrl'
+import { serverWsProtocols } from '../serverToken'
 
 export interface AgentSocketOptions {
   /** Called for every incoming event. Stable reference recommended (useCallback). */
   onEvent?: (event: ServerEvent) => void
-  /** WebSocket URL — defaults to officeWsUrl() (src/serverUrl.ts) */
+  /** WebSocket URL — defaults to serverWsUrl() (src/serverUrl.ts) */
   url?: string
 }
 
@@ -90,7 +90,7 @@ function fullRecord(msg: ServerEvent, sessionId: string): SessionPatch {
 }
 
 export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketResult {
-  const { onEvent, url = officeWsUrl() } = options
+  const { onEvent, url = serverWsUrl() } = options
 
   const [connected, setConnected] = useState(false)
   const [sessions, setSessions]   = useState<SessionInfo[]>([])
@@ -219,7 +219,7 @@ export function useAgentSocket(options: AgentSocketOptions = {}): AgentSocketRes
     let ws: WebSocket
     try {
       // The token is read at each attempt: one captured since the last try is used at once
-      ws = new WebSocket(url, officeWsProtocols())
+      ws = new WebSocket(url, serverWsProtocols())
     } catch {
       scheduleReconnect()
       return

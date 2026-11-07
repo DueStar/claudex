@@ -26,15 +26,34 @@ function loadPty() {
   return require('node-pty')
 }
 
+/**
+ * The Claude Code events the hook forwards (hooks/claudex-hook.cjs). No
+ * matchers: every tool call is a step for the session's Pokémon, and the
+ * other events either have no matcher support or are wanted every time.
+ */
+const HOOK_EVENTS = [
+  'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStop', 'SessionStart', 'SessionEnd',
+  'UserPromptSubmit', 'Stop', 'PermissionRequest', 'Notification', 'StopFailure', 'PreCompact',
+  'PostCompact', 'PostToolBatch', 'CwdChanged', 'PostModelSwitch',
+]
+
+/**
+ * A command that runs one of hooks/*.cjs with this very app in Node mode
+ * (ELECTRON_RUN_AS_NODE), so a session needs nothing installed besides
+ * Claude Code: no Python, no curl. Claude Code runs hook commands in its
+ * shell (Git Bash on Windows), hence the POSIX form and forward slashes.
+ */
+function nodeCommand(runtime, script) {
+  const slash = (p) => p.split(path.sep).join('/')
+  return `ELECTRON_RUN_AS_NODE=1 "${slash(runtime)}" "${slash(script)}"`
+}
+
 /** The hooks + status line for app sessions, written to userData once per start. */
-function writeSessionSettings(repoRoot, dir) {
-  const hooksFile = path.join(repoRoot, 'hooks', 'hooks.json')
-  const root = repoRoot.split(path.sep).join('/')
-  const raw = fs.readFileSync(hooksFile, 'utf8').split('${CLAUDE_PLUGIN_ROOT}').join(root)
-  const { hooks } = JSON.parse(raw)
+function writeSessionSettings(repoRoot, dir, runtime = process.execPath) {
+  const hook = nodeCommand(runtime, path.join(repoRoot, 'hooks', 'claudex-hook.cjs'))
   const settings = {
-    hooks,
-    statusLine: { type: 'command', command: `bash "${root}/hooks/status-line.sh"` },
+    hooks: Object.fromEntries(HOOK_EVENTS.map(e => [e, [{ hooks: [{ type: 'command', command: hook }] }]])),
+    statusLine: { type: 'command', command: nodeCommand(runtime, path.join(repoRoot, 'hooks', 'status-line.cjs')) },
   }
   fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, 'session-settings.json')
@@ -200,4 +219,4 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   return { create, write, sendInstruction, resize, buffer, list, rename, close, killAll }
 }
 
-module.exports = { createTerminalManager, writeSessionSettings, cleanEnv }
+module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, HOOK_EVENTS }

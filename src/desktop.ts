@@ -1,6 +1,6 @@
 /**
  * desktop.ts — the bridge to the desktop app (electron/preload.cjs). In a
- * plain browser `window.pokeOffice` is absent and every helper is a no-op
+ * plain browser `window.claudex` is absent and every helper is a no-op
  * (no terminals, no game actions).
  */
 
@@ -31,7 +31,7 @@ export interface PastSession {
   running: boolean
 }
 
-interface PokeOfficeBridge {
+interface ClaudexBridge {
   isDesktop: true
   terminals: {
     list(): Promise<TerminalInfo[]>
@@ -55,8 +55,8 @@ interface PokeOfficeBridge {
     sync(): Promise<{ ok: boolean; reason?: string }>
   }
   env: {
-    check(): Promise<Record<'claude' | 'git' | 'python', { ok: boolean; version: string | null; link: string }>>
-    openLink(key: 'claude' | 'git' | 'python' | 'release'): Promise<void>
+    check(): Promise<Record<'claude' | 'git', { ok: boolean; version: string | null; link: string }>>
+    openLink(key: 'claude' | 'git' | 'release'): Promise<void>
   }
   toast: {
     show(event: unknown): void
@@ -100,10 +100,10 @@ export interface UpdateState {
 export type WidgetMode = 'widget' | 'window' | 'fullscreen'
 
 declare global {
-  interface Window { pokeOffice?: PokeOfficeBridge }
+  interface Window { claudex?: ClaudexBridge }
 }
 
-export const bridge: PokeOfficeBridge | null = typeof window !== 'undefined' ? window.pokeOffice ?? null : null
+export const bridge: ClaudexBridge | null = typeof window !== 'undefined' ? window.claudex ?? null : null
 export const isDesktop = !!bridge
 
 let terminals: TerminalInfo[] = []

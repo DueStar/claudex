@@ -13,7 +13,7 @@ import './styles/widget.css'
 import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
-import { officeWsUrl } from './serverUrl'
+import { serverWsUrl } from './serverUrl'
 import { dispatchMeters, useMeters, formatClockTime, contextTone, type SessionStatus } from './meters'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
@@ -57,8 +57,7 @@ function moodOf(s: SessionInfo | undefined, t: TerminalInfo | undefined): Mood {
 
 const PREREQ_LABEL = {
   claude: { name: 'Claude Code', why: '포켓몬이 일할 Claude 세션' },
-  git: { name: 'Git for Windows', why: 'Claude Code와 기록 훅이 쓰는 Git Bash' },
-  python: { name: 'Python 3', why: '세션 기록(훅)을 만드는 데 필요' },
+  git: { name: 'Git for Windows', why: 'Claude Code가 쓰는 Git Bash' },
 } as const
 
 const MOOD_LABEL: Record<Mood, string> = {
@@ -115,7 +114,7 @@ const Widget: React.FC = () => {
   const meters = useMeters()
   const terminals = useTerminals()
   const onEvent = useCallback((e: Parameters<typeof dispatchMeters>[0]) => { dispatchMeters(e); dispatchPokedex(e as never); dispatchCloud(e as never) }, [])
-  const { sessions, connected } = useAgentSocket({ onEvent, url: officeWsUrl() })
+  const { sessions, connected } = useAgentSocket({ onEvent, url: serverWsUrl() })
 
   const [update, setUpdate] = useState<UpdateState | null>(null)
   useEffect(() => {
@@ -237,7 +236,7 @@ const Widget: React.FC = () => {
     const r = await bridge?.cloud.signIn()
     setNote(r?.ok ? '브라우저에서 구글 로그인을 마치면 여기로 돌아와요.' : `로그인을 시작하지 못했어요 (${r?.reason ?? '앱에서만 가능'})`)
   }
-  // What a session needs on this PC (electron/prereqs.cjs): Claude Code, Git, Python
+  // What a session needs on this PC (electron/prereqs.cjs): Claude Code and Git
   type Prereqs = Awaited<ReturnType<NonNullable<typeof bridge>['env']['check']>>
   const [prereqs, setPrereqs] = useState<Prereqs | null>(null)
   const [checking, setChecking] = useState(false)
