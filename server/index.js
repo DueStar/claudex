@@ -14,10 +14,9 @@
 import express from 'express'
 import { createServer } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
-import { readFileSync, existsSync, writeFileSync, mkdirSync, realpathSync, chmodSync, unlinkSync, openSync, fstatSync, closeSync, constants as fsConstants } from 'fs'
+import { readFileSync, existsSync, mkdirSync, realpathSync, chmodSync } from 'fs'
 import { homedir } from 'os'
 import { join, basename } from 'path'
-import { randomBytes, timingSafeEqual, createHmac } from 'crypto'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import { mountStatus } from './status.js'
@@ -28,6 +27,10 @@ import { createCloud } from './cloud.js'
 import { mountHealth, readVersion } from './health.js'
 import { readPort, readUiPort, readHost } from './config.js'
 import runtimeDirs from './runtime-dir.cjs'
+import { createGuards } from './guards.js'
+import { MAX_TEXT_LEN, clampString, clampCount, transcriptText, sanitiseTasks, validateEvent } from './events.js'
+import { WS_PROTOCOL, WS_TOKEN_PROTOCOL_PREFIX, wsTokenFrom, handleProtocols, redactForReadOnly } from './ws-protocol.js'
+import { createAuth, readTokenFile as readTokenFileAt, writePrivate, serverProof, bearerToken, TOKEN_PATTERN } from './auth.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -82,46 +85,9 @@ try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }) } catch {}
 // build left group/world-readable keeps those bits. Tighten it to 0700.
 try { chmodSync(RUNTIME_DIR, 0o700) } catch {}
 const TOKEN_FILE = join(RUNTIME_DIR, 'auth-token')
-// What the server writes: 32 random bytes as 64 lowercase hex digits
-const TOKEN_PATTERN = /^[0-9a-f]{64}$/
-
-/**
- * The token a previous start left in `file`, if it is still safe to keep
- * using: a regular file (a symlink is not followed), owned by this user,
- * with no group or other permission bits, holding a well-formed token.
- * Anything else — missing, malformed, readable by others, someone else's —
- * is null, and the server mints a new token instead. The file is opened
- * once and checked through that descriptor, so it cannot be swapped between
- * the check and the read. Windows has no uid or mode bits to check.
- */
-function readTokenFile(file = TOKEN_FILE) {
-  let fd
-  try {
-    fd = openSync(file, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0))
-    const st = fstatSync(fd)
-    if (!st.isFile()) return null
-    if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return null
-    if (process.platform !== 'win32' && (st.mode & 0o077) !== 0) return null
-    const token = readFileSync(fd, 'utf8').trim()
-    return TOKEN_PATTERN.test(token) ? token : null
-  } catch {
-    return null
-  } finally {
-    if (fd !== undefined) try { closeSync(fd) } catch {}
-  }
-}
-
-const REUSED_TOKEN = readTokenFile()
-const AUTH_TOKEN = REUSED_TOKEN ?? randomBytes(32).toString('hex')
-
-/**
- * Write a file only this user can read. The mode applies when the file is
- * created, so a file an older version left world-readable is fixed as well.
- */
-function writePrivate(path, data) {
-  writeFileSync(path, data, { mode: 0o600 })
-  try { chmodSync(path, 0o600) } catch {}
-}
+// The token and its checks (bearer or request signature): server/auth.js
+const { AUTH_TOKEN, REUSED_TOKEN, writeTokenFile, tokenMatches, requireToken } = createAuth({ tokenFile: TOKEN_FILE })
+const readTokenFile = (file = TOKEN_FILE) => readTokenFileAt(file)
 
 /**
  * Repair the runtime dir so another local user cannot read it: mkdirSync's
@@ -132,169 +98,9 @@ function repairPrivateModes() {
   try { chmodSync(RUNTIME_DIR, 0o700) } catch {}
 }
 
-/**
- * Put AUTH_TOKEN in the token file (after listen). A reused token is already
- * there. A new one replaces whatever the file was — unlinked first and then
- * created exclusively, so a symlink or a file owned by someone else is
- * replaced rather than written through.
- */
-function writeTokenFile() {
-  if (readTokenFile() === AUTH_TOKEN) return
-  try {
-    try { unlinkSync(TOKEN_FILE) } catch (err) { if (err.code !== 'ENOENT') throw err }
-    writeFileSync(TOKEN_FILE, AUTH_TOKEN, { mode: 0o600, flag: 'wx' })
-    try { chmodSync(TOKEN_FILE, 0o600) } catch {}
-  } catch (err) {
-    console.warn('[auth] Could not write token file:', err.message)
-  }
-}
-
-/**
- * The server's answer to an opener's /health challenge: HMAC-SHA256 of the
- * token over 'claudex-health:' + challenge. Only a holder of the token can
- * make it, so an opener knows it is about to hand the token to this server
- * and not to a process that took the port while the server was down.
- */
-function serverProof(token, challenge) {
-  return createHmac('sha256', token).update(`claudex-health:${challenge}`).digest('hex')
-}
-
-/** Constant-time comparison of a supplied token with ours. */
-function tokenMatches(supplied) {
-  if (typeof supplied !== 'string' || supplied.length === 0) return false
-  const a = Buffer.from(supplied, 'utf8')
-  const b = Buffer.from(AUTH_TOKEN, 'utf8')
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-
-function bearerToken(req) {
-  const header = req.headers['authorization'] ?? ''
-  return header.startsWith('Bearer ') ? header.slice(7).trim() : ''
-}
-
-// ---------------------------------------------------------------------------
-// Request signing — how the hook proves it holds the token without ever
-// putting it on a command line
-//
-// The hook (and status line) run as short-lived processes whose argv every
-// local user can read in `ps` / /proc/<pid>/cmdline. A bearer token on that
-// argv leaks to anyone on the machine, and since the token is stable across
-// restarts (#41) the leak stays useful — a port squatter that answered the
-// first POST while the server was down would own the token for good. So the
-// hook no longer sends the token at all: it signs each request with
-// HMAC-SHA256(token, method\npath\ntimestamp\nbody) and sends the timestamp
-// and the signature as headers. A reader of the argv sees only a signature
-// bound to one method, path, body and minute — useless beyond replaying that
-// exact request inside the window, which is the victim's own event. The
-// token stays in the 0600 file (and, for the hook, in its own process memory
-// / environment, which only its owner can read), never on a command line.
-//
-// The server accepts a request to a token-guarded route when it carries
-// either a valid bearer token (the app sends it from its own memory, not
-// argv) or a valid signature whose timestamp is within SIGNATURE_WINDOW_MS.
-// Both checks are constant-time.
-// ---------------------------------------------------------------------------
-
-/** ±1 minute: wide enough for clock skew, narrow enough that a leaked signature expires fast. */
-const SIGNATURE_WINDOW_MS = 60_000
-
-/** HMAC-SHA256(token, canonical request) as the hook computes it. The key is the token string's bytes. */
-function requestSignature(method, path, timestamp, rawBody) {
-  const h = createHmac('sha256', AUTH_TOKEN)
-  h.update(`${method}\n${path}\n${timestamp}\n`)
-  h.update(rawBody && rawBody.length ? rawBody : Buffer.alloc(0))
-  return h.digest()
-}
-
-/**
- * True when the request carries a signature this server's token would
- * produce over the raw body, for a timestamp within the window. `req.rawBody`
- * is captured by express.json's verify hook (the exact bytes the hook signed);
- * it is empty for a GET, which signs an empty body.
- */
-function signatureValid(req) {
-  const ts = req.headers['x-claudex-timestamp']
-  const sig = req.headers['x-claudex-signature']
-  if (typeof ts !== 'string' || typeof sig !== 'string' || !/^[0-9a-f]+$/.test(sig)) return false
-  const tnum = Number(ts)
-  if (!Number.isFinite(tnum) || Math.abs(Date.now() - tnum) > SIGNATURE_WINDOW_MS) return false
-  const given = Buffer.from(sig, 'hex')
-  const expected = requestSignature(req.method, req.originalUrl, ts, req.rawBody)
-  return given.length === expected.length && timingSafeEqual(given, expected)
-}
-
-/** A caller proved it holds the token: a valid bearer token, or a valid request signature. */
-function tokenAuthed(req) {
-  return tokenMatches(bearerToken(req)) || signatureValid(req)
-}
-
-function unauthorized(res, body) {
-  res.setHeader('WWW-Authenticate', 'Bearer realm="claudex"')
-  return res.status(401).json(body)
-}
-
-/** Express middleware: the route needs the server's token (bearer or a valid signature). */
-function requireToken(req, res, next) {
-  if (tokenAuthed(req)) return next()
-  unauthorized(res, { error: 'Unauthorized' })
-}
-
-/** Same, answering in the JSON-RPC envelope for the A2A endpoint. */
-// ---------------------------------------------------------------------------
-// Allowed origins
-//
-// The server UI is served from this server (PORT, 3334 by default: `npm run
-// build`, the packaged desktop app) or from the Vite dev server (UI_DEV_PORT,
-// 3333 by default), and browsers reach either as localhost, 127.0.0.1 or ::1
-// — the Origin header spells it whichever way the page was opened, so match
-// the loopback host rather than a fixed string. Anything else (other ports,
-// `null`, `file://`) is refused. 3333 stays allowed next to a configured
-// CLAUDEX_UI_PORT: `npm run dev` ignores that variable and still opens
-// Vite on 3333 (vite.config.ts).
-// ---------------------------------------------------------------------------
-
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
-const ALLOWED_ORIGIN_PORTS = new Set([String(UI_DEV_PORT), '3333', String(PORT)])
-
-function isAllowedOrigin(origin) {
-  if (!origin) return true  // no Origin header: curl, the hook script, same-origin GETs
-  try {
-    const { protocol, hostname, port } = new URL(origin)
-    return protocol === 'http:' && LOOPBACK_HOSTS.has(hostname) && ALLOWED_ORIGIN_PORTS.has(port)
-  } catch {
-    return false  // not a URL (`null`)
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Host-header guard — defeats DNS rebinding
-//
-// The origin allowlist keeps cross-origin browser requests out, but a
-// same-origin GET from a page the browser rebound to 127.0.0.1 carries no
-// Origin header (the Fetch spec adds Origin only to CORS-tainted or
-// non-GET/HEAD requests). Such a request would otherwise read every open GET
-// — the pending command lines on GET /permissions, cwds and titles on
-// GET /sessions, agent tasks on GET /agents. What it cannot forge is the Host
-// header the browser sends: a rebinding page's Host is still its own domain.
-// So every request must name a loopback host (any port: Vite proxies as
-// localhost:3333, Electron loads 127.0.0.1:<port>); anything else is 421.
-// ---------------------------------------------------------------------------
-
-/** The host name of a Host header, port stripped, brackets kept for IPv6 ([::1]:3334 -> [::1]). */
-function hostName(hostHeader) {
-  if (typeof hostHeader !== 'string' || hostHeader === '') return ''
-  if (hostHeader.startsWith('[')) {
-    const end = hostHeader.indexOf(']')
-    return end === -1 ? hostHeader : hostHeader.slice(0, end + 1)
-  }
-  const colon = hostHeader.indexOf(':')
-  return colon === -1 ? hostHeader : hostHeader.slice(0, colon)
-}
-
-/** A request is served only when its Host names a loopback host; guards against DNS rebinding. */
-function isAllowedHost(hostHeader) {
-  return LOOPBACK_HOSTS.has(hostName(hostHeader))
-}
+// Who may talk to the server: loopback origins on the app's ports, and only
+// requests whose Host names a loopback host (server/guards.js)
+const { isAllowedOrigin, isAllowedHost } = createGuards({ port: PORT, uiDevPort: UI_DEV_PORT })
 
 // ---------------------------------------------------------------------------
 // Built UI
@@ -827,66 +633,7 @@ function loadSessions() {
 
 loadSessions()
 
-// ---------------------------------------------------------------------------
-// Input validation helpers
-// ---------------------------------------------------------------------------
-
-const KNOWN_EVENT_TYPES = new Set([
-  'agent_working',   // a tool call: the main thread's, or a subagent's (agentId)
-  'agent_completed', // a subagent finished (agentId)
-  'mcp_call',
-  'mcp_done',
-  'session_started',
-  'session_ended',
-  // The session's own Claude (see `main` above)
-  'session_prompt',
-  'session_turn_end',
-  'session_needs_you',
-  'session_tool_done',
-  'session_error',
-  'session_compact',
-  'session_cwd',
-  'session_model',
-])
-
-const MAX_STRING_LEN = 200
-// A prompt or a reply as the hook sends it
-const MAX_TEXT_LEN = 2000
-// How much of a prompt or reply the server keeps (the catch log quotes the prompt)
-const PROMPT_TEXT_MAX = 200
-
-function clampString(val, max = MAX_STRING_LEN) {
-  if (typeof val !== 'string') return undefined
-  return val.slice(0, max)
-}
-
-/** A count from a hook payload: a non-negative integer, else undefined. */
-function clampCount(val, max = Number.MAX_SAFE_INTEGER) {
-  return Number.isInteger(val) && val >= 0 ? Math.min(val, max) : undefined
-}
-
-/** Prompt / reply text as kept: its first PROMPT_TEXT_MAX characters. */
-function transcriptText(text) {
-  return String(text ?? '').slice(0, PROMPT_TEXT_MAX)
-}
-
-/** Stop.background_tasks as forwarded by the tracker: at most 10, four clamped strings each. */
-function sanitiseTasks(list) {
-  if (!Array.isArray(list)) return undefined
-  return list.slice(0, 10).filter(t => t && typeof t === 'object').map(t => ({
-    id:          clampString(t.id, 64) ?? '',
-    type:        clampString(t.type, 40) ?? '',
-    status:      clampString(t.status, 40) ?? '',
-    description: clampString(t.description, 120) ?? '',
-  }))
-}
-
-function validateEvent(body) {
-  if (!body || typeof body !== 'object') return 'Missing body'
-  if (!body.type || typeof body.type !== 'string') return 'Missing event type'
-  if (!KNOWN_EVENT_TYPES.has(body.type)) return `Unknown event type: ${body.type}`
-  return null
-}
+// What an event may be, and how its fields are clamped: server/events.js
 
 // ---------------------------------------------------------------------------
 // Express + HTTP server
@@ -1539,7 +1286,7 @@ app.use(jsonErrorHandler)
 //
 // (a header, never part of a URL, so it stays out of history and access
 // logs). The server answers with plain `claudex`, so the token is not
-// echoed back. src/officeToken.ts builds the same list.
+// echoed back. src/serverToken.ts builds the same list.
 //
 // A connection that presents the token is trusted: the full snapshot and
 // every broadcast as is. Any other connection is not refused, but gets no
@@ -1547,55 +1294,7 @@ app.use(jsonErrorHandler)
 // is, first thing: { type: 'auth', trusted }.
 // ---------------------------------------------------------------------------
 
-const WS_PROTOCOL = 'claudex'
-const WS_TOKEN_PROTOCOL_PREFIX = 'claudex.token.'
-
-/** The token a WebSocket handshake offered as a subprotocol, or ''. */
-function wsTokenFrom(req) {
-  const header = req.headers['sec-websocket-protocol']
-  if (typeof header !== 'string') return ''
-  for (const part of header.split(',')) {
-    const value = part.trim()
-    if (value.startsWith(WS_TOKEN_PROTOCOL_PREFIX)) return value.slice(WS_TOKEN_PROTOCOL_PREFIX.length)
-  }
-  return ''
-}
-
-/** The subprotocol the server agrees to: `claudex` when offered, never the token. */
-function handleProtocols(protocols) {
-  return protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false
-}
-
-/** A copy of `obj` without `keys`. */
-function omit(obj, keys) {
-  const out = { ...obj }
-  for (const key of keys) delete out[key]
-  return out
-}
-
-/** An event's `main` without the last prompt and reply text (what GET /sessions shows without the token). */
-function withoutMainText(event) {
-  const main = event.main
-  if (!main || typeof main !== 'object' || !('lastPrompt' in main || 'lastReply' in main)) return event
-  return { ...event, main: omit(event.main, ['lastPrompt', 'lastReply']) }
-}
-
-/**
- * What a read-only connection gets of a broadcast: the payload itself when it
- * carries no conversation text, else a copy without it.
- *
- *   session_prompt, session_turn_end   `text` (the prompt, the reply)
- *   every event with `main`            main.lastPrompt / main.lastReply
- */
-function redactForReadOnly(payload) {
-  switch (payload.type) {
-    case 'session_prompt':
-    case 'session_turn_end':
-      return withoutMainText(omit(payload, ['text']))
-    default:
-      return withoutMainText(payload)
-  }
-}
+// The subprotocols, the token in them, and what a read-only connection sees: server/ws-protocol.js
 
 /** Connections that presented the file token (membership dies with the socket). */
 const trustedClients = new WeakSet()
