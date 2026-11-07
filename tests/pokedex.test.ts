@@ -204,6 +204,49 @@ describe('pokedex', () => {
     expect(dex.publicState().log.filter((e: any) => e.attendance).length).toBe(before)
   })
 
+  it('the attendance encounter never brings a legendary or mythical; a pity due waits for the next wild one', () => {
+    // Every roll lowest: a wild encounter would be mythical, and both pities are due
+    const { dex, sent } = setup([], 0)
+    const st = (dex as any)._state()
+    st.sinceMythical = PITY_MYTHICAL - 1
+    st.sinceLegend = PITY - 1
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'web' })
+    const att = sent.map(m => m.event).find(e => e?.attendance)
+    expect(att).toMatchObject({ attendance: true, pity: false, tier: 'sub', id: 144 })
+    dex.noteEvent(work('s1', 'Read'), { project: 'web' })
+    expect(sent.at(-1).event).toMatchObject({ kind: 'catch', tier: 'mythical', pity: true, attendance: false })
+  })
+
+  it('the tiers keep their chances however often the others were caught (the ×0.9 works inside a tier)', () => {
+    const tierOf = (caughtTimes: number) => {
+      const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+      dirs.push(dir)
+      const sent: any[] = []
+      let rolls: number[] = []
+      const dex = createPokedex({
+        file: join(dir, 'pokedex.json'), species: SPECIES, broadcast: (m: any) => sent.push(m),
+        now: () => new Date('2026-11-06T14:00:00').getTime(), random: () => (rolls.length ? rolls.shift()! : 0.99),
+      })
+      attended(dex)
+      const st = (dex as any)._state()
+      for (const s of SPECIES) if (s.tier !== 'legendary' && s.tier !== 'mythical' && caughtTimes) st.caught[s.id] = { count: caughtTimes, firstAt: 1 }
+      dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'x' })
+      rolls = [0, 0.5] // the step meets a Pokémon, then a mid roll for the tier
+      dex.noteEvent(work('s1', 'Read'), { project: 'x' })
+      return sent.map(m => m.event).filter(e => e && (e.kind === 'catch' || e.kind === 'flee')).at(-1)?.tier
+    }
+    expect(tierOf(0)).toBe('common')
+    expect(tierOf(50)).toBe('common')
+  })
+
+  it('once only legendaries and mythicals are left uncaught, there is no attendance encounter', () => {
+    const { dex, sent } = setup([], 0)
+    const st = (dex as any)._state()
+    for (const s of SPECIES) if (s.tier !== 'legendary' && s.tier !== 'mythical') st.caught[s.id] = { count: 1, firstAt: 1 }
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'web' })
+    expect(sent.map(m => m.event).find(e => e?.attendance)).toBeUndefined()
+  })
+
   it('a catch remembers what brought it out: the request and the tool', () => {
     const session = { main: { lastPrompt: '잡은 곳을 좀 더 유의미한 걸로 바꿔줘. 어떤 요청에서 받았는지 알면 좋겠어' } }
     expect(catchSource({ tool: 'Bash', status: 'running: npm test' }, session)).toEqual({
@@ -336,6 +379,13 @@ describe('pokedex', () => {
     // a : b = 0.9^3 : 0.9^1 = 0.81
     expect(picks[1] / picks[2]).toBeGreaterThan(0.7)
     expect(picks[1] / picks[2]).toBeLessThan(0.92)
+    // Caught 30 times, a falls no lower than RECATCH_FLOOR: a : b = 0.3 : 0.9
+    picks[1] = picks[2] = 0
+    sent.length = 0
+    for (let i = 0; i < 60000; i++) { st.caught = { 1: { count: 30 }, 2: { count: 1 } }; dex.noteEvent(work('s1', 'Bash'), {}) }
+    for (const e of sent.map(m => m.event)) if (e && (e.kind === 'catch' || e.kind === 'flee')) picks[e.id]++
+    expect(picks[1] / picks[2]).toBeGreaterThan(0.27)
+    expect(picks[1] / picks[2]).toBeLessThan(0.4)
   })
 
   it('levels: work time with a trainer raises it; breaks over 5 minutes do not count', () => {

@@ -16,6 +16,13 @@
  * supabase/schema.sql). Every sync reads the cloud copy, merges it with this
  * PC's game (server/merge.js: a union, so catches made on another PC are never
  * lost), takes the merged game here and uploads it.
+ *
+ * Kept small for the free plan's egress (downloads count, uploads do not):
+ *  - a sync follows only a change worth keeping (something in the log: a catch,
+ *    an evolution, a level-up, a release, a swap...), never a step alone;
+ *  - it first asks only for the row's updated_at, and downloads the whole game
+ *    only when another PC wrote since this one last did (`syncedAt`, kept in
+ *    <session file>.synced so a restart does not download it again).
  */
 
 import { readFileSync, writeFileSync, existsSync, unlinkSync, chmodSync } from 'fs'
@@ -24,6 +31,12 @@ import { mergeGames, sameGame } from './merge.js'
 
 const PENDING_TTL_MS = 10 * 60 * 1000
 const SYNC_DEBOUNCE_MS = 30 * 1000
+
+/** What a sync is worth doing for: the log's newest event, the box, the party, the released (not steps or work time) */
+export function syncMark(game) {
+  const last = game?.log?.[game.log.length - 1]
+  return [game?.log?.length ?? 0, last?.at ?? 0, last?.kind ?? '', game?.box?.length ?? 0, (game?.party ?? []).join(','), Object.keys(game?.released ?? {}).length].join('|')
+}
 
 function b64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
@@ -34,6 +47,11 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
   const base = enabled ? config.supabaseUrl.replace(/\/+$/, '') : ''
   const pending = new Map() // state -> { verifier, at }
   let session = loadSession()
+  const syncedFile = `${sessionFile}.synced`
+  /** The row's updated_at after this PC's last sync: equal in the cloud means nobody else wrote since */
+  let syncedAt = loadSynced()
+  /** syncMark of the game at the last change that scheduled a sync */
+  let lastMark = null
   let lastSyncAt = null
   let lastError = null
   let syncTimer = null
@@ -41,6 +59,17 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
   function loadSession() {
     try { return existsSync(sessionFile) ? JSON.parse(readFileSync(sessionFile, 'utf8')) : null } catch { return null }
   }
+  function loadSynced() {
+    try { return existsSync(syncedFile) ? readFileSync(syncedFile, 'utf8').trim() || null : null } catch { return null }
+  }
+  function saveSynced(at) {
+    syncedAt = at
+    try {
+      if (at) writeFileSync(syncedFile, at)
+      else if (existsSync(syncedFile)) unlinkSync(syncedFile)
+    } catch { /* only costs a download next time */ }
+  }
+
   function saveSession(s) {
     session = s
     try {
@@ -103,6 +132,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     pending.delete(state)
     try {
       saveSession(toSession(await authRequest('pkce', { auth_code: code, code_verifier: p.verifier })))
+      saveSynced(null) // a new sign-in (maybe another account) reads the whole cloud copy
       lastError = null
       await sync()
       publish()
@@ -156,7 +186,9 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
       state: game,
       updated_at: new Date(now()).toISOString(),
     }
-    await rest('trainers?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) })
+    // Only updated_at comes back, so the upload costs no egress beyond a few bytes
+    const back = await rest('trainers?on_conflict=user_id&select=updated_at', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(row) })
+    saveSynced(back?.[0]?.updated_at ?? null)
     lastSyncAt = now()
     lastError = null
   }
@@ -172,18 +204,30 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
    */
   async function sync() {
     if (!session) return
-    const rows = await rest(`trainers?select=state&user_id=eq.${session.user.id}`)
-    const remote = rows?.[0]?.state
+    const id = session.user.id
+    const head = (await rest(`trainers?select=updated_at&user_id=eq.${id}`))?.[0]
     const local = getGame()
+    if (head && syncedAt && head.updated_at && Date.parse(head.updated_at) === Date.parse(syncedAt)) {
+      // Nobody else wrote since our last upload: the cloud copy is already in this game
+      await upload(local)
+      return
+    }
+    const remote = head ? (await rest(`trainers?select=state&user_id=eq.${id}`))?.[0]?.state : undefined
     const merged = mergeGames(local, remote)
     let game = merged
     if (!sameGame(merged, local) && replaceGame(merged) !== false) game = getGame()
     await upload(game)
   }
 
-  /** The game changed: sync it, at most every SYNC_DEBOUNCE_MS */
-  function noteGameChanged() {
-    if (!session || syncTimer) return
+  /** The game changed: sync it when the change is worth keeping (syncMark), at most every SYNC_DEBOUNCE_MS */
+  function noteGameChanged(game) {
+    if (!session) return
+    if (game) {
+      const mark = syncMark(game)
+      if (mark === lastMark) return
+      lastMark = mark
+    }
+    if (syncTimer) return
     syncTimer = setTimeout(async () => {
       syncTimer = null
       try { await sync() } catch (err) { lastError = err.message === 'signed-out' ? null : `동기화 실패: ${err.message}` }
@@ -195,6 +239,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
   async function signOut() {
     const token = session?.access_token
     saveSession(null)
+    saveSynced(null)
     lastSyncAt = null
     lastError = null
     publish()

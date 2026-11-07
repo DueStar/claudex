@@ -8,14 +8,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { afterAll, describe, expect, it } from 'vitest'
-import { createCloud } from '../server/cloud.js'
+import { createCloud, syncMark } from '../server/cloud.js'
 
 const dirs: string[] = []
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }) })
 
 const CONFIG = { supabaseUrl: 'https://abc.supabase.co', publishableKey: 'sb_publishable_x' }
 
-function setup(remote: any = null, onReplace: () => void = () => {}) {
+function setup(remote: any = null, onReplace: () => void = () => {}, opts: { uploadedAt?: () => string } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'cloud-'))
   dirs.push(dir)
   const calls: any[] = []
@@ -27,7 +27,10 @@ function setup(remote: any = null, onReplace: () => void = () => {}) {
       return json({ access_token: 'at', refresh_token: 'rt', expires_in: 3600, user: { id: 'u1', email: 'a@b.c', user_metadata: { full_name: 'Ash' } } })
     }
     if (url.includes('/rest/v1/trainers?select=')) return json(remote ? [remote] : [])
-    if (url.includes('/rest/v1/trainers?on_conflict=')) return { ok: true, status: 201, json: async () => null, text: async () => '' }
+    if (url.includes('/rest/v1/trainers?on_conflict=')) {
+      if (opts.uploadedAt) { const at = opts.uploadedAt(); remote = { ...(remote ?? {}), updated_at: at }; return json([{ updated_at: at }], 201) }
+      return { ok: true, status: 201, json: async () => null, text: async () => '' }
+    }
     return json({}, 404)
   }
   const sent: any[] = []
@@ -118,6 +121,35 @@ describe('cloud', () => {
     expect(JSON.parse(calls.find(c => c.url.includes('on_conflict=user_id')).init.body).state).toEqual(before)
   })
 
+  it('downloads the whole game only when another PC wrote since this one last did', async () => {
+    let n = 0
+    const { cloud, calls, setRemote, getGame } = setup(null, () => {}, { uploadedAt: () => `2026-11-08T00:00:0${n++}.000+00:00` })
+    const state = new URL(new URL(cloud.startSignIn().url!).searchParams.get('redirect_to')!).searchParams.get('state')!
+    await cloud.finishSignIn({ code: 'x', state })
+    // Nobody else wrote: only updated_at is read, then the upload
+    calls.length = 0
+    await cloud.syncNow()
+    expect(calls.some(c => c.url.includes('select=state'))).toBe(false)
+    expect(calls.some(c => c.url.includes('select=updated_at&user_id='))).toBe(true)
+    expect(calls.some(c => c.url.includes('on_conflict=user_id'))).toBe(true)
+    // Another PC wrote (a newer updated_at): the whole copy is read and merged
+    setRemote({ updated_at: '2026-11-08T09:00:00.000+00:00', state: { version: 2, caught: { 1: {}, 150: { count: 1, firstAt: 5 } }, seen: { 1: 1, 150: 1 } } })
+    calls.length = 0
+    await cloud.syncNow()
+    expect(calls.some(c => c.url.includes('select=state'))).toBe(true)
+    expect(Object.keys(getGame().caught).sort()).toEqual(['1', '150'])
+  })
+
+  it('a step alone is not worth a sync; a logged event, the box, the party or a release is', () => {
+    const g: any = { log: [{ kind: 'catch', at: 1 }], box: ['a'], party: ['p'], released: {}, mons: { a: { steps: 1 } } }
+    const base = syncMark(g)
+    expect(syncMark({ ...g, mons: { a: { steps: 99, workMs: 5000 } } })).toBe(base)
+    expect(syncMark({ ...g, log: [...g.log, { kind: 'levelup', at: 2 }] })).not.toBe(base)
+    expect(syncMark({ ...g, box: ['a', 'b'] })).not.toBe(base)
+    expect(syncMark({ ...g, party: ['q'] })).not.toBe(base)
+    expect(syncMark({ ...g, released: { k: 1 } })).not.toBe(base)
+  })
+
   it('refuses a callback it did not start, and signs out cleanly', async () => {
     const { cloud, dir } = setup()
     expect(await cloud.finishSignIn({ code: 'x', state: 'forged' })).toMatchObject({ ok: false })
@@ -126,5 +158,6 @@ describe('cloud', () => {
     await cloud.signOut()
     expect(cloud.publicState().user).toBeNull()
     expect(existsSync(join(dir, 'cloud-session.json'))).toBe(false)
+    expect(existsSync(join(dir, 'cloud-session.json.synced'))).toBe(false)
   })
 })

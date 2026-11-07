@@ -731,7 +731,7 @@ const pokedex = createPokedex({
   broadcast,
   // A session that ended hands its Pokémon back to the party
   isActive: (sessionId) => { const s = sessions.get(sessionId); return !!s && s.state !== 'ended' },
-  onChange: () => cloud?.noteGameChanged(),
+  onChange: game => cloud?.noteGameChanged(game),
   // Steps wait their turn (a burst of tool calls is met one step at a time), and
   // a working session with no tool call for a minute takes a thinking step
   stepSpacingMs: STEP_SPACING_MS,

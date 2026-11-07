@@ -45,6 +45,8 @@ export const RATES = Object.freeze({
   mythical: 0.004,  // 환상
 })
 export const TIER_ORDER = ['mythical', 'legendary', 'sub', 'rare', 'common']
+/** The tiers the daily attendance encounter never brings */
+const LEGENDS = new Set(['legendary', 'mythical'])
 /** Chance the Poké Ball holds, by tier (a fled one is still "seen"); pities always hold */
 export const CATCH = Object.freeze({ common: 0.9, rare: 0.75, sub: 0.5, legendary: 0.35, mythical: 0.3 })
 /**
@@ -60,8 +62,14 @@ export const NEW_SPECIES_BOOST = 8
 export const PITY = 150
 /** Encounters without a mythical before the next is a sure mythical */
 export const PITY_MYTHICAL = 300
-/** A species already caught comes back less: its weight × this, once per catch (0.9, 0.81, …) */
+/**
+ * A species already caught comes back less within its tier: its weight × this,
+ * once per catch (0.9, 0.81, …), never below RECATCH_FLOOR. The tiers' own
+ * chances (RATES) stay fixed.
+ */
 export const RECATCH_DECAY = 0.9
+/** The least a caught species' weight falls to (0.9^11 ≈ 0.31: reached after about 11 catches) */
+export const RECATCH_FLOOR = 0.3
 /** A legendary or mythical catch comes in a Master Ball this often */
 export const MASTER_FOR_LEGENDS = 0.01
 /** Working with no tool call for this long is a step too (Claude thinking or writing) */
@@ -452,29 +460,41 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     return { uid, isNew: true }
   }
 
-  function rollTier() {
-    if (state.sinceMythical + 1 >= PITY_MYTHICAL) return { tier: 'mythical', pity: true }
-    if (state.sinceLegend + 1 >= PITY) return { tier: 'legendary', pity: true }
-    let r = random()
-    for (const tier of TIER_ORDER) {
+  /**
+   * The encounter's tier. The daily attendance encounter (a sure uncaught
+   * species) never brings a legendary or mythical: those are met in the wild
+   * only, and a pity that falls due waits for the next wild encounter.
+   */
+  function rollTier(attendance = false) {
+    if (!attendance && state.sinceMythical + 1 >= PITY_MYTHICAL) return { tier: 'mythical', pity: true }
+    if (!attendance && state.sinceLegend + 1 >= PITY) return { tier: 'legendary', pity: true }
+    const order = attendance ? TIER_ORDER.filter(t => !LEGENDS.has(t)) : TIER_ORDER
+    let r = random() * (attendance ? order.reduce((a, t) => a + RATES[t], 0) : 1)
+    for (const tier of order) {
       r -= RATES[tier]
       if (r < 0) return { tier, pity: false }
     }
     return { tier: 'common', pity: false }
   }
 
+  /** A species' own weight in its tier before any catch (commons by capture rate) */
+  function baseWeight(s, tier) {
+    return tier === 'common' ? Math.max(1, s.captureRate ?? 45) : 1
+  }
+
+
   /**
    * A species of the tier: uncaught ones boosted, each earlier catch of a species
-   * ×RECATCH_DECAY (the rest of the tier shares what it gives up), the terrain's
+   * ×RECATCH_DECAY down to RECATCH_FLOOR (the rest of the tier shares what it gives up), the terrain's
    * types ×3, commons by capture rate
    */
   function pickSpecies(tier, favoured) {
     const pool = byTier[tier]?.length ? byTier[tier] : byTier.common
     const weights = pool.map(s => {
-      let w = tier === 'common' ? Math.max(1, s.captureRate ?? 45) : 1
+      let w = baseWeight(s, tier)
       const caughtBefore = state.caught[s.id]?.count ?? 0
       if (!caughtBefore) w *= NEW_SPECIES_BOOST
-      else w *= RECATCH_DECAY ** caughtBefore
+      else w *= Math.max(RECATCH_FLOOR, RECATCH_DECAY ** caughtBefore)
       if (s.types?.some(t => favoured.includes(t))) w *= 3
       return w
     })
@@ -490,9 +510,9 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     return `${project || '이름 없는 마을'} ${terrain.name === '도로' ? `${routeNumber(project)}번도로` : terrain.name}${night ? ' (밤)' : ''}`
   }
 
-  /** An uncaught species of the tier, else of the nearest tier that still has one (null once the dex is full) */
+  /** An uncaught species of the tier, else of the nearest other non-legendary tier that still has one (null when none) */
   function uncaughtSpecies(tier) {
-    const order = [tier, ...TIER_ORDER.slice().reverse().filter(t => t !== tier)]
+    const order = [tier, ...TIER_ORDER.slice().reverse().filter(t => t !== tier && !LEGENDS.has(t))]
     for (const t of order) {
       const pool = (byTier[t] ?? []).filter(s => !state.caught[s.id])
       if (pool.length) return { tier: t, sp: pool[Math.floor(random() * pool.length)] }
@@ -506,11 +526,11 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     const hour = new Date(now()).getHours()
     const night = hour >= 20 || hour < 5
     const favoured = night ? [...terrain.types, ...NIGHT_TYPES] : terrain.types
-    let { tier, pity } = rollTier()
+    let { tier, pity } = rollTier(attendance)
     let sp
     if (attendance) {
       const pick = uncaughtSpecies(tier)
-      if (!pick) return null
+      if (!pick) return null // only legendaries and mythicals left: those come from the wild
       tier = pick.tier
       sp = pick.sp
     } else {
