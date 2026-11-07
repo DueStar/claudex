@@ -7,7 +7,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { readCarry, writeCarry, freshDexPick } from '../carry'
-import { POKEMON, spriteUrl, type PokemonEntry } from '../theme'
+import { POKEMON, spriteUrl, iconUrl, type PokemonEntry } from '../theme'
 // Genus, flavor and weight: only this view shows them, and it is its own chunk
 import TEXT from 'virtual:pokedex-text'
 import { bridge } from '../desktop'
@@ -240,7 +240,7 @@ const PokedexView: React.FC = () => {
                   : <span className="dex-q big">?</span>}
               </div>
               <div className="dex-card-no">{no(detail.id)} · {detail.gen}세대</div>
-              <div className="dex-card-name">{dc || ds ? detail.ko : '???'} {dc && <span className="dex-card-en">{detail.en}</span>}</div>
+              <div className="dex-card-name">{dc && <img className="dex-card-icon" src={iconUrl(detail.id)} alt="" />}{dc || ds ? detail.ko : '???'} {dc && <span className="dex-card-en">{detail.en}</span>}</div>
               {(dc || ds) && (
                 <div className="dex-card-tags">
                   <span className={`dex-tier tier-${detail.tier}`}>{TIER_LABEL[detail.tier ?? 'common']}</span>

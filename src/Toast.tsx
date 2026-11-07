@@ -17,37 +17,52 @@ export function durationOf(e: DexEvent): number {
   return rare ? 15000 : 8000
 }
 
-/** One notification card: the toast window shows it, and the QA page (?qa) lays every kind out */
-export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: number; onClick?: () => void; onHover?: (on: boolean) => void }> = ({ t, leaving = false, waiting = 0, onClick, onHover }) => (
-  <div
-    className={`w-toast kind-${t.kind} tier-${t.tier ?? 'common'}${t.shiny ? ' shiny' : ''}${leaving ? ' leaving' : ''}`}
-    onClick={onClick}
-    onMouseEnter={() => onHover?.(true)}
-    onMouseLeave={() => onHover?.(false)}
-    title="눌러서 도감에서 보기"
-    role="status"
-  >
-    {waiting > 0 && <span className="w-toast-more" aria-label={`알림 ${waiting}개 더`}>+{waiting}</span>}
-    <img src={spriteUrl(t.id, !!t.shiny)} alt="" />
-    <div className="w-toast-text">
-      {t.attendance && <span className="w-toast-badge">오늘의 출석 조우!</span>}
-      <span className="w-toast-line">
-        {t.kind === 'catch' && <><b>{t.shiny ? '✦ ' : ''}{t.name}{genderMark(t.gender)}</b>을(를) 잡았다!</>}
-        {t.kind === 'flee' && <>야생의 <b>{t.name}</b>이(가) 도망쳤다…</>}
-        {t.kind === 'evolve' && <><b>{t.fromName}</b>이(가) <b>{t.name}</b>(으)로 진화했다!</>}
-        {t.kind === 'levelup' && <><b>{t.shiny ? '✦ ' : ''}{t.name}</b>의 레벨이 <b>{t.level}</b>(으)로 올랐다!</>}
-      </span>
-      <span className="w-toast-sub">
-        {t.kind === 'catch' && t.level && <span className="w-toast-lv">Lv.{t.level}</span>}
-        {t.kind === 'catch' && t.ball && <span className="w-toast-ball"><PokeBall ball={t.ball} size={14} />{ballName(t.ball)}</span>}
-        {t.tier && <span className={`w-toast-tier tier-${t.tier}`}>{TIER_LABEL[t.tier]}</span>}
-        {t.nature ? `${NATURE_BY_ID.get(t.nature)?.ko} · ` : ''}{t.place}
-      </span>
-      {t.via && <span className="w-toast-via">{sourceText(t.via)} 포획</span>}
-      {t.toProfessor && <span className="w-toast-via warn">박스가 꽉 차서 박사님께 보냈어요 (도감엔 등록됨)</span>}
+const KIND_LABEL: Partial<Record<DexEvent['kind'], string>> = { catch: '포획', flee: '도망쳤어요', evolve: '진화', levelup: '레벨 업' }
+
+/**
+ * One notification card: the toast window shows it, and the QA page (?qa) lays
+ * every kind out. One job per line, loudest first: what happened (a small
+ * label with the tier), who (the name, big), then how and where, then why.
+ */
+export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: number; onClick?: () => void; onHover?: (on: boolean) => void }> = ({ t, leaving = false, waiting = 0, onClick, onHover }) => {
+  const nature = t.nature ? NATURE_BY_ID.get(t.nature)?.ko : null
+  const meta = t.kind === 'catch' || t.kind === 'flee' ? [nature, t.place].filter(Boolean).join(' · ') : ''
+  return (
+    <div
+      className={`w-toast kind-${t.kind} tier-${t.tier ?? 'common'}${t.shiny ? ' shiny' : ''}${leaving ? ' leaving' : ''}`}
+      onClick={onClick}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
+      title="눌러서 도감에서 보기"
+      role="status"
+    >
+      {waiting > 0 && <span className="w-toast-more" aria-label={`알림 ${waiting}개 더`}>+{waiting}</span>}
+      <div className="w-toast-art"><img src={spriteUrl(t.id, !!t.shiny)} alt="" /></div>
+      <div className="w-toast-text">
+        <div className="w-toast-eyebrow">
+          {t.attendance && <span className="w-toast-badge">오늘의 출석</span>}
+          <span className="w-toast-kind">{KIND_LABEL[t.kind] ?? ''}</span>
+          {t.tier && t.kind !== 'levelup' && <span className="w-toast-tier">{TIER_LABEL[t.tier]}</span>}
+          {t.newSpecies && <span className="w-toast-new">NEW</span>}
+        </div>
+        <div className="w-toast-title">
+          {t.kind === 'evolve'
+            ? <>{t.fromName} <span className="w-toast-arrow">→</span> {t.name}</>
+            : <>{t.shiny ? '✦ ' : ''}{t.name}{genderMark(t.gender)}</>}
+          {(t.kind === 'catch' || t.kind === 'levelup') && t.level ? <small>Lv.{t.level}</small> : null}
+        </div>
+        {(meta || (t.kind === 'catch' && t.ball)) && (
+          <div className="w-toast-meta">
+            {t.kind === 'catch' && t.ball && <span className="w-toast-ball"><PokeBall ball={t.ball} size={14} />{ballName(t.ball)}</span>}
+            {meta && <span className="w-toast-place">{meta}</span>}
+          </div>
+        )}
+        {t.via && t.kind === 'catch' && <div className="w-toast-via">{sourceText(t.via)} 포획</div>}
+        {t.toProfessor && <div className="w-toast-via warn">박스가 꽉 차서 박사님께 보냈어요 (도감엔 등록됨)</div>}
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
 const Toast: React.FC = () => {
   const queue = useRef<DexEvent[]>([])

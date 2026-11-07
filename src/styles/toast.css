@@ -17,60 +17,82 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
   background: transparent;
 }
 
-.toast-host .w-toast {
-  position: static;
-  width: 100%;
-  min-height: 84px;
-  box-sizing: border-box;
-  padding: 12px 16px 12px 12px;
-  border-radius: 18px;
-  background: rgba(20, 22, 28, 0.97);
-  animation: toastIn 0.4s cubic-bezier(.2, .9, .3, 1.25) both;
-}
-.toast-host .w-toast img { height: 60px; max-width: 72px; image-rendering: auto; }
-.toast-host .w-toast-text { font-size: 13.5px; }
-.toast-host .w-toast.leaving { animation: toastOut 0.35s ease-in both; }
-
 /* tier colours (the widget's pokedex.css is not loaded here) */
 .tier-common { --tier: #a4a9b6; }
 .tier-rare { --tier: #6cb6ff; }
 .tier-sub { --tier: #c08bff; }
 .tier-legendary { --tier: #ffc94a; }
 .tier-mythical { --tier: #ff7ad9; }
-.toast-host .w-toast-sub { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6e7381; }
-.toast-host .w-toast-tier { color: var(--tier); font-weight: 700; }
-.toast-host .w-toast-line { display: block; }
-.toast-host .w-toast-badge { align-self: flex-start; font-size: 10px; font-weight: 700; color: #1b1e27; background: #ffd84a; padding: 1px 7px; border-radius: 999px; }
-.toast-host .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.55); }
+
+/* ---------- The card: picture | text, one job per line ---------- */
+.toast-host .w-toast {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px 12px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(20, 22, 28, 0.97);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  animation: toastIn 0.4s cubic-bezier(.2, .9, .3, 1.25) both;
+}
+.toast-host .w-toast:hover { border-color: rgba(255, 255, 255, 0.24); }
+.toast-host .w-toast.leaving { animation: toastOut 0.35s ease-in both; }
+
+/* The picture: the heaviest thing on the card, on a soft tint of its tier */
+.toast-host .w-toast-art {
+  width: 72px; height: 72px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tier) 26%, transparent), transparent 72%), #1b1e26;
+}
+.toast-host .w-toast-art img { width: 64px; height: 64px; object-fit: contain; image-rendering: auto; }
+
+.toast-host .w-toast-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+/* 1. What happened: a quiet label, the tier in its colour */
+.toast-host .w-toast-eyebrow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; line-height: 1.4; }
+.toast-host .w-toast-kind { color: #9aa0ad; }
+.toast-host .w-toast-tier { color: var(--tier); padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, var(--tier) 15%, transparent); }
+.toast-host .w-toast-new { color: #1b1e27; background: #ffd84a; padding: 0 6px; border-radius: 999px; font-size: 10px; letter-spacing: 0.04em; }
+.toast-host .w-toast-badge { color: #1b1e27; background: #ffd84a; padding: 0 7px; border-radius: 999px; }
+
+/* 2. Who: the name, loudest text */
+.toast-host .w-toast-title { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.02em; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toast-host .w-toast-title small { margin-left: 7px; font-size: 12px; font-weight: 650; color: #9aa0ad; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.toast-host .w-toast-arrow { color: #9aa0ad; font-weight: 600; }
+
+/* 3. How and where: one quieter line */
+.toast-host .w-toast-meta { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #a3a8b5; min-width: 0; white-space: nowrap; }
+.toast-host .w-toast-ball { display: inline-flex; align-items: center; gap: 4px; color: #d7dae3; font-weight: 600; flex: none; }
+.toast-host .w-toast-ball img { width: 14px; height: 14px; }
+.toast-host .w-toast-place { overflow: hidden; text-overflow: ellipsis; }
+
+/* 4. Why: the quietest line */
+.toast-host .w-toast-via { font-size: 11px; color: #7d8291; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toast-host .w-toast-via.warn { color: #ffb54a; }
+
+/* +N waiting */
+.toast-host .w-toast-more {
+  position: absolute; top: 10px; right: 12px;
+  font-size: 10.5px; font-weight: 800; color: #1b1e27; background: #d7dae3;
+  padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Kinds ---------- */
+.toast-host .w-toast.kind-flee .w-toast-art img { filter: grayscale(0.7); opacity: 0.75; }
+.toast-host .w-toast.kind-flee .w-toast-title { color: #c9cdd6; }
+.toast-host .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.5); }
 .toast-host .w-toast.kind-catch.tier-legendary, .toast-host .w-toast.kind-catch.tier-mythical {
   border-color: var(--tier);
   box-shadow: 0 0 0 1px var(--tier), 0 0 26px color-mix(in srgb, var(--tier) 45%, transparent);
 }
-.toast-host .w-toast.shiny { border-color: #fff3a0; box-shadow: 0 0 22px rgba(255, 243, 160, 0.5); }
+.toast-host .w-toast.shiny { border-color: #fff3a0; box-shadow: 0 0 22px rgba(255, 243, 160, 0.45); }
+.toast-host .w-toast.shiny .w-toast-art { background: radial-gradient(circle at 50% 60%, rgba(255, 243, 160, 0.28), transparent 72%), #1b1e26; }
 
 @keyframes toastIn { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes toastOut { to { transform: translateY(16px); opacity: 0; } }
-.toast-host .w-toast-via { display: block; font-size: 11px; color: #a4a9b6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 270px; }
-.toast-host .w-toast-via.warn { color: #ffb54a; }
-.toast-host .w-toast-ball { display: inline-flex; align-items: center; gap: 4px; color: #d7dae3; font-weight: 600; }
-.toast-host .w-toast-lv { font-weight: 700; color: #d7dae3; font-variant-numeric: tabular-nums; }
-/* the ball beside the level: a small mark, not the big picture rule above */
-.toast-host .w-toast .w-toast-ball img { width: 14px; height: 14px; max-width: none; }
-
-/* ---------- Readability (2026-11-08): the name first, the details a step quieter but still legible ---------- */
-.toast-host .w-toast { position: relative; cursor: pointer; gap: 12px; }
-.toast-host .w-toast-text { gap: 4px; min-width: 0; }
-.toast-host .w-toast-line { font-size: 14px; line-height: 1.4; color: #c9cdd6; }
-.toast-host .w-toast-line b { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
-.toast-host .w-toast-sub { font-size: 11.5px; color: #a3a8b5; flex-wrap: wrap; row-gap: 2px; white-space: normal; }
-.toast-host .w-toast-via { font-size: 11px; color: #8c91a0; max-width: 100%; }
-.toast-host .w-toast-badge { font-size: 10.5px; padding: 2px 8px; }
-.toast-host .w-toast:hover { border-color: rgba(255, 255, 255, 0.28); }
-.toast-host .w-toast-more {
-  position: absolute; top: 8px; right: 10px;
-  font-size: 10.5px; font-weight: 800; color: #1b1e27; background: #d7dae3;
-  padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums;
-}
-/* One picture box for every card, so the text starts at the same place */
-.toast-host .w-toast img { width: 64px; height: 60px; max-width: none; object-fit: contain; flex: none; }
-.toast-host .w-toast .w-toast-ball img { width: 14px; height: 14px; }

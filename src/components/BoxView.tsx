@@ -1,16 +1,23 @@
 /**
  * BoxView — the PC: the party's six on top, the box below. Pick a Pokémon to
  * see its traits and catch story; a box Pokémon can trade places with a
- * resting party member, or be released.
+ * resting party member, or be released. The grid shows the SV box icons by
+ * default (small, many to a screen) or the HOME pictures; the detail card is
+ * always the HOME picture, the one that shows a shiny's colours.
  */
 
 import React, { useMemo, useState } from 'react'
-import { pokemonById, spriteUrl } from '../theme'
+import { pokemonById, spriteUrl, iconUrl } from '../theme'
 import { bridge } from '../desktop'
 import { usePokedex, TIER_LABEL, NATURE_BY_ID, genderMark, sourceText, ballName, levelOf, minutesToNext, BALL_BY_ID, BALL_TIER_LABEL, type Mon, type Tier } from '../pokedexStore'
 import { PokeBall, SearchIcon } from './Icons'
 
 type Sort = 'recent' | 'dex' | 'tier' | 'steps'
+type Look = 'icon' | 'art'
+const LOOK_KEY = 'claudex.boxLook'
+function readLook(): Look {
+  try { return localStorage.getItem(LOOK_KEY) === 'art' ? 'art' : 'icon' } catch { return 'icon' }
+}
 const TIER_RANK: Record<Tier, number> = { mythical: 0, legendary: 1, sub: 2, rare: 3, common: 4 }
 const HOW: Record<string, string> = { starter: '스타팅', gift: '여행의 시작', attendance: '출석 조우', pity: '야생', wild: '야생' }
 
@@ -21,6 +28,8 @@ function tierOf(dex: number): Tier {
 const BoxView: React.FC = () => {
   const { state } = usePokedex()
   const [sort, setSort] = useState<Sort>('recent')
+  const [look, setLookState] = useState<Look>(readLook)
+  const setLook = (l: Look) => { setLookState(l); try { localStorage.setItem(LOOK_KEY, l) } catch { /* this time only */ } }
   const [shinyOnly, setShinyOnly] = useState(false)
   const [query, setQuery] = useState('')
   const [pick, setPick] = useState<string | null>(null)
@@ -76,7 +85,7 @@ const BoxView: React.FC = () => {
       onClick={() => select(m.uid)}
       title={`${pokemonById(m.dex)?.ko ?? ''}${genderMark(m.gender)}`}
     >
-      <img src={spriteUrl(m.dex, m.shiny)} alt="" loading="lazy" />
+      <img src={look === 'icon' ? iconUrl(m.dex) : spriteUrl(m.dex, m.shiny)} alt="" loading="lazy" />
       {m.shiny && <span className="box-shiny">✦</span>}
       <PokeBall ball={m.ball} size={14} className="box-ball" />
       <span className="box-lv">Lv.{levelOf(m)}</span>
@@ -85,7 +94,7 @@ const BoxView: React.FC = () => {
   )
 
   return (
-    <div className="box">
+    <div className={`box look-${look}`}>
       <div className="box-main">
         <div className="box-left">
           <div className="box-party">
@@ -112,6 +121,10 @@ const BoxView: React.FC = () => {
               <div className="dex-seg">
                 <button className={shinyOnly ? 'on' : ''} onClick={() => setShinyOnly(v => !v)} title="색이 다른 포켓몬만 보기">✦ 색이 다른 포켓몬</button>
               </div>
+              <div className="dex-seg" role="group" aria-label="보기">
+                <button className={look === 'icon' ? 'on' : ''} onClick={() => setLook('icon')} title="작은 아이콘으로 많이 보기">아이콘</button>
+                <button className={look === 'art' ? 'on' : ''} onClick={() => setLook('art')} title="큰 그림으로 보기">그림</button>
+              </div>
             </div>
           </div>
           <div className="box-grid">
@@ -125,6 +138,7 @@ const BoxView: React.FC = () => {
               <button className="box-close" onClick={() => setPick(null)} aria-label="닫기" title="닫기">×</button>
               <div className={`dex-card-art tier-${tierOf(picked.dex)}`}><img src={spriteUrl(picked.dex, picked.shiny)} alt="" /></div>
               <div className="dex-card-name">
+                <img className="dex-card-icon" src={iconUrl(picked.dex)} alt="" />
                 <b>{picked.shiny ? '✦ ' : ''}{p.ko}{genderMark(picked.gender)}</b>
                 <span className={`w-toast-tier tier-${tierOf(picked.dex)}`}>{TIER_LABEL[tierOf(picked.dex)]}</span>
               </div>

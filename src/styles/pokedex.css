@@ -554,3 +554,16 @@ html.qa-mode #root { min-height: 100vh; }
 /* ---------- Log: a heading per day ---------- */
 .today-day { position: sticky; top: 0; z-index: 1; margin: 8px 0 2px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: var(--ink-3); background: var(--card); }
 .today-day:first-child { margin-top: 0; }
+
+/* ---------- Box: SV icons by default (small cells, many to a screen); the HOME pictures as before ---------- */
+.box.look-icon .box-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.box.look-icon .box-grid .box-cell { contain-intrinsic-size: auto 64px; border-radius: 10px; }
+.box.look-icon .box-cell img:not(.pokeball) { width: 80%; height: auto; aspect-ratio: 1; object-fit: contain; }
+.box.look-icon .box-party-row .box-cell { width: 64px; height: 64px; }
+.box.look-icon .box-lv { font-size: 9px; left: 4px; top: 2px; }
+.box.look-icon .box-ball { right: 3px; bottom: 3px; }
+/* The SV icon beside a name in the detail cards */
+.dex-card-name { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dex-card-icon { width: 34px; height: 34px; object-fit: contain; margin: -6px 0 -6px -4px; flex: none; }
+/* The working dot: bottom-left, clear of the level (top-left) and the shiny mark (top-right) */
+.box-working { top: auto; bottom: 7px; left: 6px; }
