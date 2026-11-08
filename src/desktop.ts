@@ -129,7 +129,7 @@ declare global {
 export interface AppSettings {
   notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string }
   privacy: { hidePrompts: boolean }
-  session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan'; confirmClose: boolean }
+  session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean }
   app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean }
 }
 export type BoardKind = 'caught' | 'shiny' | 'legends' | 'week'

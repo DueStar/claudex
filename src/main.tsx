@@ -17,8 +17,10 @@ else if (isToast) document.documentElement.classList.add('toast-mode')
 else if (params.has('widget')) document.documentElement.classList.add('widget-mode')
 
 // Each page loads only its own code: a catch notification opens a window per
-// catch and needs neither the terminal nor the Pokédex
-const Page = lazy(() => (isQa ? import('./QaPage') : isToast ? import('./Toast') : import('./Widget')))
+// catch and needs neither the terminal nor the Pokédex. One import() per page:
+// in a single ternary the build attaches only one page's CSS to all three, and
+// the notification window showed without its styles (1.3.18).
+const Page = isQa ? lazy(() => import('./QaPage')) : isToast ? lazy(() => import('./Toast')) : lazy(() => import('./Widget'))
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

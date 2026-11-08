@@ -23,7 +23,7 @@ const REASON: Record<string, string> = {
   'not-configured': '이 버전에서는 리더보드를 쓸 수 없어요.',
   'bad-nickname': '닉네임은 한글·영문·숫자·_로 2~12자예요.',
   taken: '이미 누가 쓰는 닉네임이에요.',
-  'no-game': '도감을 아직 클라우드에 저장하지 못했어요. 잠시 뒤에 다시 해 주세요.',
+  'no-game': '도감을 아직 동기화하지 못했어요. 잠시 뒤에 다시 해 주세요.',
   'signed-out': '로그인이 필요해요.',
 }
 const reasonText = (r?: string) => (r && REASON[r]) || `잠시 뒤에 다시 해 주세요 (${r ?? '알 수 없음'})`
@@ -92,7 +92,7 @@ const LeaderboardView: React.FC = () => {
         {!cloud?.enabled ? <span className="rank-me-text">이 버전에서는 리더보드를 쓸 수 없어요.</span>
           : !signedIn ? <>
             <span className="rank-me-text">로그인하면 닉네임으로 랭킹에 참여할 수 있어요. 보기는 누구나 할 수 있어요.</span>
-            <button className="set-btn" onClick={() => bridge?.cloud.signIn()}>구글로 로그인</button>
+            <button className="set-btn" onClick={() => bridge?.cloud.signIn()}>Google로 로그인</button>
           </>
           : editing ? <div className="rank-form">
             <label className="rank-field">
@@ -107,7 +107,7 @@ const LeaderboardView: React.FC = () => {
                 ))}
               </div>
             </div>
-            <p className="rank-fine">구글 이름과 이메일은 보이지 않아요. 닉네임, 대표 포켓몬, 숫자만 공개돼요.</p>
+            <p className="rank-fine">Google 계정의 이름과 이메일은 공개되지 않아요. 닉네임, 대표 포켓몬, 숫자만 공개돼요.</p>
             <div className="rank-actions">
               <button className="set-btn ghost" onClick={() => setEditing(false)}>취소</button>
               <button className="set-btn primary" disabled={busy} onClick={() => save(true)}>{joined ? '저장' : '참여하기'}</button>

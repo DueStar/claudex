@@ -275,7 +275,7 @@ const Widget: React.FC = () => {
   const [accountOpen, setAccountOpen] = useState(false)
   const signIn = async () => {
     const r = await bridge?.cloud.signIn()
-    setNote(r?.ok ? '브라우저에서 구글 로그인을 마치면 여기로 돌아와요.' : `로그인을 시작하지 못했어요 (${r?.reason ?? '앱에서만 가능'})`)
+    setNote(r?.ok ? '브라우저에서 Google 로그인을 마치면 여기로 돌아와요.' : `로그인을 시작하지 못했어요 (${r?.reason ?? '앱에서만 가능'})`)
   }
   // What a session needs on this PC (electron/prereqs.cjs): Claude Code and Git
   type Prereqs = Awaited<ReturnType<NonNullable<typeof bridge>['env']['check']>>
@@ -417,7 +417,7 @@ const Widget: React.FC = () => {
                 {cloud.user.avatar ? <img src={cloud.user.avatar} alt="" referrerPolicy="no-referrer" /> : <span>{(cloud.user.name ?? cloud.user.email ?? '?').slice(0, 1)}</span>}
               </button>
             ) : (
-              <button className="w-signin" onClick={signIn} title="구글로 로그인하면 도감이 클라우드에 저장돼요">로그인</button>
+              <button className="w-signin" onClick={signIn} title="Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요">로그인</button>
             ))}
             {update && (update.status === 'available' || update.status === 'downloading' || update.status === 'ready') && (
               <button
@@ -456,11 +456,11 @@ ${update.notes}` : ''}${update.error ? `
               </div>
               <div className="w-account-sync">
                 {cloud.error ? <span className="tone-warn">{cloud.error}</span>
-                  : cloud.lastSyncAt ? <>클라우드에 저장됨 · {new Date(cloud.lastSyncAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
+                  : cloud.lastSyncAt ? <>마지막 동기화 · {new Date(cloud.lastSyncAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
                   : '아직 저장 전이에요'}
               </div>
               <div className="w-account-actions">
-                <button onClick={() => bridge?.cloud.sync()}>지금 저장</button>
+                <button onClick={() => bridge?.cloud.sync()}>지금 동기화</button>
                 <button onClick={() => { setAccountOpen(false); bridge?.cloud.signOut() }}>로그아웃</button>
               </div>
             </section>

@@ -26,6 +26,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { checkDist } from './dist-check.mjs'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, rmSync, statSync, writeFileSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -108,6 +109,7 @@ const ICONS = ['build/icon.png', 'electron/assets/icon.png', 'electron/assets/tr
 run('python', ['-I', join(root, 'tools', 'build-icons.py'), root, '--official'], { shell: false })
 try {
   run('npx', ['vite', 'build'])
+  checkDist(join(root, 'dist')) // every page loads its own CSS (scripts/dist-check.mjs)
   run('npx', ['electron-builder', '--win', 'dir', '--x64'])
 } finally {
   execFileSync('git', ['checkout', '--', ...ICONS], { cwd: root, stdio: 'inherit' })

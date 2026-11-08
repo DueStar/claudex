@@ -52,6 +52,7 @@ describe('settings', () => {
   it('turns the session settings into claude arguments', () => {
     expect(claudeArgs(DEFAULTS.session)).toEqual([])
     expect(claudeArgs({ ...DEFAULTS.session, model: 'opus', permissionMode: 'plan' })).toEqual(['--model', 'opus', '--permission-mode', 'plan'])
+    expect(applyPatch(sanitize(null), { session: { permissionMode: 'auto' } }).session.permissionMode).toBe('auto')
   })
 
   it('reads and writes its file; a broken file means the defaults', () => {

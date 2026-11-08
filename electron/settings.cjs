@@ -12,7 +12,7 @@ const fs = require('fs')
 const path = require('path')
 
 const MODELS = ['', 'opus', 'sonnet', 'haiku']                 // '' = Claude Code's own default
-const PERMISSION_MODES = ['', 'default', 'acceptEdits', 'plan'] // never bypassPermissions from a menu
+const PERMISSION_MODES = ['', 'default', 'acceptEdits', 'plan', 'auto'] // Claude Code's names; never bypassPermissions from a menu
 const DURATIONS = { short: 0.6, normal: 1, long: 1.6 }
 
 const DEFAULTS = Object.freeze({
