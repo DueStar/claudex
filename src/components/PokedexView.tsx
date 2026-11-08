@@ -128,7 +128,6 @@ const PokedexView: React.FC = () => {
           <Stat label="발견" value={seenCount} total={total} hint="만났지만 아직 못 잡은 종도 포함" />
           <Stat label="박스" value={state?.box.length ?? 0} total={state?.boxLimit ?? 1200} hint="파티 6마리 별도. 꽉 차면 새로 잡은 개체는 박사님께 가요" />
           <div className="dex-stat dex-stat-tiers">
-            <span className="dex-stat-label">등급별 포획</span>
             <div className="dex-tiers">
               {byTier.map(({ t, total: n, caught: c }) => (
                 <div key={t} className={`dex-tiercol tier-${t}`} title={`${TIER_LABEL[t]} ${c} / ${n}종 · 만날 확률 ${TIER_RATE[t]}`}>
@@ -156,11 +155,7 @@ const PokedexView: React.FC = () => {
               <button className={show === 'missing' ? 'on' : ''} onClick={() => setShow('missing')}>못 잡은 것</button>
             </div>
           </div>
-          <div className="dex-fgroup dex-fsearch">
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호 찾기" aria-label="이름이나 번호로 찾기" />
-            <span className="dex-result">{list.length}종</span>
-          </div>
-          <div className="dex-fgroup dex-frow">
+          <div className="dex-fgroup">
             <span className="dex-flabel">등급</span>
             <div className="dex-chips">
               {TIERS.map(t => (
@@ -169,6 +164,10 @@ const PokedexView: React.FC = () => {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="dex-fgroup dex-fsearch">
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호 찾기" aria-label="이름이나 번호로 찾기" />
+            <span className="dex-result">{list.length}종</span>
           </div>
         </div>
       </div>

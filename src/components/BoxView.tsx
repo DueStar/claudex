@@ -1,18 +1,20 @@
 /**
  * BoxView — the PC: the party's six on top, the box below. Pick a Pokémon to
  * see its traits and catch story; a box Pokémon can trade places with a
- * resting party member, or be released. The grid shows the SV box icons by
- * default (small, many to a screen) or the HOME pictures; the detail card is
- * always the HOME picture, the one that shows a shiny's colours.
+ * resting party member, or be released. Like the games' PC, the box shows 30
+ * at a time (6 × 5) and flips with ‹ › or the arrow keys. The cells show the
+ * SV box icons by default or the HOME pictures; the detail card is always the
+ * HOME picture, the one that shows a shiny's colours.
  */
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { pokemonById, spriteUrl, iconUrl } from '../theme'
 import { bridge } from '../desktop'
 import { usePokedex, TIER_LABEL, NATURE_BY_ID, genderMark, sourceText, ballName, levelOf, minutesToNext, BALL_BY_ID, BALL_TIER_LABEL, type Mon, type Tier } from '../pokedexStore'
 import { PokeBall, SearchIcon } from './Icons'
 
 type Sort = 'recent' | 'dex' | 'tier' | 'steps'
+const PAGE = 30 // one box in the games: 6 columns × 5 rows
 type Look = 'icon' | 'art'
 const LOOK_KEY = 'claudex.boxLook'
 function readLook(): Look {
@@ -36,6 +38,7 @@ const BoxView: React.FC = () => {
   const [releasing, setReleasing] = useState(false)
   const [choosing, setChoosing] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
 
   const mons = state?.mons ?? {}
   const party = state?.party ?? []
@@ -55,6 +58,14 @@ const BoxView: React.FC = () => {
     }
     return list.sort(by[sort])
   }, [state, mons, sort, shinyOnly, query])
+
+  // A new order or filter starts from the first box
+  useEffect(() => setPage(0), [sort, shinyOnly, query])
+  const pages = Math.max(1, Math.ceil(box.length / PAGE))
+  const at = Math.min(page, pages - 1)
+  const shown = box.slice(at * PAGE, (at + 1) * PAGE)
+  // The last box wraps to the first, as in the games
+  const flip = (d: number) => setPage((at + d + pages) % pages)
 
   const picked = pick ? mons[pick] : undefined
   const inParty = picked ? party.includes(picked.uid) : false
@@ -94,7 +105,13 @@ const BoxView: React.FC = () => {
   )
 
   return (
-    <div className={`box look-${look}`}>
+    <div
+      className={`box look-${look}`}
+      onKeyDown={e => {
+        if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || (e.target as HTMLElement).tagName === 'INPUT') return
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); flip(e.key === 'ArrowLeft' ? -1 : 1) }
+      }}
+    >
       <div className="box-main">
         <div className="box-left">
           <div className="box-party">
@@ -127,9 +144,21 @@ const BoxView: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="box-grid">
-            {box.length ? box.map(m => <Cell key={m.uid} m={m} />) : <div className="dex-empty">{state?.box.length ? '조건에 맞는 포켓몬이 없어요' : '박스가 비어 있어요. 일하다 보면 야생 포켓몬을 만나요'}</div>}
-          </div>
+          {box.length ? (
+            <>
+              <div className="box-pager">
+                <button onClick={() => flip(-1)} aria-label="이전 박스" title="이전 박스 (←)">‹</button>
+                <span className="box-name">박스 {at + 1}<small> / {pages}</small></span>
+                <button onClick={() => flip(1)} aria-label="다음 박스" title="다음 박스 (→)">›</button>
+              </div>
+              <div className="box-page">
+                <div className="box-grid">
+                  {shown.map(m => <Cell key={m.uid} m={m} />)}
+                  {Array.from({ length: PAGE - shown.length }, (_, i) => <div key={`empty-${i}`} className="box-slot" />)}
+                </div>
+              </div>
+            </>
+          ) : <div className="dex-empty">{state?.box.length ? '조건에 맞는 포켓몬이 없어요' : '박스가 비어 있어요. 일하다 보면 야생 포켓몬을 만나요'}</div>}
         </div>
 
         {picked && p && (
