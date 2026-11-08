@@ -68,9 +68,10 @@ const QaPage: React.FC = () => (
         </div>
       ))}
       <div className="qa-item">
-        <div className="qa-label"><b>연달아 오는 알림</b><span>대기열 순서대로</span>
+        <div className="qa-label"><b>연달아 오는 알림</b><span>뒤에 겹쳐 쌓이고, 밀리면 짧게 · ×로 넘기기</span>
           <button className="qa-fire" disabled={!bridge} onClick={() => SAMPLES.slice(0, 4).forEach(s => bridge?.toast.show({ ...s.e, at: Date.now() }))}>4개 띄우기</button>
         </div>
+        <div className="widget toast-host qa-toast"><ToastCard t={SAMPLES[1].e} waiting={3} /></div>
       </div>
     </Section>
 

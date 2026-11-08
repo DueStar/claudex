@@ -11,10 +11,12 @@ import { spriteUrl } from './theme'
 import { TIER_LABEL, genderMark, sourceText, ballName, NATURE_BY_ID, type DexEvent } from './pokedexStore'
 import { PokeBall } from './components/Icons'
 
-export function durationOf(e: DexEvent): number {
-  if (e.kind === 'levelup') return 5000 // small news: a short visit
+/** How long a card stays; with others waiting behind it, the ordinary ones move along faster */
+export function durationOf(e: DexEvent, waiting = 0): number {
   const rare = e.tier === 'legendary' || e.tier === 'mythical' || e.shiny
-  return rare ? 15000 : 8000
+  if (rare) return 15000
+  if (e.kind === 'levelup') return waiting ? 3000 : 5000 // small news: a short visit
+  return waiting ? 4000 : 8000
 }
 
 const KIND_LABEL: Partial<Record<DexEvent['kind'], string>> = { catch: '포획', flee: '도망쳤어요', evolve: '진화', levelup: '레벨 업' }
@@ -23,20 +25,22 @@ const KIND_LABEL: Partial<Record<DexEvent['kind'], string>> = { catch: '포획',
  * One notification card: the toast window shows it, and the QA page (?qa) lays
  * every kind out. One job per line, loudest first: what happened (a small
  * label with the tier), who (the name, big), then how and where, then why.
+ * Cards waiting behind it peek out below as a stack (one or two edges).
  */
-export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: number; onClick?: () => void; onHover?: (on: boolean) => void }> = ({ t, leaving = false, waiting = 0, onClick, onHover }) => {
+export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: number; onClick?: () => void; onClose?: () => void; onHover?: (on: boolean) => void }> = ({ t, leaving = false, waiting = 0, onClick, onClose, onHover }) => {
   const nature = t.nature ? NATURE_BY_ID.get(t.nature)?.ko : null
   const meta = t.kind === 'catch' || t.kind === 'flee' ? [nature, t.place].filter(Boolean).join(' · ') : ''
   return (
+    <div className="w-toast-stack" onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}>
+    {waiting > 1 && <span className="w-toast-behind second" aria-hidden />}
+    {waiting > 0 && <span className="w-toast-behind" aria-hidden />}
     <div
       className={`w-toast kind-${t.kind} tier-${t.tier ?? 'common'}${t.shiny ? ' shiny' : ''}${leaving ? ' leaving' : ''}`}
       onClick={onClick}
-      onMouseEnter={() => onHover?.(true)}
-      onMouseLeave={() => onHover?.(false)}
-      title="눌러서 도감에서 보기"
+      title={waiting ? `눌러서 도감에서 보기 · 알림 ${waiting}개 더` : '눌러서 도감에서 보기'}
       role="status"
     >
-      {waiting > 0 && <span className="w-toast-more" aria-label={`알림 ${waiting}개 더`}>+{waiting}</span>}
+      <button className="w-toast-close" onClick={e => { e.stopPropagation(); onClose?.() }} aria-label="알림 닫기" title="닫기">×</button>
       {/* The HOME picture (the SV icons blur at this size); one that got away is only a silhouette */}
       <div className="w-toast-art"><img src={spriteUrl(t.id, !!t.shiny)} alt="" /></div>
       <div className="w-toast-text">
@@ -61,6 +65,7 @@ export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: num
         {t.via && t.kind === 'catch' && <div className="w-toast-via">{sourceText(t.via)} 포획</div>}
         {t.toProfessor && <div className="w-toast-via warn">박스가 꽉 차서 박사님께 보냈어요 (도감엔 등록됨)</div>}
       </div>
+    </div>
     </div>
   )
 }
@@ -90,7 +95,7 @@ const Toast: React.FC = () => {
 
   useEffect(() => {
     if (!current) return
-    left.current = durationOf(current)
+    left.current = durationOf(current, queue.current.length)
     setLeaving(false)
   }, [current])
 
@@ -108,7 +113,7 @@ const Toast: React.FC = () => {
 
   return (
     <div className="widget toast-host">
-      <ToastCard key={`${t.at}-${t.id}`} t={t} leaving={leaving && !hovered} waiting={waiting} onClick={open} onHover={on => { setHovered(on); if (on) setLeaving(false) }} />
+      <ToastCard key={`${t.at}-${t.id}`} t={t} leaving={leaving && !hovered} waiting={waiting} onClick={open} onClose={next} onHover={on => { setHovered(on); if (on) setLeaving(false) }} />
     </div>
   )
 }

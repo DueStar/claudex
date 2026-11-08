@@ -460,7 +460,7 @@ html.qa-mode #root { min-height: 100vh; }
 .qa-fire:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .qa-fire:disabled { opacity: 0.4; cursor: default; }
 .widget .toast-host.qa-toast { height: auto; padding: 0; width: 384px; display: block; }
-.widget .toast-host.qa-toast .w-toast { animation: none; }
+.widget .toast-host.qa-toast .w-toast, .widget .toast-host.qa-toast .w-toast-behind { animation: none; }
 .qa-fake-term { padding: 8px 10px; }
 .qa-fake-term pre { margin: 0; font-family: 'Monaspace Neon Var', 'Monaspace Neon', Consolas, monospace; font-size: 11px; color: #e6e6e6; white-space: pre-wrap; }
 .qa-today { height: 420px; display: flex; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
