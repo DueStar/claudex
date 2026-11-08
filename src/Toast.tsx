@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import './styles/widget.css'
 import './styles/toast.css'
 import { bridge } from './desktop'
-import { iconUrl } from './theme'
+import { spriteUrl } from './theme'
 import { TIER_LABEL, genderMark, sourceText, ballName, NATURE_BY_ID, type DexEvent } from './pokedexStore'
 import { PokeBall } from './components/Icons'
 
@@ -37,8 +37,8 @@ export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: num
       role="status"
     >
       {waiting > 0 && <span className="w-toast-more" aria-label={`알림 ${waiting}개 더`}>+{waiting}</span>}
-      {/* The SV box icon (a shiny shows ✦ and a glow: the icons have no shiny colours); one that got away is only a silhouette */}
-      <div className="w-toast-art"><img src={iconUrl(t.id)} alt="" /></div>
+      {/* The HOME picture (the SV icons blur at this size); one that got away is only a silhouette */}
+      <div className="w-toast-art"><img src={spriteUrl(t.id, !!t.shiny)} alt="" /></div>
       <div className="w-toast-text">
         <div className="w-toast-eyebrow">
           {t.attendance && <span className="w-toast-badge">오늘의 출석</span>}
