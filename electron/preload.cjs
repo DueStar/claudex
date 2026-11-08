@@ -40,6 +40,16 @@ contextBridge.exposeInMainWorld('claudex', {
     check: () => ipcRenderer.invoke('env:check'),
     openLink: (key) => ipcRenderer.invoke('env:open-link', key),
   },
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    set: (patch) => ipcRenderer.invoke('settings:set', patch),
+    onChange: (fn) => on('settings:changed', fn),
+    onOpen: (fn) => on('settings:open', fn),
+  },
+  data: {
+    exportBackup: () => ipcRenderer.invoke('data:export'),
+    openFolder: () => ipcRenderer.invoke('data:open-folder'),
+  },
   toast: {
     show: (event) => ipcRenderer.send('toast:show', event),
     done: () => ipcRenderer.send('toast:done'),

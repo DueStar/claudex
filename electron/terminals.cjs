@@ -91,7 +91,7 @@ const ASKING = /Do you trust|trust (the files in )?this folder|Do you want to (p
 const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b[=>78]/g
 function plainText(data) { return String(data).replace(ANSI, ' ') }
 
-function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, titles = { get: () => null, set: () => {} } }) {
+function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} } }) {
   const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
 
@@ -114,14 +114,15 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   function list() { return [...terms.values()].map(info) }
 
   function create({ cwd, resume, sessionId: wanted } = {}) {
-    // No folder picked: the default one (Documents), else home
-    const fallback = defaultCwd && fs.existsSync(defaultCwd) ? defaultCwd : os.homedir()
+    // No folder picked: the default one (설정, else Documents), else home
+    const def = typeof defaultCwd === 'function' ? defaultCwd() : defaultCwd
+    const fallback = def && fs.existsSync(def) ? def : os.homedir()
     const dir = cwd && fs.existsSync(cwd) ? cwd : fallback
     // The widget may pick the id itself, so it can dress the session in its Pokémon before the tab shows
     const sessionId = resume || (typeof wanted === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(wanted) ? wanted : crypto.randomUUID())
     let command = claudeCommand()
     let args = resume ? ['--resume', resume] : ['--session-id', sessionId]
-    args.push('--settings', settings())
+    args.push('--settings', settings(), ...extraArgs())
     // Debug only: CLAUDEX_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
     if (process.env.CLAUDEX_CLAUDE) { command = process.env.CLAUDEX_CLAUDE; args = [] }
     const pty = loadPty().spawn(command, args, {

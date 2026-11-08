@@ -21,9 +21,11 @@ import { isHardNeedsYou } from './mainState'
 import { dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, type Mon } from './pokedexStore'
 import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
+import SettingsView from './components/SettingsView'
+import { useSettings } from './settingsStore'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, TodayIcon, DexIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, TodayIcon, DexIcon, GearIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -137,6 +139,10 @@ const Widget: React.FC = () => {
   }, [])
   const [renaming, setRenaming] = useState<string | null>(null)
   const [notesOpen, setNotesOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // Read here so a settings change redraws the whole page (the privacy setting reaches every catch story)
+  const settings = useSettings()
+  useEffect(() => bridge?.settings?.onOpen(() => setSettingsOpen(true)), [])
   // A clicked notification: the Pokédex at that species (carried, since opening the window may swap pages)
   useEffect(() => bridge?.widget.onOpenDex(id => {
     writeCarry({ dexPick: { id, at: Date.now() }, dexScroll: undefined })
@@ -353,7 +359,7 @@ const Widget: React.FC = () => {
 
   const closeSession = (r: Row) => {
     if (!r.terminal) return
-    if (closing !== r.sessionId) { setClosing(r.sessionId); return }
+    if (settings.session.confirmClose && closing !== r.sessionId) { setClosing(r.sessionId); return }
     setClosing(null)
     bridge?.terminals.close(r.terminal.id)
   }
@@ -432,6 +438,7 @@ ${update.notes}` : ''}${update.error ? `
                   : update.error ? '업데이트 실패 · 다시 시도' : '업데이트'}
               </button>
             )}
+            <button className="w-icon" onClick={() => setSettingsOpen(true)} title="설정" aria-label="설정"><GearIcon size={14} /></button>
             {!expanded && (
               <button className="w-icon" onClick={() => setMode('window')} title="창 모드로 펼쳐서 터미널 보기" aria-label="펼치기">⇤</button>
             )}
@@ -712,6 +719,7 @@ ${update.notes}` : ''}${update.error ? `
       )}
       <PatchNotes />
       {notesOpen && <PatchNotesHistory onClose={() => setNotesOpen(false)} />}
+      {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} version={update?.current} />}
       {mode === 'widget' && <ResizeGrip />}
     </div>
   )

@@ -31,6 +31,7 @@ const { createTerminalManager } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
+const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
 const { envVar, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 // A dev run (`electron .`) keeps its own window state, session names and page
@@ -77,6 +78,10 @@ const SERVER_ENTRY = path.join(__dirname, '..', 'server', 'index.js')
 const TOKEN_FILE = path.join(runtimeDirFromEnv(process.env), 'auth-token')
 
 let widgetWin = null // the app
+// The 설정 screen's values (electron/settings.cjs), read on first use
+let settingsStore = null
+const settingsFile = () => path.join(app.getPath('userData'), 'settings.json')
+const appSettings = () => (settingsStore ??= createSettingsStore(settingsFile())).get()
 let toastWin = null  // catch notifications (?toast)
 // The toast page says when it listens (toast:ready); events before that wait here.
 // Sent at did-finish-load they were lost (the page loads its code after that), and
@@ -366,7 +371,42 @@ async function checkUpdateNow() {
 const openLogs = () => { shell.openPath(log.dir).catch(() => {}) }
 // The design QA page is for development: a dev run, or CLAUDEX_QA=1 on a packaged one
 const showQa = !app.isPackaged || envVar('QA') === '1'
-const menuActions = { toggleWidget, quit: quitApp, ...(showQa ? { openQa } : {}), checkUpdate: checkUpdateNow, openLogs }
+/** 설정: the app window comes forward and opens its settings */
+function openSettings() {
+  const w = createWidgetWindow()
+  if (!w) return
+  if (!w.isVisible()) { state.widgetHidden = false; saveState() }
+  w.show()
+  w.focus()
+  w.webContents.send('settings:open')
+}
+
+/** A settings change: save it, apply what the main process owns, tell every window */
+function changeSettings(patch) {
+  const before = appSettings()
+  const next = settingsStore.set(patch)
+  if (next.app.openAtLogin !== before.app.openAtLogin && app.isPackaged) {
+    try { app.setLoginItemSettings({ openAtLogin: next.app.openAtLogin }) } catch (err) { console.error('[main] login item:', err.message) }
+  }
+  if (next.app.widgetOnTop !== before.app.widgetOnTop && widgetWin && !widgetWin.isDestroyed() && widgetWin.claudexKind === 'widget') {
+    widgetWin.setAlwaysOnTop(next.app.widgetOnTop, 'floating')
+  }
+  for (const w of [widgetWin, toastWin]) if (w && !w.isDestroyed()) w.webContents.send('settings:changed', next)
+  return next
+}
+
+/** 설정 › 데이터: a copy of the game file where the user picks */
+async function exportBackup() {
+  const src = path.join(runtimeDirFromEnv(process.env), 'pokedex.json')
+  if (!fs.existsSync(src)) return { ok: false, reason: 'no-data' }
+  const day = new Date().toISOString().slice(0, 10)
+  const opts = { title: '도감 백업 저장', defaultPath: path.join(app.getPath('documents'), `claudex-backup-${day}.json`), filters: [{ name: 'JSON', extensions: ['json'] }] }
+  const r = widgetWin && !widgetWin.isDestroyed() ? await dialog.showSaveDialog(widgetWin, opts) : await dialog.showSaveDialog(opts)
+  if (r.canceled || !r.filePath) return { ok: false, reason: 'canceled' }
+  try { fs.copyFileSync(src, r.filePath); return { ok: true, path: r.filePath } } catch (err) { return { ok: false, reason: err.message } }
+}
+
+const menuActions = { toggleWidget, openSettings, quit: quitApp, ...(showQa ? { openQa } : {}), checkUpdate: checkUpdateNow, openLogs }
 
 function applicationMenuTemplate() {
   const isMac = process.platform === 'darwin'
@@ -450,7 +490,10 @@ async function startApp() {
 
   refreshMenus()
   createTrayIcon()
-  createWidgetWindow()
+  // 설정 › 앱: start in the tray (the tray's Poké Ball brings the window back)
+  const startHidden = appSettings().app.startHidden
+  if (startHidden) { state.widgetHidden = true; saveState() }
+  createWidgetWindow({ hidden: startHidden })
 }
 
 // ---------------------------------------------------------------------------
@@ -533,14 +576,14 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     hasShadow: !isWidget,
     resizable: true,
     maximizable: !isWidget,
-    alwaysOnTop: isWidget,
+    alwaysOnTop: isWidget && appSettings().app.widgetOnTop,
     skipTaskbar: isWidget,
     backgroundColor: isWidget ? '#00000000' : WINDOW_BACKGROUND,
     show: false,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
   })
   win.claudexKind = kind
-  if (isWidget) win.setAlwaysOnTop(true, 'floating')
+  if (isWidget && appSettings().app.widgetOnTop) win.setAlwaysOnTop(true, 'floating')
   win.webContents.on('will-navigate', (event) => event.preventDefault())
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   win.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
@@ -598,9 +641,9 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
   return win
 }
 
-function createWidgetWindow() {
+function createWidgetWindow({ hidden = false } = {}) {
   if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
-  widgetWin = buildAppWindow(modeNow())
+  widgetWin = buildAppWindow(modeNow(), { hidden })
   return widgetWin
 }
 
@@ -778,6 +821,7 @@ function toastPageReady() {
 async function showToast(event) {
   const w = await ensureToastWindow()
   if (!w || w.isDestroyed()) return
+  if (!toastAllowed(event, appSettings())) return // 설정 › 알림
   if (!toastReady) { toastPending = [...toastPending, event].slice(-20); return }
   w.webContents.send('toast:event', event)
   revealToast(w)
@@ -926,8 +970,17 @@ function registerTerminalIpc() {
       saveState()
     },
   }
-  terminals = createTerminalManager({ repoRoot: REPO_ROOT, userDataDir: app.getPath('userData'), send: sendToWindows, onExit: postSessionEnded, defaultCwd: app.getPath('documents'), titles })
+  terminals = createTerminalManager({
+    repoRoot: REPO_ROOT, userDataDir: app.getPath('userData'), send: sendToWindows, onExit: postSessionEnded, titles,
+    // 설정 › 세션: the folder a session opens in when none is picked, and claude's model / permission mode
+    defaultCwd: () => appSettings().session.defaultCwd || app.getPath('documents'),
+    extraArgs: () => claudeArgs(appSettings().session),
+  })
   const guard = (fn) => (event, arg) => (fromOurWindow(event) ? fn(arg, event) : undefined)
+  ipcMain.handle('settings:get', guard(() => appSettings()))
+  ipcMain.handle('settings:set', guard((patch) => (patch && typeof patch === 'object' ? changeSettings(patch) : appSettings())))
+  ipcMain.handle('data:export', guard(() => exportBackup()))
+  ipcMain.handle('data:open-folder', guard(() => shell.openPath(runtimeDirFromEnv(process.env)).then(() => true).catch(() => false)))
   ipcMain.handle('terminals:list', guard(() => terminals.list()))
   ipcMain.handle('terminals:create', guard((opts) => {
     try {

@@ -338,7 +338,11 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - **3단계(도구당 2~3일)**: Codex CLI, Gemini CLI 등 훅·알림 기능이 있는 도구의 정식 어댑터. **시작 전에 각 도구가 지금 어떤 이벤트를 내보내는지 직접 확인한다**(지식 시점 이후 변했을 수 있음).
      - **제품 표현**: 1·2단계 뒤에 README와 화면 문구의 "Claude Code 세션"을 "AI 코딩 세션"으로 바꾼다. 사용량 막대는 그 도구가 정보를 줄 때만 보인다.
 
-   - **C. 설정 화면 (7-8의 4단계를 넓힘)**
+   - **C. 설정 화면 (7-8의 4단계를 넓힘)** → **1차 구현함(2026-11-08, 1.3.16 준비)**:
+     - `electron/settings.cjs`: 기본값, 검사(`sanitize`: 모르는 키는 버리고 타입·값이 틀리면 기존 값), `applyPatch`, 알림 거르기 `toastAllowed`(종류, 희귀 이상만, 방해 금지 시간; 자정을 넘기는 구간 포함), `claudeArgs`(`--model`, `--permission-mode`; 메뉴에 bypassPermissions는 없다). 파일은 `%APPDATA%\Claudex\settings.json`이다.
+     - main: `settings:get/set` IPC로 받고, 바뀌면 위젯과 알림 창에 `settings:changed`를 보낸다. 알림은 main의 `showToast`에서 거른다(창과 상관없이 한 곳에서). 로그인 시 실행은 `app.setLoginItemSettings`(설치본만), 위젯 항상 위는 `setAlwaysOnTop`, 트레이로 숨긴 채 시작은 `createWidgetWindow({ hidden })`. 기본 폴더와 claude 인자는 `createTerminalManager`의 `defaultCwd()`·`extraArgs()`. 백업은 `data:export`(저장 대화상자 → pokedex.json 복사). 트레이 메뉴에 "설정"이 있다.
+     - 화면: `src/components/SettingsView.tsx`(알림·개인정보·세션·앱·데이터), `src/settingsStore.ts`(`useSettings`, `getSettings`). 요청 내용 숨기기는 `sourceText`가 `getSettings()`를 읽는다. Widget과 Toast가 `useSettings()`로 다시 그린다. 저장 버튼은 없고 바로 저장된다.
+     - 이번에 뺀 것: "전체 화면 앱이 떠 있을 때 방해 금지"(Electron에 다른 앱의 전체 화면을 알 방법이 없어 시간대만 했다), 백업 가져오기(merge 검증과 서버 엔드포인트가 필요), 초기화.
      - **1차(추천)**
        - **알림**: 종류별 켜기·끄기(포획·도망·진화·레벨업), "희귀 이상만", 표시 시간, 방해 금지(전체 화면·시간대)
        - **개인정보**: 알림·기록에 **요청 내용(프롬프트) 숨기기**. 지금은 포획 경위에 내가 쓴 요청이 그대로 떠서 화면 공유 중에 곤란하다. 리더보드 닉네임·공개 여부도 여기에 둔다.

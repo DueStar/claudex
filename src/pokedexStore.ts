@@ -6,6 +6,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { castSession, POKEMON } from './theme'
+import { getSettings } from './settingsStore'
 
 import NATURES from '../server/natures.json'
 import BALL_DATA from '../server/balls.json'
@@ -27,7 +28,8 @@ export function genderMark(g: Gender | undefined): string {
 /** "‘요청…’ 하다가 Bash(npm test)로 포획" */
 export function sourceText(v: CatchSource | null | undefined): string {
   if (!v) return ''
-  return v.prompt ? `‘${v.prompt}’ 요청 중 ${v.label}로` : `${v.label}로`
+  // 설정 › 개인정보: the request text stays off the screen (shared screens, meetings)
+  return v.prompt && !getSettings().privacy.hidePrompts ? `‘${v.prompt}’ 요청 중 ${v.label}로` : `${v.label}로`
 }
 
 export interface CaughtInfo {

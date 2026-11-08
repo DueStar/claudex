@@ -10,6 +10,10 @@ import { bridge } from './desktop'
 import { spriteUrl } from './theme'
 import { TIER_LABEL, genderMark, sourceText, ballName, NATURE_BY_ID, type DexEvent } from './pokedexStore'
 import { PokeBall } from './components/Icons'
+import { useSettings } from './settingsStore'
+
+/** 설정 › 알림 › 표시 시간 */
+const DURATION_SCALE = { short: 0.6, normal: 1, long: 1.6 } as const
 
 /** How long a card stays; with others waiting behind it, the ordinary ones move along faster */
 export function durationOf(e: DexEvent, waiting = 0): number {
@@ -78,6 +82,8 @@ const Toast: React.FC = () => {
   const [hovered, setHovered] = useState(false)
   // Time left for the card on screen: a hover stops the clock, leaving starts it again
   const left = useRef(0)
+  const settings = useSettings() // also redraws the card when the privacy setting changes
+  const scale = DURATION_SCALE[settings.notify.duration] ?? 1
 
   const next = () => {
     const n = queue.current.shift() ?? null
@@ -99,7 +105,7 @@ const Toast: React.FC = () => {
 
   useEffect(() => {
     if (!current) return
-    left.current = durationOf(current, queue.current.length)
+    left.current = Math.round(durationOf(current, queue.current.length) * scale)
     setLeaving(false)
   }, [current])
 

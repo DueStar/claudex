@@ -54,6 +54,18 @@ interface ClaudexBridge {
     signOut(): Promise<{ ok: boolean }>
     sync(): Promise<{ ok: boolean; reason?: string }>
   }
+  settings: {
+    get(): Promise<AppSettings>
+    /** A part of the settings ({ notify: { flee: false } }); the whole new settings come back */
+    set(patch: SettingsPatch): Promise<AppSettings>
+    onChange(fn: (s: AppSettings) => void): () => void
+    /** The tray's 설정: open the settings screen */
+    onOpen(fn: () => void): () => void
+  }
+  data: {
+    exportBackup(): Promise<{ ok: boolean; path?: string; reason?: string }>
+    openFolder(): Promise<boolean>
+  }
   env: {
     check(): Promise<Record<'claude' | 'git', { ok: boolean; version: string | null; link: string }>>
     openLink(key: 'claude' | 'git' | 'release'): Promise<void>
@@ -107,6 +119,15 @@ export type WidgetMode = 'widget' | 'window' | 'fullscreen'
 declare global {
   interface Window { claudex?: ClaudexBridge }
 }
+
+/** The 설정 screen's values (electron/settings.cjs keeps them and checks every change) */
+export interface AppSettings {
+  notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string }
+  privacy: { hidePrompts: boolean }
+  session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan'; confirmClose: boolean }
+  app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean }
+}
+export type SettingsPatch = { [G in keyof AppSettings]?: Partial<AppSettings[G]> }
 
 export const bridge: ClaudexBridge | null = typeof window !== 'undefined' ? window.claudex ?? null : null
 export const isDesktop = !!bridge
