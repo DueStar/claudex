@@ -510,11 +510,25 @@ ${update.notes}` : ''}${update.error ? `
           <section className="w-card w-party">
             <div className="w-party-head">
               <span className="w-label">파티</span>
-              <span className="w-party-slots" title="파티 6마리: 일하는 포켓몬은 세션에 나가 있어요">
+              {/* A resting one, clicked, goes to work in the chosen session in place of its Pokémon */}
+              <span className="w-party-slots">
                 {(dex?.party ?? []).map(uid => {
                   const m = dex?.mons?.[uid]
+                  if (!m) return null
                   const out = Object.values(dex?.assign ?? {}).includes(uid)
-                  return m ? <img key={uid} src={iconUrl(m.dex)} alt={pokemonById(m.dex)?.ko} title={`${m.shiny ? '✨ ' : ''}${pokemonById(m.dex)?.ko}${out ? ' · 일하는 중' : ' · 쉬는 중'}`} className={out ? 'out' : ''} /> : null
+                  const name = `${m.shiny ? '✨ ' : ''}${pokemonById(m.dex)?.ko}`
+                  const into = !out && shown?.terminal ? shown : null
+                  return (
+                    <button
+                      key={uid}
+                      className={`w-party-mon${out ? ' out' : ''}`}
+                      disabled={!into}
+                      onClick={() => { if (into) doSwap(into.sessionId, uid) }}
+                      title={out ? `${name} · 일하는 중` : into ? `${name} · 눌러서 '${into.title ?? '새 세션'}' 세션의 포켓몬과 교체` : `${name} · 쉬는 중`}
+                    >
+                      <img src={iconUrl(m.dex)} alt={name} />
+                    </button>
+                  )
                 })}
               </span>
             </div>

@@ -250,7 +250,12 @@
 .w-party-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .w-party-slots { display: flex; gap: var(--w-icon-gap); flex: 1; align-items: center; }
 .w-party-slots img { width: var(--w-icon); height: var(--w-icon); flex: none; object-fit: contain; opacity: 0.45; filter: grayscale(0.3); }
-.w-party-slots img.out { opacity: 1; filter: none; }
+.w-party-mon { padding: 0; border: 0; background: none; border-radius: 8px; display: grid; place-items: center; }
+.w-party-mon:not(:disabled) { cursor: pointer; }
+.w-party-mon:not(:disabled):hover { background: rgba(255, 255, 255, 0.08); }
+.w-party-mon:not(:disabled):hover img { opacity: 0.9; filter: none; }
+.w-party-mon:disabled { cursor: default; }
+.w-party-mon.out img { opacity: 1; filter: none; }
 .w-row-swap {
   font: inherit; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; border: 0;
   background: var(--accent-soft); color: var(--accent); cursor: pointer;
@@ -307,8 +312,25 @@
 /* ---------- PC box ---------- */
 .box { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .box-main { flex: 1; min-height: 0; display: flex; }
-.box-left { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.box-party { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.box-left { flex: 1; min-width: 0; display: flex; flex-direction: column; container-type: inline-size; }
+/* Slot size: the old one, so the icons stay sharp (SV icons are small pictures) */
+.box { --slot: 86px; --slot-gap: 8px; }
+.box.look-icon { --slot: 64px; --slot-gap: 6px; }
+/* Like the games' PC: party column | the box (name tag over 6 × 5), side by side, scrolling when short */
+.box-stage { flex: 1; min-height: 0; overflow: auto; padding: 14px; display: flex; gap: 18px; align-items: flex-start; justify-content: safe center; }
+.box-party { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.box-party-col { display: grid; grid-template-columns: var(--slot); grid-auto-rows: var(--slot); gap: var(--slot-gap); }
+.box-panel { flex: none; position: relative; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+/* Too narrow for the two side by side: the party becomes a row above the box */
+@container (max-width: 640px) {
+  .box-stage { flex-direction: column; align-items: safe center; justify-content: flex-start; gap: 12px; }
+  .box-party-col { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: var(--slot); }
+}
+/* Narrower still (the summary open in a small window): smaller slots, the pictures shrink rather than blur */
+@container (max-width: 470px) {
+  .box-stage { --slot: 50px; --slot-gap: 5px; padding: 8px; }
+}
+.box-empty { position: absolute; inset: 56px 12px 12px; display: grid; place-items: center; text-align: center; padding: 0 20px; font-size: 12px; color: var(--ink-3); pointer-events: none; }
 .box-title { font-size: 12px; font-weight: 650; color: var(--ink); display: flex; gap: 6px; align-items: baseline; }
 .box-title span { font-size: 11px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .box-title span.full { color: var(--amber); font-weight: 700; }
@@ -323,24 +345,21 @@
 }
 .box-search input:focus { outline: none; border-color: rgba(242, 201, 76, 0.5); }
 .box-search svg { position: absolute; right: 9px; color: var(--ink-3); pointer-events: none; }
-/* One box like the games: 30 slots (6 × 5) as big as the space allows, flipped with ‹ 박스 N › */
-.box-pager { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 12px 0; }
+/* The box's name tag, flipped with ‹ › */
+.box-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .box-pager button {
   font: inherit; font-size: 18px; line-height: 1; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
   border: 1px solid var(--line); background: var(--card-2); color: var(--ink-2);
 }
-.box-pager button:hover { color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
+.box-pager button:hover:not(:disabled) { color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
+.box-pager button:disabled { opacity: 0.4; cursor: default; }
 .box-name {
-  min-width: 120px; text-align: center; padding: 5px 14px; border-radius: 10px;
+  flex: 1; text-align: center; padding: 5px 14px; border-radius: 10px;
   background: var(--card-2); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
 }
 .box-name small { font-size: 11px; font-weight: 500; color: var(--ink-3); }
-.box-page { flex: 1; min-height: 0; container-type: size; display: grid; place-items: start center; padding: 10px 12px 12px; }
-.box-grid {
-  width: min(100cqw, 100cqh * 6 / 5); aspect-ratio: 6 / 5;
-  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 8px;
-}
-.box-slot { border-radius: 12px; background: rgba(255, 255, 255, 0.025); border: 1px solid rgba(255, 255, 255, 0.04); }
+.box-grid { display: grid; grid-template-columns: repeat(6, var(--slot)); grid-auto-rows: var(--slot); gap: var(--slot-gap); }
+.box-slot { border-radius: 12px; background: rgba(255, 255, 255, 0.025); border: 1px solid rgba(255, 255, 255, 0.05); }
 .box-cell {
   position: relative; width: 86px; height: 86px; padding: 0; border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--tier, #a4a9b6) 40%, transparent);
@@ -355,8 +374,7 @@
 .box-cell.nodrop { opacity: 0.45; }
 .box-cell { transition: transform 0.12s ease, background 0.12s ease; }
 .box-cell:disabled { opacity: 0.4; cursor: not-allowed; }
-.box-grid .box-cell { width: auto; height: auto; min-width: 0; min-height: 0; }
-.box-grid .box-cell img:not(.pokeball) { width: 70%; height: 70%; }
+.box-grid .box-cell, .box-party-col .box-cell { width: var(--slot); height: var(--slot); }
 .box-party-row .box-cell { width: 78px; height: 78px; }
 .box-shiny { position: absolute; right: 4px; top: 2px; font-size: 10px; color: #fff3a0; }
 /* bottom-left, clear of the level (top-left) and the shiny mark (top-right) */
@@ -370,6 +388,7 @@
 /* SV icons by default (small cells, many to a screen); the HOME pictures on the switch */
 .box.look-icon .box-cell img:not(.pokeball) { width: 80%; height: auto; aspect-ratio: 1; object-fit: contain; }
 .box.look-icon .box-party-row .box-cell { width: 64px; height: 64px; }
+.box.look-icon .box-slot, .box.look-icon .box-cell { border-radius: 10px; }
 .box.look-icon .box-lv { font-size: 9px; left: 4px; top: 2px; }
 .box.look-icon .box-ball { right: 3px; bottom: 3px; }
 /* The detail card */

@@ -5,6 +5,8 @@
  * at a time (6 × 5) and flips with ‹ › or the arrow keys. The cells show the
  * SV box icons by default or the HOME pictures; the detail card is always the
  * HOME picture, the one that shows a shiny's colours.
+ * Laid out like the games' PC: the party in a column on the left, the box
+ * (its name tag with ‹ › over 6 × 5 slots) in the middle, the summary on the right.
  */
 
 import React, { useEffect, useMemo, useState } from 'react'
@@ -133,12 +135,6 @@ const BoxView: React.FC = () => {
     >
       <div className="box-main">
         <div className="box-left">
-          <div className="box-party">
-            <div className="box-title">파티 <span>{party.length} / {state?.partySize ?? 6}</span></div>
-            <div className="box-party-row">
-              {party.map(uid => mons[uid] && cell(mons[uid]))}
-            </div>
-          </div>
           <div className="box-toolbar">
             <div className="box-title">박스 <span className={(state?.box.length ?? 0) >= (state?.boxLimit ?? 1200) ? 'full' : ''}>{state?.box.length ?? 0} / {state?.boxLimit ?? 1200}</span></div>
             <div className="box-tools">
@@ -163,21 +159,27 @@ const BoxView: React.FC = () => {
               </div>
             </div>
           </div>
-          {box.length ? (
-            <>
+          <div className="box-stage">
+            <div className="box-party">
+              <div className="box-title">파티 <span>{party.length} / {state?.partySize ?? 6}</span></div>
+              <div className="box-party-col">
+                {party.map(uid => mons[uid] && cell(mons[uid]))}
+                {Array.from({ length: Math.max(0, (state?.partySize ?? 6) - party.length) }, (_, i) => <div key={`pempty-${i}`} className="box-slot" />)}
+              </div>
+            </div>
+            <div className="box-panel">
               <div className="box-pager">
-                <button onClick={() => flip(-1)} aria-label="이전 박스" title="이전 박스 (←)">‹</button>
+                <button onClick={() => flip(-1)} disabled={!box.length} aria-label="이전 박스" title="이전 박스 (←)">‹</button>
                 <span className="box-name">박스 {at + 1}<small> / {pages}</small></span>
-                <button onClick={() => flip(1)} aria-label="다음 박스" title="다음 박스 (→)">›</button>
+                <button onClick={() => flip(1)} disabled={!box.length} aria-label="다음 박스" title="다음 박스 (→)">›</button>
               </div>
-              <div className="box-page">
-                <div className="box-grid">
-                  {shown.map(cell)}
-                  {Array.from({ length: PAGE - shown.length }, (_, i) => <div key={`empty-${i}`} className="box-slot" />)}
-                </div>
+              <div className="box-grid">
+                {shown.map(cell)}
+                {Array.from({ length: PAGE - shown.length }, (_, i) => <div key={`empty-${i}`} className="box-slot" />)}
               </div>
-            </>
-          ) : <div className="dex-empty">{state?.box.length ? '조건에 맞는 포켓몬이 없어요' : '박스가 비어 있어요. 일하다 보면 야생 포켓몬을 만나요'}</div>}
+              {!box.length && <div className="box-empty">{state?.box.length ? '조건에 맞는 포켓몬이 없어요' : '박스가 비어 있어요. 일하다 보면 야생 포켓몬을 만나요'}</div>}
+            </div>
+          </div>
         </div>
 
         {picked && p && (
