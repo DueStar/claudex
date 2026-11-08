@@ -766,6 +766,13 @@ app.get('/auth/callback', async (req, res) => {
 <h2>${ok ? '로그인됐어요' : '로그인하지 못했어요'}</h2>
 <p style="color:#a4a9b6">${ok ? '이 탭을 닫고 Claudex로 돌아가세요.' : '앱에서 다시 시도해주세요.'}</p></div></body>`)
 })
+// The leaderboard (supabase/leaderboard.sql); the desktop app asks, with the token
+app.post('/leaderboard', requireToken, async (req, res) => res.json(await cloud.leaderboard(String(req.body?.board ?? ''))))
+app.post('/leaderboard/profile', requireToken, async (_req, res) => res.json(await cloud.leaderboardProfile()))
+app.post('/leaderboard/profile/set', requireToken, async (req, res) => {
+  const { nickname, isPublic, partner } = req.body ?? {}
+  res.json(await cloud.setLeaderboardProfile({ nickname: typeof nickname === 'string' ? nickname : '', isPublic: isPublic === true, partner: Number.isInteger(partner) ? partner : null }))
+})
 app.get('/pokedex', (_req, res) => res.json(pokedex.publicState()))
 // Throw a party Pokémon out with a session the app is opening (the desktop app sends it, with the token)
 app.post('/pokedex/throw', requireToken, (req, res) => {

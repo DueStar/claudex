@@ -25,7 +25,7 @@ import SettingsView from './components/SettingsView'
 import { useSettings } from './settingsStore'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, TodayIcon, DexIcon, GearIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -33,13 +33,15 @@ const loadTerminal = () => import('./components/TerminalPanel')
 const loadDex = () => import('./components/PokedexView')
 const loadBox = () => import('./components/BoxView')
 const loadToday = () => import('./components/TodayLog')
+const loadRank = () => import('./components/LeaderboardView')
 const TerminalView = lazy(() => loadTerminal().then(m => ({ default: m.TerminalView })))
 const ResumePicker = lazy(() => loadTerminal().then(m => ({ default: m.ResumePicker })))
 const PokedexView = lazy(loadDex)
 const BoxView = lazy(loadBox)
 const TodayLog = lazy(loadToday)
+const LeaderboardView = lazy(loadRank)
 function preloadViews() {
-  const go = () => { for (const load of [loadTerminal, loadDex, loadBox, loadToday]) load().catch(() => {}) }
+  const go = () => { for (const load of [loadTerminal, loadDex, loadBox, loadToday, loadRank]) load().catch(() => {}) }
   if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2000 })
   else setTimeout(go, 500)
 }
@@ -150,10 +152,10 @@ const Widget: React.FC = () => {
     setView('dex')
     setExpanded(true)
   }), [])
-  // Ctrl+1–4: 터미널 / 도감 / 박스 / 기록 (opens the window view from the widget too)
+  // Ctrl+1–5: 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
   // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
   useEffect(() => {
-    const views = ['terminal', 'dex', 'box', 'today'] as const
+    const views = ['terminal', 'dex', 'box', 'today', 'rank'] as const
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         // Stopped here so the terminal and the dex grid do not also take the arrow
@@ -164,7 +166,7 @@ const Widget: React.FC = () => {
         setExpanded(true)
         return
       }
-      if (!e.ctrlKey || e.altKey || e.shiftKey || !/^[1-4]$/.test(e.key)) return
+      if (!e.ctrlKey || e.altKey || e.shiftKey || !/^[1-5]$/.test(e.key)) return
       e.preventDefault()
       setView(views[Number(e.key) - 1])
       setExpanded(true)
@@ -177,7 +179,7 @@ const Widget: React.FC = () => {
   const termFont = useTermFont()
   const [mode, setModeState] = useState<WidgetMode>(modeFromUrl)
   const expanded = mode !== 'widget'
-  const [view, setViewState] = useState<'terminal' | 'dex' | 'box' | 'today'>(() => readCarry().view ?? 'terminal')
+  const [view, setViewState] = useState<'terminal' | 'dex' | 'box' | 'today' | 'rank'>(() => readCarry().view ?? 'terminal')
   // Noted for the carry at once: opening the window from the widget swaps pages before React re-renders
   const setView = (v: typeof view) => { carried.current = { ...carried.current, view: v }; setViewState(v) }
   const { state: dex, lastEvent } = usePokedex()
@@ -652,6 +654,7 @@ ${update.notes}` : ''}${update.error ? `
               <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')} title="도감 (Ctrl+2)"><DexIcon size={14} />도감{hasNew && <span className="w-new-dot" aria-label="새로 잡은 포켓몬" />}</button>
               <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')} title="박스 (Ctrl+3)"><BoxIcon size={14} />박스</button>
               <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')} title="기록 (Ctrl+4)"><TodayIcon size={14} />기록</button>
+              <button className={view === 'rank' ? 'on' : ''} onClick={() => setView('rank')} title="랭킹 (Ctrl+5)"><RankIcon size={14} />랭킹</button>
             </div>
             {view === 'terminal' && withTerminal.map(r => (
               <button
@@ -691,6 +694,7 @@ ${update.notes}` : ''}${update.error ? `
             {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}
             {view === 'box' && <div className="w-dex-body"><BoxView /></div>}
             {view === 'today' && <div className="w-dex-body"><TodayLog /></div>}
+            {view === 'rank' && <div className="w-dex-body"><LeaderboardView /></div>}
           </Suspense>
           <div className="w-term-body" style={{ display: view === 'terminal' ? undefined : 'none' }}>
             {withTerminal.length === 0 && (

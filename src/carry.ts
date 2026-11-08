@@ -5,7 +5,7 @@
  * Per PC, in localStorage.
  */
 
-export interface Carried { view?: 'terminal' | 'dex' | 'box' | 'today'; target?: string | null; text?: string; dexScroll?: number; dexPick?: { id: number; at: number } | null }
+export interface Carried { view?: 'terminal' | 'dex' | 'box' | 'today' | 'rank'; target?: string | null; text?: string; dexScroll?: number; dexPick?: { id: number; at: number } | null }
 
 /** A species to open the Pokédex at, if it was asked for in the last few seconds (a clicked notification) */
 export function freshDexPick(): number | null {

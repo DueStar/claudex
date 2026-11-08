@@ -321,3 +321,6 @@
   .set-row { flex-wrap: wrap; gap: 8px; }
   .set-row:has(> .set-switch) { flex-wrap: nowrap; }
 }
+.set-btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+.set-btn.primary:hover { filter: brightness(1.06); }
+.set-btn:disabled { opacity: 0.5; cursor: default; }

@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('claudex', {
     onChange: (fn) => on('settings:changed', fn),
     onOpen: (fn) => on('settings:open', fn),
   },
+  board: {
+    get: (board) => ipcRenderer.invoke('board:get', String(board)),
+    profile: () => ipcRenderer.invoke('board:profile'),
+    setProfile: (p) => ipcRenderer.invoke('board:set-profile', p),
+  },
   data: {
     exportBackup: () => ipcRenderer.invoke('data:export'),
     openFolder: () => ipcRenderer.invoke('data:open-folder'),

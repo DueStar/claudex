@@ -54,6 +54,10 @@ export const FullscreenIcon: React.FC<P> = (p) => (
 export const TodayIcon: React.FC<P> = (p) => (
   <Svg {...p}><circle cx="8" cy="8" r="6" /><path d="M8 4.8V8l2.2 1.6" /></Svg>
 )
+/** A podium: the leaderboard */
+export const RankIcon: React.FC<P> = (p) => (
+  <Svg {...p}><path d="M2 13.5h12M5.5 13.5V8h5v5.5M2.5 13.5v-3h3M10.5 13.5V6h3v7.5M8 3l.7 1.4 1.5.2-1.1 1 .3 1.5L8 6.4l-1.4.7.3-1.5-1.1-1 1.5-.2z" /></Svg>
+)
 /** A line: minimize the window */
 export const MinimizeIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M3.5 8h9" /></Svg>

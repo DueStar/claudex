@@ -280,7 +280,26 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 7-9. **큰 방향 계획(2026-11-08, 사용자 요청: "리더보드로 사용자끼리 경쟁심을 부추기고 싶다", "Claude로 너무 한정한 제품 아닌가", 설정 디벨롭). 아직 실행 안 함, 사용자 검토 대기**
    - **순서 제안**: ① 설정 화면 1차 → ② 리더보드 1차(MVP) → ③ 다른 AI 도구 1·2단계. 리더보드는 로그인 사용자가 늘수록 효과가 커지고, 설정의 "닉네임·공개 여부"가 먼저 있어야 해서 설정 다음에 둔다. 다른 AI 도구는 사용자 층을 넓히는 일이라 리더보드와 따로 진행할 수 있다.
 
-   - **A. 리더보드 (경쟁심)**
+   - **A. 리더보드 (경쟁심)** → **1차 구현함(2026-11-08, 로컬 커밋). Supabase에 `supabase/leaderboard.sql`을 한 번 실행해야 동작한다**(SQL Editor → 붙여넣기 → Run. 다시 실행해도 안전함. 앱은 secret key를 쓰지 않으므로 사용자가 직접 실행한다. 실행 전에는 랭킹 탭에 "준비하고 있어요"가 뜬다).
+     - DB: `leaderboard` 테이블. 숫자는 `trainers.state`가 올라올 때 트리거 `leaderboard_stats`가 계산한다.
+       - 도감 = caught 키 수
+       - 색이 다른 포켓몬 = mons의 shiny 수
+       - 전설·환상 = caught ∩ 48종 번호(SQL 안에 배열로 있음; pokemon-data.json의 legendary/mythical과 맞춰야 함)
+       - 이번 주 = mons 중 how가 wild/pity/attendance이고 at이 이번 주 월요일 0시(KST) 이후인 수
+       - 놓아준 포켓몬과 박사님께 보낸 포켓몬은 빠진다
+     - 그럴듯함 검사(`flagged`): 종 수가 1025보다 많거나, 색이 다른 포켓몬이 가진 포켓몬보다 많거나, 한 주 포획이 1500을 넘으면 순위에서 뺀다.
+     - 테이블은 RLS로 막고 정책을 두지 않는다. 함수 세 개로만 접근한다.
+       - `leaderboard_board(board)`: anon도 가능. 상위 100명과 내 순위 ±5명. rank(동점 같은 등수)와 rn(줄 번호)을 준다.
+       - `leaderboard_profile()`
+       - `leaderboard_set_profile(nickname, public, partner)`: 닉네임은 한글·영문·숫자·_ 2~12자, 대소문자 무시 중복 금지. 'ok'·'taken'·'bad-nickname'·'no-game'·'signed-out'을 돌려준다.
+     - Supabase는 새 함수를 anon·authenticated에 기본으로 열어 주므로, revoke한 뒤 필요한 것만 grant한다.
+     - 검증: PGlite(인프로세스 Postgres)에서 schema.sql과 leaderboard.sql을 두 번 실행해 숫자, 닉네임 규칙·중복, 비공개 숨김, 내 줄 표시, 불가능한 게임 flag, anon 권한을 확인했다(스크래치패드 `pgtest/run.mjs`, 저장소에는 없음).
+     - 앱:
+       - `server/cloud.js`: `leaderboard(board)`는 보드당 60초 캐시이고, 로그인 전에는 publishable key만으로 부른다. `leaderboardProfile`, `setLeaderboardProfile`은 참여 전에 `sync()`로 게임을 먼저 올린다. 404면 'not-set-up'.
+       - 서버 `POST /leaderboard`, `/leaderboard/profile`, `/leaderboard/profile/set`(토큰 필요).
+       - IPC `board:*`.
+       - 화면: `src/components/LeaderboardView.tsx`(랭킹 탭, Ctrl+5). 보드 4개(이번 주 포획이 기본), 내 칸(로그인 / 참여: 닉네임 + 대표 포켓몬은 파티에서 / 수정·그만두기), 목록(1~3위 색, 내 줄 강조, 순위가 끊기면 ⋯).
+     - 이번에 뺀 것: 위젯의 "이번 주 12위 ▲3", 주간 리그, 친구, 시즌, 추월 알림(2차 이후).
      - **원칙**
        - 참여는 **선택(opt-in)**이다. 공개 이름은 앱에서 정하는 **닉네임**이다. 지금 `trainers.display_name`에는 구글 실명이나 이메일이 들어가므로 절대 공개하지 않는다. 닉네임은 별도 컬럼 `nickname`에 둔다.
        - 대표 포켓몬(아이콘)을 프로필로 쓴다. 보이는 건 닉네임, 대표 포켓몬, 숫자뿐이다.

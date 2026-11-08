@@ -172,3 +172,61 @@ describe('cloud', () => {
     expect(existsSync(join(dir, 'cloud-session.json.synced'))).toBe(false)
   })
 })
+
+describe('cloud leaderboard', () => {
+  function board(rpc: (name: string, body: any, auth?: string) => { status: number; data: any }) {
+    const dir = mkdtempSync(join(tmpdir(), 'cloud-'))
+    dirs.push(dir)
+    const calls: any[] = []
+    let clock = 1_000_000
+    const json = (data: any, status = 200) => ({ ok: status < 400, status, json: async () => data, text: async () => JSON.stringify(data) })
+    const fetchImpl = async (url: string, init: any = {}) => {
+      calls.push({ url, init })
+      if (url.includes('grant_type=pkce')) return json({ access_token: 'at', refresh_token: 'rt', expires_in: 3600, user: { id: 'u1', email: 'a@b.c' } })
+      if (url.includes('/rest/v1/trainers?select=')) return json([])
+      if (url.includes('/rest/v1/trainers?on_conflict=')) return json([{ updated_at: '2026-11-08T00:00:00Z' }], 201)
+      const m = url.match(/\/rest\/v1\/rpc\/(\w+)$/)
+      if (m) { const r = rpc(m[1], JSON.parse(init.body), init.headers.Authorization); return json(r.data, r.status) }
+      return json({}, 404)
+    }
+    const cloud = createCloud({ config: CONFIG, sessionFile: join(dir, 's.json'), callbackUrl: 'http://127.0.0.1:3334/auth/callback', broadcast: () => {}, getGame: () => ({ version: 2, caught: {}, seen: {} }), replaceGame: () => {}, fetchImpl: fetchImpl as any, now: () => clock })
+    const signIn = async () => {
+      const state = new URL(new URL(cloud.startSignIn().url!).searchParams.get('redirect_to')!).searchParams.get('state')!
+      await cloud.finishSignIn({ code: 'c', state })
+    }
+    return { cloud, calls, signIn, tick: (ms: number) => { clock += ms } }
+  }
+
+  it('reads a board anonymously before sign-in and as the trainer after, at most once a minute', async () => {
+    const auths: (string | undefined)[] = []
+    const { cloud, calls, signIn, tick } = board((name, body, auth) => {
+      auths.push(auth)
+      expect(name).toBe('leaderboard_board')
+      expect(body).toEqual({ board: 'week' })
+      return { status: 200, data: [{ place: 1, rn: 1, nickname: 'Ash', partner: 25, value: 12, is_me: !!auth }] }
+    })
+    expect(await cloud.leaderboard('week')).toEqual({ ok: true, rows: [{ place: 1, rn: 1, nickname: 'Ash', partner: 25, value: 12, me: false }] })
+    expect(auths).toEqual([undefined]) // the publishable key alone
+    await cloud.leaderboard('week')
+    expect(calls.filter(c => c.url.includes('/rpc/')).length).toBe(1) // cached
+    await signIn()
+    const r = await cloud.leaderboard('week')
+    expect(r.rows?.[0].me).toBe(true)
+    expect(auths.at(-1)).toBe('Bearer at')
+    tick(61_000)
+    await cloud.leaderboard('week')
+    expect(calls.filter(c => c.url.includes('/rpc/')).length).toBe(3)
+    expect(await cloud.leaderboard('nope')).toEqual({ ok: false, reason: 'bad-board' })
+  })
+
+  it('says so when leaderboard.sql was not run, and passes the database answer for a profile change', async () => {
+    let answer = 'taken'
+    const { cloud, signIn } = board((name) => (name === 'leaderboard_board' ? { status: 404, data: {} } : { status: 200, data: answer }))
+    expect(await cloud.leaderboard('caught')).toEqual({ ok: false, reason: 'not-set-up' })
+    expect(await cloud.setLeaderboardProfile({ nickname: 'Ash', isPublic: true, partner: 25 })).toEqual({ ok: false, reason: 'signed-out' })
+    await signIn()
+    expect(await cloud.setLeaderboardProfile({ nickname: 'Ash', isPublic: true, partner: 25 })).toEqual({ ok: false, reason: 'taken' })
+    answer = 'ok'
+    expect(await cloud.setLeaderboardProfile({ nickname: 'Ash', isPublic: true, partner: 25 })).toEqual({ ok: true })
+  })
+})

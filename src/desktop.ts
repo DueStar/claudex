@@ -62,6 +62,11 @@ interface ClaudexBridge {
     /** The tray's 설정: open the settings screen */
     onOpen(fn: () => void): () => void
   }
+  board: {
+    get(board: BoardKind): Promise<{ ok: boolean; reason?: string; rows?: BoardRow[] }>
+    profile(): Promise<{ ok: boolean; reason?: string; profile?: BoardProfile | null }>
+    setProfile(p: { nickname: string; isPublic: boolean; partner: number | null }): Promise<{ ok: boolean; reason?: string }>
+  }
   data: {
     exportBackup(): Promise<{ ok: boolean; path?: string; reason?: string }>
     openFolder(): Promise<boolean>
@@ -127,6 +132,9 @@ export interface AppSettings {
   session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan'; confirmClose: boolean }
   app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean }
 }
+export type BoardKind = 'caught' | 'shiny' | 'legends' | 'week'
+export interface BoardRow { place: number; rn: number; nickname: string; partner: number | null; value: number; me: boolean }
+export interface BoardProfile { nickname: string; isPublic: boolean; partner: number | null; caught: number; shiny: number; legends: number; week: number; flagged: boolean }
 export type SettingsPatch = { [G in keyof AppSettings]?: Partial<AppSettings[G]> }
 
 export const bridge: ClaudexBridge | null = typeof window !== 'undefined' ? window.claudex ?? null : null

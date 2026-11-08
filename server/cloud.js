@@ -249,6 +249,76 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     syncTimer.unref?.()
   }
 
+  // ---- The leaderboard (supabase/leaderboard.sql): three functions, the numbers worked out in the database ----
+
+  const BOARDS = ['caught', 'shiny', 'legends', 'week']
+  const BOARD_TTL_MS = 60_000 // a board is asked for at most once a minute (egress)
+  const boardCache = new Map()
+
+  /** A database function; signed in it goes as the trainer, else anonymously (the publishable key alone) */
+  async function rpc(name, args, { signedIn = true } = {}) {
+    const token = signedIn ? await accessToken() : null
+    if (signedIn && !token) throw new Error('signed-out')
+    const res = await fetchImpl(`${base}/rest/v1/rpc/${name}`, {
+      method: 'POST',
+      headers: { apikey: config.publishableKey, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(args ?? {}),
+    })
+    const text = await res.text()
+    if (res.status === 404) throw new Error('not-set-up') // leaderboard.sql was not run yet
+    if (!res.ok) throw new Error(`${res.status} ${text.slice(0, 200)}`)
+    return text ? JSON.parse(text) : null
+  }
+
+  /** The top 100 of a board and the trainer's own place: { ok, rows: [{ place, nickname, partner, value, me }] } */
+  async function leaderboard(board) {
+    if (!enabled) return { ok: false, reason: 'not-configured' }
+    if (!BOARDS.includes(board)) return { ok: false, reason: 'bad-board' }
+    const key = `${session?.user?.id ?? 'anon'}:${board}`
+    const hit = boardCache.get(key)
+    if (hit && now() - hit.at < BOARD_TTL_MS) return hit.result
+    try {
+      const rows = await rpc('leaderboard_board', { board }, { signedIn: !!session })
+      const result = {
+        ok: true,
+        rows: (Array.isArray(rows) ? rows : []).map(r => ({ place: Number(r.place), rn: Number(r.rn ?? r.place), nickname: String(r.nickname ?? ''), partner: r.partner ?? null, value: Number(r.value ?? 0), me: r.is_me === true })),
+      }
+      boardCache.set(key, { at: now(), result })
+      return result
+    } catch (err) {
+      return { ok: false, reason: err.message }
+    }
+  }
+
+  /** The trainer's own entry: nickname, public flag, partner and numbers (null before the first sync) */
+  async function leaderboardProfile() {
+    if (!enabled) return { ok: false, reason: 'not-configured' }
+    if (!session) return { ok: false, reason: 'signed-out' }
+    try {
+      const rows = await rpc('leaderboard_profile', {})
+      const r = Array.isArray(rows) ? rows[0] : null
+      return { ok: true, profile: r ? { nickname: r.nickname ?? '', isPublic: r.is_public === true, partner: r.partner ?? null, caught: r.caught ?? 0, shiny: r.shiny ?? 0, legends: r.legends ?? 0, week: r.week_catches ?? 0, flagged: r.flagged === true } : null }
+    } catch (err) {
+      return { ok: false, reason: err.message }
+    }
+  }
+
+  /** Join, rename or leave: { nickname, isPublic, partner } */
+  async function setLeaderboardProfile({ nickname, isPublic, partner } = {}) {
+    if (!enabled) return { ok: false, reason: 'not-configured' }
+    if (!session) return { ok: false, reason: 'signed-out' }
+    try {
+      // The database works the numbers out from the uploaded game: make sure there is one
+      await sync().catch(() => {})
+      const answer = await rpc('leaderboard_set_profile', { p_nickname: String(nickname ?? '').slice(0, 40), p_public: isPublic === true, p_partner: Number.isInteger(partner) ? partner : null })
+      if (answer !== 'ok') return { ok: false, reason: String(answer) }
+      boardCache.clear()
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, reason: err.message }
+    }
+  }
+
   async function signOut() {
     const token = session?.access_token
     saveSession(null)
@@ -262,5 +332,5 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     return { ok: true }
   }
 
-  return { enabled, startSignIn, finishSignIn, noteGameChanged, signOut, publicState, syncNow: sync }
+  return { enabled, startSignIn, finishSignIn, noteGameChanged, signOut, publicState, syncNow: sync, leaderboard, leaderboardProfile, setLeaderboardProfile }
 }
