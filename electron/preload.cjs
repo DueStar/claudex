@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('claudex', {
   toast: {
     show: (event) => ipcRenderer.send('toast:show', event),
     done: () => ipcRenderer.send('toast:done'),
+    ready: () => ipcRenderer.send('toast:ready'),
     open: (id) => ipcRenderer.send('toast:open', Number(id)),
     onEvent: (fn) => on('toast:event', fn),
   },

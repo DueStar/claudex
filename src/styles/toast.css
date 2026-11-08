@@ -46,7 +46,7 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
   padding: 18px 22px 18px 18px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(20, 22, 28, 0.97);
+  background: #14161c; /* opaque: the stacked cards behind must not show through */
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
   cursor: pointer;
   animation: toastIn 0.4s cubic-bezier(.2, .9, .3, 1.25) both;

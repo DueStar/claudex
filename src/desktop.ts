@@ -61,6 +61,8 @@ interface ClaudexBridge {
   toast: {
     show(event: unknown): void
     done(): void
+    /** The toast page listens now: main sends what waited */
+    ready(): void
     /** A notification was clicked: the app window opens the Pokédex at this species */
     open(id: number): void
     onEvent(fn: (event: any) => void): () => void

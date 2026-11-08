@@ -87,11 +87,15 @@ const Toast: React.FC = () => {
     if (!n) bridge?.toast.done()
   }
 
-  useEffect(() => bridge?.toast.onEvent((e: DexEvent) => {
-    queue.current.push(e)
-    setCurrent(c => c ?? queue.current.shift() ?? null)
-    setWaiting(queue.current.length)
-  }), [])
+  useEffect(() => {
+    const off = bridge?.toast.onEvent((e: DexEvent) => {
+      queue.current.push(e)
+      setCurrent(c => c ?? queue.current.shift() ?? null)
+      setWaiting(queue.current.length)
+    })
+    bridge?.toast.ready() // events wait in main until the page listens
+    return off
+  }, [])
 
   useEffect(() => {
     if (!current) return

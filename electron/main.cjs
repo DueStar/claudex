@@ -78,6 +78,11 @@ const TOKEN_FILE = path.join(runtimeDirFromEnv(process.env), 'auth-token')
 
 let widgetWin = null // the app
 let toastWin = null  // catch notifications (?toast)
+// The toast page says when it listens (toast:ready); events before that wait here.
+// Sent at did-finish-load they were lost (the page loads its code after that), and
+// the window showed with nothing drawn: a black box on Windows.
+let toastReady = false
+let toastPending = []
 let qaWin = null     // the design QA page (?qa)
 let terminals = null
 let pageUrl = null // the page URL the windows load (with the token fragment)
@@ -745,20 +750,37 @@ function ensureToastWindow() {
   toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   toastWin.webContents.on('will-navigate', (event) => event.preventDefault())
   toastWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  toastWin.on('closed', () => { toastWin = null })
-  const ready = new Promise((resolve) => toastWin.webContents.once('did-finish-load', () => resolve(toastWin)))
+  toastWin.on('closed', () => { toastWin = null; toastReady = false })
+  toastWin.webContents.on('did-start-loading', () => { toastReady = false })
+  toastReady = false
   toastWin.loadURL(url)
-  return ready
+  return Promise.resolve(toastWin)
+}
+
+function revealToast(w) {
+  w.setBounds(toastBounds())
+  if (!w.isVisible()) w.showInactive()
+  w.setAlwaysOnTop(true, 'screen-saver')
+}
+
+/** The toast page listens now: hand it what waited, then show it */
+function toastPageReady() {
+  const w = toastWin
+  if (!w || w.isDestroyed()) return
+  toastReady = true
+  const waiting = toastPending
+  toastPending = []
+  for (const event of waiting) w.webContents.send('toast:event', event)
+  if (waiting.length) revealToast(w)
 }
 
 /** Hand an event to the notification window and show it without stealing the focus */
 async function showToast(event) {
   const w = await ensureToastWindow()
   if (!w || w.isDestroyed()) return
-  w.setBounds(toastBounds())
+  if (!toastReady) { toastPending = [...toastPending, event].slice(-20); return }
   w.webContents.send('toast:event', event)
-  if (!w.isVisible()) w.showInactive()
-  w.setAlwaysOnTop(true, 'screen-saver')
+  revealToast(w)
 }
 
 // The design QA page (?qa): every moment-only design at once, from the tray menu
@@ -953,6 +975,7 @@ function registerTerminalIpc() {
   ipcMain.handle('game:throw', guard(({ sessionId, uid } = {}) => serverPost('/pokedex/throw', { sessionId: String(sessionId), uid: String(uid) })))
   ipcMain.on('toast:show', guard((event) => { if (event && typeof event === 'object') showToast(event) }))
   ipcMain.on('toast:done', guard(() => hideToast()))
+  ipcMain.on('toast:ready', guard((_arg, event) => { if (toastWin && event.sender === toastWin.webContents) toastPageReady() }))
   ipcMain.on('toast:open', guard((id) => openDexAt(Number(id))))
   ipcMain.handle('game:exchange', guard((o) => serverPost('/pokedex/exchange', { boxUid: String(o?.boxUid), partyUid: String(o?.partyUid) })))
   ipcMain.handle('game:release', guard((uid) => serverPost('/pokedex/release', { uid: String(uid) })))
