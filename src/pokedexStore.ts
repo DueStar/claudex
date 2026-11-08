@@ -7,7 +7,7 @@
 import { useSyncExternalStore } from 'react'
 import { castSession, POKEMON } from './theme'
 import { getSettings } from './settingsStore'
-import { t, lang, nameOf, typeName, tierName, ballTierName } from './i18n'
+import { t, lang, josa, nameOf, typeName, tierName, ballTierName } from './i18n'
 import { placeIn, sourceLabelIn } from './gameText'
 
 import NATURES from '../server/natures.json'
@@ -37,7 +37,8 @@ export function sourceText(v: CatchSource | null | undefined): string {
   if (!v) return ''
   // 설정 › 개인정보: the request text stays off the screen (shared screens, meetings)
   const label = sourceLabel(v.label)
-  return v.prompt && !getSettings().privacy.hidePrompts ? t('‘{prompt}’ 요청 중 {label}로', { prompt: v.prompt, label }) : t('{label}로', { label })
+  const ro = josa(label, '으로')
+  return v.prompt && !getSettings().privacy.hidePrompts ? t('‘{prompt}’ 요청 중 {label}{ro}', { prompt: v.prompt, label, ro }) : t('{label}{ro}', { label, ro })
 }
 
 export interface CaughtInfo {

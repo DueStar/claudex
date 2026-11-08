@@ -22,6 +22,7 @@ const path = require('path')
 const crypto = require('crypto')
 const https = require('https')
 const { spawn } = require('child_process')
+const { t } = require('./i18n.cjs')
 
 const REPO = 'DueStar/claudex'
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
@@ -156,7 +157,7 @@ function createUpdater({ app, send, isPackaged }) {
   async function install() {
     if (!manifest || state.status !== 'available') return state
     if (state.needsFull) return state
-    if (!isPackaged) { publish({ error: '개발 실행에서는 업데이트하지 않아요' }); return state }
+    if (!isPackaged) { publish({ error: t('개발 실행에서는 업데이트하지 않아요') }); return state }
     const appFile = String(manifest.app?.file ?? '')
     if (!/^claudex-app-[\w.-]+\.zip$/.test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
     publish({ status: 'downloading', progress: 0, error: null })

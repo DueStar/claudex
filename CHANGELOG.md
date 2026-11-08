@@ -159,6 +159,52 @@
 ### 1.2.0
 - 첫 공개 릴리스.
 
+## Claudex (English)
+
+### 1.3.19
+- Fixed notifications showing up unstyled.
+- Clearer wording in Settings. Permission mode now uses Claude Code's own names (Manual, Accept edits, Plan, Auto), and Auto is new.
+
+### 1.3.18
+- Settings now has a gear icon and the leaderboard a trophy.
+- The leaderboard refreshes every hour. Joining or renaming shows up right away.
+
+### 1.3.17
+- New leaderboard: open the "Leaderboard" tab in window mode (Ctrl+5) for this week's catches, the Pokédex, shiny Pokémon, and legendary/mythical rankings.
+- Sign in and pick a nickname and a partner Pokémon to join. Your Google name and email are never shown, and you can leave at any time.
+- This week's catches reset every Monday at 00:00 (Korea time).
+
+### 1.3.16
+- New Settings screen: open it from the gear at the top or "Settings" in the tray menu.
+- Notifications: turn each kind on or off, show only rare ones, set how long they stay, and schedule Do Not Disturb.
+- Privacy: hide your prompts in notifications, the Pokédex, the Box, and the Log — handy when sharing your screen.
+- Sessions: set the default folder, model, and permission mode, and choose whether to confirm before closing a session.
+- App: launch at Windows startup, start minimized to the tray, and keep the widget on top.
+- Data: see your cloud sync status and export your Pokédex as a backup file.
+
+## Claudex (日本語)
+
+### 1.3.19
+- 通知が崩れて表示される問題を修正しました。
+- 設定の文言をわかりやすくしました。Permission mode は Claude Code と同じ名前（Manual、Accept edits、Plan、Auto）で選べるようになり、Auto が加わりました。
+
+### 1.3.18
+- 設定アイコンを歯車に、ランキングアイコンをトロフィーに変えました。
+- ランキングは1時間ごとに更新されます。参加やニックネームの変更はすぐに反映されます。
+
+### 1.3.17
+- ランキングを追加しました。ウィンドウモードの「ランキング」タブ（Ctrl+5）で、今週の捕獲・図鑑・色違い・伝説/幻のランキングを見られます。
+- ログインしてニックネームと相棒ポケモンを選ぶと参加できます。Google の名前とメールアドレスは表示されず、いつでもやめられます。
+- 今週の捕獲ランキングは毎週月曜 0:00（韓国時間）にリセットされます。
+
+### 1.3.16
+- 設定画面を追加しました。上部の歯車アイコンか、トレイメニューの「設定」から開けます。
+- 通知：種類ごとのオン/オフ、レア以上のみ、表示時間、おやすみモードの時間帯を設定できます。
+- プライバシー：通知・図鑑・ボックス・記録でプロンプトの内容を隠せます。画面共有のときに便利です。
+- セッション：デフォルトのフォルダ・モデル・Permission mode と、セッションを閉じる前に確認するかを設定できます。
+- アプリ：Windows 起動時に開く、起動時にトレイへ最小化、ウィジェットを常に手前に表示を切り替えられます。
+- データ：クラウド同期の状態を確認し、図鑑をバックアップファイルとしてエクスポートできます。
+
 ## Claude Office (원작)
 
 All notable changes to Claude Office. Numbers refer to pull requests.

@@ -7,7 +7,8 @@
 import React, { useEffect, useState } from 'react'
 import changelog from '../../CHANGELOG.md?raw'
 import { bridge } from '../desktop'
-import { notesToShow, parseChangelog, readSeenVersion, writeSeenVersion, type Release } from '../patchNotes'
+import { t, lang } from '../i18n'
+import { notesToShow, releasesIn, readSeenVersion, writeSeenVersion, type Release } from '../patchNotes'
 
 export const PatchNotes: React.FC = () => {
   const [show, setShow] = useState<{ current: string; releases: Release[] } | null>(null)
@@ -17,7 +18,7 @@ export const PatchNotes: React.FC = () => {
     bridge?.update.get().then(state => {
       const current = state?.current
       if (!alive || !current) return
-      const releases = notesToShow(parseChangelog(changelog), current, readSeenVersion())
+      const releases = notesToShow(releasesIn(changelog, lang()), current, readSeenVersion())
       // Seen as soon as it is shown: a widget <-> window swap builds a new page,
       // which must not open the same notes again
       writeSeenVersion(current)
@@ -27,11 +28,11 @@ export const PatchNotes: React.FC = () => {
   }, [])
 
   if (!show) return null
-  return <NotesModal title={`Claudex ${show.current} 새 소식`} releases={show.releases} onClose={() => setShow(null)} />
+  return <NotesModal title={t('Claudex {version} 새 소식', { version: show.current })} releases={show.releases} onClose={() => setShow(null)} />
 }
 
 export const PatchNotesHistory: React.FC<{ onClose: () => void }> = ({ onClose }) =>
-  <NotesModal title="패치노트" releases={parseChangelog(changelog)} onClose={onClose} />
+  <NotesModal title={t('패치노트')} releases={releasesIn(changelog, lang())} onClose={onClose} />
 
 const NotesModal: React.FC<{ title: string; releases: Release[]; onClose: () => void }> = ({ title, releases, onClose: close }) => {
   return (
@@ -39,7 +40,7 @@ const NotesModal: React.FC<{ title: string; releases: Release[]; onClose: () => 
       <div className="resume-modal w-notes" onClick={e => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="resume-head">
           <span>{title}</span>
-          <button onClick={close} aria-label="닫기">×</button>
+          <button onClick={close} aria-label={t('닫기')}>×</button>
         </div>
         <div className="w-notes-body">
           {releases.map(r => (
@@ -50,7 +51,7 @@ const NotesModal: React.FC<{ title: string; releases: Release[]; onClose: () => 
           ))}
         </div>
         <div className="w-notes-foot">
-          <button className="w-notes-ok" onClick={close} autoFocus>확인</button>
+          <button className="w-notes-ok" onClick={close} autoFocus>{t('확인')}</button>
         </div>
       </div>
     </div>

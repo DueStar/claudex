@@ -109,7 +109,7 @@ language sql stable security definer set search_path = public as $$
   from public.leaderboard l where l.user_id = auth.uid()
 $$;
 
--- Join, leave or rename. Nicknames: 2–12 letters (Korean, English, digits, _), not taken.
+-- Join, leave or rename. Nicknames: 2–12 letters (Korean, Japanese kana/kanji, English, digits, _), not taken.
 -- Answers 'ok', 'signed-out', 'no-game' (sync first), 'bad-nickname' or 'taken'.
 create or replace function public.leaderboard_set_profile(p_nickname text, p_public boolean, p_partner integer)
 returns text
@@ -119,7 +119,7 @@ declare
 begin
   if auth.uid() is null then return 'signed-out'; end if;
   if not exists (select 1 from public.leaderboard where user_id = auth.uid()) then return 'no-game'; end if;
-  if nick is not null and nick !~ '^[가-힣A-Za-z0-9_]{2,12}$' then return 'bad-nickname'; end if;
+  if nick is not null and nick !~ '^[가-힣ぁ-ゖァ-ヺー一-龯A-Za-z0-9_]{2,12}$' then return 'bad-nickname'; end if;
   if p_public and nick is null then return 'bad-nickname'; end if;
   if nick is not null and exists (select 1 from public.leaderboard where lower(nickname) = lower(nick) and user_id <> auth.uid()) then return 'taken'; end if;
   update public.leaderboard

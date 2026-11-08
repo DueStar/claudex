@@ -47,6 +47,7 @@ function preloadViews() {
 }
 import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
+import { t, josa, nameOf, locale } from './i18n'
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
 
@@ -65,15 +66,10 @@ const PREREQ_LABEL = {
   git: { name: 'Git for Windows', why: 'Claude Code가 쓰는 Git Bash' },
 } as const
 
-/** 이 / 가 after a name: 이 when the last Hangul syllable has a final consonant */
-function iga(name: string): string {
-  const c = name.charCodeAt(name.length - 1) - 0xac00
-  return c >= 0 && c < 11172 && c % 28 ? '이' : '가'
-}
 const ASK_LINES = [
-  (n: string) => `${n}에게 지시하기…`,
-  (n: string) => `${n}${iga(n)} 기다리고 있어요`,
-  (n: string) => `${n}에게 지시해 보세요`,
+  (name: string) => t('{name}에게 지시하기…', { name }),
+  (name: string) => t('{name}{iga} 기다리고 있어요', { name, iga: josa(name, '이가') }),
+  (name: string) => t('{name}에게 지시해 보세요', { name }),
 ]
 const askLine = (name: string, i: number) => ASK_LINES[i % ASK_LINES.length](name)
 
@@ -104,7 +100,7 @@ const Limit: React.FC<{ label: string; value: number | null | undefined; reset: 
     <span className="w-label">{label}</span>
     <div className="w-bar" aria-hidden="true"><span style={{ width: `${typeof value === 'number' ? Math.max(2, Math.min(100, value)) : 0}%` }} /></div>
     <span className="w-limit-pct">{typeof value === 'number' ? <>{pct(value)}<small>%</small></> : <span className="w-limit-wait" />}</span>
-    <span className="w-limit-reset" title="리셋 시각">{reset ? `↻ ${reset}` : ''}</span>
+    <span className="w-limit-reset" title={t('리셋 시각')}>{reset ? `↻ ${reset}` : ''}</span>
   </div>
 )
 
@@ -122,7 +118,7 @@ const ResizeGrip: React.FC = () => {
     bridge?.widget.resize(s.w + (e.screenX - s.x), s.h + (e.screenY - s.y))
   }
   const onUp = () => { start.current = null }
-  return <div className="w-grip" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} title="크기 조절" aria-hidden="true" />
+  return <div className="w-grip" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} title={t('크기 조절')} aria-hidden="true" />
 }
 
 const Widget: React.FC = () => {
@@ -275,7 +271,7 @@ const Widget: React.FC = () => {
   const [accountOpen, setAccountOpen] = useState(false)
   const signIn = async () => {
     const r = await bridge?.cloud.signIn()
-    setNote(r?.ok ? '브라우저에서 Google 로그인을 마치면 여기로 돌아와요.' : `로그인을 시작하지 못했어요 (${r?.reason ?? '앱에서만 가능'})`)
+    setNote(r?.ok ? t('브라우저에서 Google 로그인을 마치면 여기로 돌아와요.') : t('로그인을 시작하지 못했어요 ({reason})', { reason: r?.reason ?? t('앱에서만 가능') }))
   }
   // What a session needs on this PC (electron/prereqs.cjs): Claude Code and Git
   type Prereqs = Awaited<ReturnType<NonNullable<typeof bridge>['env']['check']>>
@@ -293,7 +289,7 @@ const Widget: React.FC = () => {
     return uid ? dex?.mons?.[uid] : undefined
   }
   const partyFull = freePartyCount(dex) <= 0
-  const FULL_NOTE = `세션을 최대 ${dex?.partySize ?? 6}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.`
+  const FULL_NOTE = t('세션을 최대 {n}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.', { n: dex?.partySize ?? 6 })
   const chosen = sendable.find(r => r.sessionId === target) ?? sendable[0]
   // One line per chosen session, picked at random (not on every render)
   const askPick = useMemo(() => Math.floor(Math.random() * ASK_LINES.length), [chosen?.sessionId])
@@ -322,7 +318,7 @@ const Widget: React.FC = () => {
 
   const launch = async (pick: boolean) => {
     if (!bridge) return
-    if (missing.length) { setNote('먼저 위의 준비 카드에서 필요한 프로그램을 설치해주세요.'); return }
+    if (missing.length) { setNote(t('먼저 위의 준비 카드에서 필요한 프로그램을 설치해주세요.')); return }
     if (partyFull) { setNote(FULL_NOTE); return }
     let cwd: string | undefined
     if (pick) {
@@ -342,9 +338,9 @@ const Widget: React.FC = () => {
     const mon = dex?.mons?.[uid]
     if (mon) castSession(sessionId, mon.dex, mon.shiny)
     const r = await bridge.terminals.create(where.resume ? { cwd: where.resume.cwd, resume: where.resume.id } : { sessionId, ...(where.cwd ? { cwd: where.cwd } : {}) })
-    if ('error' in r) { setNote(`세션을 열 수 없어요: ${r.error}`); return }
-    const t = await bridge.game.throw(r.sessionId, uid)
-    if (!t.ok) setNote(t.reason === 'busy' ? '세션은 열렸어요. 고른 파트너가 다른 세션에서 일하고 있어서 다른 파트너가 함께해요.' : t.reason === 'no-token' ? '세션은 열렸어요. 서버와 연결되는 중이라 파트너는 잠시 뒤에 배정돼요.' : `세션은 열렸지만 파트너를 배정하지 못했어요 (${t.reason ?? '알 수 없는 이유'})`)
+    if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return }
+    const thrown = await bridge.game.throw(r.sessionId, uid)
+    if (!thrown.ok) setNote(thrown.reason === 'busy' ? t('세션은 열렸어요. 고른 파트너가 다른 세션에서 일하고 있어서 다른 파트너가 함께해요.') : thrown.reason === 'no-token' ? t('세션은 열렸어요. 서버와 연결되는 중이라 파트너는 잠시 뒤에 배정돼요.') : t('세션은 열렸지만 파트너를 배정하지 못했어요 ({reason})', { reason: thrown.reason ?? t('알 수 없는 이유') }))
     setTarget(r.sessionId)
     if (where.resume) { setView('terminal'); setExpanded(true) }
   }
@@ -369,14 +365,14 @@ const Widget: React.FC = () => {
   const send = async () => {
     if (!bridge || !chosen?.terminal || !text.trim()) return
     if (chosen.mood === 'needs-you') {
-      setNote(`'${chosen.title ?? chosen.name}' 세션이 확인을 기다리고 있어요. 터미널에서 먼저 답해 주세요.`)
+      setNote(t("'{name}' 세션이 확인을 기다리고 있어요. 터미널에서 먼저 답해 주세요.", { name: chosen.title ?? chosen.name }))
       return
     }
     const r = await bridge.terminals.send(chosen.terminal.id, text)
     if (r.ok) {
-      setNote(chosen.mood === 'working' ? '지시를 보냈어요. 지금 하던 작업이 끝나면 이어서 처리해요.' : '지시를 보냈어요.')
+      setNote(chosen.mood === 'working' ? t('지시를 보냈어요. 지금 하던 작업이 끝나면 이어서 처리해요.') : t('지시를 보냈어요.'))
       setText('')
-    } else setNote(`지시를 보내지 못했어요 (${r.reason === 'exited' ? '세션이 이미 종료됐어요' : r.reason ?? '알 수 없는 이유'})`)
+    } else setNote(t('지시를 보내지 못했어요 ({reason})', { reason: r.reason === 'exited' ? t('세션이 이미 종료됐어요') : r.reason ?? t('알 수 없는 이유') }))
   }
 
   const openIds = new Set(terminals.filter(t => t.status === 'running').map(t => t.sessionId))
@@ -391,7 +387,7 @@ const Widget: React.FC = () => {
     const r = await bridge.game.swap(sessionId, uid)
     if (!r.ok) {
       if (before) castSession(sessionId, before.dex, before.shiny)
-      setNote(`교체하지 못했어요 (${r.reason === 'busy' ? '다른 세션에서 일하는 중' : r.reason === 'not-in-party' ? '파티 포켓몬만 교체할 수 있어요' : r.reason ?? '알 수 없음'})`)
+      setNote(t('교체하지 못했어요 ({reason})', { reason: r.reason === 'busy' ? t('다른 세션에서 일하는 중') : r.reason === 'not-in-party' ? t('파티 포켓몬만 교체할 수 있어요') : r.reason ?? t('알 수 없음') }))
     }
   }
   // The swap list shows the artwork; fetch the box icons it may switch to before a pick
@@ -410,14 +406,14 @@ const Widget: React.FC = () => {
         <div className="w-bento">
           <header className="w-card w-head">
             <PokeBall size={18} />
-            <button className="w-brand" onClick={() => setNotesOpen(true)} title={`Claudex ${update?.current ?? ''} · 눌러서 패치노트 보기`}>Claudex</button>
-            <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? '연결됨' : '서버 연결 끊김'} />
+            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('Claudex {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>Claudex</button>
+            <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? t('연결됨') : t('서버 연결 끊김')} />
             {cloud?.enabled && (cloud.user ? (
-              <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${new Date(cloud.lastSyncAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 동기화` : ''}`}>
+              <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${t('{time} 동기화', { time: new Date(cloud.lastSyncAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) })}` : ''}`}>
                 {cloud.user.avatar ? <img src={cloud.user.avatar} alt="" referrerPolicy="no-referrer" /> : <span>{(cloud.user.name ?? cloud.user.email ?? '?').slice(0, 1)}</span>}
               </button>
             ) : (
-              <button className="w-signin" onClick={signIn} title="Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요">로그인</button>
+              <button className="w-signin" onClick={signIn} title={t('Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요')}>{t('로그인')}</button>
             ))}
             {update && (update.status === 'available' || update.status === 'downloading' || update.status === 'ready') && (
               <button
@@ -427,41 +423,41 @@ const Widget: React.FC = () => {
 
 ${update.notes}` : ''}${update.error ? `
 
-오류: ${update.error}` : ''}`}
+${t('오류: {error}', { error: update.error })}` : ''}`}
                 onClick={() => {
                   if (update.needsFull) bridge?.env.openLink('release')
                   else if (update.status === 'available') bridge?.update.install()
                   else if (update.status === 'ready') bridge?.update.restart()
                 }}
               >
-                {update.status === 'downloading' ? `받는 중 ${Math.round(update.progress * 100)}%`
-                  : update.status === 'ready' ? '재시작해서 적용'
-                  : update.needsFull ? '새 버전 받기'
-                  : update.error ? '업데이트 실패 · 다시 시도' : '업데이트'}
+                {update.status === 'downloading' ? t('받는 중 {pct}%', { pct: Math.round(update.progress * 100) })
+                  : update.status === 'ready' ? t('재시작해서 적용')
+                  : update.needsFull ? t('새 버전 받기')
+                  : update.error ? t('업데이트 실패 · 다시 시도') : t('업데이트')}
               </button>
             )}
-            <button className="w-icon" onClick={() => setSettingsOpen(true)} title="설정" aria-label="설정"><GearIcon size={14} /></button>
+            <button className="w-icon" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={14} /></button>
             {!expanded && (
-              <button className="w-icon" onClick={() => setMode('window')} title="창 모드로 펼쳐서 터미널 보기" aria-label="펼치기">⇤</button>
+              <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>
             )}
             {/* As a window the right side has its own minimize and close */}
-            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title="숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)" aria-label="숨기기">–</button>}
+            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title={t('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')} aria-label={t('숨기기')}>–</button>}
           </header>
 
           {accountOpen && cloud?.user && (
             <section className="w-card w-account-card">
               <div className="w-account-who">
-                <b>{cloud.user.name ?? '트레이너'}</b>
+                <b>{cloud.user.name ?? t('트레이너')}</b>
                 <span>{cloud.user.email}</span>
               </div>
               <div className="w-account-sync">
                 {cloud.error ? <span className="tone-warn">{cloud.error}</span>
-                  : cloud.lastSyncAt ? <>마지막 동기화 · {new Date(cloud.lastSyncAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
-                  : '아직 저장 전이에요'}
+                  : cloud.lastSyncAt ? t('마지막 동기화 · {time}', { time: new Date(cloud.lastSyncAt).toLocaleString(locale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })
+                  : t('아직 저장 전이에요')}
               </div>
               <div className="w-account-actions">
-                <button onClick={() => bridge?.cloud.sync()}>지금 동기화</button>
-                <button onClick={() => { setAccountOpen(false); bridge?.cloud.signOut() }}>로그아웃</button>
+                <button onClick={() => bridge?.cloud.sync()}>{t('지금 동기화')}</button>
+                <button onClick={() => { setAccountOpen(false); bridge?.cloud.signOut() }}>{t('로그아웃')}</button>
               </div>
             </section>
           )}
@@ -469,16 +465,17 @@ ${update.notes}` : ''}${update.error ? `
 
           {missing.length > 0 && (
             <section className="w-card w-setup" role="alert">
-              <div className="w-setup-title">시작하기 전에 설치가 필요해요</div>
-              <p className="w-setup-desc">세션을 열려면 아래 프로그램이 필요해요. 설치한 뒤 <b>다시 확인</b>을 눌러주세요.</p>
+              <div className="w-setup-title">{t('시작하기 전에 설치가 필요해요')}</div>
+              <p className="w-setup-desc">{/* {again} is the bold button name */}
+                {t('세션을 열려면 아래 프로그램이 필요해요. 설치한 뒤 {again}을 눌러주세요.').split('{again}').flatMap((s, i) => i ? [<b key={i}>{t('다시 확인')}</b>, s] : [s])}</p>
               {missing.map(([key]) => (
                 <div key={key} className="w-setup-row">
                   <span className="w-setup-name">{PREREQ_LABEL[key].name}</span>
-                  <span className="w-setup-why">{PREREQ_LABEL[key].why}</span>
-                  <button className="w-setup-go" onClick={() => bridge?.env.openLink(key)}>설치 페이지</button>
+                  <span className="w-setup-why">{t(PREREQ_LABEL[key].why)}</span>
+                  <button className="w-setup-go" onClick={() => bridge?.env.openLink(key)}>{t('설치 페이지')}</button>
                 </div>
               ))}
-              <button className="w-setup-again" onClick={recheck} disabled={checking}>{checking ? '확인 중…' : '다시 확인'}</button>
+              <button className="w-setup-again" onClick={recheck} disabled={checking}>{checking ? t('확인 중…') : t('다시 확인')}</button>
             </section>
           )}
 
@@ -486,46 +483,46 @@ ${update.notes}` : ''}${update.error ? `
           {/* Limits arrive with a session's status line: before any session there is nothing to wait for */}
           {typeof fiveHour !== 'number' && typeof sevenDay !== 'number' && !sendable.length ? (
             <section className="w-card w-limits idle">
-              <span className="w-label">사용량</span>
-              <span className="w-limits-hint">세션을 열면 5시간·주간 사용량을 볼 수 있어요</span>
+              <span className="w-label">{t('사용량')}</span>
+              <span className="w-limits-hint">{t('세션을 열면 5시간·주간 사용량을 볼 수 있어요')}</span>
             </section>
           ) : (
             <section className="w-card w-limits">
-              <Limit label="5시간" value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
-              <Limit label="주간" value={sevenDay}
+              <Limit label={t('5시간')} value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
+              <Limit label={t('주간')} value={sevenDay}
                 reset={sevenReset ? `${new Date(sevenReset * 1000).getMonth() + 1}/${new Date(sevenReset * 1000).getDate()} ${formatClockTime(sevenReset)}` : null} />
             </section>
           )}
 
           <section className="w-card w-launch">
-            <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? '파티의 포켓몬이 모두 일하는 중' : '문서 폴더에서 새 Claude 세션'}>
-              <PokeBall size={18} /> 새로운 세션 시작하기
+            <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? t('파티의 포켓몬이 모두 일하는 중') : t('문서 폴더에서 새 Claude 세션')}>
+              <PokeBall size={18} /> {t('새로운 세션 시작하기')}
             </button>
-            <button className="w-launch-alt" onClick={() => launch(true)} title="다른 폴더에서 새 세션" aria-label="다른 폴더에서 새 세션"><FolderIcon /></button>
-            <button className="w-launch-alt" onClick={() => setPicking(true)} title="예전 세션 골라서 이어하기" aria-label="예전 세션 이어하기"><SessionsIcon /></button>
+            <button className="w-launch-alt" onClick={() => launch(true)} title={t('다른 폴더에서 새 세션')} aria-label={t('다른 폴더에서 새 세션')}><FolderIcon /></button>
+            <button className="w-launch-alt" onClick={() => setPicking(true)} title={t('예전 세션 골라서 이어하기')} aria-label={t('예전 세션 이어하기')}><SessionsIcon /></button>
           </section>
 
-          <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title="도감 열기">
-            <span className="w-label">도감</span>
-            {hasNew && <span className="w-new-dot corner" aria-label="새로 잡은 포켓몬" />}
+          <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title={t('도감 열기')}>
+            <span className="w-label">{t('도감')}</span>
+            {hasNew && <span className="w-new-dot corner" aria-label={t('새로 잡은 포켓몬')} />}
             <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span></span>
             <span className="w-dex-recent">
               {(dex?.log ?? []).filter(e => e.kind === 'catch').slice(-6).reverse().map((e, i) => (
-                <img key={`${e.at}-${i}`} src={iconUrl(e.id)} alt={e.name} title={`${e.shiny ? '✨ ' : ''}${e.name}`} />
+                <img key={`${e.at}-${i}`} src={iconUrl(e.id)} alt={nameOf(pokemonById(e.id))} title={`${e.shiny ? '✨ ' : ''}${nameOf(pokemonById(e.id))}`} />
               ))}
             </span>
           </button>
 
           <section className="w-card w-party">
             <div className="w-party-head">
-              <span className="w-label">파티</span>
+              <span className="w-label">{t('파티')}</span>
               {/* A resting one, clicked, goes to work in the chosen session in place of its Pokémon */}
               <span className="w-party-slots">
                 {(dex?.party ?? []).map(uid => {
                   const m = dex?.mons?.[uid]
                   if (!m) return null
                   const out = Object.values(dex?.assign ?? {}).includes(uid)
-                  const name = `${m.shiny ? '✨ ' : ''}${pokemonById(m.dex)?.ko}`
+                  const name = `${m.shiny ? '✨ ' : ''}${nameOf(pokemonById(m.dex))}`
                   const into = !out && shown?.terminal ? shown : null
                   return (
                     <button
@@ -533,7 +530,7 @@ ${update.notes}` : ''}${update.error ? `
                       className={`w-party-mon${out ? ' out' : ''}`}
                       disabled={!into}
                       onClick={() => { if (into) doSwap(into.sessionId, uid) }}
-                      title={out ? `${name} · 일하는 중` : into ? `${name} · 눌러서 '${into.title ?? '새 세션'}' 세션의 포켓몬과 교체` : `${name} · 쉬는 중`}
+                      title={out ? t('{name} · 일하는 중', { name }) : into ? t("{name} · 눌러서 '{session}' 세션의 포켓몬과 교체", { name, session: into.title ?? t('새 세션') }) : t('{name} · 쉬는 중', { name })}
                     >
                       <img src={iconUrl(m.dex)} alt={name} />
                     </button>
@@ -541,13 +538,13 @@ ${update.notes}` : ''}${update.error ? `
                 })}
               </span>
             </div>
-            {rows.length === 0 && <div className="w-empty">새 세션을 열면 여기 나타나요</div>}
+            {rows.length === 0 && <div className="w-empty">{t('새 세션을 열면 여기 나타나요')}</div>}
             {rows.map(r => (
               <div
                 key={r.sessionId}
                 className={`w-row mood-${r.mood}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
                 onClick={() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') }}
-                title={r.terminal ? '눌러서 이 세션 열기' : undefined}
+                title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
                 <div className="w-row-top">
                   <img className="w-row-mon" src={r.sprite} alt="" />
@@ -556,7 +553,7 @@ ${update.notes}` : ''}${update.error ? `
                       className="w-row-rename"
                       autoFocus
                       defaultValue={r.title ?? ''}
-                      placeholder="새 세션"
+                      placeholder={t('새 세션')}
                       maxLength={40}
                       onClick={e => e.stopPropagation()}
                       onKeyDown={e => {
@@ -568,25 +565,25 @@ ${update.notes}` : ''}${update.error ? `
                   ) : (
                     <span
                       className="w-row-label"
-                      title={r.terminal ? '더블클릭해서 세션 이름 바꾸기' : undefined}
+                      title={r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
                       onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
                     >
-                      <span className="w-row-name">{r.title ?? '새 세션'}</span><span className="w-row-project">{r.name}</span>
+                      <span className="w-row-name">{r.title ?? t('새 세션')}</span><span className="w-row-project">{r.name}</span>
                     </span>
                   )}
-                  {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title="함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)">Lv.{levelOf(monOf(r.sessionId))}</span>}
+                  {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{levelOf(monOf(r.sessionId))}</span>}
                   {r.terminal && renaming !== r.sessionId && (
-                    <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title="세션 이름 바꾸기" aria-label="세션 이름 바꾸기">✎</button>
+                    <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
                   )}
                   {r.mood === 'needs-you' && r.terminal ? (
-                    <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }}>확인하러 가기</button>
+                    <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }}>{t('확인하러 가기')}</button>
                   ) : (
-                    <span className={`w-pill mood-${r.mood}`}>{MOOD_LABEL[r.mood]}</span>
+                    <span className={`w-pill mood-${r.mood}`}>{t(MOOD_LABEL[r.mood])}</span>
                   )}
                   {(() => {
                     const m = monOf(r.sessionId)
                     return m ? (
-                      <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title="이 세션에서 일할 포켓몬을 바꿔요 (잡은 포켓몬 중에서)">교체</button>
+                      <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('이 세션에서 일할 포켓몬을 바꿔요 (잡은 포켓몬 중에서)')}>{t('교체')}</button>
                     ) : null
                   })()}
                   {r.terminal && (
@@ -594,12 +591,12 @@ ${update.notes}` : ''}${update.error ? `
                       className={`w-row-close${closing === r.sessionId ? ' confirm' : ''}`}
                       onClick={e => { e.stopPropagation(); closeSession(r) }}
                       onMouseLeave={() => closing === r.sessionId && setClosing(null)}
-                      title={closing === r.sessionId ? '한 번 더 누르면 세션을 닫아요' : '세션 닫기'}
-                    >{closing === r.sessionId ? '닫기?' : '×'}</button>
+                      title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
+                    >{closing === r.sessionId ? t('닫기?') : '×'}</button>
                   )}
                 </div>
                 <div className="w-row-bottom">
-                  <div className={`w-ctx tone-${contextTone(r.meter?.context.used)}`} title="컨텍스트 사용량">
+                  <div className={`w-ctx tone-${contextTone(r.meter?.context.used)}`} title={t('컨텍스트 사용량')}>
                     <span style={{ width: `${Math.min(100, r.meter?.context.used ?? 0)}%` }} />
                   </div>
                   <span className="w-row-num">{typeof r.meter?.context.used === 'number' ? `${pct(r.meter.context.used)}%` : '—'}</span>
@@ -615,22 +612,22 @@ ${update.notes}` : ''}${update.error ? `
               <div className="w-ask-head">
                 <span className="w-ask-dot" />
                 <b>{askRow.title ?? askRow.name}</b>
-                <span>의 확인이 필요해요</span>
-                <button className="w-ask-open" onClick={() => { setTarget(askRow.sessionId); setView('terminal'); setMode('window') }} title="창 모드로 펼쳐서 보기">펼치기</button>
+                <span>{t('의 확인이 필요해요')}</span>
+                <button className="w-ask-open" onClick={() => { setTarget(askRow.sessionId); setView('terminal'); setMode('window') }} title={t('창 모드로 펼쳐서 보기')}>{t('펼치기')}</button>
               </div>
               <div className="w-ask-term">
                 <Suspense fallback={null}><TerminalView key={`ask-${askRow.terminal.id}`} term={askRow.terminal} active /></Suspense>
               </div>
-              <div className="w-ask-hint">↑↓로 고르고 Enter, 그만두려면 Esc</div>
+              <div className="w-ask-hint">{t('↑↓로 고르고 Enter, 그만두려면 Esc')}</div>
             </section>
           )}
 
           <section className="w-card w-compose">
-            {note && <div className="w-note" role="status" onClick={() => setNote(null)} title="눌러서 닫기">{note}</div>}
+            {note && <div className="w-note" role="status" onClick={() => setNote(null)} title={t('눌러서 닫기')}>{note}</div>}
             <div className="w-input">
               <textarea
                 value={text}
-                placeholder={chosen ? askLine(chosen.name, askPick) : '새 세션을 열면 지시할 수 있어요'}
+                placeholder={chosen ? askLine(chosen.name, askPick) : t('새 세션을 열면 지시할 수 있어요')}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() }
@@ -638,7 +635,7 @@ ${update.notes}` : ''}${update.error ? `
                 disabled={!chosen}
                 rows={2}
               />
-              <button className="w-send" onClick={send} disabled={!chosen || !text.trim()} aria-label="보내기" title="보내기 (Enter)">
+              <button className="w-send" onClick={send} disabled={!chosen || !text.trim()} aria-label={t('보내기')} title={t('보내기 (Enter)')}>
                 <SendIcon size={15} />
               </button>
             </div>
@@ -650,11 +647,11 @@ ${update.notes}` : ''}${update.error ? `
         <section className="w-card w-term">
           <div className="w-term-tabs" role="tablist">
             <div className="w-view-switch">
-              <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')} title="터미널 (Ctrl+1)"><TerminalIcon size={14} />터미널</button>
-              <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')} title="도감 (Ctrl+2)"><DexIcon size={14} />도감{hasNew && <span className="w-new-dot" aria-label="새로 잡은 포켓몬" />}</button>
-              <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')} title="박스 (Ctrl+3)"><BoxIcon size={14} />박스</button>
-              <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')} title="기록 (Ctrl+4)"><TodayIcon size={14} />기록</button>
-              <button className={view === 'rank' ? 'on' : ''} onClick={() => setView('rank')} title="랭킹 (Ctrl+5)"><RankIcon size={14} />랭킹</button>
+              <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')}><TerminalIcon size={14} />{t('터미널')}</button>
+              <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')}><DexIcon size={14} />{t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
+              <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')}><BoxIcon size={14} />{t('박스')}</button>
+              <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')}><TodayIcon size={14} />{t('기록')}</button>
+              <button className={view === 'rank' ? 'on' : ''} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')}><RankIcon size={14} />{t('랭킹')}</button>
             </div>
             {view === 'terminal' && withTerminal.map(r => (
               <button
@@ -666,28 +663,28 @@ ${update.notes}` : ''}${update.error ? `
                 title={r.terminal?.cwd}
               >
                 <img src={r.sprite} alt="" />
-                <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? '새 세션'}</span>
+                <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? t('새 세션')}</span>
                 <span className="w-term-tab-project">{r.name}</span>
                 <span className="w-term-tab-dot" />
               </button>
             ))}
-            {view === 'terminal' && <button className="w-icon w-term-new" onClick={() => launch(false)} title="새로운 세션 시작하기 (문서 폴더)" aria-label="새로운 세션 시작하기"><PlusIcon size={14} /></button>}
+            {view === 'terminal' && <button className="w-icon w-term-new" onClick={() => launch(false)} title={t('새로운 세션 시작하기 (문서 폴더)')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={14} /></button>}
             <span className="w-term-spacer" />
             {view === 'terminal' && (
-              <div className="w-view-switch w-font-switch" role="group" aria-label="글자 크기 (Ctrl+휠로도 바꿀 수 있어요)" title="글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-">
+              <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 (Ctrl+휠로도 바꿀 수 있어요)')} title={t('글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-')}>
                 {FONT_PRESETS.map(p => (
-                  <button key={p.label} className={termFont === p.size ? 'on' : ''} onClick={() => setTermFont(p.size)} style={{ fontSize: 9 + FONT_PRESETS.indexOf(p) * 2 }} title={`글자 ${p.label}`} aria-label={`글자 크기 ${p.label}`}>Aa</button>
+                  <button key={p.label} className={termFont === p.size ? 'on' : ''} onClick={() => setTermFont(p.size)} style={{ fontSize: 9 + FONT_PRESETS.indexOf(p) * 2 }} title={t('글자 {size}', { size: t(p.label) })} aria-label={t('글자 크기 {size}', { size: t(p.label) })}>Aa</button>
                 ))}
               </div>
             )}
-            <div className="w-view-switch w-mode-switch" role="group" aria-label="화면 모드">
-              <button className="icon-only" onClick={() => setMode('widget')} title="위젯 (작게, 항상 위)" aria-label="위젯"><WidgetModeIcon /></button>
-              <button className={`icon-only${mode === 'window' ? ' on' : ''}`} onClick={() => setMode('window')} title="창 모드" aria-label="창 모드"><WindowModeIcon /></button>
-              <button className={`icon-only${mode === 'fullscreen' ? ' on' : ''}`} onClick={() => setMode('fullscreen')} title="전체화면" aria-label="전체화면"><FullscreenIcon /></button>
+            <div className="w-view-switch w-mode-switch" role="group" aria-label={t('화면 모드')}>
+              <button className="icon-only" onClick={() => setMode('widget')} title={t('위젯 (작게, 항상 위)')} aria-label={t('위젯')}><WidgetModeIcon /></button>
+              <button className={`icon-only${mode === 'window' ? ' on' : ''}`} onClick={() => setMode('window')} title={t('창 모드')} aria-label={t('창 모드')}><WindowModeIcon /></button>
+              <button className={`icon-only${mode === 'fullscreen' ? ' on' : ''}`} onClick={() => setMode('fullscreen')} title={t('전체화면')} aria-label={t('전체화면')}><FullscreenIcon /></button>
             </div>
             <div className="w-win-controls">
-              <button className="w-icon" onClick={() => bridge?.widget.minimize()} title="최소화" aria-label="최소화"><MinimizeIcon size={14} /></button>
-              <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title="닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)" aria-label="닫기"><CloseIcon size={14} /></button>
+              <button className="w-icon" onClick={() => bridge?.widget.minimize()} title={t('최소화')} aria-label={t('최소화')}><MinimizeIcon size={14} /></button>
+              <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>
           <Suspense fallback={null}>
@@ -699,9 +696,9 @@ ${update.notes}` : ''}${update.error ? `
           <div className="w-term-body" style={{ display: view === 'terminal' ? undefined : 'none' }}>
             {withTerminal.length === 0 && (
               <div className="w-term-empty">
-                <p>아직 터미널이 없어요</p>
-                <button className="w-launch-main" onClick={() => launch(false)}><PokeBall size={18} /> 새로운 세션 시작하기</button>
-                <button className="w-launch-alt wide" onClick={() => setPicking(true)}><SessionsIcon /> 예전 세션 이어하기</button>
+                <p>{t('아직 터미널이 없어요')}</p>
+                <button className="w-launch-main" onClick={() => launch(false)}><PokeBall size={18} /> {t('새로운 세션 시작하기')}</button>
+                <button className="w-launch-alt wide" onClick={() => setPicking(true)}><SessionsIcon /> {t('예전 세션 이어하기')}</button>
               </div>
             )}
             <Suspense fallback={null}>
@@ -717,7 +714,7 @@ ${update.notes}` : ''}${update.error ? `
         <SwapPicker dex={dex} currentDex={monOf(swapFor)?.dex ?? 0} onPick={uid => doSwap(swapFor, uid)} onClose={() => setSwapFor(null)} />
       )}
       {picking && <Suspense fallback={null}><ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
-        monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: pokemonById(m.dex)?.ko ?? '' } : null }} /></Suspense>}
+        monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: nameOf(pokemonById(m.dex)) } : null }} /></Suspense>}
       {throwing && dex && (
         <ThrowPicker dex={dex} resume={!!throwing.resume} onPick={uid => throwBall(uid, throwing)} onClose={() => setThrowing(null)} />
       )}

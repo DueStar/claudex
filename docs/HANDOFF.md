@@ -402,6 +402,31 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
        - 테마·언어
      - **배치**: 창 모드에서 왼쪽에 분류(일반·알림·세션·게임·데이터·정보), 오른쪽에 항목. 위젯 맨 위 "Claudex"나 톱니바퀴로 연다. 값은 서버의 설정 파일 한 곳에 두고 창끼리 공유한다(localStorage는 창마다 달라서 피한다).
 
+7-10. **영어·일본어 지원(2026-11-08, 1.3.20 준비; 사용자: "포켓몬 같은 건 다 공식으로")**
+   - **이름 데이터**: `tools/fetch-i18n.mjs`가 PokeAPI에서 공식 영어·일본어 이름을 받아 기존 파일에 더한다. PokeAPI 응답은 `tools/_cache/pokeapi/`에 캐시하고 커밋하지 않는다.
+     - 포켓몬 1025종의 ja 이름, genusEn/Ja, flavorEn/Ja → `src/pokemon/pokedex.json`과 `server/pokemon-data.json`
+     - 성격 → `server/natures.json`
+     - 볼 → `server/balls.json`
+     - 일본어 도감 설명이 없는 127종(8·9세대 일부, 한국어도 없음)은 영어로 보여 준다.
+     - 타입·등급·능력치·볼 등급 이름은 `src/i18n.ts`의 표(공식 표기)에서 가져온다.
+   - **번역 구조**: `src/i18n.ts`의 `t(한국어, vars)`. 한국어 원문이 키다(gettext 방식).
+     - 사전은 `src/locales/{widget,dex,settings}.ts`(영역별 en/ja). 키 296개를 모두 번역했다(검사 스크립트로 확인).
+     - 번역이 없으면 영어, 그다음 한국어로 보여 준다.
+     - 받침에 따라 바뀌는 조사는 `josa(word, '이가'|'을를'|'은는'|'와과'|'으로')`를 자리표시자로 넘긴다.
+     - 이름은 `nameOf(entry)`, 날짜는 `locale()`.
+     - main 프로세스는 `electron/i18n.cjs`(트레이, 대화상자). 로그인 결과 페이지는 Accept-Language를 따른다.
+   - **언어 설정**: 설정 › 앱 › 언어(자동/한국어/English/日本語). 자동은 시스템 언어를 따른다(ko/ja가 아니면 en).
+   - **저장되는 글자를 코드로 바꿨다(중요)**: 서버가 장소 이름과 포획 경위를 한국어로 저장하고 있었다. 이 글자는 클라우드에도 올라가고, 장소는 개체 식별(`monKey`)에도 쓰인다.
+     - 이제 장소는 `@wild|<프로젝트>|<지형코드>|<도로번호>|<밤=1>`, `@attendance|<프로젝트>`, `@evolve|<프로젝트>`, `@start`로 저장한다(`server/pokedex.js` `placeCode`). 지형 코드는 grass/cave/forest/sky/safari/plant/route다.
+     - 포획 경위는 도구 이름 그대로(`Bash(npm test)`, `Grep`, `Skill(/x)`)이거나 `#session-start`, `#thinking`이다.
+     - 화면에서는 `src/gameText.ts`(`placeIn`, `sourceLabelIn`)가 코드도, **예전 세이브의 한국어도** 읽어서 각 언어로 보여 준다. 저장된 문자열은 절대 고쳐 쓰지 않는다(개체 식별이 바뀌므로).
+     - 로그의 `name`/`fromName`(한국어)은 화면에서 쓰지 않고, id로 이름을 찾는다.
+     - 업데이트 전 버전의 PC는 새 코드(`@wild|…`)를 그대로 보여 줄 수 있다. 모든 PC를 1.3.20 이상으로 올리면 해결된다.
+   - **패치노트**: CHANGELOG에 `## Claudex (English)`와 `## Claudex (日本語)` 섹션을 1.3.16부터 둔다(`src/patchNotes.ts` `releasesIn`). 그 언어에 최신 버전이 없으면 영어, 그다음 한국어로 보여 준다. **릴리스마다 세 언어로 쓴다.** 업데이트 버튼 툴팁의 notes는 아직 한국어다(manifest가 한국어 notes만 담는다).
+   - **리더보드 닉네임**: 히라가나·가타카나·한자도 허용한다(`supabase/leaderboard.sql` 정규식). **사용자가 SQL을 다시 실행해야 적용된다.**
+   - 남은 한국어: `server/cloud.js` lastError 3개(로그인·동기화 실패 문구), QA 페이지(개발용), README.
+   - 사용자 수 예상과 Supabase: 언어는 사용자당 용량·전송량을 바꾸지 않는다(오히려 코드가 조금 짧다). 바뀌는 건 사용자 수뿐이다. 무료 한도는 약 1,350명(전송량 기준, 7-9)이고, 그 이상이면 Pro($25/월, 전송량 250GB·DB 8GB → 수만 명)로 간다.
+
 8. **나중에**
    - 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명 (설정·리더보드·다른 AI 도구는 7-9로 옮김)
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)

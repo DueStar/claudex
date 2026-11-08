@@ -161,6 +161,17 @@ describe('the tray', () => {
     // No QA action: no QA item
     expect(labels(h.trayMenuTemplate({ visible: true, status: '' }, { toggleWidget() {}, quit() {} }))).not.toContain('디자인 QA 페이지')
   })
+
+  it('the menu and status in English when the language is English (electron/i18n.cjs)', () => {
+    const { translator, resolveLang } = require('../electron/i18n.cjs')
+    const en = translator('en')
+    const status = h.statusText({ sessions: 3, working: 1, needsYou: 1 }, en)
+    expect(status).toBe('Sessions: 3 · Working: 1 · Needs you: 1')
+    const menu = h.trayMenuTemplate({ visible: true, status }, { toggleWidget() {}, openSettings() {}, checkUpdate() {}, openLogs() {}, quit() {} }, en)
+    expect(menu.filter((i: any) => i.type !== 'separator').map((i: any) => i.label))
+      .toEqual(['Claudex — Sessions: 3 · Working: 1 · Needs you: 1', 'Hide', 'Settings', 'Check for updates', 'Open logs folder', 'Quit Claudex'])
+    expect([resolveLang('auto', 'ko-KR'), resolveLang('auto', 'ja'), resolveLang('auto', 'fr-FR'), resolveLang('ja', 'ko-KR')]).toEqual(['ko', 'ja', 'en', 'ja'])
+  })
 })
 
 describe('the server port (CLAUDEX_PORT)', () => {

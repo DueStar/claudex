@@ -11,6 +11,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont } from '../termFont'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, type PastSession, type TerminalInfo } from '../desktop'
+import { t } from '../i18n'
 
 const THEME = {
   background: '#101218',
@@ -170,11 +171,11 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
 
 function ago(ms: number): string {
   const m = Math.round((Date.now() - ms) / 60000)
-  if (m < 1) return '방금'
-  if (m < 60) return `${m}분 전`
+  if (m < 1) return t('방금')
+  if (m < 60) return t('{n}분 전', { n: m })
   const h = Math.round(m / 60)
-  if (h < 24) return `${h}시간 전`
-  return `${Math.round(h / 24)}일 전`
+  if (h < 24) return t('{n}시간 전', { n: h })
+  return t('{n}일 전', { n: Math.round(h / 24) })
 }
 
 /** The "이어하기" picker: recent sessions from every folder. */
@@ -190,25 +191,25 @@ export const ResumePicker: React.FC<{
   useEffect(() => { bridge?.terminals.history().then(setItems).catch(() => setItems([])) }, [])
   return (
     <div className="resume-backdrop" onClick={onClose}>
-      <div className="resume-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="세션 이어하기">
+      <div className="resume-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label={t('세션 이어하기')}>
         <div className="resume-head">
-          <span>세션 이어하기</span>
-          <button onClick={onClose} aria-label="닫기">×</button>
+          <span>{t('세션 이어하기')}</span>
+          <button onClick={onClose} aria-label={t('닫기')}>×</button>
         </div>
         {warn ? (
           <div className="resume-warn">
             <p><b>{warn.title}</b></p>
-            <p>이 세션은 지금 다른 터미널에서 실행 중이에요. 같은 세션을 두 곳에서 동시에 쓰면 대화가 꼬일 수 있어요.</p>
-            <p>먼저 그쪽 Claude를 종료(<code>/exit</code>)한 뒤 여는 걸 추천해요.</p>
+            <p>{t('이 세션은 지금 다른 터미널에서 실행 중이에요. 같은 세션을 두 곳에서 동시에 쓰면 대화가 꼬일 수 있어요.')}</p>
+            <p>{t('먼저 그쪽 Claude를 종료({exit})한 뒤 여는 걸 추천해요.').split('{exit}').flatMap((s, i) => i ? [<code key={i}>/exit</code>, s] : [s])}</p>
             <div className="resume-warn-actions">
-              <button onClick={() => setWarn(null)}>돌아가기</button>
-              <button className="danger" onClick={() => onPick(warn)}>그래도 열기</button>
+              <button onClick={() => setWarn(null)}>{t('돌아가기')}</button>
+              <button className="danger" onClick={() => onPick(warn)}>{t('그래도 열기')}</button>
             </div>
           </div>
         ) : (
           <div className="resume-list">
-            {items === null && <div className="resume-empty">불러오는 중…</div>}
-            {items?.length === 0 && <div className="resume-empty">이어할 세션이 없어요.</div>}
+            {items === null && <div className="resume-empty">{t('불러오는 중…')}</div>}
+            {items?.length === 0 && <div className="resume-empty">{t('이어할 세션이 없어요.')}</div>}
             {items?.map(it => {
               const open = openIds.has(it.id)
               return (
@@ -226,7 +227,7 @@ export const ResumePicker: React.FC<{
                   <span className="resume-meta">
                     <span className="resume-project">{it.project}</span>
                     <span>{ago(it.updatedAt)}</span>
-                    {open ? <span className="resume-badge">앱에서 열림</span> : it.running && <span className="resume-badge run">실행 중</span>}
+                    {open ? <span className="resume-badge">{t('앱에서 열림')}</span> : it.running && <span className="resume-badge run">{t('실행 중')}</span>}
                   </span>
                 </button>
               )

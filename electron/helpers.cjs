@@ -11,6 +11,7 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const ko = require('./i18n.cjs').translator('ko')
 
 const APP_NAME = 'Claudex'
 
@@ -340,13 +341,13 @@ function sessionSummary(body) {
   }
 }
 
-/** The tray's tooltip line. */
-function statusText(summary) {
-  if (!summary) return '서버에 연결할 수 없어요'
-  if (summary.sessions === 0) return '열린 세션 없음'
-  const parts = [`세션 ${summary.sessions}개`]
-  if (summary.working > 0) parts.push(`${summary.working}개 일하는 중`)
-  if (summary.needsYou > 0) parts.push(`${summary.needsYou}개 확인 필요`)
+/** The tray's tooltip line. `t` is electron/i18n.cjs's; Korean by default. */
+function statusText(summary, t = ko) {
+  if (!summary) return t('서버에 연결할 수 없어요')
+  if (summary.sessions === 0) return t('열린 세션 없음')
+  const parts = [t('세션 {n}개', { n: summary.sessions })]
+  if (summary.working > 0) parts.push(t('{n}개 일하는 중', { n: summary.working }))
+  if (summary.needsYou > 0) parts.push(t('{n}개 확인 필요', { n: summary.needsYou }))
   return parts.join(' · ')
 }
 
@@ -354,17 +355,17 @@ function statusText(summary) {
  * The tray menu. `state` is { visible, status }; `actions` supplies
  * toggleWidget, openSettings, openQa, checkUpdate, openLogs and quit.
  */
-function trayMenuTemplate(state, actions) {
+function trayMenuTemplate(state, actions, t = ko) {
   return [
     { label: state.status ? `${APP_NAME} — ${state.status}` : APP_NAME, enabled: false },
     { type: 'separator' },
-    { label: state.visible ? '숨기기' : '보이기', click: () => actions.toggleWidget() },
-    ...(actions.openSettings ? [{ label: '설정', click: () => actions.openSettings() }] : []),
-    ...(actions.checkUpdate ? [{ label: '업데이트 확인', click: () => actions.checkUpdate() }] : []),
-    ...(actions.openLogs ? [{ label: '로그 폴더 열기', click: () => actions.openLogs() }] : []),
-    ...(actions.openQa ? [{ label: '디자인 QA 페이지', click: () => actions.openQa() }] : []),
+    { label: state.visible ? t('숨기기') : t('보이기'), click: () => actions.toggleWidget() },
+    ...(actions.openSettings ? [{ label: t('설정'), click: () => actions.openSettings() }] : []),
+    ...(actions.checkUpdate ? [{ label: t('업데이트 확인'), click: () => actions.checkUpdate() }] : []),
+    ...(actions.openLogs ? [{ label: t('로그 폴더 열기'), click: () => actions.openLogs() }] : []),
+    ...(actions.openQa ? [{ label: t('디자인 QA 페이지'), click: () => actions.openQa() }] : []),
     { type: 'separator' },
-    { label: `${APP_NAME} 끝내기`, click: () => actions.quit() },
+    { label: t('{app} 끝내기', { app: APP_NAME }), click: () => actions.quit() },
   ]
 }
 

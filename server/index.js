@@ -760,11 +760,19 @@ app.post('/auth/sync', requireToken, async (_req, res) => {
 app.get('/auth/callback', async (req, res) => {
   const result = await cloud.finishSignIn({ code: String(req.query.code ?? ''), state: String(req.query.state ?? '') })
   const ok = result.ok
-  res.type('html').send(`<!doctype html><meta charset="utf-8"><title>Claudex</title>
-<body style="font-family:system-ui,'Malgun Gothic';background:#14161c;color:#f1f2f5;display:grid;place-items:center;height:100vh;margin:0">
+  // The browser's first language: Korean, Japanese, else English
+  const al = String(req.headers['accept-language'] ?? '').trim().toLowerCase()
+  const lang = al.startsWith('ko') ? 'ko' : al.startsWith('ja') ? 'ja' : 'en'
+  const [title, line] = {
+    ko: ok ? ['로그인됐어요', '이 탭을 닫고 Claudex로 돌아가세요.'] : ['로그인하지 못했어요', '앱에서 다시 시도해주세요.'],
+    en: ok ? ["You're signed in", 'You can close this tab and go back to Claudex.'] : ["Couldn't sign in", 'Please try again from the app.'],
+    ja: ok ? ['ログインしました', 'このタブを閉じて Claudex に戻ってください。'] : ['ログインできませんでした', 'アプリからもう一度お試しください。'],
+  }[lang]
+  res.type('html').send(`<!doctype html><html lang="${lang}"><meta charset="utf-8"><title>Claudex</title>
+<body style="font-family:system-ui,'Malgun Gothic','Yu Gothic UI';background:#14161c;color:#f1f2f5;display:grid;place-items:center;height:100vh;margin:0">
 <div style="text-align:center"><div style="font-size:42px">${ok ? '✅' : '⚠️'}</div>
-<h2>${ok ? '로그인됐어요' : '로그인하지 못했어요'}</h2>
-<p style="color:#a4a9b6">${ok ? '이 탭을 닫고 Claudex로 돌아가세요.' : '앱에서 다시 시도해주세요.'}</p></div></body>`)
+<h2>${title}</h2>
+<p style="color:#a4a9b6">${line}</p></div></body>`)
 })
 // The leaderboard (supabase/leaderboard.sql); the desktop app asks, with the token
 app.post('/leaderboard', requireToken, async (req, res) => res.json(await cloud.leaderboard(String(req.body?.board ?? ''))))

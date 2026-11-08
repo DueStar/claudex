@@ -18,10 +18,13 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
-/** The releases under "## Claudex" (each "### x.y.z" and its bullets), newest first as written. */
-export function parseChangelog(md: string): Release[] {
+/** The section heading per language: "## Claudex" (Korean), "## Claudex (English)", "## Claudex (日本語)" */
+const SECTION = { ko: 'Claudex', en: 'Claudex (English)', ja: 'Claudex (日本語)' } as const
+
+/** The releases under a "## <section>" heading (each "### x.y.z" and its bullets), newest first as written. */
+export function parseChangelog(md: string, section: string = SECTION.ko): Release[] {
   const lines = md.replace(/\r\n?/g, '\n').split('\n')
-  const start = lines.findIndex(l => /^##\s+Claudex\s*$/.test(l))
+  const start = lines.findIndex(l => /^##\s/.test(l) && l.replace(/^##\s+/, '').trim() === section)
   if (start < 0) return []
   const out: Release[] = []
   for (let i = start + 1; i < lines.length; i++) {
@@ -36,6 +39,22 @@ export function parseChangelog(md: string): Release[] {
     else if (/^\s+\S/.test(line) && cur.notes.length) cur.notes[cur.notes.length - 1] += ` ${plain(line.trim())}`
   }
   return out
+}
+
+/**
+ * The releases in a language. English and Japanese notes start at 1.3.16 (the
+ * earlier ones are only in Korean); the newest release always has an entry,
+ * falling back to English and then Korean when its own language has none.
+ */
+export function releasesIn(md: string, lang: 'ko' | 'en' | 'ja'): Release[] {
+  const own = parseChangelog(md, SECTION[lang])
+  if (lang === 'ko') return own
+  const newest = parseChangelog(md, SECTION.ko)[0]
+  if (newest && !own.some(r => r.version === newest.version)) {
+    const fallback = parseChangelog(md, SECTION.en).find(r => r.version === newest.version) ?? newest
+    return [fallback, ...own]
+  }
+  return own
 }
 
 /** Markdown marks off: **bold**, `code`, [text](link). */

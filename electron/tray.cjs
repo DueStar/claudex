@@ -13,6 +13,7 @@ const { Menu, Tray, nativeImage } = require('electron')
 const http = require('http')
 const path = require('path')
 const { APP_NAME, sessionSummary, statusText, trayMenuTemplate } = require('./helpers.cjs')
+const { t } = require('./i18n.cjs')
 
 const ASSETS_DIR = path.join(__dirname, 'assets')
 
@@ -63,7 +64,7 @@ function createTray({ serverUrl, getState, actions, pollMs = 5000 }) {
   let timer = null
 
   function refresh() {
-    const template = trayMenuTemplate({ ...getState(), status: statusText(summary) }, actions)
+    const template = trayMenuTemplate({ ...getState(), status: statusText(summary, t) }, actions, t)
     tray.setContextMenu(Menu.buildFromTemplate(template))
   }
 
@@ -71,7 +72,7 @@ function createTray({ serverUrl, getState, actions, pollMs = 5000 }) {
     const sessions = await fetchJson(`${serverUrl}/sessions`)
     if (tray.isDestroyed()) return
     summary = sessionSummary(sessions)
-    tray.setToolTip(`${APP_NAME} — ${statusText(summary)}`)
+    tray.setToolTip(`${APP_NAME} — ${statusText(summary, t)}`)
     refresh()
   }
 

@@ -33,6 +33,7 @@ const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
 const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
+const { t, useLanguage } = require('./i18n.cjs')
 const { envVar, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
@@ -82,6 +83,7 @@ let widgetWin = null // the app
 let settingsStore = null
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json')
 const appSettings = () => (settingsStore ??= createSettingsStore(settingsFile())).get()
+useLanguage(() => appSettings().app.language, () => app.getLocale()) // 설정 › 앱 › 언어
 let toastWin = null  // catch notifications (?toast)
 // The toast page says when it listens (toast:ready); events before that wait here.
 // Sent at did-finish-load they were lost (the page loads its code after that), and
@@ -364,7 +366,7 @@ async function checkUpdateNow() {
     if (w) { w.show(); w.focus() }
     return
   }
-  const body = st.status === 'current' ? `최신 버전이에요 (${st.current})` : `업데이트를 확인하지 못했어요${st.error ? ` (${st.error})` : ''}`
+  const body = st.status === 'current' ? t('최신 버전이에요 ({version})', { version: st.current }) : `${t('업데이트를 확인하지 못했어요')}${st.error ? ` (${st.error})` : ''}`
   if (Notification.isSupported()) new Notification({ title: APP_NAME, body, silent: true }).show()
 }
 
@@ -391,6 +393,7 @@ function changeSettings(patch) {
   if (next.app.widgetOnTop !== before.app.widgetOnTop && widgetWin && !widgetWin.isDestroyed() && widgetWin.claudexKind === 'widget') {
     widgetWin.setAlwaysOnTop(next.app.widgetOnTop, 'floating')
   }
+  if (next.app.language !== before.app.language) refreshMenus()
   for (const w of [widgetWin, toastWin]) if (w && !w.isDestroyed()) w.webContents.send('settings:changed', next)
   return next
 }
@@ -400,7 +403,7 @@ async function exportBackup() {
   const src = path.join(runtimeDirFromEnv(process.env), 'pokedex.json')
   if (!fs.existsSync(src)) return { ok: false, reason: 'no-data' }
   const day = new Date().toISOString().slice(0, 10)
-  const opts = { title: '도감 백업 저장', defaultPath: path.join(app.getPath('documents'), `claudex-backup-${day}.json`), filters: [{ name: 'JSON', extensions: ['json'] }] }
+  const opts = { title: t('도감 백업 저장'), defaultPath: path.join(app.getPath('documents'), `claudex-backup-${day}.json`), filters: [{ name: 'JSON', extensions: ['json'] }] }
   const r = widgetWin && !widgetWin.isDestroyed() ? await dialog.showSaveDialog(widgetWin, opts) : await dialog.showSaveDialog(opts)
   if (r.canceled || !r.filePath) return { ok: false, reason: 'canceled' }
   try { fs.copyFileSync(src, r.filePath); return { ok: true, path: r.filePath } } catch (err) { return { ok: false, reason: err.message } }
@@ -415,7 +418,7 @@ function applicationMenuTemplate() {
     {
       label: APP_NAME,
       submenu: [
-        { label: '보이기/숨기기', click: toggleWidget },
+        { label: t('보이기/숨기기'), click: toggleWidget },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'toggleDevTools' },
@@ -833,7 +836,7 @@ function openQa() {
   const url = pageWith('qa')
   if (!url) return
   qaWin = new BrowserWindow({
-    width: 1100, height: 860, title: 'Claudex 디자인 QA', backgroundColor: '#0b0c10', autoHideMenuBar: true,
+    width: 1100, height: 860, title: t('Claudex 디자인 QA'), backgroundColor: '#0b0c10', autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
   })
   qaWin.webContents.on('will-navigate', (event) => event.preventDefault())
@@ -992,7 +995,7 @@ function registerTerminalIpc() {
   }))
   ipcMain.handle('terminals:pick-folder', guard(async () => {
     const parent = widgetWin && !widgetWin.isDestroyed() ? widgetWin : undefined
-    const r = await dialog.showOpenDialog(parent, { title: '포켓몬이 일할 폴더 선택', defaultPath: app.getPath('documents'), properties: ['openDirectory'] })
+    const r = await dialog.showOpenDialog(parent, { title: t('포켓몬이 일할 폴더 선택'), defaultPath: app.getPath('documents'), properties: ['openDirectory'] })
     return r.canceled ? null : r.filePaths[0]
   }))
   ipcMain.handle('sessions:history', guard(() => {

@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { compareVersions, notesToShow, parseChangelog } from '../src/patchNotes'
+import { compareVersions, notesToShow, parseChangelog, releasesIn } from '../src/patchNotes'
 
 const MD = `# Changelog
 
@@ -54,5 +54,15 @@ describe('patch notes', () => {
     const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
     const r = parseChangelog(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'))
     expect(r.find(x => x.version === version)?.notes.length).toBeGreaterThan(0)
+  })
+})
+
+describe('patch notes in each language', () => {
+  const md = '# Changelog\n\n## Claudex\n\n### 1.0.2\n- 새 기능\n\n### 1.0.1\n- 고침\n\n## Claudex (English)\n\n### 1.0.1\n- Fix\n\n## Claudex (日本語)\n\n### 1.0.2\n- 新機能\n\n## Other\n### 9.9.9\n- x\n'
+  it('reads each language section, and the newest release always has notes', () => {
+    expect(releasesIn(md, 'ko').map(r => r.notes[0])).toEqual(['새 기능', '고침'])
+    expect(releasesIn(md, 'ja').map(r => r.version)).toEqual(['1.0.2'])
+    // English has no 1.0.2 yet: it falls back to the Korean note for the newest one
+    expect(releasesIn(md, 'en').map(r => `${r.version} ${r.notes[0]}`)).toEqual(['1.0.2 새 기능', '1.0.1 Fix'])
   })
 })
