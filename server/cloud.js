@@ -252,7 +252,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
   // ---- The leaderboard (supabase/leaderboard.sql): three functions, the numbers worked out in the database ----
 
   const BOARDS = ['caught', 'shiny', 'legends', 'week']
-  const BOARD_TTL_MS = 60_000 // a board is asked for at most once a minute (egress)
+  const BOARD_TTL_MS = 60 * 60_000 // a board is asked for at most once an hour (egress; joining or renaming clears it)
   const boardCache = new Map()
 
   /** A database function; signed in it goes as the trainer, else anonymously (the publishable key alone) */

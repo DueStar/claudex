@@ -84,7 +84,7 @@ const LeaderboardView: React.FC = () => {
         <div className="dex-seg rank-boards" role="tablist" aria-label="랭킹 종류">
           {BOARDS.map(b => <button key={b.key} role="tab" aria-selected={board === b.key} className={board === b.key ? 'on' : ''} onClick={() => setBoard(b.key)}>{b.label}</button>)}
         </div>
-        <span className="rank-note">{meta.note}</span>
+        <span className="rank-note">{meta.note} · 순위는 1시간마다 새로 고쳐져요</span>
       </div>
 
       {/* Me: sign in, join (nickname + partner), or my entry */}

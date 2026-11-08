@@ -182,7 +182,8 @@ describe('cloud leaderboard', () => {
     const json = (data: any, status = 200) => ({ ok: status < 400, status, json: async () => data, text: async () => JSON.stringify(data) })
     const fetchImpl = async (url: string, init: any = {}) => {
       calls.push({ url, init })
-      if (url.includes('grant_type=pkce')) return json({ access_token: 'at', refresh_token: 'rt', expires_in: 3600, user: { id: 'u1', email: 'a@b.c' } })
+      // sign-in, and the token refresh an hour later
+      if (url.includes('grant_type=pkce') || url.includes('grant_type=refresh_token')) return json({ access_token: 'at', refresh_token: 'rt', expires_in: 3600, user: { id: 'u1', email: 'a@b.c' } })
       if (url.includes('/rest/v1/trainers?select=')) return json([])
       if (url.includes('/rest/v1/trainers?on_conflict=')) return json([{ updated_at: '2026-11-08T00:00:00Z' }], 201)
       const m = url.match(/\/rest\/v1\/rpc\/(\w+)$/)
@@ -197,7 +198,7 @@ describe('cloud leaderboard', () => {
     return { cloud, calls, signIn, tick: (ms: number) => { clock += ms } }
   }
 
-  it('reads a board anonymously before sign-in and as the trainer after, at most once a minute', async () => {
+  it('reads a board anonymously before sign-in and as the trainer after, at most once an hour', async () => {
     const auths: (string | undefined)[] = []
     const { cloud, calls, signIn, tick } = board((name, body, auth) => {
       auths.push(auth)
@@ -213,7 +214,10 @@ describe('cloud leaderboard', () => {
     const r = await cloud.leaderboard('week')
     expect(r.rows?.[0].me).toBe(true)
     expect(auths.at(-1)).toBe('Bearer at')
-    tick(61_000)
+    tick(59 * 60_000)
+    await cloud.leaderboard('week')
+    expect(calls.filter(c => c.url.includes('/rpc/')).length).toBe(2) // still the cached one
+    tick(2 * 60_000)
     await cloud.leaderboard('week')
     expect(calls.filter(c => c.url.includes('/rpc/')).length).toBe(3)
     expect(await cloud.leaderboard('nope')).toEqual({ ok: false, reason: 'bad-board' })

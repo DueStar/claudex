@@ -54,9 +54,13 @@ export const FullscreenIcon: React.FC<P> = (p) => (
 export const TodayIcon: React.FC<P> = (p) => (
   <Svg {...p}><circle cx="8" cy="8" r="6" /><path d="M8 4.8V8l2.2 1.6" /></Svg>
 )
-/** A podium: the leaderboard */
+/** A trophy: 랭킹 */
 export const RankIcon: React.FC<P> = (p) => (
-  <Svg {...p}><path d="M2 13.5h12M5.5 13.5V8h5v5.5M2.5 13.5v-3h3M10.5 13.5V6h3v7.5M8 3l.7 1.4 1.5.2-1.1 1 .3 1.5L8 6.4l-1.4.7.3-1.5-1.1-1 1.5-.2z" /></Svg>
+  <Svg {...p}>
+    <path d="M4.5 2.5h7v3.2a3.5 3.5 0 0 1-7 0z" />
+    <path d="M4.5 3.8H3.2a1.4 1.4 0 0 0 0 2.8h1.5M11.5 3.8h1.3a1.4 1.4 0 0 1 0 2.8h-1.5" />
+    <path d="M8 9.2v2.3M5.5 13.5h5M6.3 11.5h3.4" />
+  </Svg>
 )
 /** A line: minimize the window */
 export const MinimizeIcon: React.FC<P> = (p) => (
@@ -76,9 +80,9 @@ export const SearchIcon: React.FC<P> = (p) => (
 export const PlusIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M8 3v10M3 8h10" /></Svg>
 )
-/** A gear: 설정 */
+/** A gear with six teeth: 설정 (the old circle-and-rays read as a sun) */
 export const GearIcon: React.FC<P> = (p) => (
-  <Svg {...p}><circle cx="8" cy="8" r="2.2" /><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" /></Svg>
+  <Svg {...p}><path d="M6.32 3.40L6.63 1.54L9.37 1.54L9.68 3.40L11.15 4.25L12.90 3.58L14.28 5.96L12.83 7.15L12.83 8.85L14.28 10.04L12.90 12.42L11.15 11.75L9.68 12.60L9.37 14.46L6.63 14.46L6.32 12.60L4.85 11.75L3.10 12.42L1.72 10.04L3.17 8.85L3.17 7.15L1.72 5.96L3.10 3.58L4.85 4.25Z" /><circle cx="8" cy="8" r="2.1" /></Svg>
 )
 
 /** A Poké Ball picture: the games' artwork shipped with the app, Claudex's own drawing if it is missing */

@@ -295,7 +295,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - Supabase는 새 함수를 anon·authenticated에 기본으로 열어 주므로, revoke한 뒤 필요한 것만 grant한다.
      - 검증: PGlite(인프로세스 Postgres)에서 schema.sql과 leaderboard.sql을 두 번 실행해 숫자, 닉네임 규칙·중복, 비공개 숨김, 내 줄 표시, 불가능한 게임 flag, anon 권한을 확인했다(스크래치패드 `pgtest/run.mjs`, 저장소에는 없음).
      - 앱:
-       - `server/cloud.js`: `leaderboard(board)`는 보드당 60초 캐시이고, 로그인 전에는 publishable key만으로 부른다. `leaderboardProfile`, `setLeaderboardProfile`은 참여 전에 `sync()`로 게임을 먼저 올린다. 404면 'not-set-up'.
+       - `server/cloud.js`: `leaderboard(board)`는 보드당 **1시간** 캐시이고(사용자 결정 2026-11-08: "1시간에 한 번 되도 돼"; 참여·수정하면 비운다), 로그인 전에는 publishable key만으로 부른다. `leaderboardProfile`, `setLeaderboardProfile`은 참여 전에 `sync()`로 게임을 먼저 올린다. 404면 'not-set-up'.
        - 서버 `POST /leaderboard`, `/leaderboard/profile`, `/leaderboard/profile/set`(토큰 필요).
        - IPC `board:*`.
        - 화면: `src/components/LeaderboardView.tsx`(랭킹 탭, Ctrl+5). 보드 4개(이번 주 포획이 기본), 내 칸(로그인 / 참여: 닉네임 + 대표 포켓몬은 파티에서 / 수정·그만두기), 목록(1~3위 색, 내 줄 강조, 순위가 끊기면 ⋯).
@@ -313,8 +313,9 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
          - 동기화는 PC 한 대 월 약 3MB, 두 대면 약 15MB(7-7).
          - 그래서 **이제 한계는 전송량이다**: PC 한 대 사용자 위주면 약 1,100명(리더보드 전 약 1,700명). 30%가 PC 두 대이거나 랭킹을 자주 보면 약 600~700명.
        - 처리 시간: 업로드 트리거 약 3ms, 보드 조회는 PGlite(WASM)에서 80ms(실제 Postgres는 훨씬 빠름). 문제없다.
+       - **캐시를 1시간으로 바꾼 뒤**(1.3.18): 한 사람이 받는 랭킹은 "본 시간대 수 × 본 보드 수"가 상한이다. 보통 하루 3번(약 25KB) → 월 약 0.8MB로 줄어서, PC 한 대 사용자 위주면 약 1,350명이다.
        - 늘리는 방법(효과 큰 순):
-         1. 보드 캐시 1분 → 5분
+         1. ~~보드 캐시 1분 → 5분~~ → 1시간으로 함
          2. 상위 100 → 50명
          3. 응답을 배열로 압축(약 40% 감소)
          4. PC 두 대 사용자의 동기화 전송량 줄이기
