@@ -1,22 +1,20 @@
 /**
  * BoxView — the PC: the party's six on top, the box below. Pick a Pokémon to
  * see its traits and catch story; a box Pokémon can trade places with a
- * resting party member (the button, or drag it onto a party slot), or be released. Like the games' PC, the box shows 30
- * at a time (6 × 5) and flips with ‹ › or the arrow keys. The cells show the
- * SV box icons by default or the HOME pictures; the detail card is always the
- * HOME picture, the one that shows a shiny's colours.
- * Laid out like the games' PC: the party in a column on the left, the box
- * (its name tag with ‹ › over 6 × 5 slots) in the middle, the summary on the right.
+ * resting party member (the button, or drag it onto a party slot), or be
+ * released. The grid fills the width; it shows the SV box icons by default
+ * (small, many to a screen) or the HOME pictures; the detail card is always
+ * the HOME picture, the one that shows a shiny's colours.
+ * (30 to a box, 6 × 5 like the games, was tried in 1.3.13–1.3.14 and rolled back.)
  */
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { pokemonById, spriteUrl, iconUrl } from '../theme'
 import { bridge } from '../desktop'
 import { usePokedex, TIER_LABEL, NATURE_BY_ID, genderMark, sourceText, ballName, levelOf, minutesToNext, BALL_BY_ID, BALL_TIER_LABEL, type Mon, type Tier } from '../pokedexStore'
 import { PokeBall, SearchIcon } from './Icons'
 
 type Sort = 'recent' | 'dex' | 'tier' | 'steps'
-const PAGE = 30 // one box in the games: 6 columns × 5 rows
 type Look = 'icon' | 'art'
 const LOOK_KEY = 'claudex.boxLook'
 function readLook(): Look {
@@ -40,7 +38,6 @@ const BoxView: React.FC = () => {
   const [releasing, setReleasing] = useState(false)
   const [choosing, setChoosing] = useState(false)
   const [note, setNote] = useState<string | null>(null)
-  const [page, setPage] = useState(0)
   const [dragging, setDragging] = useState<string | null>(null) // a box Pokémon being dragged
   const [dropOn, setDropOn] = useState<string | null>(null)     // the party slot under it
 
@@ -62,14 +59,6 @@ const BoxView: React.FC = () => {
     }
     return list.sort(by[sort])
   }, [state, mons, sort, shinyOnly, query])
-
-  // A new order or filter starts from the first box
-  useEffect(() => setPage(0), [sort, shinyOnly, query])
-  const pages = Math.max(1, Math.ceil(box.length / PAGE))
-  const at = Math.min(page, pages - 1)
-  const shown = box.slice(at * PAGE, (at + 1) * PAGE)
-  // The last box wraps to the first, as in the games
-  const flip = (d: number) => setPage((at + d + pages) % pages)
 
   const picked = pick ? mons[pick] : undefined
   const inParty = picked ? party.includes(picked.uid) : false
@@ -126,15 +115,15 @@ const BoxView: React.FC = () => {
   )
 
   return (
-    <div
-      className={`box look-${look}`}
-      onKeyDown={e => {
-        if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || (e.target as HTMLElement).tagName === 'INPUT') return
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); flip(e.key === 'ArrowLeft' ? -1 : 1) }
-      }}
-    >
+    <div className={`box look-${look}`}>
       <div className="box-main">
         <div className="box-left">
+          <div className="box-party">
+            <div className="box-title">파티 <span>{party.length} / {state?.partySize ?? 6}</span></div>
+            <div className="box-party-row">
+              {party.map(uid => mons[uid] && cell(mons[uid]))}
+            </div>
+          </div>
           <div className="box-toolbar">
             <div className="box-title">박스 <span className={(state?.box.length ?? 0) >= (state?.boxLimit ?? 1200) ? 'full' : ''}>{state?.box.length ?? 0} / {state?.boxLimit ?? 1200}</span></div>
             <div className="box-tools">
@@ -159,26 +148,8 @@ const BoxView: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="box-stage">
-            <div className="box-party">
-              <div className="box-title">파티 <span>{party.length} / {state?.partySize ?? 6}</span></div>
-              <div className="box-party-col">
-                {party.map(uid => mons[uid] && cell(mons[uid]))}
-                {Array.from({ length: Math.max(0, (state?.partySize ?? 6) - party.length) }, (_, i) => <div key={`pempty-${i}`} className="box-slot" />)}
-              </div>
-            </div>
-            <div className="box-panel">
-              <div className="box-pager">
-                <button onClick={() => flip(-1)} disabled={!box.length} aria-label="이전 박스" title="이전 박스 (←)">‹</button>
-                <span className="box-name">박스 {at + 1}<small> / {pages}</small></span>
-                <button onClick={() => flip(1)} disabled={!box.length} aria-label="다음 박스" title="다음 박스 (→)">›</button>
-              </div>
-              <div className="box-grid">
-                {shown.map(cell)}
-                {Array.from({ length: PAGE - shown.length }, (_, i) => <div key={`empty-${i}`} className="box-slot" />)}
-              </div>
-              {!box.length && <div className="box-empty">{state?.box.length ? '조건에 맞는 포켓몬이 없어요' : '박스가 비어 있어요. 일하다 보면 야생 포켓몬을 만나요'}</div>}
-            </div>
+          <div className="box-grid">
+            {box.length ? box.map(cell) : <div className="dex-empty">{state?.box.length ? '조건에 맞는 포켓몬이 없어요' : '박스가 비어 있어요. 일하다 보면 야생 포켓몬을 만나요'}</div>}
           </div>
         </div>
 
