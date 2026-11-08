@@ -716,7 +716,7 @@ function resizeWidget(width, height) {
 // that never takes the focus (the page with ?toast)
 // ---------------------------------------------------------------------------
 
-const TOAST_SIZE = Object.freeze({ width: 400, height: 138 })
+const TOAST_SIZE = Object.freeze({ width: 400, height: 160 })
 
 function toastBounds() {
   const { workArea } = screen.getPrimaryDisplay()

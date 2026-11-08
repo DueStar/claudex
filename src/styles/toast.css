@@ -32,8 +32,8 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px 12px 12px;
+  gap: 16px;
+  padding: 18px 22px 18px 18px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   background: rgba(20, 22, 28, 0.97);
@@ -78,13 +78,15 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
 
 /* +N waiting */
 .toast-host .w-toast-more {
-  position: absolute; top: 10px; right: 12px;
+  position: absolute; top: 12px; right: 14px;
   font-size: 10.5px; font-weight: 800; color: #1b1e27; background: #d7dae3;
   padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Kinds ---------- */
-.toast-host .w-toast.kind-flee .w-toast-art img { filter: grayscale(0.7); opacity: 0.75; }
+/* One that got away: a silhouette, as in the dex */
+.toast-host .w-toast.kind-flee .w-toast-art img { filter: brightness(0) invert(0.32); }
+.toast-host .w-toast.kind-flee .w-toast-art { background: #1b1e26; }
 .toast-host .w-toast.kind-flee .w-toast-title { color: #c9cdd6; }
 .toast-host .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.5); }
 .toast-host .w-toast.kind-catch.tier-legendary, .toast-host .w-toast.kind-catch.tier-mythical {

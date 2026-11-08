@@ -176,11 +176,10 @@ const Widget: React.FC = () => {
   const { state: dex, lastEvent } = usePokedex()
   const { isNew } = useViewed()
   const hasNew = Object.keys(dex?.caught ?? {}).some(id => isNew(Number(id)))
-  // Catches, evolutions and rare escapes pop up above every window (the ?toast window)
+  // Catches, escapes, evolutions and level-ups pop up above every window (the ?toast window)
   useEffect(() => {
     if (!lastEvent || !bridge) return
-    const rareFlee = lastEvent.kind === 'flee' && (lastEvent.tier === 'sub' || lastEvent.tier === 'legendary' || lastEvent.tier === 'mythical')
-    if (lastEvent.kind === 'catch' || lastEvent.kind === 'evolve' || lastEvent.kind === 'levelup' || rareFlee) bridge.toast.show(lastEvent)
+    if (lastEvent.kind === 'catch' || lastEvent.kind === 'flee' || lastEvent.kind === 'evolve' || lastEvent.kind === 'levelup') bridge.toast.show(lastEvent)
   }, [lastEvent])
   useEffect(() => {
     bridge?.widget.getMode().then(setModeState).catch(() => {})

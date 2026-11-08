@@ -37,7 +37,8 @@ const SAMPLES: { title: string; note: string; e: DexEvent }[] = [
   { title: '포획 · 출석 조우', note: '하루 첫 세션', e: catchOf(133, 'common', { attendance: true, place: 'claudex (오늘의 출석)', ball: 'great-ball', via: via('세션 시작'), level: 9 }) },
   { title: '포획 · 울트라비스트', note: '울트라볼', e: catchOf(793, 'sub', { ball: 'beast-ball', level: 55, gender: 'none', via: via('Grep 검색') }) },
   { title: '포획 · 박스 가득', note: '박사님께 보냄', e: catchOf(19, 'common', { toProfessor: true, uid: undefined, level: 4 }) },
-  { title: '도망 · 준전설', note: '준전설 이상만 알림', e: { kind: 'flee', id: 145, name: name(145), tier: 'sub', shiny: false, place: 'claudex 하늘길', at } as DexEvent },
+  { title: '도망 · 일반', note: '실루엣만', e: { kind: 'flee', id: 52, name: name(52), tier: 'common', shiny: false, place: 'claudex 풀숲', nature: 7, at } as DexEvent },
+  { title: '도망 · 준전설', note: '실루엣만', e: { kind: 'flee', id: 145, name: name(145), tier: 'sub', shiny: false, place: 'claudex 하늘길', at } as DexEvent },
   { title: '진화', note: '레벨업 때', e: { kind: 'evolve', id: 5, from: 4, name: name(5), fromName: name(4), tier: undefined, shiny: false, at } as unknown as DexEvent },
   { title: '레벨업', note: '5초', e: { kind: 'levelup', id: 6, name: name(6), level: 36, shiny: false, at } as unknown as DexEvent },
 ]
