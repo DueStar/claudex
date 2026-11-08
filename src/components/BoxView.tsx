@@ -1,7 +1,7 @@
 /**
  * BoxView — the PC: the party's six on top, the box below. Pick a Pokémon to
  * see its traits and catch story; a box Pokémon can trade places with a
- * resting party member, or be released. Like the games' PC, the box shows 30
+ * resting party member (the button, or drag it onto a party slot), or be released. Like the games' PC, the box shows 30
  * at a time (6 × 5) and flips with ‹ › or the arrow keys. The cells show the
  * SV box icons by default or the HOME pictures; the detail card is always the
  * HOME picture, the one that shows a shiny's colours.
@@ -39,6 +39,8 @@ const BoxView: React.FC = () => {
   const [choosing, setChoosing] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [page, setPage] = useState(0)
+  const [dragging, setDragging] = useState<string | null>(null) // a box Pokémon being dragged
+  const [dropOn, setDropOn] = useState<string | null>(null)     // the party slot under it
 
   const mons = state?.mons ?? {}
   const party = state?.party ?? []
@@ -75,12 +77,13 @@ const BoxView: React.FC = () => {
 
   // A second click on the picked one closes the panel
   const select = (uid: string) => { setPick(pick === uid ? null : uid); setReleasing(false); setChoosing(false); setNote(null) }
-  const exchange = async (partyUid: string) => {
-    if (!picked || !bridge) return
-    const r = await bridge.game.exchange(picked.uid, partyUid)
+  const exchangeWith = async (boxUid: string, partyUid: string) => {
+    if (!bridge) return
+    const r = await bridge.game.exchange(boxUid, partyUid)
     setChoosing(false)
     setNote(r.ok ? '파티에 넣었어요' : `바꾸지 못했어요 (${r.reason === 'busy' ? '일하는 중' : r.reason ?? '알 수 없음'})`)
   }
+  const exchange = (partyUid: string) => { if (picked) exchangeWith(picked.uid, partyUid) }
   const release = async () => {
     if (!picked || !bridge) return
     if (!releasing) { setReleasing(true); return }
@@ -90,13 +93,29 @@ const BoxView: React.FC = () => {
     else setNote(`놓아주지 못했어요 (${r.reason ?? '알 수 없음'})`)
   }
 
-  const Cell: React.FC<{ m: Mon }> = ({ m }) => (
+  // Drag a box Pokémon onto a resting party slot to trade places (a working one cannot leave its session)
+  const inBox = (uid: string) => !party.includes(uid)
+  const canDropOn = (uid: string) => !!dragging && party.includes(uid) && !working.has(uid)
+  // A plain function, not a component: a new component type every render would remount the cell mid-drag
+  const cell = (m: Mon) => (
     <button
-      className={`box-cell tier-${tierOf(m.dex)}${pick === m.uid ? ' picked' : ''}${working.has(m.uid) ? ' working' : ''}`}
+      key={m.uid}
+      className={`box-cell tier-${tierOf(m.dex)}${pick === m.uid ? ' picked' : ''}${working.has(m.uid) ? ' working' : ''}${dragging === m.uid ? ' dragging' : ''}${dropOn === m.uid ? ' drop' : ''}${dragging && party.includes(m.uid) && working.has(m.uid) ? ' nodrop' : ''}`}
       onClick={() => select(m.uid)}
-      title={`${pokemonById(m.dex)?.ko ?? ''}${genderMark(m.gender)}`}
+      title={`${pokemonById(m.dex)?.ko ?? ''}${genderMark(m.gender)}${inBox(m.uid) ? ' · 파티 칸으로 끌어서 교체' : ''}`}
+      draggable={inBox(m.uid)}
+      onDragStart={e => { if (!inBox(m.uid)) return; e.dataTransfer.setData('text/plain', m.uid); e.dataTransfer.effectAllowed = 'move'; setDragging(m.uid) }}
+      onDragEnd={() => { setDragging(null); setDropOn(null) }}
+      onDragOver={e => { if (!canDropOn(m.uid)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dropOn !== m.uid) setDropOn(m.uid) }}
+      onDragLeave={() => { if (dropOn === m.uid) setDropOn(null) }}
+      onDrop={e => {
+        e.preventDefault()
+        const from = e.dataTransfer.getData('text/plain') || dragging
+        setDragging(null); setDropOn(null)
+        if (from && canDropOn(m.uid) && inBox(from)) exchangeWith(from, m.uid)
+      }}
     >
-      <img src={look === 'icon' ? iconUrl(m.dex) : spriteUrl(m.dex, m.shiny)} alt="" loading="lazy" />
+      <img src={look === 'icon' ? iconUrl(m.dex) : spriteUrl(m.dex, m.shiny)} alt="" loading="lazy" draggable={false} />
       {m.shiny && <span className="box-shiny">✦</span>}
       <PokeBall ball={m.ball} size={14} className="box-ball" />
       <span className="box-lv">Lv.{levelOf(m)}</span>
@@ -117,7 +136,7 @@ const BoxView: React.FC = () => {
           <div className="box-party">
             <div className="box-title">파티 <span>{party.length} / {state?.partySize ?? 6}</span></div>
             <div className="box-party-row">
-              {party.map(uid => mons[uid] && <Cell key={uid} m={mons[uid]} />)}
+              {party.map(uid => mons[uid] && cell(mons[uid]))}
             </div>
           </div>
           <div className="box-toolbar">
@@ -153,7 +172,7 @@ const BoxView: React.FC = () => {
               </div>
               <div className="box-page">
                 <div className="box-grid">
-                  {shown.map(m => <Cell key={m.uid} m={m} />)}
+                  {shown.map(cell)}
                   {Array.from({ length: PAGE - shown.length }, (_, i) => <div key={`empty-${i}`} className="box-slot" />)}
                 </div>
               </div>

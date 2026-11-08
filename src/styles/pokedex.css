@@ -349,6 +349,11 @@
 .box-cell img { width: 50px; height: 50px; object-fit: contain; }
 .box-cell:hover { border-color: rgba(255, 255, 255, 0.2); }
 .box-cell.picked { border-color: var(--accent); }
+/* Dragging a box Pokémon onto the party */
+.box-cell.dragging { opacity: 0.4; }
+.box-cell.drop { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--card-2)); transform: scale(1.05); }
+.box-cell.nodrop { opacity: 0.45; }
+.box-cell { transition: transform 0.12s ease, background 0.12s ease; }
 .box-cell:disabled { opacity: 0.4; cursor: not-allowed; }
 .box-grid .box-cell { width: auto; height: auto; min-width: 0; min-height: 0; }
 .box-grid .box-cell img:not(.pokeball) { width: 70%; height: 70%; }

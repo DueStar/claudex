@@ -16,7 +16,7 @@
  *
  *   createPokedex({ file, species, broadcast, isActive?, now?, random? })
  *     .noteEvent(event, session)    after the server processed a hook event
- *     .swap(sessionId, uid)         put another Pokémon on a session (fully evolved only)
+ *     .swap(sessionId, uid)         put another party Pokémon (a resting one) on a session
  *     .publicState()                the whole game for the snapshot / GET /pokedex
  */
 
@@ -763,7 +763,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     }
   }
 
-  /** Put another owned Pokémon (party or box, not working elsewhere) on a session */
+  /** Put another party Pokémon (not working elsewhere) on a session; a box one comes into the party first (exchange) */
   function swap(sessionId, uid) {
     const current = state.assign[sessionId]
     const cur = current && state.mons[current]
@@ -771,17 +771,9 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     if (!cur) return { ok: false, reason: 'no-pokemon' }
     if (!next) return { ok: false, reason: 'unknown-pokemon' }
     if (uid === current) return { ok: false, reason: 'same' }
+    if (!state.party.includes(uid)) return { ok: false, reason: 'not-in-party' }
     const busy = busyUids()
     if (busy.has(uid)) return { ok: false, reason: 'busy' }
-    const boxAt = state.box.indexOf(uid)
-    if (boxAt !== -1) {
-      // From the box: it takes the party slot, the old one goes to the box
-      const slot = state.party.indexOf(current)
-      state.box.splice(boxAt, 1)
-      if (slot !== -1) state.party[slot] = uid
-      else state.party.push(uid)
-      state.box.push(current)
-    }
     state.assign[sessionId] = uid
     next.traded = true // a trade: trade evolutions happen at its next level-up
     const event = { kind: 'swap', id: next.dex, from: cur.dex, name: byId.get(next.dex)?.ko, fromName: byId.get(cur.dex)?.ko, sessionId, uid, shiny: next.shiny, at: now() }

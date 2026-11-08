@@ -129,7 +129,7 @@ describe('pokedex', () => {
     expect(levelFrom(5, 21 * 60000).level).toBe(6)
   })
 
-  it('swaps any owned Pokémon that is not working; a box Pokémon takes the party slot', () => {
+  it('swaps in a resting party Pokémon only; a box Pokémon is refused (it comes into the party first)', () => {
     const { dex } = setup([0])
     attended(dex)
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
@@ -137,13 +137,16 @@ describe('pokedex', () => {
     const starterUid = st0.assign.s1
     st0.mons.mbox = { uid: 'mbox', dex: 150, steps: 0, evos: 0, shiny: false, how: 'wild', place: 'x', at: 0 }
     st0.box.push('mbox')
-    expect(dex.swap('s1', 'mbox')).toEqual({ ok: true })
-    const st = dex.publicState()
-    expect(st.assign.s1).toBe('mbox')
-    expect(st.party[0]).toBe('mbox')
-    expect(st.box).toContain(starterUid)
-    // a party Pokémon that is resting can be swapped in too, even unevolved
-    expect(dex.swap('s1', st.party[1])).toEqual({ ok: true })
+    expect(dex.swap('s1', 'mbox')).toEqual({ ok: false, reason: 'not-in-party' })
+    let st = dex.publicState()
+    expect(st.assign.s1).toBe(starterUid)
+    expect(st.box).toContain('mbox')
+    // a party Pokémon that is resting can be swapped in, even unevolved; the party stays as it was
+    const party = [...st.party]
+    expect(dex.swap('s1', party[1])).toEqual({ ok: true })
+    st = dex.publicState()
+    expect(st.assign.s1).toBe(party[1])
+    expect(st.party).toEqual(party)
   })
 
   it('throws a chosen party Pokémon with a session before its first event, and holds it', () => {

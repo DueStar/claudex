@@ -122,7 +122,8 @@ const ResizeGrip: React.FC = () => {
 }
 
 const Widget: React.FC = () => {
-  useTheme()
+  // The session cast's version: the rows below draw each session as its Pokémon
+  const castVersion = useTheme()
   useEffect(preloadViews, [])
   const meters = useMeters()
   const terminals = useTerminals()
@@ -214,7 +215,7 @@ const Widget: React.FC = () => {
         project: terminal?.project ?? session?.project ?? meter?.project ?? '',
       }
     }).filter(r => r.mood !== 'ended' || r.terminal)
-  }, [terminals, sessions, meters])
+  }, [terminals, sessions, meters, castVersion])
 
   const sendable = rows.filter(r => r.terminal && r.terminal.status === 'running')
   const isFree = (r: Row) => r.terminal?.status === 'running' && !r.terminal.asking && r.mood !== 'working' && r.mood !== 'needs-you'
@@ -382,14 +383,14 @@ const Widget: React.FC = () => {
     const r = await bridge.game.swap(sessionId, uid)
     if (!r.ok) {
       if (before) castSession(sessionId, before.dex, before.shiny)
-      setNote(`교체하지 못했어요 (${r.reason ?? '알 수 없음'})`)
+      setNote(`교체하지 못했어요 (${r.reason === 'busy' ? '다른 세션에서 일하는 중' : r.reason === 'not-in-party' ? '파티 포켓몬만 교체할 수 있어요' : r.reason ?? '알 수 없음'})`)
     }
   }
   // The swap list shows the artwork; fetch the box icons it may switch to before a pick
   useEffect(() => {
     if (!swapFor || !dex) return
     const busy = new Set(Object.values(dex.assign ?? {}))
-    for (const uid of [...dex.party, ...dex.box.slice(-60)]) {
+    for (const uid of dex.party) {
       const m = dex.mons[uid]
       if (m && !busy.has(uid)) new Image().src = iconUrl(m.dex)
     }

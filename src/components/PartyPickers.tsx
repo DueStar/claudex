@@ -1,6 +1,6 @@
 /**
  * PartyPickers — the two "who goes?" dialogs of the widget:
- *   SwapPicker   another Pokémon for a running session (party or box, not busy)
+ *   SwapPicker   another party Pokémon for a running session (one that is resting)
  *   ThrowPicker  the party Pokémon a new (or resumed) session is thrown out with
  */
 
@@ -25,19 +25,19 @@ const busyOf = (dex: DexState) => new Set(Object.values(dex.assign ?? {}))
 
 export const SwapPicker: React.FC<{ dex: DexState; currentDex: number; onPick: (uid: string) => void; onClose: () => void }> = ({ dex, currentDex, onPick, onClose }) => {
   const busy = busyOf(dex)
-  // The party first, then the box, newest catch first
-  const candidates = [...dex.party, ...dex.box.slice().reverse()].filter(uid => !busy.has(uid) && dex.mons[uid])
+  // Only the party: a box Pokémon comes into the party first (in the box, or by dragging it onto a party slot)
+  const candidates = dex.party.filter(uid => !busy.has(uid) && dex.mons[uid])
   return (
     <Dialog label="포켓몬 교체" title={`${pokemonById(currentDex)?.ko} 대신 보낼 포켓몬`} onClose={onClose}>
       <div className="w-swap-list">
-        {candidates.length === 0 && <div className="resume-empty">보낼 수 있는 포켓몬이 없어요. 야생 포켓몬을 더 잡아보세요!</div>}
+        {candidates.length === 0 && <div className="resume-empty">파티에 쉬고 있는 포켓몬이 없어요. 박스에서 파티로 데려오면 교체할 수 있어요.</div>}
         {candidates.map(uid => {
           const m = dex.mons[uid]
           return (
             <button key={uid} className="w-swap-item" onClick={() => onPick(uid)}>
               <img src={spriteUrl(m.dex, m.shiny)} alt="" />
               <span className="w-swap-name">{m.shiny ? '✦ ' : ''}{pokemonById(m.dex)?.ko}{genderMark(m.gender)}</span>
-              <span className="w-swap-meta">{dex.party.includes(uid) ? '파티' : '박스'} · {m.steps}걸음{isFullyEvolved(m.dex) ? ' · 최종' : ''}</span>
+              <span className="w-swap-meta">쉬는 중 · {m.steps}걸음{isFullyEvolved(m.dex) ? ' · 최종' : ''}</span>
             </button>
           )
         })}
