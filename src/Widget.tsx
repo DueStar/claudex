@@ -413,7 +413,7 @@ const Widget: React.FC = () => {
             ))}
             {update && (update.status === 'available' || update.status === 'downloading' || update.status === 'ready') && (
               <button
-                className={`w-update ${update.status}`}
+                className={`w-update ${update.status}${update.status === 'available' && update.error ? ' failed' : ''}`}
                 disabled={update.status === 'downloading'}
                 title={`${update.current} → ${update.latest}${update.notes ? `
 
@@ -428,7 +428,8 @@ ${update.notes}` : ''}${update.error ? `
               >
                 {update.status === 'downloading' ? `받는 중 ${Math.round(update.progress * 100)}%`
                   : update.status === 'ready' ? '재시작해서 적용'
-                  : update.needsFull ? '새 버전 받기' : '업데이트'}
+                  : update.needsFull ? '새 버전 받기'
+                  : update.error ? '업데이트 실패 · 다시 시도' : '업데이트'}
               </button>
             )}
             {!expanded && (

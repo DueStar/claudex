@@ -196,6 +196,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-update:hover { filter: brightness(1.08); }
 .w-update.downloading { background: var(--card-2); color: var(--accent); cursor: default; }
 .w-update.ready { background: var(--accent); color: var(--accent-ink); }
+.w-update.failed { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 
 /* ---------- Session rows: name and level on the left (a name you can change), status and swap on the right ---------- */
 .w-row-label { flex: 0 1 auto; display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }

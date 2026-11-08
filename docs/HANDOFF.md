@@ -236,6 +236,8 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
        - **Supabase 데이터**: 올리는 사본에서 이 PC만 쓰는 필드(`assign`·`projects`·`daily`·`thrownAt`, merge가 항상 로컬 값을 쓴다)를 빼고, log는 최근 200건만(`cloud.js` `cloudCopy`, `CLOUD_LOG`). 지금 실제 데이터는 log가 110건뿐이라 1%만 줄지만, log가 600건 찬 뒤에는 사용자당 약 120KB(약 20%) 줄어든다. 계획에 적은 30~40%보다 작다. 새 PC는 클라우드에서 기록을 최근 200건만 받는다.
        - **안 쓰는 함수**: 다른 파일이 안 쓰는 export 40여 개를 확인했는데, 전부 자기 파일 안에서는 쓰여서 지울 죽은 함수는 없었다(`export` 표시만 남는 것은 그대로 둠).
        - **큰 파일 나누기는 하지 않았다**: 코드 줄 수는 그대로이고 회귀 위험만 있어서, "코드는 줄이고 기능은 깔끔하게"라는 목표에 맞지 않는다고 판단했다. 필요하면 설정 화면 작업 때 `electron/main.cjs`의 창 관리부터 나눈다.
+     - **업데이트 받기 길 두 개**(1.3.13): 2026-11-08에 `github.com/…/releases/download/…`가 모든 저장소에서 504를 냈다(한국 엣지, 상태 페이지는 정상). API(`api.github.com/repos/…/releases/assets/<id>`, Accept: application/octet-stream)는 됐다. 그래서 `updater.cjs` `releaseFile`이 기본 경로가 실패하면 API로 다시 받는다. API는 토큰 없이 IP당 시간에 60번이라 대체 경로로만 쓴다. 서명·sha256 검사는 그대로다. 실패하면 버튼이 빨간 "업데이트 실패 · 다시 시도"가 된다(전에는 오류가 툴팁에만 있어서 "깜빡이고 안 된다"로 보였다).
+       - 손으로 업데이트하기(앱이 못 받을 때): 파일을 API로 받아 서명·sha256을 확인한다. 그다음 zip을 `%TEMP%<전용 폴더>pp`에 풀고 `%APPDATA%Claudexpending-update.json`에 `{"staged": "<그 app 폴더>", "version": "x.y.z"}`를 쓴 뒤 앱을 완전히 껐다 켠다. 켤 때 `applyPendingUpdate`가 robocopy로 바꾸고 `update.log`에 남긴다. 1.3.10 → 1.3.12를 이렇게 했다.
    - 1단계 · 작은 화면 정리(반나절)
      - **디자인 QA 화면 숨기기**: 트레이 "디자인 QA 페이지"는 개발 실행(`!app.isPackaged`)이나 `CLAUDEX_QA=1`일 때만 보인다. Claude가 확인할 때는 그 변수로 띄운다.
      - **창·전체 화면에서 왼쪽 "–"(숨기기) 버튼 빼기**: 오른쪽에 최소화·닫기가 이미 있다(`w-win-controls`). 위젯 모드에서만 둔다.

@@ -9,6 +9,8 @@
  *   claudex-app-<v>.zip      the resources/app folder
  * They are read from https://github.com/<repo>/releases/latest/download/, a
  * plain download (no API rate limit, no token: the repository is public).
+ * When that path fails (it answered 504 for every repository on 2026-11-08
+ * while the API worked), the same file comes through the API instead.
  *
  * When the new release needs another Electron version the app part is not
  * enough; the widget then links to the full download instead.
@@ -22,7 +24,6 @@ const https = require('https')
 const { spawn } = require('child_process')
 
 const REPO = 'DueStar/claudex'
-const LATEST = `https://github.com/${REPO}/releases/latest/download/latest.json`
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
 
 /** a > b for dotted versions ("0.10.0" > "0.9.3") */
@@ -35,6 +36,24 @@ function newer(a, b) {
     if (x !== y) return x > y
   }
   return false
+}
+
+/**
+ * One file of a release ('latest' or a tag like 'v1.3.12'): the plain download
+ * first, then the API (60 calls an hour per IP without a token, plenty for a
+ * fallback). What comes back is checked by the caller either way (signature, sha256).
+ */
+async function releaseFile(tag, file, opts = {}, fetch = get) {
+  const base = `https://github.com/${REPO}/releases`
+  try {
+    return await fetch(tag === 'latest' ? `${base}/latest/download/${file}` : `${base}/download/${tag}/${file}`, opts)
+  } catch (err) {
+    const api = `https://api.github.com/repos/${REPO}/releases`
+    const release = JSON.parse((await fetch(tag === 'latest' ? `${api}/latest` : `${api}/tags/${tag}`, { maxBytes: 1024 * 1024, headers: { Accept: 'application/vnd.github+json' } })).toString('utf8'))
+    const asset = (release?.assets ?? []).find(a => a?.name === file)
+    if (!asset || !Number.isInteger(asset.id)) throw err
+    return fetch(`${api}/assets/${asset.id}`, { ...opts, headers: { Accept: 'application/octet-stream' } })
+  }
 }
 
 /**
@@ -52,12 +71,12 @@ function verifyManifest(manifest, publicKey = require('./update-key.cjs')) {
 }
 
 /** GET with redirects (GitHub release downloads redirect to their CDN) */
-function get(url, { onProgress, maxBytes = 300 * 1024 * 1024 } = {}, hops = 0) {
+function get(url, { onProgress, maxBytes = 300 * 1024 * 1024, headers = {} } = {}, hops = 0) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'Claudex-updater' }, timeout: 30000 }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'Claudex-updater', ...headers }, timeout: 30000 }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 5) {
         res.resume()
-        resolve(get(new URL(res.headers.location, url).toString(), { onProgress, maxBytes }, hops + 1))
+        resolve(get(new URL(res.headers.location, url).toString(), { onProgress, maxBytes, headers }, hops + 1))
         return
       }
       if (res.statusCode !== 200) { res.resume(); reject(new Error(`HTTP ${res.statusCode}`)); return }
@@ -114,7 +133,7 @@ function createUpdater({ app, send, isPackaged }) {
       const local = localUpdateDir()
       const m = local
         ? { ...JSON.parse(fs.readFileSync(path.join(local, 'latest.json'), 'utf8')), localDir: local }
-        : JSON.parse((await get(LATEST, { maxBytes: 64 * 1024 })).toString('utf8'))
+        : JSON.parse((await releaseFile('latest', 'latest.json', { maxBytes: 64 * 1024 })).toString('utf8'))
       if (!m || typeof m.version !== 'string') throw new Error('bad manifest')
       // GitHub's manifest must carry the release key's signature. The local
       // channel is a folder on this PC that the user pointed the app at, so
@@ -144,7 +163,7 @@ function createUpdater({ app, send, isPackaged }) {
     try {
       const zip = manifest.localDir
         ? fs.readFileSync(path.join(manifest.localDir, appFile))
-        : await get(`https://github.com/${REPO}/releases/download/v${manifest.version}/${appFile}`, { onProgress: (p) => publish({ progress: p }) })
+        : await releaseFile(`v${manifest.version}`, appFile, { onProgress: (p) => publish({ progress: p }) })
       const sha = crypto.createHash('sha256').update(zip).digest('hex')
       if (sha !== String(manifest.app?.sha256 ?? '').toLowerCase()) throw new Error('checksum mismatch')
 
@@ -213,4 +232,4 @@ function applyPendingUpdate(app) {
   return ok
 }
 
-module.exports = { createUpdater, applyPendingUpdate, newer, verifyManifest, REPO }
+module.exports = { createUpdater, applyPendingUpdate, newer, verifyManifest, releaseFile, REPO }
