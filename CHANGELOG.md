@@ -2,6 +2,12 @@
 
 ## Claudex
 
+### 1.3.20
+- 영어와 일본어를 지원해요. 설정 › 앱 › 언어에서 고를 수 있고, 처음에는 시스템 언어를 따라요.
+- 포켓몬·성격·볼·타입 이름과 도감 설명은 각 언어의 공식 표기로 나와요.
+- 패치노트도 고른 언어로 보여줘요.
+- 랭킹 닉네임에 일본어(히라가나·가타카나·한자)를 쓸 수 있어요.
+
 ### 1.3.19
 - 알림이 모양 없이 깨져 나오던 문제를 고쳤어요.
 - 설정 문구를 알아보기 쉽게 다듬었어요. Permission mode는 Claude Code와 같은 이름(Manual, Accept edits, Plan, Auto)으로 고를 수 있고, Auto가 새로 생겼어요.
@@ -161,6 +167,12 @@
 
 ## Claudex (English)
 
+### 1.3.20
+- Claudex now speaks English and Japanese. Pick a language in Settings › App › Language; by default it follows your system.
+- Pokémon, nature, ball and type names and Pokédex entries use each language's official names.
+- Patch notes show in your language too.
+- Leaderboard nicknames can use Japanese (hiragana, katakana and kanji).
+
 ### 1.3.19
 - Fixed notifications showing up unstyled.
 - Clearer wording in Settings. Permission mode now uses Claude Code's own names (Manual, Accept edits, Plan, Auto), and Auto is new.
@@ -183,6 +195,12 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.20
+- 英語と日本語に対応しました。設定 › アプリ › 言語で選べます。最初はシステムの言語に合わせます。
+- ポケモン・せいかく・ボール・タイプの名前と図鑑の説明は、各言語の公式表記で表示されます。
+- パッチノートも選んだ言語で表示されます。
+- ランキングのニックネームに日本語（ひらがな・カタカナ・漢字）が使えるようになりました。
 
 ### 1.3.19
 - 通知が崩れて表示される問題を修正しました。
