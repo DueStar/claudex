@@ -9,11 +9,14 @@ import { useSyncExternalStore } from 'react'
 // The slim half of src/pokemon/pokedex.json (vite.pokedex.ts); the flavor
 // texts are in virtual:pokedex-text, loaded with the Pokédex view
 import POKEDEX from 'virtual:pokedex'
+import { nameOf } from './i18n'
 
 export interface PokemonEntry {
   id: number
   ko: string
   en: string
+  /** Official Japanese name (tools/fetch-i18n.mjs) */
+  ja?: string
   types: string[]
   evolvesFrom: number | null
   /** Height in decimetres (PokeAPI) */
@@ -23,7 +26,7 @@ export interface PokemonEntry {
 }
 
 /** Stand-in while a session waits for the server to send its Pokémon out */
-const BALL: PokemonEntry = { id: 0, ko: '몬스터볼', en: 'Poké Ball', types: [], evolvesFrom: null, heightDm: 2 }
+const BALL: PokemonEntry = { id: 0, ko: '몬스터볼', en: 'Poké Ball', ja: 'モンスターボール', types: [], evolvesFrom: null, heightDm: 2 }
 
 export const POKEMON: readonly PokemonEntry[] = POKEDEX
 const BY_ID = new Map(POKEMON.map(p => [p.id, p]))
@@ -113,5 +116,5 @@ export function sessionName(sessionId: string, fallback: string): string {
   const c = cast[sessionId]
   const p = c && BY_ID.get(c.dex)
   if (!p) return fallback
-  return c.shiny ? `✨${p.ko}` : p.ko
+  return c.shiny ? `✨${nameOf(p)}` : nameOf(p)
 }

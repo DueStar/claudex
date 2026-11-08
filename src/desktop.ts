@@ -125,12 +125,15 @@ declare global {
   interface Window { claudex?: ClaudexBridge }
 }
 
+/** The app's languages (src/i18n.ts) */
+export type Lang = 'ko' | 'en' | 'ja'
+
 /** The 설정 screen's values (electron/settings.cjs keeps them and checks every change) */
 export interface AppSettings {
   notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string }
   privacy: { hidePrompts: boolean }
   session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean }
-  app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean }
+  app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean; language: 'auto' | Lang }
 }
 export type BoardKind = 'caught' | 'shiny' | 'legends' | 'week'
 export interface BoardRow { place: number; rn: number; nickname: string; partner: number | null; value: number; me: boolean }

@@ -15,7 +15,8 @@
       "en": "Poké Ball",
       "tier": "basic",
       "weight": 32,
-      "art": "0/00/Bag_Pok%C3%A9_Ball_SV_Sprite.png"
+      "art": "0/00/Bag_Pok%C3%A9_Ball_SV_Sprite.png",
+      "ja": "モンスターボール"
     },
     {
       "id": "great-ball",
@@ -23,7 +24,8 @@
       "en": "Great Ball",
       "tier": "basic",
       "weight": 18,
-      "art": "5/54/Bag_Great_Ball_SV_Sprite.png"
+      "art": "5/54/Bag_Great_Ball_SV_Sprite.png",
+      "ja": "スーパーボール"
     },
     {
       "id": "ultra-ball",
@@ -31,7 +33,8 @@
       "en": "Ultra Ball",
       "tier": "basic",
       "weight": 10,
-      "art": "5/55/Bag_Ultra_Ball_SV_Sprite.png"
+      "art": "5/55/Bag_Ultra_Ball_SV_Sprite.png",
+      "ja": "ハイパーボール"
     },
     {
       "id": "premier-ball",
@@ -39,7 +42,8 @@
       "en": "Premier Ball",
       "tier": "special",
       "weight": 4,
-      "art": "d/da/Bag_Premier_Ball_SV_Sprite.png"
+      "art": "d/da/Bag_Premier_Ball_SV_Sprite.png",
+      "ja": "プレミアボール"
     },
     {
       "id": "net-ball",
@@ -47,7 +51,8 @@
       "en": "Net Ball",
       "tier": "special",
       "weight": 3,
-      "art": "3/3b/Bag_Net_Ball_SV_Sprite.png"
+      "art": "3/3b/Bag_Net_Ball_SV_Sprite.png",
+      "ja": "ネットボール"
     },
     {
       "id": "dive-ball",
@@ -55,7 +60,8 @@
       "en": "Dive Ball",
       "tier": "special",
       "weight": 3,
-      "art": "5/52/Bag_Dive_Ball_SV_Sprite.png"
+      "art": "5/52/Bag_Dive_Ball_SV_Sprite.png",
+      "ja": "ダイブボール"
     },
     {
       "id": "nest-ball",
@@ -63,7 +69,8 @@
       "en": "Nest Ball",
       "tier": "special",
       "weight": 3,
-      "art": "3/3d/Bag_Nest_Ball_SV_Sprite.png"
+      "art": "3/3d/Bag_Nest_Ball_SV_Sprite.png",
+      "ja": "ネストボール"
     },
     {
       "id": "repeat-ball",
@@ -71,7 +78,8 @@
       "en": "Repeat Ball",
       "tier": "special",
       "weight": 3,
-      "art": "8/80/Bag_Repeat_Ball_SV_Sprite.png"
+      "art": "8/80/Bag_Repeat_Ball_SV_Sprite.png",
+      "ja": "リピートボール"
     },
     {
       "id": "timer-ball",
@@ -79,7 +87,8 @@
       "en": "Timer Ball",
       "tier": "special",
       "weight": 3,
-      "art": "2/23/Bag_Timer_Ball_SV_Sprite.png"
+      "art": "2/23/Bag_Timer_Ball_SV_Sprite.png",
+      "ja": "タイマーボール"
     },
     {
       "id": "dusk-ball",
@@ -87,7 +96,8 @@
       "en": "Dusk Ball",
       "tier": "special",
       "weight": 3,
-      "art": "b/b1/Bag_Dusk_Ball_SV_Sprite.png"
+      "art": "b/b1/Bag_Dusk_Ball_SV_Sprite.png",
+      "ja": "ダークボール"
     },
     {
       "id": "quick-ball",
@@ -95,7 +105,8 @@
       "en": "Quick Ball",
       "tier": "special",
       "weight": 3,
-      "art": "7/72/Bag_Quick_Ball_SV_Sprite.png"
+      "art": "7/72/Bag_Quick_Ball_SV_Sprite.png",
+      "ja": "クイックボール"
     },
     {
       "id": "heal-ball",
@@ -103,7 +114,8 @@
       "en": "Heal Ball",
       "tier": "special",
       "weight": 3,
-      "art": "f/fa/Bag_Heal_Ball_SV_Sprite.png"
+      "art": "f/fa/Bag_Heal_Ball_SV_Sprite.png",
+      "ja": "ヒールボール"
     },
     {
       "id": "luxury-ball",
@@ -111,7 +123,8 @@
       "en": "Luxury Ball",
       "tier": "special",
       "weight": 1.4,
-      "art": "5/59/Bag_Luxury_Ball_SV_Sprite.png"
+      "art": "5/59/Bag_Luxury_Ball_SV_Sprite.png",
+      "ja": "ゴージャスボール"
     },
     {
       "id": "fast-ball",
@@ -119,7 +132,8 @@
       "en": "Fast Ball",
       "tier": "apricorn",
       "weight": 1.2,
-      "art": "3/3c/Bag_Fast_Ball_SV_Sprite.png"
+      "art": "3/3c/Bag_Fast_Ball_SV_Sprite.png",
+      "ja": "スピードボール"
     },
     {
       "id": "level-ball",
@@ -127,7 +141,8 @@
       "en": "Level Ball",
       "tier": "apricorn",
       "weight": 1.2,
-      "art": "f/f1/Bag_Level_Ball_SV_Sprite.png"
+      "art": "f/f1/Bag_Level_Ball_SV_Sprite.png",
+      "ja": "レベルボール"
     },
     {
       "id": "lure-ball",
@@ -135,7 +150,8 @@
       "en": "Lure Ball",
       "tier": "apricorn",
       "weight": 1.2,
-      "art": "f/f4/Bag_Lure_Ball_SV_Sprite.png"
+      "art": "f/f4/Bag_Lure_Ball_SV_Sprite.png",
+      "ja": "ルアーボール"
     },
     {
       "id": "heavy-ball",
@@ -143,7 +159,8 @@
       "en": "Heavy Ball",
       "tier": "apricorn",
       "weight": 1.2,
-      "art": "4/46/Bag_Heavy_Ball_SV_Sprite.png"
+      "art": "4/46/Bag_Heavy_Ball_SV_Sprite.png",
+      "ja": "ヘビーボール"
     },
     {
       "id": "love-ball",
@@ -151,7 +168,8 @@
       "en": "Love Ball",
       "tier": "apricorn",
       "weight": 1.2,
-      "art": "4/40/Bag_Love_Ball_SV_Sprite.png"
+      "art": "4/40/Bag_Love_Ball_SV_Sprite.png",
+      "ja": "ラブラブボール"
     },
     {
       "id": "friend-ball",
@@ -159,7 +177,8 @@
       "en": "Friend Ball",
       "tier": "apricorn",
       "weight": 1.2,
-      "art": "4/4c/Bag_Friend_Ball_SV_Sprite.png"
+      "art": "4/4c/Bag_Friend_Ball_SV_Sprite.png",
+      "ja": "フレンドボール"
     },
     {
       "id": "moon-ball",
@@ -167,7 +186,8 @@
       "en": "Moon Ball",
       "tier": "apricorn",
       "weight": 1.2,
-      "art": "2/26/Bag_Moon_Ball_SV_Sprite.png"
+      "art": "2/26/Bag_Moon_Ball_SV_Sprite.png",
+      "ja": "ムーンボール"
     },
     {
       "id": "safari-ball",
@@ -175,7 +195,8 @@
       "en": "Safari Ball",
       "tier": "limited",
       "weight": 1.2,
-      "art": "8/8d/Bag_Safari_Ball_SV_Sprite.png"
+      "art": "8/8d/Bag_Safari_Ball_SV_Sprite.png",
+      "ja": "サファリボール"
     },
     {
       "id": "sport-ball",
@@ -185,7 +206,8 @@
       "weight": 0,
       "art": "6/68/Bag_Sport_Ball_SV_Sprite.png",
       "catch": false,
-      "why": "벌레잡기 대회(화·목·토) 전용이라 이벤트로만 받아요"
+      "why": "벌레잡기 대회(화·목·토) 전용이라 이벤트로만 받아요",
+      "ja": "コンペボール"
     },
     {
       "id": "park-ball",
@@ -195,7 +217,8 @@
       "weight": 0,
       "art": "6/63/Bag_Park_Ball_SV_Sprite.png",
       "catch": false,
-      "why": "팔파크 안에서만 쓰는 볼이라 가방에 들어오지 않아요"
+      "why": "팔파크 안에서만 쓰는 볼이라 가방에 들어오지 않아요",
+      "ja": "パークボール"
     },
     {
       "id": "dream-ball",
@@ -205,7 +228,8 @@
       "weight": 0,
       "art": "6/6a/Bag_Dream_Ball_SV_Sprite.png",
       "catch": false,
-      "why": "드림월드·이벤트로만 받을 수 있어요"
+      "why": "드림월드·이벤트로만 받을 수 있어요",
+      "ja": "ドリームボール"
     },
     {
       "id": "beast-ball",
@@ -213,7 +237,8 @@
       "en": "Beast Ball",
       "tier": "limited",
       "weight": 0.8,
-      "art": "d/d1/Bag_Beast_Ball_SV_Sprite.png"
+      "art": "d/d1/Bag_Beast_Ball_SV_Sprite.png",
+      "ja": "ウルトラボール"
     },
     {
       "id": "cherish-ball",
@@ -223,7 +248,8 @@
       "weight": 0,
       "art": "8/8f/Bag_Cherish_Ball_SV_Sprite.png",
       "catch": false,
-      "why": "이벤트 배포 포켓몬 전용이에요"
+      "why": "이벤트 배포 포켓몬 전용이에요",
+      "ja": "プレシャスボール"
     },
     {
       "id": "master-ball",
@@ -231,7 +257,8 @@
       "en": "Master Ball",
       "tier": "master",
       "weight": 0.2,
-      "art": "a/a6/Bag_Master_Ball_SV_Sprite.png"
+      "art": "a/a6/Bag_Master_Ball_SV_Sprite.png",
+      "ja": "マスターボール"
     }
   ]
 }

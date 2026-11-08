@@ -7,6 +7,8 @@
 import { useSyncExternalStore } from 'react'
 import { castSession, POKEMON } from './theme'
 import { getSettings } from './settingsStore'
+import { t, lang, nameOf, typeName, tierName, ballTierName } from './i18n'
+import { placeIn, sourceLabelIn } from './gameText'
 
 import NATURES from '../server/natures.json'
 import BALL_DATA from '../server/balls.json'
@@ -18,7 +20,7 @@ export interface CatchSource { tool: string | null; label: string; prompt: strin
 
 export type Gender = 'male' | 'female' | 'none' | null
 
-export interface Nature { id: number; en: string; ko: string; up: string | null; down: string | null }
+export interface Nature { id: number; en: string; ko: string; ja?: string; up: string | null; down: string | null }
 export const NATURE_BY_ID = new Map((NATURES as Nature[]).map(n => [n.id, n]))
 
 export function genderMark(g: Gender | undefined): string {
@@ -26,10 +28,16 @@ export function genderMark(g: Gender | undefined): string {
 }
 
 /** "‘요청…’ 하다가 Bash(npm test)로 포획" */
+/** The catch source's label in the language in use (src/gameText.ts) */
+export const sourceLabel = (label: string): string => sourceLabelIn(label, lang())
+/** A saved place name in the language in use: codes and the Korean names of older saves alike (src/gameText.ts) */
+export const placeText = (place: string | null | undefined): string => placeIn(place, lang())
+
 export function sourceText(v: CatchSource | null | undefined): string {
   if (!v) return ''
   // 설정 › 개인정보: the request text stays off the screen (shared screens, meetings)
-  return v.prompt && !getSettings().privacy.hidePrompts ? `‘${v.prompt}’ 요청 중 ${v.label}로` : `${v.label}로`
+  const label = sourceLabel(v.label)
+  return v.prompt && !getSettings().privacy.hidePrompts ? t('‘{prompt}’ 요청 중 {label}로', { prompt: v.prompt, label }) : t('{label}로', { label })
 }
 
 export interface CaughtInfo {
@@ -122,20 +130,16 @@ export interface DexState {
   today?: DexEvent[]
 }
 
-export const TIER_LABEL: Record<Tier, string> = {
-  common: '일반', rare: '희귀', sub: '준전설', legendary: '전설', mythical: '환상',
-}
+/** Tier names in the language in use (read like a map, worked out on each read) */
+export const TIER_LABEL = new Proxy({} as Record<Tier, string>, { get: (_t, k) => tierName(String(k)) })
 
 /** The encounter odds the server rolls (server/pokedex.js RATES), for the dex's rate table */
 export const TIER_RATE: Record<Tier, string> = {
   common: '74%', rare: '21%', sub: '3.6%', legendary: '1.0%', mythical: '0.4%',
 }
 
-export const TYPE_KO: Record<string, string> = {
-  normal: '노말', fire: '불꽃', water: '물', grass: '풀', electric: '전기', ice: '얼음', fighting: '격투',
-  poison: '독', ground: '땅', flying: '비행', psychic: '에스퍼', bug: '벌레', rock: '바위', ghost: '고스트',
-  dragon: '드래곤', dark: '악', steel: '강철', fairy: '페어리',
-}
+/** Official type names in the language in use (the name says Korean; it is the type's display name) */
+export const TYPE_KO = new Proxy({} as Record<string, string>, { get: (_t, k) => typeName(String(k)) })
 
 const EVOLVES = new Set(POKEMON.filter(p => p.evolvesFrom).map(p => p.evolvesFrom as number))
 /** A species with nowhere left to evolve (only these may be swapped off a session) */
@@ -209,12 +213,13 @@ export function useViewed(): { viewed: Set<number>; isNew: (id: number) => boole
 // ---------------------------------------------------------------------------
 // Poké Balls: which ball a catch came in (the server rolls it by weight)
 // ---------------------------------------------------------------------------
-export interface Ball { id: string; ko: string; en: string; tier: string; weight: number }
+export interface Ball { id: string; ko: string; en: string; ja?: string; tier: string; weight: number }
 export const BALLS: Ball[] = (BALL_DATA as { balls: Ball[] }).balls
 export const BALL_BY_ID = new Map(BALLS.map(b => [b.id, b]))
-export const BALL_TIER_LABEL: Record<string, string> = (BALL_DATA as { tiers: Record<string, string> }).tiers
+const BALL_TIER_KO: Record<string, string> = (BALL_DATA as { tiers: Record<string, string> }).tiers
+export const BALL_TIER_LABEL = new Proxy({} as Record<string, string>, { get: (_t, k) => ballTierName(String(k), BALL_TIER_KO[String(k)] ?? String(k)) })
 export function ballName(id: string | null | undefined): string {
-  return BALL_BY_ID.get(id ?? 'poke-ball')?.ko ?? '몬스터볼'
+  return nameOf(BALL_BY_ID.get(id ?? 'poke-ball')) || nameOf({ ko: '몬스터볼', en: 'Poké Ball', ja: 'モンスターボール' })
 }
 /** The ball's picture (shipped with the app; Claudex's own ball when it is missing) */
 export function ballUrl(id: string | null | undefined): string {

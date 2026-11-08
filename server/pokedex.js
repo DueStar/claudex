@@ -170,16 +170,33 @@ export function ballBoosts(ctx) {
   return b
 }
 
-/** Where the step was taken: the tool decides the terrain, and the terrain favours some types */
+/**
+ * Where the step was taken: the tool decides the terrain, and the terrain favours some types.
+ * name: the game's own key (ball boosts, Leafeon/Glaceon); code: what a saved place name carries (the app translates it)
+ */
 const TERRAIN = [
-  { test: t => /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(t), name: '풀숲', types: ['grass', 'bug', 'normal'] },
-  { test: t => /^(Bash|PowerShell)$/.test(t), name: '동굴', types: ['rock', 'ground', 'poison', 'steel'] },
-  { test: t => /^(Read|Grep|Glob|LS)$/.test(t), name: '숲', types: ['bug', 'grass', 'psychic', 'fairy'] },
-  { test: t => /^(WebFetch|WebSearch)$/.test(t), name: '하늘길', types: ['flying', 'dragon'] },
-  { test: t => /^(Agent|Task)$/.test(t), name: '사파리존', types: ['normal', 'fighting', 'ground'] },
-  { test: t => /^mcp__/.test(t), name: '발전소', types: ['electric', 'steel'] },
+  { test: t => /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(t), name: '풀숲', code: 'grass', types: ['grass', 'bug', 'normal'] },
+  { test: t => /^(Bash|PowerShell)$/.test(t), name: '동굴', code: 'cave', types: ['rock', 'ground', 'poison', 'steel'] },
+  { test: t => /^(Read|Grep|Glob|LS)$/.test(t), name: '숲', code: 'forest', types: ['bug', 'grass', 'psychic', 'fairy'] },
+  { test: t => /^(WebFetch|WebSearch)$/.test(t), name: '하늘길', code: 'sky', types: ['flying', 'dragon'] },
+  { test: t => /^(Agent|Task)$/.test(t), name: '사파리존', code: 'safari', types: ['normal', 'fighting', 'ground'] },
+  { test: t => /^mcp__/.test(t), name: '발전소', code: 'plant', types: ['electric', 'steel'] },
 ]
-const DEFAULT_TERRAIN = { name: '도로', types: ['normal', 'flying'] }
+const DEFAULT_TERRAIN = { name: '도로', code: 'route', types: ['normal', 'flying'] }
+
+/**
+ * Place names are saved as codes, not words, so every language can show them
+ * (src/pokedexStore.ts placeText reads both these and the Korean names older
+ * saves have): @wild|<project>|<terrain>|<route no.>|<1 at night>,
+ * @attendance|<project>, @evolve|<project>, @start.
+ */
+const field = (s) => String(s ?? '').replace(/\|/g, '/')
+export const placeCode = {
+  wild: (project, terrain, route, night) => `@wild|${field(project)}|${terrain.code}|${terrain.code === 'route' ? route : ''}|${night ? 1 : 0}`,
+  attendance: (project) => `@attendance|${field(project)}`,
+  evolve: (project) => `@evolve|${field(project)}`,
+  start: () => '@start',
+}
 const NIGHT_TYPES = ['ghost', 'dark', 'psychic']
 
 /**
@@ -192,14 +209,14 @@ export function catchSource(ev, session) {
   const status = String(ev?.status ?? '')
   const after = (prefix) => (status.startsWith(prefix) ? status.slice(prefix.length).trim() : '')
   let label
-  if (tool === 'Skill') label = `${after('using /') || '스킬'} 스킬`
-  else if (tool === 'Bash' || tool === 'PowerShell') label = `${tool}(${(after('running:') || '명령').slice(0, 32)})`
-  else if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) label = `${tool}(${(after('editing') || after('writing') || '파일').slice(0, 32)})`
-  else if (tool === 'Read') label = `Read(${(after('reading') || '파일').slice(0, 32)})`
-  else if (tool === 'Grep' || tool === 'Glob') label = `${tool} 검색`
+  // The tool's own name and argument (the same in every language); '#…' codes are words the app translates
+  const arg = (s) => (s ? `(${s.slice(0, 32)})` : '')
+  if (tool === 'Skill') label = `Skill${arg(after('using /') && `/${after('using /')}`)}`
+  else if (tool === 'Bash' || tool === 'PowerShell') label = `${tool}${arg(after('running:'))}`
+  else if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) label = `${tool}${arg(after('editing') || after('writing'))}`
+  else if (tool === 'Read') label = `Read${arg(after('reading'))}`
   else if (/^mcp__/.test(tool)) label = `MCP ${tool.split('__')[1] ?? ''}`.trim()
-  else if (tool === 'Agent' || tool === 'Task') label = '서브에이전트'
-  else label = tool || '세션 시작'
+  else label = tool || '#session-start'
   const prompt = String(session?.main?.lastPrompt ?? '').replace(/\s+/g, ' ').trim()
   return { tool: tool || null, label, prompt: prompt ? (prompt.length > 40 ? `${prompt.slice(0, 40)}…` : prompt) : null }
 }
@@ -435,7 +452,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     if (state.trainer || species.length === 0) return false
     const starter = STARTERS[Math.floor(random() * STARTERS.length)]
     state.trainer = { starter, since: now() }
-    const place = '여행의 시작'
+    const place = placeCode.start()
     state.party = [newMon(starter, { how: 'starter', place })]
     // Companions: common base forms that can evolve, so every one has somewhere to grow
     const pool = species.filter(s => s.tier === 'common' && !s.evolvesFrom && nextOf.has(s.id) && !STARTERS.includes(s.id))
@@ -507,7 +524,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
   }
 
   function placeName(project, terrain, night) {
-    return `${project || '이름 없는 마을'} ${terrain.name === '도로' ? `${routeNumber(project)}번도로` : terrain.name}${night ? ' (밤)' : ''}`
+    return placeCode.wild(project, terrain, routeNumber(project), night)
   }
 
   /** An uncaught species of the tier, else of the nearest other non-legendary tier that still has one (null when none) */
@@ -542,7 +559,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     state.sinceLegend = tier === 'legendary' || tier === 'mythical' ? 0 : state.sinceLegend + 1
     markSeen(sp.id)
     const caught = pity || random() < CATCH[tier]
-    const place = attendance ? `${project || '이름 없는 마을'} (오늘의 출석)` : placeName(project, terrain, night)
+    const place = attendance ? placeCode.attendance(project) : placeName(project, terrain, night)
     const level = wildLevel(sp, tier)
     // The session's first encounter (Quick Ball), counted even when it flees
     const first = !attendance && !encounteredIn.has(sessionId)
@@ -645,7 +662,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
         const grown = workStep(sessionId, uid ? state.mons[uid] : null, null)
         if (grown) { publish(grown); changed = true }
         const prompt = String(session?.main?.lastPrompt ?? '').replace(/\s+/g, ' ').trim()
-        queueStep(sessionId, { tool: null, via: { tool: null, label: '생각하는 중', prompt: prompt ? (prompt.length > 40 ? `${prompt.slice(0, 40)}…` : prompt) : null } })
+        queueStep(sessionId, { tool: null, via: { tool: null, label: '#thinking', prompt: prompt ? (prompt.length > 40 ? `${prompt.slice(0, 40)}…` : prompt) : null } })
         changed = true
       }
       const met = drainStep(sessionId)
@@ -716,7 +733,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     mon.evos += 1
     delete mon.traded
     markSeen(next)
-    recordSpecies(next, { place: `${state.projects[sessionId] || '어딘가'} (진화)`, sessionId, project: state.projects[sessionId], how: 'evolve', shiny: mon.shiny })
+    recordSpecies(next, { place: placeCode.evolve(state.projects[sessionId]), sessionId, project: state.projects[sessionId], how: 'evolve', shiny: mon.shiny })
     const event = { kind: 'evolve', id: next, from, name: byId.get(next)?.ko, fromName: byId.get(from)?.ko, sessionId, uid: mon.uid, shiny: mon.shiny, at: now() }
     pushLog(event)
     return event

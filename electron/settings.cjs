@@ -24,7 +24,7 @@ const DEFAULTS = Object.freeze({
   },
   privacy: { hidePrompts: false }, // the catch story without the request text
   session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true },
-  app: { openAtLogin: false, startHidden: false, widgetOnTop: true },
+  app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' }, // auto: the system's language
 })
 
 const isTime = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
@@ -35,6 +35,7 @@ const CHECKS = {
   'session.model': (v) => MODELS.includes(v),
   'session.permissionMode': (v) => PERMISSION_MODES.includes(v),
   'session.defaultCwd': (v) => typeof v === 'string' && v.length < 1024,
+  'app.language': (v) => ['auto', 'ko', 'en', 'ja'].includes(v),
 }
 
 /** `input` made safe: the shape and types of DEFAULTS, `base` for what it leaves out */

@@ -201,7 +201,7 @@ describe('pokedex', () => {
     const { dex, sent } = setup([0], 0.01) // low rolls: the attendance Pokémon is caught
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'web' })
     const att = sent.map(m => m.event).find(e => e?.attendance)
-    expect(att).toMatchObject({ kind: 'catch', attendance: true, place: 'web (오늘의 출석)' })
+    expect(att).toMatchObject({ kind: 'catch', attendance: true, place: '@attendance|web' }) // a code; the app shows it in its language
     const before = dex.publicState().log.filter((e: any) => e.attendance).length
     dex.noteEvent({ type: 'session_started', sessionId: 's2' }, { project: 'web' })
     expect(dex.publicState().log.filter((e: any) => e.attendance).length).toBe(before)
@@ -255,8 +255,12 @@ describe('pokedex', () => {
     expect(catchSource({ tool: 'Bash', status: 'running: npm test' }, session)).toEqual({
       tool: 'Bash', label: 'Bash(npm test)', prompt: '잡은 곳을 좀 더 유의미한 걸로 바꿔줘. 어떤 요청에서 받았는지 알면 좋…',
     })
-    expect(catchSource({ tool: 'Skill', status: 'using /frontend-design' }, {}).label).toBe('frontend-design 스킬')
+    expect(catchSource({ tool: 'Skill', status: 'using /frontend-design' }, {}).label).toBe('Skill(/frontend-design)')
     expect(catchSource({ tool: 'Edit', status: 'editing Widget.tsx' }, {}).label).toBe('Edit(Widget.tsx)')
+    // no Korean words in what gets saved: a bare tool name, or a code the app translates
+    expect(catchSource({ tool: 'Grep', status: '' }, {}).label).toBe('Grep')
+    expect(catchSource({ tool: 'Bash', status: '' }, {}).label).toBe('Bash')
+    expect(catchSource({ tool: '', status: '' }, {}).label).toBe('#session-start')
     expect(catchSource({ tool: 'mcp__figma__get_screenshot', status: 'using mcp' }, {}).label).toBe('MCP figma')
     expect(catchSource({ tool: 'Read', status: 'reading a.ts' }, {}).prompt).toBeNull()
   })
@@ -514,7 +518,7 @@ describe('pokedex', () => {
     expect(met()).toHaveLength(1)
     t += THINK_STEP_MS; dex.tick()
     expect(met()).toHaveLength(2)
-    expect(met()[1].via).toMatchObject({ label: '생각하는 중', prompt: '설계 문서 다듬어줘' })
+    expect(met()[1].via).toMatchObject({ label: '#thinking', prompt: '설계 문서 다듬어줘' })
     // idle (the turn ended): no more thinking steps
     working = false
     t += THINK_STEP_MS * 3; dex.tick()

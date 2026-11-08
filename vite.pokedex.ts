@@ -10,8 +10,9 @@ import type { Plugin } from 'vite'
  *                         Pokédex view, which is its own chunk
  */
 const SOURCE = fileURLToPath(new URL('./src/pokemon/pokedex.json', import.meta.url))
-const CORE = ['id', 'ko', 'en', 'types', 'evolvesFrom', 'heightDm', 'gen', 'tier'] as const
-const TEXT = ['genus', 'flavor', 'weightHg'] as const
+const CORE = ['id', 'ko', 'en', 'ja', 'types', 'evolvesFrom', 'heightDm', 'gen', 'tier'] as const
+// Korean, English and Japanese (tools/fetch-i18n.mjs); still only the Pokédex view's chunk
+const TEXT = ['genus', 'flavor', 'genusEn', 'flavorEn', 'genusJa', 'flavorJa', 'weightHg'] as const
 
 const pick = (o: Record<string, unknown>, keys: readonly string[]) => Object.fromEntries(keys.filter(k => k in o).map(k => [k, o[k]]))
 
