@@ -49,6 +49,9 @@ import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
 
+/** The drag data type of a session tab (not a file: the terminal's file drop ignores it) */
+const TAB_DRAG = 'application/x-claudex-tab'
+
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
 
 /** The update's notes in the app's language: English, then Korean, when that language has none */
@@ -366,6 +369,8 @@ const Widget: React.FC = () => {
   // The sessions open when the app last closed come back at start (설정 › 세션),
   // each with the Pokémon that worked it when it is resting in the party
   const restored = useRef(false)
+  /** A session tab being dragged to a new place: its terminal id and the gap it would drop into */
+  const [tabDrag, setTabDrag] = useState<{ id: string; at: number | null } | null>(null)
   useEffect(() => {
     if (restored.current || !bridge || !dex) return
     restored.current = true
@@ -604,7 +609,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
                   )}
                   {r.mood === 'needs-you' && r.terminal ? (
-                    <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }}>{t('확인하러 가기')}</button>
+                    <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}>{t('확인 필요')}</button>
                   ) : (
                     <span className={`w-pill mood-${r.mood}`}>{t(MOOD_LABEL[r.mood])}</span>
                   )}
@@ -629,6 +634,21 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   </div>
                   <span className="w-row-num">{typeof r.meter?.context.used === 'number' ? `${pct(r.meter.context.used)}%` : '—'}</span>
                 </div>
+                {/* Window mode: a session asking while its terminal is not in view opens its
+                    question right in its row, to answer without leaving the one in view */}
+                {expanded && r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you')
+                  && !(view === 'terminal' && shown?.sessionId === r.sessionId) && (
+                  <div className="w-row-ask" onClick={e => e.stopPropagation()}>
+                    <div className="w-ask-term">
+                      <Suspense fallback={null}><TerminalView key={`row-ask-${r.terminal.id}`} term={r.terminal} active focus={false} /></Suspense>
+                    </div>
+                    <div className="w-row-ask-actions">
+                      <button className="w-ask-quick yes" onClick={() => bridge?.terminals.write(r.terminal!.id, '\r')} title={t('고른 항목으로 답해요 (Enter)')}>{t('선택 (Enter)')}</button>
+                      <button className="w-ask-quick" onClick={() => bridge?.terminals.write(r.terminal!.id, '\x1b')} title={t('거절하거나 그만둬요 (Esc)')}>{t('거절 (Esc)')}</button>
+                      <span className="w-ask-hint">{t('↑↓로 고르고 Enter, 그만두려면 Esc')}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </section>
@@ -681,14 +701,40 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')}><TodayIcon size={14} />{t('기록')}</button>
               <button className={view === 'rank' ? 'on' : ''} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')}><RankIcon size={14} />{t('랭킹')}</button>
             </div>
-            {view === 'terminal' && withTerminal.map(r => (
+            {view === 'terminal' && withTerminal.map((r, i) => (
               <button
                 key={r.sessionId}
                 role="tab"
                 aria-selected={shown?.sessionId === r.sessionId}
-                className={`w-term-tab mood-${r.mood}${shown?.sessionId === r.sessionId ? ' on' : ''}`}
+                className={`w-term-tab mood-${r.mood}${shown?.sessionId === r.sessionId ? ' on' : ''}${tabDrag?.id === r.terminal?.id ? ' dragging' : ''}${tabDrag?.at === i && tabDrag.id !== r.terminal?.id ? ' drop-before' : ''}${tabDrag?.at === i + 1 && i === withTerminal.length - 1 ? ' drop-after' : ''}`}
                 onClick={() => setTarget(r.sessionId)}
                 title={r.terminal?.cwd}
+                draggable={!!r.terminal}
+                onDragStart={e => {
+                  if (!r.terminal) return
+                  e.dataTransfer.effectAllowed = 'move'
+                  e.dataTransfer.setData(TAB_DRAG, r.terminal.id)
+                  setTabDrag({ id: r.terminal.id, at: null })
+                }}
+                onDragOver={e => {
+                  if (!tabDrag) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  // The left half of a tab drops before it, the right half after
+                  const box = e.currentTarget.getBoundingClientRect()
+                  const at = e.clientX < box.left + box.width / 2 ? i : i + 1
+                  if (at !== tabDrag.at) setTabDrag({ ...tabDrag, at })
+                }}
+                onDrop={e => {
+                  e.preventDefault()
+                  if (!tabDrag || tabDrag.at === null) return
+                  // The tabs are the app's terminals in order; without the dragged tab, a later gap moves up one
+                  const from = withTerminal.findIndex(x => x.terminal?.id === tabDrag.id)
+                  const index = from >= 0 && from < tabDrag.at ? tabDrag.at - 1 : tabDrag.at
+                  if (from >= 0 && index !== from) void bridge?.terminals.move(tabDrag.id, index)
+                  setTabDrag(null)
+                }}
+                onDragEnd={() => setTabDrag(null)}
               >
                 <img src={r.sprite} alt="" />
                 <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? t('새 세션')}</span>

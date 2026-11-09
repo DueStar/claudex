@@ -2,6 +2,12 @@
 
 ## Claudex
 
+### 1.3.22
+- 위쪽 세션 탭을 끌어서 순서를 바꿀 수 있어요. 왼쪽 세션 목록과 다음에 다시 열리는 순서도 같이 바뀌어요.
+- 터미널에서 Shift+Enter나 Ctrl+Enter로 줄을 바꿀 수 있어요(전에는 그냥 보내졌어요).
+- 창 모드에서 보고 있지 않은 세션이 확인을 기다리면, 왼쪽 목록의 그 세션이 커지면서 질문이 바로 열려요. 터미널로 가지 않고 거기서 답할 수 있어요. 표시도 "확인 필요"로 바꿨어요.
+- 기록에서 레벨업은 하루에 한 줄로 모아서 작게 보여주고, 포켓몬은 SV 아이콘으로 보여줘요.
+
 ### 1.3.21
 - 앱을 닫을 때 열려 있던 세션을 다음에 켤 때 이어서 열어요. 세션마다 함께하던 포켓몬이 같이 돌아와요. 설정 › 세션에서 끌 수 있어요.
 - Claude Code 안에서 Claudex를 켜면 터미널 색과 배경이 모두 사라지던 문제를 고쳤어요.
@@ -172,6 +178,12 @@
 
 ## Claudex (English)
 
+### 1.3.22
+- Drag the session tabs to reorder them. The session list on the left and the order they reopen in follow.
+- Shift+Enter or Ctrl+Enter starts a new line in the terminal (it used to send the prompt).
+- In window mode, a session waiting for you that isn't in view opens its question right in its row on the left, so you can answer without switching. The badge now says "Needs you".
+- The log folds a day's level-ups into one small line and shows Pokémon as SV icons.
+
 ### 1.3.21
 - Sessions that were open when you closed the app open again next time, each with the Pokémon that worked it. Turn this off in Settings › Session.
 - Fixed terminals losing every colour and background when Claudex was started from inside Claude Code.
@@ -205,6 +217,12 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.22
+- 上のセッションタブをドラッグして並べ替えられます。左のセッション一覧と、次に再び開く順番も一緒に変わります。
+- ターミナルで Shift+Enter や Ctrl+Enter で改行できます（以前はそのまま送信されていました）。
+- ウィンドウモードで、見ていないセッションが確認を待っていると、左の一覧のそのセッションが広がって質問がその場で開きます。ターミナルに移らずに答えられます。表示も「確認が必要」に変えました。
+- 記録ではレベルアップを1日1行にまとめて小さく表示し、ポケモンはSVアイコンで表示します。
 
 ### 1.3.21
 - アプリを閉じたときに開いていたセッションを、次の起動時に再び開きます。一緒に働いていたポケモンも戻ってきます。設定 › セッションでオフにできます。

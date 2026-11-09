@@ -432,6 +432,12 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **세션 자동 복원**(사용자 요청): `userData/open-sessions.json`에 실행 중인 세션(`sessionId`, `cwd`, 최대 6개)을 목록이 바뀔 때마다 쓴다(강제 종료돼도 마지막 목록이 남는다). 종료할 때 `killAll`이 먼저 `frozen`을 걸어서, 꺼지면서 죽는 세션 때문에 목록이 지워지지 않는다. 다음 시작 때 위젯이 `terminals:restorable`로 한 번만 받아(창 전환으로 다시 열지 않음) 각 세션을 `--resume`으로 연다. 이때 그 세션의 포켓몬(`dex.remembered`)이 파티에서 쉬고 있으면 그 포켓몬이, 아니면 쉬는 파티 포켓몬이 같이 나간다. 대화 기록(`~/.claude/projects/*/<id>.jsonl`)이 없는 세션은 이어 열 수 없어서 뺀다. 설정 › 세션 › "시작할 때 세션 다시 열기"(`session.restoreOnStart`, 기본 켜짐). 꺼져 있어도 목록은 소비해서, 나중에 켰을 때 옛 목록이 열리지 않는다.
    - **번역 마무리**: `server/cloud.js`는 오류를 `{ code, detail }`로만 보내고 화면이 `cloudErrorText`(`src/cloudStore.ts`)로 각 언어 문구를 만든다. `latest.json`에 `notesEn`·`notesJa`를 넣는다(`release.mjs`가 CHANGELOG의 영어·일본어 섹션에서 읽음, 서명 범위에 포함). 업데이트 버튼 툴팁은 `updateNotes()`로 언어별 노트를 고른다. 1.3.20 이하 manifest에는 없으므로 한국어로 보인다.
 
+7-12. **2026-11-09 1.3.22**
+   - **탭 드래그**: `terminals.move(id, index)`(main의 Map 순서를 바꿈, `terminals:move`). 탭·왼쪽 줄·`open-sessions.json` 복원 순서가 모두 이 순서를 따른다. 위젯은 HTML5 드래그(`application/x-claudex-tab`, 터미널의 파일 끌어놓기와 섞이지 않음), 탭 왼쪽 절반이면 앞, 오른쪽 절반이면 뒤.
+   - **Shift/Ctrl+Enter 줄바꿈**: xterm의 `attachCustomKeyEventHandler`는 keydown·keypress·keyup마다 불린다. keydown만 false로 막으면 `_keyDownHandled`가 서지 않아 keypress가 ``을 보내 프롬프트가 전송됐다. 이제 Enter+Shift/Ctrl은 모든 이벤트에서 false, keydown에서만 ESC+CR을 쓴다. ConPTY는 ESC+CR·LF·CSI-u를 그대로 넘기고 Claude Code는 ESC+CR·LF 모두 줄바꿈으로 받는 것을 실제 claude로 확인했다.
+   - **왼쪽 줄에서 바로 답하기**: 창 모드에서 확인을 기다리는(asking 또는 needs-you) 세션이 지금 보는 터미널이 아니면 그 줄 안에 작은 `TerminalView`(`focus={false}`, 쓰던 터미널의 포커스를 뺏지 않음)와 "선택 (Enter)"·"거절 (Esc)" 버튼. 위젯 모드의 `w-ask` 카드는 그대로. 배지는 "확인 필요"(누르면 그 터미널로).
+   - **기록**: 하루치 레벨업을 그날 가장 최근 자리에 한 줄로(포켓몬마다 한 번, 그날 최고 레벨). 그림은 SV 아이콘(`iconUrl`, 없으면 HOME으로 대체). 실데이터 126줄 → 85줄.
+
 8. **나중에**
    - 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명 (설정·리더보드·다른 AI 도구는 7-9로 옮김)
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)

@@ -393,7 +393,14 @@
 .today-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; }
 .today-row:hover { background: var(--card-2); }
 .today-time { width: 42px; flex: none; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.today-row img { width: 40px; height: 40px; object-fit: contain; flex: none; }
+.today-row img.today-icon { width: 40px; height: 40px; object-fit: contain; flex: none; }
+/* Level-ups in a row: one small line, no big picture */
+.today-row.kind-levelups { padding: 3px 8px; gap: 8px; font-size: 11px; color: var(--ink-3); }
+.today-lv-label { flex: none; font-weight: 650; }
+.today-lv-mons { display: flex; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+.today-lv-mon { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.today-lv-mon img { width: 22px; height: 22px; object-fit: contain; }
+.today-lv-mon b { color: var(--ink-2); font-weight: 650; margin-left: 2px; }
 .today-row img.faded { opacity: 0.4; filter: grayscale(0.6); }
 .today-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .today-line { font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -426,6 +433,14 @@
 .w-ask-term { position: relative; height: 210px; border-radius: 10px; overflow: hidden; background: #101217; }
 .w-ask-term .term-view { position: absolute; inset: 6px 4px 4px 8px; }
 .w-ask-hint { font-size: 10.5px; color: var(--ink-3); }
+/* Window mode: the question opens inside the asking session's row */
+.w-row-ask { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; cursor: default; }
+.w-row-ask .w-ask-term { height: 190px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); }
+.w-row-ask-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.w-row-ask-actions .w-ask-hint { margin-left: auto; }
+.w-ask-quick { font: inherit; font-size: 11px; font-weight: 650; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+.w-ask-quick:hover { color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
+.w-ask-quick.yes { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
 
 /* ---------- Text size switch (터미널) ---------- */
 .w-font-switch button { padding: 3px 8px; font-weight: 700; line-height: 1; min-width: 26px; justify-content: center; }

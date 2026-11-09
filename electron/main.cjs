@@ -1020,6 +1020,7 @@ function registerTerminalIpc() {
     } catch {}
   }))
   ipcMain.handle('terminals:rename', guard(({ id, title } = {}) => terminals.rename(String(id), String(title ?? ''))))
+  ipcMain.handle('terminals:move', guard(({ id, index } = {}) => terminals.move(String(id), Number(index))))
   ipcMain.handle('terminals:close', guard((id) => terminals.close(String(id))))
   // What a session needs on this PC (Claude Code, Git, Python), and their install pages
   ipcMain.handle('env:check', guard(() => checkPrereqs()))

@@ -46,6 +46,8 @@ interface ClaudexBridge {
     send(id: string, text: string): Promise<{ ok: boolean; reason?: string }>
     close(id: string): Promise<void>
     rename(id: string, title: string): Promise<boolean>
+    /** Drag a tab: put it at `index` in the tab order */
+    move(id: string, index: number): Promise<boolean>
     pathForFile(file: File): string
     openUrl(url: string): Promise<void>
     onData(fn: (p: { id: string; data: string }) => void): () => void

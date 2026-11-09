@@ -121,6 +121,15 @@
 .w-term-tab.mood-needs-you .w-term-tab-dot { background: var(--amber); }
 .w-term-tab.mood-error .w-term-tab-dot { background: var(--danger); }
 .w-term-tab.mood-ended { opacity: 0.45; }
+.w-term-tab { position: relative; }
+/* Dragging a tab to a new place: the tab fades, a bar marks where it lands */
+.w-term-tab.dragging { opacity: 0.4; }
+.w-term-tab.drop-before::before, .w-term-tab.drop-after::after {
+  content: ''; position: absolute; top: 3px; bottom: 3px; width: 2px;
+  border-radius: 1px; background: var(--ink); pointer-events: none;
+}
+.w-term-tab.drop-before::before { left: -2px; }
+.w-term-tab.drop-after::after { right: -2px; }
 .w-term-spacer { flex: 1; }
 .w-term-tabs .w-icon { -webkit-app-region: no-drag; }
 .w-term-body { position: relative; flex: 1; min-height: 0; }

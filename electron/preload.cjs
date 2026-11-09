@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('claudex', {
     send: (id, text) => ipcRenderer.invoke('terminals:send', { id, text }),
     close: (id) => ipcRenderer.invoke('terminals:close', id),
     rename: (id, title) => ipcRenderer.invoke('terminals:rename', { id, title }),
+    move: (id, index) => ipcRenderer.invoke('terminals:move', { id, index }),
     // A file dropped on a terminal: its path on disk (File.path is gone since Electron 32)
     pathForFile: (file) => { try { return webUtils.getPathForFile(file) || '' } catch { return '' } },
     // Ctrl+click on a link in a terminal: the user's browser opens it (http/https only)

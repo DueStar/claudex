@@ -24,7 +24,8 @@ const THEME = {
   brightBlue: '#8cc8ff', brightMagenta: '#e3a8ff', brightCyan: '#87ffff', brightWhite: '#ffffff',
 }
 
-export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = ({ term, active }) => {
+/** `focus`: take the keyboard when shown (not for a question opened beside the terminal in use) */
+export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus?: boolean }> = ({ term, active, focus = true }) => {
   const hostRef = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const xtermRef = useRef<Terminal | null>(null)
@@ -86,6 +87,13 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
     const input = xterm.onData((data) => bridge!.terminals.write(term.id, data))
     // Ctrl+V pastes, Ctrl+C copies when there is a selection (else it is ^C for Claude)
     xterm.attachCustomKeyEventHandler((e) => {
+      // Shift+Enter / Ctrl+Enter: a new line in the prompt instead of sending it (Claude Code
+      // reads ESC+CR as a newline). Blocked on every event type: stopping keydown alone left
+      // the keypress, which xterm turned into a plain Enter, and the prompt was sent.
+      if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey) && !e.altKey && !e.metaKey) {
+        if (e.type === 'keydown') bridge!.terminals.write(term.id, '\x1b\r')
+        return false
+      }
       if (e.type !== 'keydown') return true
       // Ctrl+1–4 switch the app's views (터미널/도감/박스/기록): not for the terminal
       if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) return false
@@ -93,11 +101,6 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
       if (e.ctrlKey && !e.altKey && (e.key === '=' || e.key === '+')) { stepTermFont(1); return false }
       if (e.ctrlKey && !e.altKey && e.key === '-') { stepTermFont(-1); return false }
       if (e.ctrlKey && !e.altKey && e.key === '0') { resetTermFont(); return false }
-      // Shift+Enter: a new line in the prompt instead of sending it (Claude Code reads ESC+CR as a newline)
-      if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.altKey) {
-        bridge!.terminals.write(term.id, '\x1b\r')
-        return false
-      }
       // Ctrl+V: text is pasted here; anything else (a screenshot) goes to Claude Code as the key
       // itself, and Claude Code reads the image from the clipboard
       if (e.ctrlKey && !e.shiftKey && (e.key === 'v' || e.key === 'V')) {
@@ -160,7 +163,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean }> = (
       try {
         fitRef.current?.fit()
         const x = xtermRef.current
-        if (x && document.visibilityState === 'visible') { bridge?.terminals.resize(term.id, x.cols, x.rows); x.focus() }
+        if (x && document.visibilityState === 'visible') { bridge?.terminals.resize(term.id, x.cols, x.rows); if (focus) x.focus() }
       } catch {}
     })
     return () => cancelAnimationFrame(id)

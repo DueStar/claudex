@@ -262,12 +262,23 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     broadcastList()
   }
 
+  /** Put a tab at `index` (the tab bar's order, also the order reopened at the next start) */
+  function move(id, index) {
+    if (!terms.has(id) || !Number.isInteger(index)) return false
+    const order = [...terms.values()].filter(t => t.id !== id)
+    order.splice(Math.max(0, Math.min(order.length, index)), 0, terms.get(id))
+    terms.clear()
+    for (const t of order) terms.set(t.id, t)
+    broadcastList()
+    return true
+  }
+
   function killAll() {
     frozen = true
     for (const t of terms.values()) if (t.status !== 'exited') { try { t.pty.kill() } catch {} }
   }
 
-  return { create, write, sendInstruction, resize, buffer, list, rename, close, killAll, takeRestorable }
+  return { create, write, sendInstruction, resize, buffer, list, rename, close, move, killAll, takeRestorable }
 }
 
 module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, HOOK_EVENTS }

@@ -102,7 +102,6 @@ const en: Record<string, string> = {
   '더블클릭해서 세션 이름 바꾸기': 'Double-click to rename the session',
   '함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)': 'Levels up with time worked together (every 20 min at first, every 60 min at higher levels)',
   '세션 이름 바꾸기': 'Rename session',
-  '확인하러 가기': 'Go Check',
   '이 세션에서 일할 포켓몬을 바꿔요 (잡은 포켓몬 중에서)': 'Change which Pokémon works this session (from the ones you caught)',
   '교체': 'Swap',
   '교체하지 못했어요 ({reason})': "Couldn't swap ({reason})",
@@ -118,6 +117,11 @@ const en: Record<string, string> = {
   '의 확인이 필요해요': ' needs your input',
   '창 모드로 펼쳐서 보기': 'Expand to a window',
   '↑↓로 고르고 Enter, 그만두려면 Esc': '↑↓ to choose, Enter to confirm, Esc to cancel',
+  '터미널에서 열기': 'Open in the terminal',
+  '선택 (Enter)': 'Choose (Enter)',
+  '고른 항목으로 답해요 (Enter)': 'Answer with the highlighted option (Enter)',
+  '거절 (Esc)': 'Decline (Esc)',
+  '거절하거나 그만둬요 (Esc)': 'Decline or cancel (Esc)',
 
   // window view
   '터미널 (Ctrl+1)': 'Terminal (Ctrl+1)',
@@ -282,7 +286,6 @@ const ja: Record<string, string> = {
   '더블클릭해서 세션 이름 바꾸기': 'ダブルクリックでセッション名を変更',
   '함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)': '一緒に作業した時間でレベルアップします（最初は20分、高レベルでは60分ごと）',
   '세션 이름 바꾸기': 'セッション名を変更',
-  '확인하러 가기': '確認する',
   '이 세션에서 일할 포켓몬을 바꿔요 (잡은 포켓몬 중에서)': 'このセッションで働くポケモンを変更します（捕まえたポケモンから）',
   '교체': '入れ替え',
   '교체하지 못했어요 ({reason})': '入れ替えできませんでした（{reason}）',
@@ -298,6 +301,11 @@ const ja: Record<string, string> = {
   '의 확인이 필요해요': 'の確認が必要です',
   '창 모드로 펼쳐서 보기': 'ウィンドウに広げて表示',
   '↑↓로 고르고 Enter, 그만두려면 Esc': '↑↓で選んでEnter、やめるならEsc',
+  '터미널에서 열기': 'ターミナルで開く',
+  '선택 (Enter)': '選択 (Enter)',
+  '고른 항목으로 답해요 (Enter)': '選んでいる項目で答えます (Enter)',
+  '거절 (Esc)': '拒否 (Esc)',
+  '거절하거나 그만둬요 (Esc)': '拒否するか、やめます (Esc)',
 
   // window view
   '터미널 (Ctrl+1)': 'ターミナル (Ctrl+1)',

@@ -1,13 +1,14 @@
 /**
  * TodayLog — the collecting story: what was caught (new species marked),
- * what got away, evolutions, level-ups and releases, newest first under a
- * heading per day, with today's summary on top. It is the save's log (the
+ * what got away, evolutions and releases, newest first under a heading per
+ * day, each with its Pokémon's SV box icon. A day's level-ups fold into one
+ * small line (each Pokémon once, at its highest level that day), with today's summary on top. It is the save's log (the
  * newest LOG_LIMIT events, server/pokedex.js), so it reaches back as far as
  * that holds.
  */
 
 import React from 'react'
-import { spriteUrl, pokemonById } from '../theme'
+import { iconUrl, spriteUrl, pokemonById } from '../theme'
 import { usePokedex, TIER_LABEL, ballName, genderMark, sourceText, placeText, type DexEvent } from '../pokedexStore'
 import { t, josa, locale, nameOf } from '../i18n'
 import { PokeBall } from './Icons'
@@ -48,12 +49,36 @@ function line(e: DexEvent): React.ReactNode {
   }
 }
 
+/** A log line, or level-ups in a row folded into one (newest first, each Pokémon once) */
+type Item = { kind: 'event'; e: DexEvent } | { kind: 'levelups'; at: number; mons: DexEvent[] }
+
+function fold(events: DexEvent[]): Item[] {
+  const out: Item[] = []
+  const byDay = new Map<string, Extract<Item, { kind: 'levelups' }>>()
+  for (const e of events) {
+    if (e.kind !== 'levelup') { out.push({ kind: 'event', e }); continue }
+    // A day's level-ups: one line where its newest was; newest first, so a
+    // Pokémon already in the line is there at its higher level
+    const day = byDay.get(dayOf(e.at))
+    if (!day) { const item = { kind: 'levelups' as const, at: e.at, mons: [e] }; byDay.set(dayOf(e.at), item); out.push(item) }
+    else if (!day.mons.some(m => (m.uid ?? m.id) === (e.uid ?? e.id))) day.mons.push(e)
+  }
+  return out
+}
+
+/** The SV box icon; the HOME picture when there is none (a form the icon set lacks) */
+const Icon: React.FC<{ e: DexEvent; className?: string }> = ({ e, className }) => (
+  <img src={iconUrl(e.id)} alt="" loading="lazy" className={className}
+    onError={ev => { const img = ev.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = '1'; img.src = spriteUrl(e.id, !!e.shiny) } }} />
+)
+
 const TodayLog: React.FC = () => {
   const { state } = usePokedex()
   const events = [...(state?.log ?? [])].filter(e => e.kind !== 'sendout' && e.kind !== 'swap' && e.kind !== 'exchange').reverse()
   const today = events.filter(e => dayOf(e.at) === dayOf(Date.now()))
   const count = (k: string) => today.filter(e => e.kind === k).length
   const fresh = today.filter(e => e.kind === 'catch' && e.newSpecies).length
+  const items = fold(events)
 
   return (
     <div className="today">
@@ -66,12 +91,31 @@ const TodayLog: React.FC = () => {
       </div>
       <div className="today-list">
         {events.length === 0 && <div className="dex-empty">{t('아직 기록이 없어요. 세션에서 일하다 보면 야생 포켓몬을 만나요')}</div>}
-        {events.map((e, i) => (
+        {items.map((it, i) => {
+          const at = it.kind === 'event' ? it.e.at : it.at
+          const prev = items[i - 1]
+          const day = (i === 0 || dayOf(prev.kind === 'event' ? prev.e.at : prev.at) !== dayOf(at)) && <div className="today-day">{dayLabel(at)}</div>
+          if (it.kind === 'levelups') return (
+            <React.Fragment key={`lv-${at}-${i}`}>
+              {day}
+              <div className="today-row kind-levelups">
+                <span className="today-time">{time(at)}</span>
+                <span className="today-lv-label">{t('레벨업')}</span>
+                <span className="today-lv-mons">
+                  {it.mons.map(m => (
+                    <span key={m.uid ?? m.id} className="today-lv-mon"><Icon e={m} />{nameOf(pokemonById(m.id)) || m.name}<b>Lv.{m.level}</b></span>
+                  ))}
+                </span>
+              </div>
+            </React.Fragment>
+          )
+          const e = it.e
+          return (
           <React.Fragment key={`${e.at}-${i}`}>
-          {(i === 0 || dayOf(events[i - 1].at) !== dayOf(e.at)) && <div className="today-day">{dayLabel(e.at)}</div>}
+          {day}
           <div className={`today-row kind-${e.kind} tier-${e.tier ?? 'common'}`}>
             <span className="today-time">{time(e.at)}</span>
-            <img src={spriteUrl(e.id, !!e.shiny)} alt="" loading="lazy" className={e.kind === 'flee' ? 'faded' : ''} />
+            <Icon e={e} className={`today-icon${e.kind === 'flee' ? ' faded' : ''}`} />
             <div className="today-text">
               <span className="today-line">
                 {line(e)}
@@ -89,7 +133,8 @@ const TodayLog: React.FC = () => {
             </div>
           </div>
           </React.Fragment>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
