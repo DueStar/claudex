@@ -470,7 +470,20 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 왼쪽 패널 접기: 위쪽 줄 맨 왼쪽 `w-side-toggle`(`SidePanelIcon`), `.widget.expanded.side-hidden .w-side { display: none }`, localStorage `claudex-side-hidden`. 단축키는 없음(Ctrl+B는 터미널 안에서 Claude Code가 쓴다).
    - Codex CLI 0.167.0을 이 PC에 설치함(`npm i -g @openai/codex`). 로그인은 사용자가 `codex login`. 다음: Codex 정식 어댑터(3단계), 개발자 관점 개선 목록(터미널 검색, 파일 경로 Ctrl+클릭, Ctrl+Tab/T/W, 턴 끝·확인 필요 OS 알림, git 브랜치 표시, 스크롤백 설정, 터미널 글꼴, README에 훅 공존·데이터 표).
 
-8. **나중에**
+7-18. **2026-11-09 1.3.28**
+   - **랭킹 연습 상대(NPC)** `src/npcTrainers.ts`: 시드 고정 108명(한국 약 70%, 일·영), 2026-11-09 기준 도감 8~180에서 시작해 시간당 움직인다(트레이너마다 pace, 도감이 찰수록 느려짐, 이번 주는 월요일 KST 리셋, 이로치·전설도 조금씩). DB에는 넣지 않고 화면에서만 섞는다. **실제 참여자 3명마다 1명씩 빠지고**(`PEOPLE_PER_NPC`) 324명이면 0. 기본 켜짐, "연습 상대" 버튼으로 끔(localStorage `claudex-rank-npc`). 행에는 표시 없음, 랭킹 설명 줄 끝에 작고 흐리게 "일부 연습 상대가 포함되어 있어요"(사용자와 합의한 공개 방식 — 이 문구는 빼지 않는다). 시상대(2·1·3, 메달·받침대·왕관).
+   - **`src/useDragOrder.ts`**: 탭(`SessionTabs`, x축)과 왼쪽 줄(y축)이 같이 쓰는 포인터 끌기. 4px 넘게 움직여야 시작하고 그때 pointer capture(안의 버튼·입력은 그대로). 앞 가장자리가 이웃의 가운데를 지나면 자리 바뀜(넓은 탭을 좁은 첫 탭 자리로 못 옮기던 버그 원인: 가운데 기준이었음). 놓은 뒤 main 목록이 올 때까지 낙관적 순서.
+   - **편집 메뉴 단축키**: `role: 'editMenu'`가 Ctrl+X/Z/Y/A를 가로채 터미널에 안 갔다. 같은 항목을 `registerAccelerator: false`로 둔다. Claude Code에서 Ctrl+S는 입력 보관(stash), Ctrl+X는 조합 시작 키(실제 claude로 확인).
+   - 위쪽 뷰 전환 아이콘만(`w-view-icons`), 바는 overflow hidden. 위젯·알림 카드 그림자 제거(투명 창 경계에서 잘림), 알림 뒤 대기 카드 대신 +N. 컨텍스트 막대 accent, 기록 구분선, 확률표 라벨 칸 max-content(영어 Sub-legendary).
+   - **Codex 정식 어댑터(3단계) 진행 중**: 이 PC에 codex-cli 0.167.0 설치·로그인됨. 확인한 것: `-c hooks.<Event>=[{hooks=[{type="command",command="..."}]}]`로 사용자 config를 안 건드리고 훅을 넣을 수 있다. 처음엔 "Hooks need review … 2. Trust all and continue"가 뜨고 한 번 승인하면 해시로 기억(`--dangerously-bypass-hook-trust`는 다른 미검토 훅도 돌려서 쓰지 않기로). 그다음 Windows 첫 실행에 "Set up default sandbox (requires Administrator)" 메뉴 — 사용자가 Codex 세션에서 한 번 설정해야 함. 남은 확인: Windows에서 훅 command가 어떤 셸로 도는지(cmd/PowerShell/직접), 그에 맞는 `command_windows`(ELECTRON_RUN_AS_NODE로 Claudex.exe를 노드로), session id는 SessionStart 훅에서 받기(미리 정할 수 없음), 이어하기 `codex resume <id>`, 사용량은 rollout JSONL `rate_limits` 또는 `codex app-server`. 목표: 도구가 바뀌어도 화면 동일.
+
+8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
+   - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
+   - **개발자 관점 개선** (사용자에게 목록만 제시, 번호 선택 대기): ① 터미널 검색 Ctrl+F(xterm search addon) ② 에러의 파일 경로 Ctrl+클릭 → VS Code/Cursor로 그 줄 열기 ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ④ Ctrl+Tab/Ctrl+T/Ctrl+W ⑤ 앱이 뒤에 있을 때 턴 끝·확인 필요 OS 알림/작업표시줄 깜빡임 ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.
+   - **카드뉴스**: 사용자가 캡처를 `Documents\claudex-promo\shots`에 넣으면 세로 4:5 6~8장. 블로그 초안은 `Documents\claudex-promolog.md`(한다체, 사용자의 Medium 글 말투), 이전 초안 `blog-draft1.md`.
+   - unslop 스킬은 `.claude/skills/unslop`에 로컬만(`.git/info/exclude`).
+
+9. **나중에**
    - 진화의 돌 아이템. 이벤트 볼 지급은 사용자가 필요할 때 말하기로(2026-11-09). 코드 서명은 하지 않기로 함(사용자 결정, 2026-11-09). (설정·리더보드·다른 AI 도구는 7-9로 옮김)
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)
    - 공식 효과음은 보류(7번)

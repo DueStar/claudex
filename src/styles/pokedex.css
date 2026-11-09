@@ -180,6 +180,11 @@
 .dex-box { background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .dex-box h4 { margin: 0 0 2px; font-size: 12px; color: var(--ink-3); font-weight: 650; }
 .dex-rate { display: grid; grid-template-columns: 44px 1fr 52px; align-items: center; gap: 8px; font-size: 11px; }
+/* The rate table: one grid, its label column as wide as the longest label in this language ("Sub-legendary"), never wrapping */
+.dex-rates { display: grid; grid-template-columns: max-content 1fr auto; column-gap: 8px; row-gap: 6px; align-items: center; }
+.dex-rates > h4 { grid-column: 1 / -1; }
+.dex-rates .dex-rate { display: contents; }
+.dex-rates .dex-rate span, .dex-rates .dex-rate em { white-space: nowrap; }
 .dex-rate span { color: var(--tier); font-weight: 650; }
 .dex-rate i { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
 .dex-rate b { display: block; height: 100%; border-radius: 2px; background: var(--tier); }
@@ -483,7 +488,7 @@ html.qa-mode #root { min-height: 100vh; }
 .qa-fire:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .qa-fire:disabled { opacity: 0.4; cursor: default; }
 .widget .toast-host.qa-toast { height: auto; padding: 0; width: 384px; display: block; }
-.widget .toast-host.qa-toast .w-toast, .widget .toast-host.qa-toast .w-toast-behind { animation: none; }
+.widget .toast-host.qa-toast .w-toast { animation: none; }
 .qa-fake-term { padding: 8px 10px; }
 .qa-fake-term pre { margin: 0; font-family: 'Monaspace Neon Var', 'Monaspace Neon', Consolas, monospace; font-size: 11px; color: #e6e6e6; white-space: pre-wrap; }
 .qa-today { height: 420px; display: flex; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
@@ -553,3 +558,43 @@ html.qa-mode #root { min-height: 100vh; }
 .w-throw-tools button.on { background: var(--card-2); color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
 /* A session running another AI tool than Claude Code: its name, quiet */
 .w-row-tool { flex: none; font-size: 10px; color: var(--ink-3); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }
+/* 랭킹: the top three on a podium (second, first, third), the rest listed below. The stand reads as a
+   picture, not as one more number: metal-tinted blocks with a lit top face, the place on a medal */
+.rank-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 0; padding: 12px 8px 16px; }
+.rank-stand { --metal: #e3a76f; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; position: relative; }
+.rank-stand.p1 { --metal: #ffd84a; }
+.rank-stand.p2 { --metal: #c9ced8; }
+.rank-stand img, .rank-stand .rank-noicon { width: 56px; height: 56px; object-fit: contain; }
+.rank-stand.p1 img { width: 76px; height: 76px; }
+.rank-crown { width: 26px; height: 18px; fill: var(--metal); margin-bottom: -6px; }
+.rank-stand .rank-name { max-width: 100%; font-size: 13px; text-align: center; }
+.rank-stand .rank-value { font-size: 11px; }
+.rank-stand .rank-value b { font-size: 15px; }
+.rank-block {
+  position: relative; width: 100%; margin-top: 8px; display: grid; place-items: start center; padding-top: 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--metal) 26%, #1b1e26), color-mix(in srgb, var(--metal) 8%, #14161c));
+  border-top: 2px solid color-mix(in srgb, var(--metal) 70%, transparent);
+}
+/* the lit top face */
+.rank-block::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -10px; height: 10px;
+  background: color-mix(in srgb, var(--metal) 40%, #23262f); clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%);
+}
+.rank-stand.p1 .rank-block { height: 96px; }
+.rank-stand.p2 .rank-block { height: 68px; border-radius: 8px 0 0 0; }
+.rank-stand.p3 .rank-block { height: 48px; border-radius: 0 8px 0 0; }
+/* the place: a medal, not a figure */
+.rank-medal {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--metal); color: #15171d; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--metal) 60%, #ffffff), 0 0 0 2px color-mix(in srgb, var(--metal) 35%, transparent);
+}
+.rank-stand.p1 .rank-medal { width: 36px; height: 36px; font-size: 18px; }
+.rank-stand.me .rank-name { color: var(--accent); }
+.rank-npc-toggle { margin-left: auto; font: inherit; font-size: 11px; padding: 4px 10px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink-3); cursor: pointer; }
+.rank-npc-toggle.on { color: var(--ink); background: var(--card-2); }
+/* The board's small print: some entries are practice rivals */
+.rank-npc-note { font-size: 10px; color: var(--ink-3); opacity: 0.7; }
+/* 기록: a very faint line between entries */
+.today-row + .today-row { border-top: 1px solid rgba(255, 255, 255, 0.045); border-radius: 0; }
+.today-row + .today-row:hover { border-radius: 0; }

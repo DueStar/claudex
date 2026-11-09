@@ -91,9 +91,14 @@
   border-bottom: 1px solid var(--line);
   background: var(--card);
   -webkit-app-region: drag;
-  overflow-x: auto;
+  /* never a scrollbar: the views are icons, and the text-size switch goes first when it is narrow */
+  overflow: hidden;
+  min-width: 0;
   flex-shrink: 0;
 }
+.w-term-tabs > * { flex-shrink: 0; }
+.w-term-tabs > .w-term-spacer { flex: 1 1 0; min-width: 0; }
+.w-view-icons button.icon-only { padding: 5px 9px; position: relative; }
 .w-term-tabs::-webkit-scrollbar { height: 0; }
 
 /* ---------- Session tabs: a row of their own under the view bar, in the old tabs' look ---------- */
@@ -347,3 +352,8 @@
 .widget.expanded.side-hidden .w-side { display: none; }
 .w-side-toggle { flex: none; -webkit-app-region: no-drag; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-right: 4px; }
 .w-side-toggle:hover { background: var(--card-2); color: var(--ink); }
+/* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
+.w-row { position: relative; user-select: none; touch-action: none; }
+.w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
+.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; background: #1f232d; }
+.w-row input, .w-row textarea { user-select: text; }

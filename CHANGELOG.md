@@ -2,6 +2,14 @@
 
 ## Claudex
 
+### 1.3.28
+- 랭킹: 1·2·3위를 메달과 받침대가 있는 시상대에 올리고, 나머지는 아래 목록으로 보여줘요. 연습 상대 트레이너가 함께해요.
+- 위쪽 줄의 화면 전환(터미널·도감·박스·기록·랭킹)을 아이콘으로 바꿔서, 창을 줄여도 가로 스크롤이 생기지 않아요.
+- 왼쪽 패널의 세션도 끌어서 순서를 바꿀 수 있어요. 탭을 맨 앞으로 끌어 옮기지 못하던 문제도 고쳤어요.
+- 터미널에서 Ctrl+X·Ctrl+Z·Ctrl+A가 Claude Code까지 전달돼요(전에는 앱 메뉴가 먼저 가로챘어요).
+- 위젯과 알림 카드의 그림자가 네모로 잘려 보이던 것과, 알림 뒤에 작은 창처럼 보이던 것을 없앴어요. 대기 중인 알림 수는 카드에 +N으로 보여요.
+- 컨텍스트 막대를 노란색으로, 기록에 옅은 구분선을 넣었어요. 영어 확률표가 줄바꿈되던 것도 고쳤어요.
+
 ### 1.3.27
 - 창 모드와 전체화면에서 왼쪽 패널을 접고 펼 수 있어요. 위쪽 줄 맨 왼쪽 버튼을 누르면 터미널이 화면 전체를 써요. 접은 상태는 기억해요.
 
@@ -206,6 +214,14 @@
 
 ## Claudex (English)
 
+### 1.3.28
+- Rankings: the top three stand on a podium with medals, the rest are listed below. Practice rival trainers join in.
+- The view switches at the top (terminal, Pokédex, Box, log, rankings) are icons now, so the bar never scrolls sideways.
+- Sessions in the side panel reorder by dragging too, and a tab can now be dragged to the very first place.
+- Ctrl+X, Ctrl+Z and Ctrl+A reach Claude Code in the terminal (the app menu used to catch them).
+- No more square-cut shadows around the widget and notification cards, and no small window behind a notification: the waiting ones show as +N on the card.
+- The context bar is yellow, the log has faint dividers, and the English rate table no longer wraps.
+
 ### 1.3.27
 - In window and fullscreen mode the side panel folds away: the button at the far left of the top bar gives the terminal the whole width. It stays the way you left it.
 
@@ -273,6 +289,14 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.28
+- ランキング: 1〜3位をメダルと台のある表彰台に乗せ、それ以外は下の一覧で表示します。練習相手のトレーナーも参加します。
+- 上の段の画面切り替え(ターミナル・図鑑・ボックス・記録・ランキング)をアイコンにして、ウィンドウを狭めても横スクロールが出ません。
+- 左パネルのセッションもドラッグで並べ替えられます。タブを先頭に移せなかった問題も直しました。
+- ターミナルでCtrl+X・Ctrl+Z・Ctrl+AがClaude Codeまで届きます(以前はアプリのメニューが先に受け取っていました)。
+- ウィジェットと通知カードの影が四角く切れていたのと、通知の後ろに小さなウィンドウのように見えていたものをなくしました。待っている通知の数はカードに+Nで表示します。
+- コンテキストのバーを黄色に、記録に薄い区切り線を入れました。英語の確率表の折り返しも直しました。
 
 ### 1.3.27
 - ウィンドウモードと全画面で、左のパネルを折りたためます。上の段のいちばん左のボタンで、ターミナルが画面の幅いっぱいになります。たたんだ状態は記憶されます。

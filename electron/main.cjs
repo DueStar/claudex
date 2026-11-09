@@ -425,7 +425,15 @@ function applicationMenuTemplate() {
         ...(isMac ? [] : [{ type: 'separator' }, { role: 'quit' }]),
       ],
     },
-    { role: 'editMenu' },
+    // The edit menu's shortcuts are not registered (registerAccelerator: false): registered,
+    // they caught Ctrl+X / Ctrl+Z / Ctrl+A before the terminal, so Claude Code never got them
+    // (Ctrl+X starts its chords). Text fields still cut, undo and select all by themselves;
+    // the terminal copies and pastes in its own key handler (TerminalPanel).
+    {
+      label: t('편집'),
+      submenu: ['undo', 'redo', 'separator', 'cut', 'copy', 'paste', 'separator', 'selectAll']
+        .map(role => (role === 'separator' ? { type: 'separator' } : { role, registerAccelerator: false })),
+    },
   ]
 }
 

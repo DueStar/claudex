@@ -43,8 +43,6 @@ export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: num
   const meta = t.kind === 'catch' || t.kind === 'flee' ? [nature, placeText(t.place)].filter(Boolean).join(' · ') : ''
   return (
     <div className="w-toast-stack" onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}>
-    {waiting > 1 && <span className="w-toast-behind second" aria-hidden />}
-    {waiting > 0 && <span className="w-toast-behind" aria-hidden />}
     <div
       className={`w-toast kind-${t.kind} tier-${t.tier ?? 'common'}${t.shiny ? ' shiny' : ''}${leaving ? ' leaving' : ''}`}
       onClick={onClick}
@@ -60,6 +58,7 @@ export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: num
           <span className="w-toast-kind">{KIND_LABEL[t.kind]?.[{ ko: 0, en: 1, ja: 2 }[lang()]] ?? ''}</span>
           {t.tier && t.kind !== 'levelup' && <span className="w-toast-tier">{TIER_LABEL[t.tier]}</span>}
           {t.newSpecies && <span className="w-toast-new">NEW</span>}
+          {waiting > 0 && <span className="w-toast-more">+{waiting}</span>}
         </div>
         <div className="w-toast-title">
           {t.kind === 'evolve'

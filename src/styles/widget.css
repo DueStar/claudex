@@ -51,7 +51,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   border-radius: 16px;
   padding: 10px 12px;
   min-width: 0;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  /* no drop shadow: the widget's window is transparent and ends at the cards, so a shadow was cut off square at its edge */
 }
 .w-label {
   font-size: 11px;
@@ -117,7 +117,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-pill.mood-error { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
 .w-row-bottom { display: flex; align-items: center; gap: 8px; }
 .w-ctx { flex: 1; height: 4px; border-radius: 2px; background: #2a2e39; overflow: hidden; }
-.w-ctx span { display: block; height: 100%; background: #8fa8ff; }
+.w-ctx span { display: block; height: 100%; background: var(--accent); }
 .w-ctx.tone-warn span { background: var(--amber); }
 .w-ctx.tone-danger span { background: var(--danger); }
 .w-row-num { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }

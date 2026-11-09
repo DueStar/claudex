@@ -5,12 +5,17 @@
  * Joining needs a sign-in, a nickname and a partner (the icon beside it).
  */
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { bridge, type BoardKind, type BoardProfile, type BoardRow } from '../desktop'
 import { useCloud } from '../cloudStore'
 import { usePokedex } from '../pokedexStore'
 import { iconUrl, pokemonById } from '../theme'
 import { t, locale, nameOf, josa } from '../i18n'
+import { npcsFor, npcValue } from '../npcTrainers'
+
+/** A row as shown: a trainer from the database, or an NPC (marked as one) */
+interface Shown { key: string; place: number; nickname: string; partner: number | null; value: number; me: boolean; npc: boolean }
+const NPC_KEY = 'claudex-rank-npc'
 
 const BOARDS: { key: BoardKind; label: string; unit: string; note: string }[] = [
   { key: 'week', label: '이번 주 포획', unit: '마리', note: '매주 월요일 0시(한국 시간)에 새로 시작해요' },
@@ -85,13 +90,36 @@ const LeaderboardView: React.FC = () => {
   const meta = BOARDS.find(b => b.key === board)!
   const joined = !!profile?.isPublic
 
+  // Practice rivals (seeded NPC trainers, never stored) fill the board while it is young: on for
+  // everyone (the board's note says some are practice rivals), off with the button
+  const [showNpc, setShowNpc] = useState(() => { try { return localStorage.getItem(NPC_KEY) !== '0' } catch { return true } })
+  const toggleNpc = () => setShowNpc(v => { try { localStorage.setItem(NPC_KEY, v ? '0' : '1') } catch {} ; return !v })
+  // NPCs move by the hour: look again every ten minutes while the board is open
+  const [tick, setTick] = useState(() => Date.now())
+  useEffect(() => { const id = setInterval(() => setTick(Date.now()), 10 * 60_000); return () => clearInterval(id) }, [])
+  const shown: Shown[] | null = useMemo(() => {
+    if (!rows) return null
+    const people = rows.map(r => ({ key: `p-${r.rn}-${r.nickname}`, nickname: r.nickname, partner: r.partner, value: r.value, me: r.me, npc: false }))
+    // One NPC steps aside for every three real trainers on the board
+    const npcs = showNpc
+      ? npcsFor(rows.length, tick).map(n => ({ key: `n-${n.nickname}`, nickname: n.nickname, partner: n.partner, value: npcValue(n, board), me: false, npc: true })).filter(n => n.value > 0)
+      : []
+    // People first on a tie; a place is 1 + how many have more
+    const all = [...people, ...npcs].sort((a, b) => b.value - a.value || Number(a.npc) - Number(b.npc))
+    return all.map(r => ({ ...r, place: 1 + all.filter(x => x.value > r.value).length }))
+  }, [rows, showNpc, board, tick])
+  const podium = shown && shown.length >= 3 ? shown.slice(0, 3) : []
+  const rest = shown ? shown.slice(podium.length) : []
+  const nick = (r: Shown) => <>{r.nickname}{r.me && <small>{t('나')}</small>}</>
+
   return (
     <div className="rank">
       <div className="rank-top">
         <div className="dex-seg rank-boards" role="tablist" aria-label={t('랭킹 종류')}>
           {BOARDS.map(b => <button key={b.key} role="tab" aria-selected={board === b.key} className={board === b.key ? 'on' : ''} onClick={() => setBoard(b.key)}>{t(b.label)}</button>)}
         </div>
-        <span className="rank-note">{t(meta.note)} · {t('순위는 1시간마다 새로 고쳐져요')}</span>
+        <span className="rank-note">{t(meta.note)} · {t('순위는 1시간마다 새로 고쳐져요')}{showNpc && <small className="rank-npc-note"> · {t('일부 연습 상대가 포함되어 있어요')}</small>}</span>
+        <button className={`rank-npc-toggle${showNpc ? ' on' : ''}`} onClick={toggleNpc} aria-pressed={showNpc} title={t('연습 상대(NPC 트레이너)를 같이 보여줘요')}>{t('연습 상대')}</button>
       </div>
 
       {/* Me: sign in, join (nickname + partner), or my entry */}
@@ -135,20 +163,35 @@ const LeaderboardView: React.FC = () => {
 
       <div className="rank-list">
         {error ? <div className="dex-empty">{error}</div>
-          : !rows ? <div className="dex-empty">{t('불러오는 중…')}</div>
-          : rows.length === 0 ? <div className="dex-empty">{t('아직 참여한 트레이너가 없어요. 첫 기록을 남겨 보세요')}</div>
-          : rows.map((r, i) => (
-            <React.Fragment key={`${r.place}-${r.nickname}`}>
-              {/* the caller's place below the top 100: a gap first */}
-              {i > 0 && r.rn > rows[i - 1].rn + 1 && <div className="rank-gap">⋯</div>}
-              <div className={`rank-row${r.me ? ' me' : ''}${r.place <= 3 ? ` top${r.place}` : ''}`}>
+          : !shown ? <div className="dex-empty">{t('불러오는 중…')}</div>
+          : shown.length === 0 ? <div className="dex-empty">{t('아직 참여한 트레이너가 없어요. 첫 기록을 남겨 보세요')}</div>
+          : <>
+            {/* The top three on a podium: second, first, third */}
+            {podium.length === 3 && (
+              <div className="rank-podium">
+                {[podium[1], podium[0], podium[2]].map((r, slot) => {
+                  const step = [2, 1, 3][slot] // the stand's height: 1 in the middle, tallest
+                  return (
+                    <div key={r.key} className={`rank-stand p${step}${r.me ? ' me' : ''}`}>
+                      {step === 1 && <svg className="rank-crown" viewBox="0 0 24 16" aria-hidden="true"><path d="M2 14 L4 4 L9 9 L12 2 L15 9 L20 4 L22 14 Z" /></svg>}
+                      {r.partner ? <img src={iconUrl(r.partner)} alt="" /> : <span className="rank-noicon" />}
+                      <span className="rank-name">{nick(r)}</span>
+                      <span className="rank-value"><b>{r.value.toLocaleString(locale())}</b>{t(meta.unit)}</span>
+                      <div className="rank-block"><span className="rank-medal" aria-label={t('{n}위', { n: r.place })}>{r.place}</span></div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {rest.map(r => (
+              <div key={r.key} className={`rank-row${r.me ? ' me' : ''}${r.npc ? ' npc' : ''}`}>
                 <span className="rank-place">{r.place}</span>
                 {r.partner ? <img src={iconUrl(r.partner)} alt="" /> : <span className="rank-noicon" />}
-                <span className="rank-name">{r.nickname}{r.me && <small>{t('나')}</small>}</span>
+                <span className="rank-name">{nick(r)}</span>
                 <span className="rank-value"><b>{r.value.toLocaleString(locale())}</b>{t(meta.unit)}</span>
               </div>
-            </React.Fragment>
-          ))}
+            ))}
+          </>}
       </div>
     </div>
   )

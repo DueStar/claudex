@@ -25,6 +25,7 @@ import SettingsView from './components/SettingsView'
 import { useSettings } from './settingsStore'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
+import { useDragOrder } from './useDragOrder'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
@@ -230,6 +231,13 @@ const Widget: React.FC = () => {
       }
     }).filter(r => r.mood !== 'ended' || r.terminal)
   }, [terminals, sessions, meters, castVersion])
+
+  // The left panel's rows reorder by dragging, like the tabs (the same order: terminals.move)
+  const rowById = new Map(rows.map(r => [r.sessionId, r]))
+  const rowOrder = useDragOrder(rows.map(r => r.sessionId), 'y', (id, to) => {
+    const term = rowById.get(id)?.terminal
+    if (term) void bridge?.terminals.move(term.id, to)
+  })
 
   const sendable = rows.filter(r => r.terminal && r.terminal.status === 'running')
   const isFree = (r: Row) => r.terminal?.status === 'running' && !r.terminal.asking && r.mood !== 'working' && r.mood !== 'needs-you'
@@ -576,11 +584,17 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               </span>
             </div>
             {rows.length === 0 && <div className="w-empty">{t('새 세션을 열면 여기 나타나요')}</div>}
-            {rows.map(r => (
+            {rowOrder.shown.map((sid, i) => { const r = rowById.get(sid)!; const drag = rowOrder.bind(sid, i, !!r.terminal); return (
               <div
                 key={r.sessionId}
-                className={`w-row mood-${r.mood}${r.terminal?.status === 'running' && r.terminal.asking ? ' asking' : ''}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
-                onClick={() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') }}
+                ref={drag.ref}
+                style={rowOrder.style(sid, i)}
+                onPointerDown={drag.onPointerDown}
+                onPointerMove={drag.onPointerMove}
+                onPointerUp={drag.onPointerUp}
+                onPointerCancel={drag.onPointerCancel}
+                className={`w-row${rowOrder.stateClass(sid)} mood-${r.mood}${r.terminal?.status === 'running' && r.terminal.asking ? ' asking' : ''}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
+                onClick={rowOrder.click(() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') })}
                 title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
                 <div className="w-row-top">
@@ -671,7 +685,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   )
                 })()}
               </div>
-            ))}
+            ) })}
           </section>
 
           {/* A question Claude Code cannot go on without (folder trust, a permission):
@@ -719,12 +733,13 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               title={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-label={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-pressed={!sideHidden}>
               <SidePanelIcon size={15} />
             </button>
-            <div className="w-view-switch">
-              <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')}><TerminalIcon size={14} />{t('터미널')}</button>
-              <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')}><DexIcon size={14} />{t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
-              <button className={view === 'box' ? 'on' : ''} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')}><BoxIcon size={14} />{t('박스')}</button>
-              <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')}><TodayIcon size={14} />{t('기록')}</button>
-              <button className={view === 'rank' ? 'on' : ''} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')}><RankIcon size={14} />{t('랭킹')}</button>
+            {/* The views as icons only (named on hover with their shortcut), so the bar never scrolls */}
+            <div className="w-view-switch w-view-icons">
+              <button className={`icon-only${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={15} /></button>
+              <button className={`icon-only${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')} aria-label={t('도감')}><DexIcon size={15} />{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
+              <button className={`icon-only${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')} aria-label={t('박스')}><BoxIcon size={15} /></button>
+              <button className={`icon-only${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')} aria-label={t('기록')}><TodayIcon size={15} /></button>
+              <button className={`icon-only${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')} aria-label={t('랭킹')}><RankIcon size={15} /></button>
             </div>
             <span className="w-term-spacer" />
             {view === 'terminal' && (

@@ -224,7 +224,7 @@ const PokedexView: React.FC = () => {
         <aside className="dex-detail">
           {!detail && (
             <div className="dex-help">
-              <section className="dex-box">
+              <section className="dex-box dex-rates">
                 <h4>{t('등급별 만날 확률')}</h4>
                 {TIERS.map(t => (
                   <div key={t} className={`dex-rate tier-${t}`}>
