@@ -151,7 +151,7 @@ const en: Record<string, string> = {
   '그만두기': 'Leave',
   '닉네임을 정하고 랭킹에 참여해 보세요.': 'Pick a nickname and join the leaderboard.',
   '불러오는 중…': 'Loading…',
-  '아직 참여한 트레이너가 없어요. 첫 번째가 되어 보세요!': 'No trainers yet. Be the first!',
+  '아직 참여한 트레이너가 없어요. 첫 기록을 남겨 보세요': 'No trainers yet. Yours could be the first record',
   '나': 'You',
 }
 const ja: Record<string, string> = {
@@ -299,7 +299,7 @@ const ja: Record<string, string> = {
   '그만두기': 'やめる',
   '닉네임을 정하고 랭킹에 참여해 보세요.': 'ニックネームを決めてランキングに参加しよう。',
   '불러오는 중…': '読み込み中…',
-  '아직 참여한 트레이너가 없어요. 첫 번째가 되어 보세요!': 'まだ参加しているトレーナーはいません。一番乗りを目指そう！',
+  '아직 참여한 트레이너가 없어요. 첫 기록을 남겨 보세요': 'まだ参加しているトレーナーはいません。最初の記録を残しましょう',
   '나': 'あなた',
 }
 export default { en, ja }

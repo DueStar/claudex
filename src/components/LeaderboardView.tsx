@@ -136,7 +136,7 @@ const LeaderboardView: React.FC = () => {
       <div className="rank-list">
         {error ? <div className="dex-empty">{error}</div>
           : !rows ? <div className="dex-empty">{t('불러오는 중…')}</div>
-          : rows.length === 0 ? <div className="dex-empty">{t('아직 참여한 트레이너가 없어요. 첫 번째가 되어 보세요!')}</div>
+          : rows.length === 0 ? <div className="dex-empty">{t('아직 참여한 트레이너가 없어요. 첫 기록을 남겨 보세요')}</div>
           : rows.map((r, i) => (
             <React.Fragment key={`${r.place}-${r.nickname}`}>
               {/* the caller's place below the top 100: a gap first */}

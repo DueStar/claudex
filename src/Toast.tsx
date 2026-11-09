@@ -24,9 +24,9 @@ export function durationOf(e: DexEvent, waiting = 0): number {
   return waiting ? 4000 : 8000
 }
 
-// Its own words, not t(): '포획' here is the toast's "Caught!", elsewhere the plain "Caught"
+// Its own words, not t(): '포획' here is the toast's "Caught" title, elsewhere the plain "Caught"
 const KIND_LABEL: Partial<Record<DexEvent['kind'], [string, string, string]>> = {
-  catch: ['포획', 'Caught!', 'ゲット'], flee: ['도망쳤어요', 'Fled', '逃げられた'], evolve: ['진화', 'Evolved', '進化'], levelup: ['레벨 업', 'Level up', 'レベルアップ'],
+  catch: ['포획', 'Caught', 'ゲット'], flee: ['도망쳤어요', 'Fled', '逃げられた'], evolve: ['진화', 'Evolved', '進化'], levelup: ['레벨 업', 'Level up', 'レベルアップ'],
 }
 /** The species' name in the language in use (the saved `name` is Korean) */
 const monName = (id: number | undefined, saved?: string) => nameOf(pokemonById(id ?? -1)) || saved || ''

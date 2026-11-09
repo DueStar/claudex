@@ -90,8 +90,21 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       // Shift+Enter / Ctrl+Enter: a new line in the prompt instead of sending it (Claude Code
       // reads ESC+CR as a newline). Blocked on every event type: stopping keydown alone left
       // the keypress, which xterm turned into a plain Enter, and the prompt was sent.
+      // While Korean (or any IME) text is being composed, the last syllable is only committed
+      // after this key: send the newline once xterm has sent that syllable, or it lands on the
+      // new line
       if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey) && !e.altKey && !e.metaKey) {
-        if (e.type === 'keydown') bridge!.terminals.write(term.id, '\x1b\r')
+        if (e.type === 'keydown') {
+          const newline = () => bridge!.terminals.write(term.id, '\x1b\r')
+          const ta = xterm.textarea
+          if ((e.isComposing || e.keyCode === 229) && ta) {
+            let sent = false
+            const once = () => { if (!sent) { sent = true; newline() } }
+            // xterm reads the committed text in a setTimeout(0) after compositionend: queue behind it
+            ta.addEventListener('compositionend', () => setTimeout(once, 10), { once: true })
+            setTimeout(once, 300) // no compositionend after all
+          } else newline()
+        }
         return false
       }
       if (e.type !== 'keydown') return true

@@ -424,7 +424,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - 업데이트 전 버전의 PC는 새 코드(`@wild|…`)를 그대로 보여 줄 수 있다. 모든 PC를 1.3.20 이상으로 올리면 해결된다.
    - **패치노트**: CHANGELOG에 `## Claudex (English)`와 `## Claudex (日本語)` 섹션을 1.3.16부터 둔다(`src/patchNotes.ts` `releasesIn`). 그 언어에 최신 버전이 없으면 영어, 그다음 한국어로 보여 준다. **릴리스마다 세 언어로 쓴다.** 업데이트 버튼 툴팁의 notes는 아직 한국어다(manifest가 한국어 notes만 담는다).
    - **리더보드 닉네임**: 히라가나·가타카나·한자도 허용한다(`supabase/leaderboard.sql` 정규식). 사용자가 SQL을 다시 실행함(2026-11-08).
-   - 남은 한국어: QA 페이지(개발용), README. (클라우드 오류 문구와 업데이트 툴팁 노트는 7-11에서 처리)
+   - 남은 한국어: QA 페이지(개발용). README는 1.3.23에서 `README.en.md`·`README.ja.md`를 따로 둠(맨 위 언어 링크). (클라우드 오류 문구와 업데이트 툴팁 노트는 7-11에서 처리)
    - 사용자 수 예상과 Supabase: 언어는 사용자당 용량·전송량을 바꾸지 않는다(오히려 코드가 조금 짧다). 바뀌는 건 사용자 수뿐이다. 무료 한도는 약 1,350명(전송량 기준, 7-9)이고, 그 이상이면 Pro($25/월, 전송량 250GB·DB 8GB → 수만 명)로 간다.
 
 7-11. **2026-11-09 회사 PC 작업(1.3.21 준비, 아직 릴리스 안 함)**
@@ -434,9 +434,15 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 
 7-12. **2026-11-09 1.3.22**
    - **탭 드래그**: `terminals.move(id, index)`(main의 Map 순서를 바꿈, `terminals:move`). 탭·왼쪽 줄·`open-sessions.json` 복원 순서가 모두 이 순서를 따른다. 위젯은 HTML5 드래그(`application/x-claudex-tab`, 터미널의 파일 끌어놓기와 섞이지 않음), 탭 왼쪽 절반이면 앞, 오른쪽 절반이면 뒤.
-   - **Shift/Ctrl+Enter 줄바꿈**: xterm의 `attachCustomKeyEventHandler`는 keydown·keypress·keyup마다 불린다. keydown만 false로 막으면 `_keyDownHandled`가 서지 않아 keypress가 ``을 보내 프롬프트가 전송됐다. 이제 Enter+Shift/Ctrl은 모든 이벤트에서 false, keydown에서만 ESC+CR을 쓴다. ConPTY는 ESC+CR·LF·CSI-u를 그대로 넘기고 Claude Code는 ESC+CR·LF 모두 줄바꿈으로 받는 것을 실제 claude로 확인했다.
+   - **Shift/Ctrl+Enter 줄바꿈**: xterm의 `attachCustomKeyEventHandler`는 keydown·keypress·keyup마다 불린다. keydown만 false로 막으면 `_keyDownHandled`가 서지 않아 keypress가 `
+`을 보내 프롬프트가 전송됐다. 이제 Enter+Shift/Ctrl은 모든 이벤트에서 false, keydown에서만 ESC+CR을 쓴다. ConPTY는 ESC+CR·LF·CSI-u를 그대로 넘기고 Claude Code는 ESC+CR·LF 모두 줄바꿈으로 받는 것을 실제 claude로 확인했다.
    - **왼쪽 줄에서 바로 답하기**: 창 모드에서 확인을 기다리는(asking 또는 needs-you) 세션이 지금 보는 터미널이 아니면 그 줄 안에 작은 `TerminalView`(`focus={false}`, 쓰던 터미널의 포커스를 뺏지 않음)와 "선택 (Enter)"·"거절 (Esc)" 버튼. 위젯 모드의 `w-ask` 카드는 그대로. 배지는 "확인 필요"(누르면 그 터미널로).
    - **기록**: 하루치 레벨업을 그날 가장 최근 자리에 한 줄로(포켓몬마다 한 번, 그날 최고 레벨). 그림은 SV 아이콘(`iconUrl`, 없으면 HOME으로 대체). 실데이터 126줄 → 85줄.
+
+7-13. **2026-11-09 1.3.23**
+   - **IME 조합 중 Shift/Ctrl+Enter**: 한글 마지막 글자는 키를 누른 뒤에야 확정된다. 조합 중(`isComposing` 또는 keyCode 229)이면 textarea의 `compositionend` 뒤(xterm이 setTimeout 0으로 확정 글자를 보낸 다음, +10ms)에 ESC+CR을 보낸다. compositionend가 안 오면 300ms 뒤에 보낸다.
+   - **unslop 점검(가벼운 수준)**: 사용자는 굵기는 지금이 좋다고 해서 그대로 둠. 글자 크기 18종 → 8종(10·11·12·13·14·16·20·28, 도감 칸의 큰 "?" 48만 예외, 터미널 글자 크기 버튼 미리보기도 예외). 상태 점 발광 제거(포획 카드의 등급 빛은 유지), toastIn 오버슈트 제거, 기록 NEW 배지는 연한 바탕+강조색 글자. 랭킹 빈 문구의 느낌표, 영어 포획 제목 "Caught!"의 느낌표 제거. unslop 스킬은 `.claude/skills/unslop`에 로컬로만 둠(커밋 안 함).
+   - **다음 작업(사용자 결정)**: 세션 상한은 6 그대로. 서브에이전트는 박스 포켓몬이 "조력자"로 나간다.
 
 8. **나중에**
    - 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명 (설정·리더보드·다른 AI 도구는 7-9로 옮김)

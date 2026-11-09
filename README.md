@@ -1,8 +1,8 @@
 # Claudex
 
-Claude Code 세션을 포켓몬과 함께 쓰는 Windows 데스크톱 앱이에요. 세션마다 파티의 포켓몬이 하나씩 나가서 일하고, Claude가 일하는 동안 야생 포켓몬을 만나 도감을 채워요. 싸움은 없고 **수집**이 중심이에요.
+**한국어** · [English](README.en.md) · [日本語](README.ja.md)
 
-*A Windows desktop app that runs your Claude Code sessions with a Pokémon partner each, and fills a Pokédex while Claude works. Collecting, not battling.*
+Claude Code 세션을 포켓몬과 함께 쓰는 Windows 데스크톱 앱이에요. 세션마다 파티의 포켓몬이 하나씩 나가서 일하고, Claude가 일하는 동안 야생 포켓몬을 만나 도감을 채워요. 싸움은 없고 **수집**이 중심이에요.
 
 > 비영리 팬 프로젝트예요. 포켓몬과 관련된 이름과 그림의 권리는 Nintendo / Creatures Inc. / GAME FREAK inc.에 있어요. 자세한 내용은 [NOTICE.md](NOTICE.md)를 봐 주세요.
 
@@ -60,9 +60,11 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows 데스크톱 앱이에�
 ### 앱
 - **위젯 / 창 / 전체화면**: 위젯은 항상 위에 떠 있고, 창과 전체화면은 일반 창이에요. 전체화면은 작업 표시줄 위까지만 채워요.
 - **터미널**:
-  - Shift+Enter로 줄바꿈해요.
+  - Shift+Enter나 Ctrl+Enter로 줄바꿈해요.
   - 링크는 Ctrl+클릭으로 열려요.
   - 파일을 끌어다 놓으면 경로가 입력돼요.
+  - 위쪽 탭을 끌어서 세션 순서를 바꿀 수 있어요.
+- **세션 다시 열기**: 앱을 닫을 때 열려 있던 세션이 다음에 켤 때 다시 열려요(설정에서 끌 수 있어요).
 - **한도**: 5시간·주간 한도와 리셋 시각을 보여줘요.
 - **구글 로그인**(선택): 도감이 클라우드(Supabase)에 저장돼요.
 - **업데이트**: 새 버전이 나오면 위젯 상단에 업데이트 버튼이 떠요. 앱 부분만 받아서 재시작해요.

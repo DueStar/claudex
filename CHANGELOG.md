@@ -2,6 +2,11 @@
 
 ## Claudex
 
+### 1.3.23
+- 한글을 입력하다가 Shift+Enter나 Ctrl+Enter를 누르면 마지막 글자가 다음 줄로 내려가던 문제를 고쳤어요.
+- 화면 다듬기: 글자 크기 종류를 줄여 정돈하고, 상태 점의 빛 번짐을 없앴어요. 포획 알림은 튀지 않고 부드럽게 올라오고, 기록의 NEW 배지는 차분하게 바꿨어요.
+- README를 영어와 일본어로도 볼 수 있어요.
+
 ### 1.3.22
 - 위쪽 세션 탭을 끌어서 순서를 바꿀 수 있어요. 왼쪽 세션 목록과 다음에 다시 열리는 순서도 같이 바뀌어요.
 - 터미널에서 Shift+Enter나 Ctrl+Enter로 줄을 바꿀 수 있어요(전에는 그냥 보내졌어요).
@@ -178,6 +183,11 @@
 
 ## Claudex (English)
 
+### 1.3.23
+- Fixed the last Korean (or other IME) character dropping to the next line when you press Shift+Enter or Ctrl+Enter while typing.
+- Visual polish: fewer text sizes, no glow on status dots, the catch notice slides in without bouncing, and a quieter NEW badge in the log.
+- The README is now in English and Japanese too.
+
 ### 1.3.22
 - Drag the session tabs to reorder them. The session list on the left and the order they reopen in follow.
 - Shift+Enter or Ctrl+Enter starts a new line in the terminal (it used to send the prompt).
@@ -217,6 +227,11 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.23
+- 日本語・韓国語などを入力中に Shift+Enter や Ctrl+Enter を押すと、最後の文字が次の行に落ちる問題を直しました。
+- 見た目の調整: 文字サイズの種類を減らし、状態を示す点の光るぼかしをなくしました。捕獲の通知は跳ねずになめらかに出て、記録の NEW バッジは落ち着いた見た目にしました。
+- README を英語と日本語でも読めるようにしました。
 
 ### 1.3.22
 - 上のセッションタブをドラッグして並べ替えられます。左のセッション一覧と、次に再び開く順番も一緒に変わります。
