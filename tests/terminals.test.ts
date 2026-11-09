@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript } = require('../electron/terminals.cjs')
+const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation } = require('../electron/terminals.cjs')
 
 const REPO = fileURLToPath(new URL('..', import.meta.url))
 
@@ -66,6 +66,26 @@ describe('terminals.cjs', () => {
     fs.writeFileSync(file, '{broken')
     expect(readOpenSessions(file)).toEqual([])
     expect(readOpenSessions(path.join(dir, 'missing.json'))).toEqual([])
+  })
+
+  it('after /clear the hook links the terminal to its new conversation, which reopening resumes', () => {
+    const userData = tempDir()
+    const terminal = '11111111-2222-4333-8444-555555555555'
+    const fresh = '99999999-8888-4777-8666-555555555555'
+    fs.mkdirSync(join(userData, 'session-links'))
+    expect(linkedConversation(userData, terminal)).toBe('')
+    const res = spawnSync(process.execPath, [join(REPO, 'hooks', 'claudex-hook.cjs')], {
+      input: JSON.stringify({ hook_event_name: 'SessionStart', source: 'clear', session_id: fresh, cwd: REPO }),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDEX_EVENT_URL: 'http://127.0.0.1:9/event', CLAUDEX_SESSION_ID: terminal, CLAUDEX_LINK_FILE: join(userData, 'session-links', terminal) },
+    })
+    expect(res.status).toBe(0)
+    expect(linkedConversation(userData, terminal)).toBe(fresh)
+  })
+
+  it("does not pass another app terminal's identity on", () => {
+    const env = cleanEnv({ PATH: '/bin', CLAUDEX_SESSION_ID: 'x', CLAUDEX_LINK_FILE: 'y' })
+    expect(env).toEqual({ PATH: '/bin' })
   })
 
   it('reopens only sessions that have a transcript', () => {

@@ -2,6 +2,15 @@
 
 ## Claudex
 
+### 1.3.29
+- 터미널 찾기(Ctrl+F): 출력에서 글자를 찾아 노란색으로 보여줘요. 출력에 나온 파일 경로는 Ctrl+클릭하면 코드 편집기에서 그 줄이 열려요.
+- 세션 단축키: Ctrl+Tab·Ctrl+Shift+Tab으로 세션 이동, Ctrl+Shift+T 새 세션, Ctrl+Shift+W 닫기. 앱이 뒤에 있을 때 세션이 끝나거나 확인이 필요하면 Windows 알림으로 알려줘요(설정 › 알림).
+- 컨텍스트를 HP로 보여줘요: 남은 컨텍스트만큼 막대가 줄고 초록·노랑·빨강으로 바뀌어요. 숫자는 남은 토큰, 옆에 모델 이름이 있어요.
+- /clear를 해도 세션이 "종료"로 바뀌지 않고 계속 이어져요. 컨텍스트도 새 대화 기준으로 바뀌고, 앱을 다시 켜면 /clear 뒤의 대화로 이어져요.
+- 한글을 쓰다 Ctrl+Enter·Shift+Enter를 누르면 줄이 두 번 바뀌던 문제를 고쳤어요.
+- 랭킹: 시상대 대신 1·2·3위 줄을 크게, 메달과 금·은·동 색으로 강조해요.
+- 왼쪽 패널의 교체·닫기 버튼은 세션에 마우스를 올렸을 때만 보여요. 탭을 끌어 옮기지 못하던 문제도 고쳤어요.
+
 ### 1.3.28
 - 랭킹: 1·2·3위를 메달과 받침대가 있는 시상대에 올리고, 나머지는 아래 목록으로 보여줘요. 연습 상대 트레이너가 함께해요.
 - 위쪽 줄의 화면 전환(터미널·도감·박스·기록·랭킹)을 아이콘으로 바꿔서, 창을 줄여도 가로 스크롤이 생기지 않아요.
@@ -214,6 +223,15 @@
 
 ## Claudex (English)
 
+### 1.3.29
+- Find in the terminal (Ctrl+F): matches are marked in yellow. Ctrl+click a file path in the output to open it at that line in your code editor.
+- Session keys: Ctrl+Tab and Ctrl+Shift+Tab move between sessions, Ctrl+Shift+T opens one, Ctrl+Shift+W closes it. While the app is behind, a Windows notification says when a session finishes or needs you (Settings › Notifications).
+- Context shown as HP: the bar shrinks with the context left and turns green, yellow, red. The number is the tokens left, with the model name beside it.
+- /clear no longer turns a session "ended": it carries on, the context follows the new conversation, and reopening the app resumes the conversation after the /clear.
+- Ctrl+Enter or Shift+Enter right after Korean text no longer adds two new lines.
+- Rankings: instead of the podium, the first three rows are bigger, with medals in gold, silver and bronze.
+- The swap and close buttons in the side panel show only when the mouse is over the session. Dragging tabs works again.
+
 ### 1.3.28
 - Rankings: the top three stand on a podium with medals, the rest are listed below. Practice rival trainers join in.
 - The view switches at the top (terminal, Pokédex, Box, log, rankings) are icons now, so the bar never scrolls sideways.
@@ -289,6 +307,15 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.29
+- ターミナル内検索(Ctrl+F): 一致した文字を黄色で表示します。出力に出たファイルパスはCtrl+クリックでコードエディタのその行が開きます。
+- セッションのショートカット: Ctrl+Tab・Ctrl+Shift+Tabでセッション移動、Ctrl+Shift+Tで新しいセッション、Ctrl+Shift+Wで閉じます。アプリが後ろにあるとき、セッションが終わったり確認が必要になるとWindowsの通知でお知らせします(設定 › 通知)。
+- コンテキストをHPで表示: 残りのコンテキストに合わせてバーが減り、緑・黄・赤に変わります。数字は残りトークンで、横にモデル名があります。
+- /clearをしてもセッションが「終了」にならず、そのまま続きます。コンテキストも新しい会話に合わせて変わり、アプリを開き直すと/clear後の会話から再開します。
+- 韓国語の入力直後にCtrl+Enter・Shift+Enterを押すと改行が2回入る問題を直しました。
+- ランキング: 表彰台の代わりに1〜3位の行を大きく、金・銀・銅のメダルで強調します。
+- 左パネルの交代・閉じるボタンは、セッションにマウスを乗せたときだけ表示します。タブをドラッグで動かせなかった問題も直しました。
 
 ### 1.3.28
 - ランキング: 1〜3位をメダルと台のある表彰台に乗せ、それ以外は下の一覧で表示します。練習相手のトレーナーも参加します。

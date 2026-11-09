@@ -990,6 +990,12 @@ function processEvent(body) {
         // A registry-only session's first SessionStart: hooked from now on
         hookSession(session, source === 'compact' ? 'implicit' : source, now)
         session.lastActivityAt = now
+        // /clear in an app terminal: the same session, a fresh conversation (nothing running, nothing asked)
+        if (source === 'clear') {
+          cancelPendingNeedsYou(id)
+          clearNeedsYouTimer(id)
+          session.main = newMain(now)
+        }
         // Compaction fires SessionStart too, but it is not how the session started
         if (source !== 'compact') session.source = source
         const project = projectName(body.project, body.cwd)

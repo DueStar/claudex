@@ -108,8 +108,6 @@ const LeaderboardView: React.FC = () => {
     const all = [...people, ...npcs].sort((a, b) => b.value - a.value || Number(a.npc) - Number(b.npc))
     return all.map(r => ({ ...r, place: 1 + all.filter(x => x.value > r.value).length }))
   }, [rows, showNpc, board, tick])
-  const podium = shown && shown.length >= 3 ? shown.slice(0, 3) : []
-  const rest = shown ? shown.slice(podium.length) : []
   const nick = (r: Shown) => <>{r.nickname}{r.me && <small>{t('나')}</small>}</>
 
   return (
@@ -166,26 +164,10 @@ const LeaderboardView: React.FC = () => {
           : !shown ? <div className="dex-empty">{t('불러오는 중…')}</div>
           : shown.length === 0 ? <div className="dex-empty">{t('아직 참여한 트레이너가 없어요. 첫 기록을 남겨 보세요')}</div>
           : <>
-            {/* The top three on a podium: second, first, third */}
-            {podium.length === 3 && (
-              <div className="rank-podium">
-                {[podium[1], podium[0], podium[2]].map((r, slot) => {
-                  const step = [2, 1, 3][slot] // the stand's height: 1 in the middle, tallest
-                  return (
-                    <div key={r.key} className={`rank-stand p${step}${r.me ? ' me' : ''}`}>
-                      {step === 1 && <svg className="rank-crown" viewBox="0 0 24 16" aria-hidden="true"><path d="M2 14 L4 4 L9 9 L12 2 L15 9 L20 4 L22 14 Z" /></svg>}
-                      {r.partner ? <img src={iconUrl(r.partner)} alt="" /> : <span className="rank-noicon" />}
-                      <span className="rank-name">{nick(r)}</span>
-                      <span className="rank-value"><b>{r.value.toLocaleString(locale())}</b>{t(meta.unit)}</span>
-                      <div className="rank-block"><span className="rank-medal" aria-label={t('{n}위', { n: r.place })}>{r.place}</span></div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            {rest.map(r => (
-              <div key={r.key} className={`rank-row${r.me ? ' me' : ''}${r.npc ? ' npc' : ''}`}>
-                <span className="rank-place">{r.place}</span>
+            {/* Places 1–3 are bigger rows with the place on a medal (a tie shares the medal) */}
+            {shown.map(r => (
+              <div key={r.key} className={`rank-row${r.place <= 3 ? ` top top${r.place}` : ''}${r.me ? ' me' : ''}${r.npc ? ' npc' : ''}`}>
+                <span className="rank-place" aria-label={t('{n}위', { n: r.place })}>{r.place}</span>
                 {r.partner ? <img src={iconUrl(r.partner)} alt="" /> : <span className="rank-noicon" />}
                 <span className="rank-name">{nick(r)}</span>
                 <span className="rank-value"><b>{r.value.toLocaleString(locale())}</b>{t(meta.unit)}</span>

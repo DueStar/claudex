@@ -209,6 +209,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row-label .w-row-project { white-space: nowrap; }
 .w-row-edit { opacity: 0; font: inherit; font-size: 11px; color: var(--ink-3); background: transparent; border: 0; padding: 0 2px; cursor: pointer; }
 .w-row:hover .w-row-edit { opacity: 1; }
+/* 교체 and 닫기 too show only on the row under the mouse (the place stays, so nothing shifts);
+   a 닫기? waiting for its second click stays */
+.w-row .w-row-swap, .w-row .w-row-close { opacity: 0; }
+.w-row:hover .w-row-swap, .w-row:hover .w-row-close, .w-row .w-row-close.confirm,
+.w-row .w-row-edit:focus-visible, .w-row .w-row-swap:focus-visible, .w-row .w-row-close:focus-visible { opacity: 1; }
 .w-row-edit:hover { color: var(--ink); }
 .w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: 13px; font-weight: 650; color: var(--ink); background: var(--card); border: 1px solid var(--accent); border-radius: 7px; padding: 2px 7px; outline: none; }
 

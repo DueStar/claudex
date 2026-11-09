@@ -129,6 +129,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     bridge.terminals.buffer(term.id).then((buf) => { if (!disposed && buf) xterm.write(buf) })
     const offData = bridge.terminals.onData(({ id, data }) => { if (id === term.id) xterm.write(data) })
     const input = xterm.onData((data) => bridge!.terminals.write(term.id, data))
+    // When a Shift/Ctrl+Enter that ended an IME composition queued its newline
+    let imeEnterAt = 0
     // Ctrl+V pastes, Ctrl+C copies when there is a selection (else it is ^C for Claude)
     xterm.attachCustomKeyEventHandler((e) => {
       // Shift+Enter / Ctrl+Enter: a new line in the prompt instead of sending it (Claude Code
@@ -144,11 +146,16 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
           const newline = () => bridge!.terminals.write(term.id, '\x1b\r')
           const ta = xterm.textarea
           if ((e.isComposing || e.keyCode === 229) && ta) {
+            imeEnterAt = Date.now()
             let sent = false
             const once = () => { if (!sent) { sent = true; newline() } }
             // xterm reads the committed text in a setTimeout(0) after compositionend: queue behind it
             ta.addEventListener('compositionend', () => setTimeout(once, 10), { once: true })
             setTimeout(once, 300) // no compositionend after all
+          } else if (Date.now() - imeEnterAt < 150) {
+            // The Korean IME passes the Enter on after committing the syllable: a second keydown
+            // for the same press, no longer composing. Its newline is already queued above
+            imeEnterAt = 0
           } else {
             // A syllable whose composition just ended is sent by xterm on a zero timeout:
             // a beat later, so the newline comes after it

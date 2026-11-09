@@ -518,9 +518,6 @@ html.qa-mode #root { min-height: 100vh; }
 .rank-row:hover { background: var(--card-2); }
 .rank-row.me { background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .rank-place { font-size: 14px; font-weight: 800; color: var(--ink-3); text-align: center; font-variant-numeric: tabular-nums; }
-.rank-row.top1 .rank-place { color: #ffd84a; }
-.rank-row.top2 .rank-place { color: #d7dae3; }
-.rank-row.top3 .rank-place { color: #e3a76f; }
 .rank-row img, .rank-noicon { width: 36px; height: 36px; object-fit: contain; }
 .rank-name { font-size: 13px; font-weight: 650; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-name small { margin-left: 6px; font-size: 10px; font-weight: 800; color: var(--accent-ink); background: var(--accent); padding: 1px 6px; border-radius: 999px; }
@@ -558,33 +555,24 @@ html.qa-mode #root { min-height: 100vh; }
 .w-throw-tools button.on { background: var(--card-2); color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
 /* A session running another AI tool than Claude Code: its name, quiet */
 .w-row-tool { flex: none; font-size: 10px; color: var(--ink-3); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }
-/* 랭킹: the top three on a podium (second, first, third), the rest listed below. The stand reads as a
-   picture, not as one more number: metal-tinted blocks with a lit top face, the place on a medal */
-.rank-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 8px; padding: 12px 8px 16px; }
-.rank-stand { --metal: #e3a76f; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; position: relative; }
-.rank-stand.p1 { --metal: #ffd84a; }
-.rank-stand.p2 { --metal: #c9ced8; }
-.rank-stand img, .rank-stand .rank-noicon { width: 56px; height: 56px; object-fit: contain; }
-.rank-stand.p1 img { width: 76px; height: 76px; }
-.rank-crown { width: 26px; height: 18px; fill: var(--metal); margin-bottom: -6px; }
-.rank-stand .rank-name { max-width: 100%; font-size: 13px; text-align: center; }
-.rank-stand .rank-value { font-size: 11px; }
-.rank-stand .rank-value b { font-size: 15px; }
-.rank-block {
-  width: 100%; margin-top: 8px; display: grid; place-items: start center; padding-top: 14px;
-  border-radius: 10px 10px 0 0; border-top: 2px solid var(--metal);
-  background: color-mix(in srgb, var(--metal) 12%, var(--card-2));
+/* 랭킹: places 1–3 are bigger rows, tinted in their metal, the place on a medal */
+.rank-row.top { --metal: #e3a76f; grid-template-columns: 40px 48px minmax(0, 1fr) auto; padding: 10px 12px; background: color-mix(in srgb, var(--metal) 9%, transparent); box-shadow: inset 3px 0 0 var(--metal); }
+.rank-row.top1 { --metal: #ffd84a; grid-template-columns: 40px 60px minmax(0, 1fr) auto; padding: 12px; }
+.rank-row.top2 { --metal: #c9ced8; }
+.rank-row.top:hover { background: color-mix(in srgb, var(--metal) 14%, transparent); }
+.rank-row.top + .rank-row:not(.top) { margin-top: 6px; }
+.rank-row.top .rank-place {
+  justify-self: center; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--metal); color: #15171d; font-size: 14px;
 }
-.rank-stand.p1 .rank-block { height: 96px; }
-.rank-stand.p2 .rank-block { height: 68px; }
-.rank-stand.p3 .rank-block { height: 48px; }
-/* the place: a medal, not a figure */
-.rank-medal {
-  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
-  background: var(--metal); color: #15171d; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
-}
-.rank-stand.p1 .rank-medal { width: 36px; height: 36px; font-size: 18px; }
-.rank-stand.me .rank-name { color: var(--accent); }
+.rank-row.top1 .rank-place { width: 32px; height: 32px; font-size: 16px; }
+.rank-row.top img, .rank-row.top .rank-noicon { width: 48px; height: 48px; }
+.rank-row.top1 img, .rank-row.top1 .rank-noicon { width: 60px; height: 60px; }
+.rank-row.top .rank-name { font-size: 14px; }
+.rank-row.top1 .rank-name { font-size: 15px; }
+.rank-row.top .rank-value b { font-size: 16px; }
+.rank-row.top1 .rank-value b { font-size: 18px; }
+.rank-row.top.me { box-shadow: inset 3px 0 0 var(--metal), inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .rank-npc-toggle { margin-left: auto; font: inherit; font-size: 11px; padding: 4px 10px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink-3); cursor: pointer; }
 .rank-npc-toggle.on { color: var(--ink); background: var(--card-2); }
 /* The board's small print: some entries are practice rivals */

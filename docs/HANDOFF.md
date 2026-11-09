@@ -477,7 +477,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 위쪽 뷰 전환 아이콘만(`w-view-icons`), 바는 overflow hidden. 위젯·알림 카드 그림자 제거(투명 창 경계에서 잘림), 알림 뒤 대기 카드 대신 +N. 컨텍스트 막대 accent, 기록 구분선, 확률표 라벨 칸 max-content(영어 Sub-legendary).
    - **Codex 정식 어댑터(3단계) 진행 중**: 이 PC에 codex-cli 0.167.0 설치·로그인됨. 확인한 것: `-c hooks.<Event>=[{hooks=[{type="command",command="..."}]}]`로 사용자 config를 안 건드리고 훅을 넣을 수 있다. 처음엔 "Hooks need review … 2. Trust all and continue"가 뜨고 한 번 승인하면 해시로 기억(`--dangerously-bypass-hook-trust`는 다른 미검토 훅도 돌려서 쓰지 않기로). 그다음 Windows 첫 실행에 "Set up default sandbox (requires Administrator)" 메뉴 — 사용자가 Codex 세션에서 한 번 설정해야 함. 남은 확인: Windows에서 훅 command가 어떤 셸로 도는지(cmd/PowerShell/직접), 그에 맞는 `command_windows`(ELECTRON_RUN_AS_NODE로 Claudex.exe를 노드로), session id는 SessionStart 훅에서 받기(미리 정할 수 없음), 이어하기 `codex resume <id>`, 사용량은 rollout JSONL `rate_limits` 또는 `codex app-server`. 목표: 도구가 바뀌어도 화면 동일.
 
-7-19. **2026-11-09 (1.3.29 준비, 테스트 빌드만, 아직 커밋 안 함 — 사용자가 "푸시해" 하면 릴리스)**
+7-19. **2026-11-09 1.3.29 (1)**
    - 탭 끌기 회귀 수정: `useDragOrder`의 "안쪽 버튼이면 끌기 안 함"이 탭 자신(button)까지 걸렀다 → `inner !== currentTarget && currentTarget.contains(inner)`일 때만.
    - 뷰 전환: 평소엔 아이콘+글자, 위쪽 바가 넘칠 때만 아이콘(`viewsCompact`, ResizeObserver, 넘칠 때의 scrollWidth를 기억했다가 그만큼 넓어지면 글자 복귀). 사용자 의도: "스크롤 생길 때만 최소화".
    - Ctrl/Shift+Enter: 조합 중이 아니어도 줄바꿈을 15ms 늦게 보냄(조합이 막 끝난 글자를 xterm이 setTimeout(0)으로 보내기 때문), 조합 중 key 'Process'(229)도 `e.code === 'Enter'`로 인식.
@@ -486,9 +486,21 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 시상대: 사다리꼴 윗면·그라데이션 제거, 둥근 평면 블록 + 메달색 윗선, 단색 메달. 기록 줄 padding 12px(레벨업 줄 8px).
    - 다음: 남은 개발자 개선 ③ 일반 셸 탭(보여줄 방식 상의) ⑥ git 브랜치 ⑦ 스크롤백 설정 ⑧ 터미널 글꼴 ⑨⑩ README 보강, 그리고 Codex 3단계(사용자 샌드박스 설정 대기).
 
+7-20. **2026-11-09 1.3.29 (2)**
+   - **`/clear` 버그**: `/clear`는 같은 터미널에서 새 session_id로 대화를 시작한다(SessionEnd `clear` → SessionStart `clear`). 앱은 터미널을 처음 id로 추적해서 줄이 "종료"가 되고 컨텍스트 HP가 옛 대화에 멈췄다. 이제 터미널이 claude를 띄울 때 env `CLAUDEX_SESSION_ID`(터미널 id)·`CLAUDEX_LINK_FILE`을 넣고, `claudex-hook.cjs`·`status-line.cjs`가 어떤 대화든 터미널 id로 보고한다. 앱 터미널의 SessionEnd `clear`는 보내지 않고, 서버는 SessionStart `clear`에서 main 상태·확인 필요를 초기화. 훅이 SessionStart마다 지금 대화 id를 `userData/session-links/<터미널 id>`에 써 두고, 다시 열 때(`terminals.create`의 resume) 그 대화로 `--resume`(`linkedConversation`). 업데이트 전에 열린 세션에는 env가 없어서 예전 동작.
+   - **한글 끝 글자 + Ctrl/Shift+Enter 줄바꿈 두 번**: 한글 IME는 조합 중 Enter에 keydown을 두 번 준다(229 조합 중 → 확정 뒤 Enter). 둘 다 줄바꿈을 보냈다. 조합 경로에서 `imeEnterAt`을 찍고 150ms 안의 비조합 Enter는 무시.
+   - 입력창의 글자를 덮는 네모 커서는 Claude Code가 진짜 커서를 숨기고(`?25l`) 직접 그리는 것(Windows Terminal도 같음). 앱에서 바꿀 수 없다고 안내함.
+   - **랭킹**: 시상대 제거(사용자: "어색하다, 나중에 디벨롭"). 1~3위는 큰 줄(`.rank-row.top topN`: 메달 동그라미 순위, 아이콘 48/1위 60px, 금·은·동 옅은 배경 + 왼쪽 선). 동점은 같은 메달. 시상대 코드는 1afa7b7에 있음.
+   - **왼쪽 줄 버튼**: 교체(⇄)·닫기(×)도 수정(✎)처럼 줄에 마우스를 올렸을 때만(opacity, 자리는 유지). "닫기?" 확인 중엔 보임, 키보드 focus-visible도 보임.
+
 8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
    - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
    - **개발자 관점 개선**: ①②④⑤는 7-19에서 함(사용자: "추천대로 진행"). 남은 것: ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.
+   - **파티 6마리 넘는 세션 (결정 대기, 2026-11-09 서브에이전트 제안)**: 7-13의 "상한 6, 서브에이전트는 박스 조력자" 결정을 다시 여는 일.
+     - 6 상한은 구조가 아니라 검사 몇 곳: `server/pokedex.js` `throwBall`(파티만)·`ensureAssigned`(파티에서만), `src/Widget.tsx` `partyFull`·`freePartyCount`, `electron/terminals.cjs` `readOpenSessions`의 `.slice(0, 6)`. `busyUids`·`swap`·`helperFor`·`BoxView` working 점은 박스 포켓몬이 일하는 경우를 이미 처리.
+     - 공통 한계: 터미널마다 xterm WebGL 컨텍스트(Chromium 페이지당 약 16) → 현실적 상한 12. 걸음 대기열이 세션별이라 세션 수만큼 조우가 늘어 주간 랭킹(1500 flag)·"사용량 낭비 유도 금지"(7-9)에 영향.
+     - 안: ① 박스에서 바로 보내기(ThrowPicker에 박스 그리드, 작음, 파티 의미가 흐려짐) ② **조력자 세션(추천)**: 7번째부터 박스 포켓몬이 "조력자"로, 왼쪽 패널 파티 줄 아래 "조력자" 묶음, 기본 자동 배정 + 직접 고르기, 상한 12, 작음~중간 ③ 배틀팀 두 개(`state.party`→`parties[]`, merge·클라우드·랭킹까지, 큼) ④ 태그 배틀 동행 트레이너(내 포켓몬이 안 자람, 비추천).
+     - 사용자가 정할 것: 진행 여부, 상한(12?), 조력자 세션의 조우 보정 규칙(확률 낮춤 또는 하루 상한).
    - **카드뉴스**: 사용자가 캡처를 `Documents\claudex-promo\shots`에 넣으면 세로 4:5 6~8장. 블로그 초안은 `Documents\claudex-promo\blog.md`(한다체, 사용자의 Medium 글 말투), 이전 초안 `blog-draft1.md`.
    - unslop 스킬은 `.claude/skills/unslop`에 로컬만(`.git/info/exclude`).
 

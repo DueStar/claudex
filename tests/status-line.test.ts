@@ -157,6 +157,13 @@ describe('status-line.cjs: statusLine', () => {
     expect(req.body).toEqual(EXPECTED_EVENT)
   })
 
+  it("in an app terminal posts under the terminal's id, also after /clear gave the conversation another", async () => {
+    const terminal = '11111111-2222-4333-8444-555555555555'
+    await run(STATUS_JSON, claudexHome(), { env: { CLAUDEX_SESSION_ID: terminal } })
+    const [req] = await posted()
+    expect(req.body).toEqual({ ...EXPECTED_EVENT, sessionId: terminal })
+  })
+
   it('posts without an Authorization or signature header when there is no token file', async () => {
     const { out } = await run(STATUS_JSON, claudexHome())
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')

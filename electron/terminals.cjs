@@ -79,6 +79,8 @@ function cleanEnv(env) {
   const fromClaude = 'CLAUDECODE' in env
   for (const [k, v] of Object.entries(env)) {
     if (k === 'CLAUDECODE' || k === 'CLAUDE_PID' || k.startsWith('CLAUDE_CODE_')) continue
+    // another app terminal's identity (the app started from inside one of its own sessions)
+    if (k === 'CLAUDEX_SESSION_ID' || k === 'CLAUDEX_LINK_FILE') continue
     if (fromClaude && k === 'NO_COLOR') continue
     out[k] = v
   }
@@ -115,6 +117,19 @@ function hasTranscript(sessionId, claudeDir = process.env.CLAUDE_CONFIG_DIR || p
 }
 
 /**
+ * The conversation an app terminal last had (its hook writes it at every
+ * SessionStart; /clear starts another one in the same terminal): what reopening
+ * the terminal resumes. Else '' (never cleared, or an older session).
+ */
+function linkFile(userDataDir, sessionId) { return path.join(userDataDir, 'session-links', sessionId) }
+function linkedConversation(userDataDir, sessionId) {
+  try {
+    const id = fs.readFileSync(linkFile(userDataDir, sessionId), 'utf8').trim()
+    return UUID.test(id) ? id : ''
+  } catch { return '' }
+}
+
+/**
  * `tools()`: the trainer's other AI tools (설정 › 세션). `emit(event)`: a server
  * event for a session whose tool has no hooks (main posts it to /event).
  */
@@ -126,6 +141,8 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   const openFile = path.join(userDataDir, 'open-sessions.json')
   let restorable = readOpenSessions(openFile)
   let frozen = false // quitting: the sessions killed on the way out stay listed
+
+  try { fs.mkdirSync(path.join(userDataDir, 'session-links'), { recursive: true }) } catch {}
 
   function settings() {
     if (!settingsFile) settingsFile = writeSessionSettings(repoRoot, userDataDir)
@@ -158,7 +175,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
    * in its folder (it cannot resume). None while some are open already.
    */
   function takeRestorable() {
-    const out = terms.size ? [] : restorable.filter(s => s.tool !== 'claude' || hasTranscript(s.sessionId))
+    const out = terms.size ? [] : restorable.filter(s => s.tool !== 'claude' || hasTranscript(linkedConversation(userDataDir, s.sessionId) || s.sessionId))
     restorable = []
     return out
   }
@@ -174,7 +191,9 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const dir = cwd && fs.existsSync(cwd) ? cwd : fallback
     // The widget may pick the id itself, so it can dress the session in its Pokémon before the tab shows
     const sessionId = resume || (typeof wanted === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(wanted) ? wanted : crypto.randomUUID())
-    let { file: command, args } = adapter.launch({ sessionId, resume, settingsFile: adapter.id === 'claude' ? settings() : null, extraArgs: adapter.id === 'claude' ? extraArgs() : [] })
+    // A terminal reopened resumes the conversation it last had (after a /clear, not the one it began with)
+    const conversation = resume ? linkedConversation(userDataDir, resume) || resume : undefined
+    let { file: command, args } = adapter.launch({ sessionId, resume: conversation, settingsFile: adapter.id === 'claude' ? settings() : null, extraArgs: adapter.id === 'claude' ? extraArgs() : [] })
     // Debug only: CLAUDEX_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
     if (process.env.CLAUDEX_CLAUDE && adapter.id === 'claude') { command = process.env.CLAUDEX_CLAUDE; args = [] }
     const pty = loadPty().spawn(command, args, {
@@ -182,7 +201,8 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       cols: 100,
       rows: 30,
       cwd: dir,
-      env: cleanEnv(process.env),
+      // Claude Code's hooks report under the terminal's id, whatever conversation runs in it
+      env: adapter.id === 'claude' ? { ...cleanEnv(process.env), CLAUDEX_SESSION_ID: sessionId, CLAUDEX_LINK_FILE: linkFile(userDataDir, sessionId) } : cleanEnv(process.env),
       useConpty: true,
     })
     const t = { id: sessionId, sessionId, cwd: dir, pty, buffer: '', status: 'running', createdAt: Date.now(), adapter }
@@ -293,4 +313,4 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   return { create, write, sendInstruction, resize, buffer, list, rename, close, move, killAll, takeRestorable }
 }
 
-module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, HOOK_EVENTS }
+module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, HOOK_EVENTS }

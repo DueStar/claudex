@@ -141,7 +141,19 @@ const STATUS = {
  * Text is clamped HERE as well as on the server: an oversize body would be
  * refused whole (413) and the state change lost along with the text.
  */
-function buildEvent(d) {
+/** An app session's own id (the terminal's), set in its environment by the app; else '' */
+function terminalSessionId(env = process.env) {
+  const id = String(env.CLAUDEX_SESSION_ID || '')
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : ''
+}
+
+/**
+ * `terminalId`: the app terminal this Claude Code runs in. /clear gives the
+ * conversation a new session_id in the same terminal (SessionEnd 'clear', then
+ * SessionStart 'clear'): everything is reported under the terminal's id, so its
+ * row and Pokémon carry on instead of showing the session as ended.
+ */
+function buildEvent(d, terminalId = terminalSessionId()) {
   if (!isObj(d)) return null
   const hookEvent = str(d.hook_event_name)
   const toolName = str(d.tool_name)
@@ -150,6 +162,7 @@ function buildEvent(d) {
   // schema of every hook event (captured 2.1.300)
   const session = {}
   if (truthy(d.session_id)) session.sessionId = str(d.session_id)
+  if (terminalId && session.sessionId) session.sessionId = terminalId
   if (isStr(d.cwd) && d.cwd) {
     session.project = baseName(d.cwd) || d.cwd
     session.cwd = d.cwd
@@ -175,6 +188,8 @@ function buildEvent(d) {
       return session.sessionId ? emit(event) : null
     }
     case 'SessionEnd':
+      // In an app terminal /clear ends only the conversation: the session goes on
+      if (terminalId && d.reason === 'clear') return null
       return session.sessionId ? emit({ type: 'session_ended', reason: str(or(d.reason, 'other')) }) : null
 
     // A subagent finished. SubagentStop also fires for sidechains that are not
@@ -336,11 +351,20 @@ function buildEvent(d) {
 async function main() {
   const { readStdin, postJson, serverUrl } = require('./post.cjs')
   let event = null
-  try { event = buildEvent(JSON.parse((await readStdin()) || '{}')) } catch { /* not JSON: nothing to send */ }
+  let d = null
+  try { d = JSON.parse((await readStdin()) || '{}') } catch { /* not JSON: nothing to send */ }
+  if (d) {
+    event = buildEvent(d)
+    // The conversation now going on in this app terminal (another one after /clear): what reopening it resumes
+    const link = process.env.CLAUDEX_LINK_FILE
+    if (link && isObj(d) && d.hook_event_name === 'SessionStart' && terminalSessionId() && /^[0-9a-f-]{36}$/i.test(String(d.session_id))) {
+      try { require('fs').writeFileSync(link, String(d.session_id)) } catch { /* not worth failing the hook */ }
+    }
+  }
   if (event) await postJson(serverUrl('event'), JSON.stringify(event))
   process.exit(0)
 }
 
 if (require.main === module) main()
 
-module.exports = { buildEvent, callKey, canonical }
+module.exports = { buildEvent, callKey, canonical, terminalSessionId }

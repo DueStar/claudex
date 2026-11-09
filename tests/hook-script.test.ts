@@ -28,7 +28,7 @@ const { buildEvent } = require(HOOK)
 function runHookLines(payload: unknown): string[] {
   let parsed: unknown
   try { parsed = typeof payload === 'string' ? JSON.parse(payload || '{}') : JSON.parse(JSON.stringify(payload)) } catch { return [] }
-  const event = buildEvent(parsed)
+  const event = buildEvent(parsed, '') // not in an app terminal (see the /clear group)
   return event ? [JSON.stringify(event)] : []
 }
 
@@ -52,6 +52,21 @@ function runHook(payload: unknown): Record<string, any> | null {
   if (lines.length > 1) throw new Error(`expected one line, got ${lines.length}: ${lines.join(' | ')}`)
   return lines.length ? JSON.parse(lines[0]) : null
 }
+
+describe('claudex-hook: /clear in an app terminal', () => {
+  const TERMINAL = '11111111-2222-4333-8444-555555555555'
+  const FRESH = '99999999-8888-4777-8666-555555555555'
+  it("reports the new conversation under the terminal's id and does not end the session", () => {
+    expect(buildEvent({ hook_event_name: 'SessionEnd', session_id: TERMINAL, reason: 'clear', cwd: '/x/proj' }, TERMINAL)).toBeNull()
+    const started = buildEvent({ hook_event_name: 'SessionStart', session_id: FRESH, source: 'clear', cwd: '/x/proj', transcript_path: `/t/${FRESH}.jsonl` }, TERMINAL)
+    expect(started).toMatchObject({ type: 'session_started', source: 'clear', sessionId: TERMINAL, transcriptPath: `/t/${FRESH}.jsonl` })
+    expect(buildEvent({ hook_event_name: 'UserPromptSubmit', session_id: FRESH, prompt: 'hi', cwd: '/x/proj' }, TERMINAL)?.sessionId).toBe(TERMINAL)
+  })
+  it('still ends the session on any other reason, and outside the app nothing is remapped', () => {
+    expect(buildEvent({ hook_event_name: 'SessionEnd', session_id: FRESH, reason: 'prompt_input_exit' }, TERMINAL)).toMatchObject({ type: 'session_ended', sessionId: TERMINAL })
+    expect(buildEvent({ hook_event_name: 'SessionEnd', session_id: FRESH, reason: 'clear' }, '')).toMatchObject({ type: 'session_ended', sessionId: FRESH, reason: 'clear' })
+  })
+})
 
 describe('claudex-hook: Agent tool', () => {
   it('PreToolUse Agent -> agent_working with tool Agent (a step in the Safari Zone), the task in the status (Task alias too)', () => {
