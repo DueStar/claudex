@@ -47,7 +47,8 @@ const BoxView: React.FC = () => {
   const mons = state?.mons ?? {}
   const party = state?.party ?? []
   // `assign` holds only the sessions that are live now: these Pokémon are working
-  const working = useMemo(() => new Set(Object.values(state?.assign ?? {})), [state])
+  // (and the box ones out helping a session's subagents)
+  const working = useMemo(() => new Set([...Object.values(state?.assign ?? {}), ...Object.values(state?.helpers ?? {}).flat()]), [state])
 
   const box = useMemo(() => {
     const q = query.trim().toLowerCase()

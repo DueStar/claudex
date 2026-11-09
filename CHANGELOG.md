@@ -2,6 +2,12 @@
 
 ## Claudex
 
+### 1.3.24
+- 조력자: 서브에이전트가 일하면 박스에서 쉬던 포켓몬이 조력자로 나가요. 그동안의 성장과 조우는 조력자가 받고, 서브에이전트가 끝나면 박스로 돌아가요. 세션 줄에 조력자 아이콘이 보여요. 세션은 계속 파티 6마리까지예요.
+- 창 모드에서 확인을 기다리는 세션은 포켓몬이 통통 튀고, 무엇을 묻는지 한 줄로 보여줘요. 권한 확인은 거기서 바로 허용하거나 거절할 수 있고, 선택지가 있는 질문은 터미널에서 답해요.
+- 박스: 아이콘을 원래 크기보다 키우지 않아서 작은 포켓몬도 선명해요. 칸 안팎 여백도 넓혔어요.
+- 위쪽 세션 탭에서 포켓몬 이름을 빼서 탭이 좁아졌어요(이름은 그림에 마우스를 올리면 보여요).
+
 ### 1.3.23
 - 한글을 입력하다가 Shift+Enter나 Ctrl+Enter를 누르면 마지막 글자가 다음 줄로 내려가던 문제를 고쳤어요.
 - 화면 다듬기: 글자 크기 종류를 줄여 정돈하고, 상태 점의 빛 번짐을 없앴어요. 포획 알림은 튀지 않고 부드럽게 올라오고, 기록의 NEW 배지는 차분하게 바꿨어요.
@@ -183,6 +189,12 @@
 
 ## Claudex (English)
 
+### 1.3.24
+- Helpers: when a subagent works, a Pokémon resting in your Box goes out to help. It takes that work's growth and encounters, and goes back to the Box when the subagent is done. Helpers show on the session's row. Sessions are still capped by your party of six.
+- In window mode, a session waiting on you makes its Pokémon hop and says in one line what it is asking. A permission can be allowed or declined right there; a question with choices is answered in the terminal.
+- Box: icons are never scaled up, so small Pokémon stay sharp, with more room in and around each slot.
+- The session tabs at the top no longer show the Pokémon's name, so they take less space (hover the picture to see it).
+
 ### 1.3.23
 - Fixed the last Korean (or other IME) character dropping to the next line when you press Shift+Enter or Ctrl+Enter while typing.
 - Visual polish: fewer text sizes, no glow on status dots, the catch notice slides in without bouncing, and a quieter NEW badge in the log.
@@ -227,6 +239,12 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.24
+- お手伝い: サブエージェントが働くと、ボックスで休んでいたポケモンがお手伝いに出ます。その間の成長と出会いはお手伝いのポケモンのものになり、サブエージェントが終わるとボックスに戻ります。セッションの行にお手伝いのアイコンが表示されます。セッションは引き続き手持ち6匹までです。
+- ウィンドウモードで確認を待っているセッションは、ポケモンがぴょんぴょん跳ねて、何を聞いているかを1行で表示します。権限の確認はその場で許可・拒否でき、選択肢のある質問はターミナルで答えます。
+- ボックス: アイコンを元の大きさより拡大しないので、小さなポケモンもくっきり見えます。マスの内側と間の余白も広げました。
+- 上のセッションタブからポケモンの名前を外して、タブを狭くしました(名前は画像にマウスを乗せると見られます)。
 
 ### 1.3.23
 - 日本語・韓国語などを入力中に Shift+Enter や Ctrl+Enter を押すと、最後の文字が次の行に落ちる問題を直しました。

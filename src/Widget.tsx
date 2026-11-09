@@ -575,7 +575,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             {rows.map(r => (
               <div
                 key={r.sessionId}
-                className={`w-row mood-${r.mood}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
+                className={`w-row mood-${r.mood}${r.terminal?.status === 'running' && r.terminal.asking ? ' asking' : ''}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
                 onClick={() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') }}
                 title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
@@ -602,6 +602,12 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                       onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
                     >
                       <span className="w-row-name">{r.title ?? t('새 세션')}</span><span className="w-row-project">{r.name}</span>
+                    </span>
+                  )}
+                  {renaming !== r.sessionId && (dex?.helpers?.[r.sessionId] ?? []).length > 0 && (
+                    <span className="w-row-helpers" title={t('서브에이전트를 돕는 조력자 (박스에서 나와요)')}>
+                      {dex!.helpers![r.sessionId].slice(0, 3).map(uid => { const h = dex!.mons[uid]; return h ? <img key={uid} src={iconUrl(h.dex)} alt={nameOf(pokemonById(h.dex))} title={`${t('조력자')} · ${nameOf(pokemonById(h.dex))} Lv.${levelOf(h)}`} /> : null })}
+                      {dex!.helpers![r.sessionId].length > 3 && <small>+{dex!.helpers![r.sessionId].length - 3}</small>}
                     </span>
                   )}
                   {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{levelOf(monOf(r.sessionId))}</span>}
@@ -634,21 +640,31 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   </div>
                   <span className="w-row-num">{typeof r.meter?.context.used === 'number' ? `${pct(r.meter.context.used)}%` : '—'}</span>
                 </div>
-                {/* Window mode: a session asking while its terminal is not in view opens its
-                    question right in its row, to answer without leaving the one in view */}
+                {/* Window mode: a session waiting on the trainer while its terminal is not in view
+                    says so in its row (its Pokémon hops). A permission is answered right here; a
+                    question with choices opens its terminal, where the choices can be read. No
+                    terminal in the row: one that narrow resized the session and squeezed its dialog */}
                 {expanded && r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you')
-                  && !(view === 'terminal' && shown?.sessionId === r.sessionId) && (
-                  <div className="w-row-ask" onClick={e => e.stopPropagation()}>
-                    <div className="w-ask-term">
-                      <Suspense fallback={null}><TerminalView key={`row-ask-${r.terminal.id}`} term={r.terminal} active focus={false} /></Suspense>
+                  && !(view === 'terminal' && shown?.sessionId === r.sessionId) && (() => {
+                  const ny = r.session?.main?.needsYou
+                  const permission = r.mood === 'needs-you' && ny?.kind === 'permission'
+                  const what = permission
+                    ? [ny?.toolName, ny?.summary].filter(Boolean).join(' · ') || t('도구를 써도 될지 물어요')
+                    : ny?.message || t('질문에 답을 기다려요')
+                  const open = () => { setTarget(r.sessionId); setView('terminal') }
+                  return (
+                    <div className="w-row-ask" onClick={e => e.stopPropagation()}>
+                      <div className="w-row-ask-what" title={what}>{what}</div>
+                      <div className="w-row-ask-actions">
+                        {permission && <>
+                          <button className="w-ask-quick yes" onClick={() => bridge?.terminals.write(r.terminal!.id, '\r')} title={t('허용해요 (Enter)')}>{t('허용 (Enter)')}</button>
+                          <button className="w-ask-quick" onClick={() => bridge?.terminals.write(r.terminal!.id, '\x1b')} title={t('거절하거나 그만둬요 (Esc)')}>{t('거절 (Esc)')}</button>
+                        </>}
+                        <button className={`w-ask-quick${permission ? ' quiet' : ' yes'}`} onClick={open}>{permission ? t('터미널에서 보기') : t('터미널에서 답하기')}</button>
+                      </div>
                     </div>
-                    <div className="w-row-ask-actions">
-                      <button className="w-ask-quick yes" onClick={() => bridge?.terminals.write(r.terminal!.id, '\r')} title={t('고른 항목으로 답해요 (Enter)')}>{t('선택 (Enter)')}</button>
-                      <button className="w-ask-quick" onClick={() => bridge?.terminals.write(r.terminal!.id, '\x1b')} title={t('거절하거나 그만둬요 (Esc)')}>{t('거절 (Esc)')}</button>
-                      <span className="w-ask-hint">{t('↑↓로 고르고 Enter, 그만두려면 Esc')}</span>
-                    </div>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
             ))}
           </section>
@@ -736,9 +752,9 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 }}
                 onDragEnd={() => setTabDrag(null)}
               >
-                <img src={r.sprite} alt="" />
+                {/* The Pokémon shows as its sprite only (its name took too much of the tab), named on hover */}
+                <img src={r.sprite} alt={r.name} title={r.name} />
                 <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? t('새 세션')}</span>
-                <span className="w-term-tab-project">{r.name}</span>
                 <span className="w-term-tab-dot" />
               </button>
             ))}

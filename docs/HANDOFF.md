@@ -442,7 +442,14 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 7-13. **2026-11-09 1.3.23**
    - **IME 조합 중 Shift/Ctrl+Enter**: 한글 마지막 글자는 키를 누른 뒤에야 확정된다. 조합 중(`isComposing` 또는 keyCode 229)이면 textarea의 `compositionend` 뒤(xterm이 setTimeout 0으로 확정 글자를 보낸 다음, +10ms)에 ESC+CR을 보낸다. compositionend가 안 오면 300ms 뒤에 보낸다.
    - **unslop 점검(가벼운 수준)**: 사용자는 굵기는 지금이 좋다고 해서 그대로 둠. 글자 크기 18종 → 8종(10·11·12·13·14·16·20·28, 도감 칸의 큰 "?" 48만 예외, 터미널 글자 크기 버튼 미리보기도 예외). 상태 점 발광 제거(포획 카드의 등급 빛은 유지), toastIn 오버슈트 제거, 기록 NEW 배지는 연한 바탕+강조색 글자. 랭킹 빈 문구의 느낌표, 영어 포획 제목 "Caught!"의 느낌표 제거. unslop 스킬은 `.claude/skills/unslop`에 로컬로만 둠(커밋 안 함).
-   - **다음 작업(사용자 결정)**: 세션 상한은 6 그대로. 서브에이전트는 박스 포켓몬이 "조력자"로 나간다.
+   - **다음 작업(사용자 결정)**: 세션 상한은 6 그대로. 서브에이전트는 박스 포켓몬이 "조력자"로 나간다. (1.3.24에서 구현)
+
+7-14. **2026-11-09 1.3.24**
+   - **조력자**(`server/pokedex.js` `helpers`): `agent_working`에 `agentId`가 있으면 `helperFor(sessionId, agentId)`가 박스에서 쉬는(busy도 다른 조력자도 아닌) 포켓몬을 무작위로 하나 붙인다. 그 호출의 `workStep`(성장·레벨·진화, `lastWorkAt` 키는 `세션
+에이전트`)과 걸음 대기열의 조우(`step.uid`)는 조력자 몫. `agent_completed`(SubagentStop), `session_ended`, 10분 무활동(`HELPER_IDLE_MS`, tick)에 박스로 돌아간다. 저장하지 않는다(실행 중에만). 박스가 비면 예전처럼 파티 포켓몬이 맡는다. 조력자는 놓아주기·교환 불가(`busy`). `publicState().helpers`: sessionId → uid[]. 위젯 줄에 아이콘 최대 3개 +N, 박스는 working 점. 로그·토스트는 없음(`kind: 'helper'` 이벤트만 방송).
+   - **왼쪽 줄 확인 카드**: 1.3.22의 줄 안 작은 `TerminalView`를 없앴다. 300px 폭 터미널이 세션 PTY 폭을 줄여 Claude Code가 좁게 다시 그렸다. 이제 `main.needsYou`의 `toolName · summary`(없으면 message) 한 줄 + 권한(kind permission)이면 허용(Enter)·거절(Esc)·터미널에서 보기, 그 밖(선택지 질문, terminal.asking)은 "터미널에서 답하기"만(Enter가 모르는 첫 답을 고르지 않게). 포켓몬 스프라이트가 통통 튄다(`wMonHop`, needs-you·asking일 때만, reduced-motion이면 없음).
+   - **박스 아이콘**: SV 아이콘(pokemondb)은 포켓몬 실제 크기로 잘려 있어 작은 종은 30px 안팎이다. 칸에 맞춰 키우던 것을 원래 크기 이하로만(최대 48px) 보이게 했다. 더 좋은 일관된 아이콘 출처는 찾지 못함. 칸 padding 14~16, gap 10~12, 칸 76(아이콘)·96(그림).
+   - **위쪽 탭**: 포켓몬 이름(`w-term-tab-project`) 제거, 스프라이트 title로.
 
 8. **나중에**
    - 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명 (설정·리더보드·다른 AI 도구는 7-9로 옮김)

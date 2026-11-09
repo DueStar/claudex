@@ -81,7 +81,7 @@ export interface Mon {
 }
 
 export interface DexEvent {
-  kind: 'catch' | 'flee' | 'evolve' | 'sendout' | 'swap' | 'release' | 'exchange' | 'levelup' | 'professor'
+  kind: 'catch' | 'flee' | 'evolve' | 'sendout' | 'swap' | 'release' | 'exchange' | 'levelup' | 'professor' | 'helper'
   id: number
   name?: string
   tier?: Tier
@@ -118,6 +118,8 @@ export interface DexState {
   assign: Record<string, string>
   /** sessionId -> uid for every session that ever had a Pokémon (resume brings it back) */
   remembered?: Record<string, string>
+  /** sessionId -> the box Pokémon helping that session's subagents right now */
+  helpers?: Record<string, string[]>
   partySize: number
   boxLimit?: number
   encounters: number

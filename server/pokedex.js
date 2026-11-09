@@ -110,6 +110,7 @@ export function levelFrom(metLevel, workMs) {
   return { level, into: left, need: level < MAX_LEVEL ? minutesForLevel(level) : null }
 }
 const WORK_GAP_MS = 5 * 60 * 1000
+const HELPER_IDLE_MS = 10 * 60 * 1000 // a helper whose subagent went quiet this long goes back to the box
 export const STARTER_LEVEL = 5
 /** Ultra Beasts (Beast Ball): Nihilego … Blacephalon */
 export const ULTRA_BEASTS = new Set([793, 794, 795, 796, 797, 798, 799, 803, 804, 805, 806])
@@ -341,6 +342,36 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     return busy
   }
 
+  /**
+   * Helpers: a session's subagents are worked by box Pokémon, one each, while
+   * the subagent runs (the party stays the session cap). Per run only: a
+   * helper goes back to the box when its subagent stops, its session ends or
+   * it has not worked for HELPER_IDLE_MS. key `${sessionId}
+${agentId}` -> { uid, sessionId, lastAt }
+   */
+  const helpers = new Map()
+  const helperKey = (sessionId, agentId) => `${sessionId}
+${agentId}`
+  const helpingUids = () => new Set([...helpers.values()].map(h => h.uid))
+  /** The box Pokémon helping this subagent: the one already out, else a resting one at random (none when the box has none free) */
+  function helperFor(sessionId, agentId) {
+    const key = helperKey(sessionId, agentId)
+    const have = helpers.get(key)
+    if (have && state.mons[have.uid]) { have.lastAt = now(); return { uid: have.uid, isNew: false } }
+    const busy = busyUids()
+    const out = helpingUids()
+    const free = state.box.filter(u => state.mons[u] && !busy.has(u) && !out.has(u))
+    if (!free.length) return { uid: null, isNew: false }
+    const uid = free[Math.floor(random() * free.length)]
+    helpers.set(key, { uid, sessionId, lastAt: now() })
+    return { uid, isNew: true }
+  }
+  function dismissHelpers(test) {
+    let any = false
+    for (const [key, h] of helpers) if (test(h, key)) { helpers.delete(key); lastWorkAt.delete(key); any = true }
+    return any
+  }
+
   function publicState() {
     ensureTrainer()
     backfillTraits()
@@ -356,6 +387,8 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
       box: state.box,
       assign,
       remembered: state.assign,
+      // sessionId -> the box Pokémon helping its subagents
+      helpers: [...helpers.values()].reduce((m, h) => { (m[h.sessionId] ??= []).push(h.uid); return m }, {}),
       partySize: PARTY_SIZE,
       boxLimit: BOX_LIMIT,
       encounters: state.encounters,
@@ -607,16 +640,16 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
   const lastActivityAt = new Map()
 
   /** A step's growth: work time since the last one (a break over 5 minutes is left out), level-up, evolution */
-  function workStep(sessionId, mon, tool) {
+  function workStep(sessionId, mon, tool, workKey = sessionId) {
     if (!mon) return null
     let grown = null
-    const last = lastWorkAt.get(sessionId)
+    const last = lastWorkAt.get(workKey)
     if (last !== undefined && now() - last <= WORK_GAP_MS && now() > last) {
       const before = levelOf(mon)
       mon.workMs = (mon.workMs ?? 0) + (now() - last)
       if (levelOf(mon) > before) grown = pushLog({ kind: 'levelup', id: mon.dex, name: byId.get(mon.dex)?.ko, level: levelOf(mon), sessionId, uid: mon.uid, shiny: mon.shiny, at: now() })
     }
-    lastWorkAt.set(sessionId, now())
+    lastWorkAt.set(workKey, now())
     mon.steps += 1
     // Evolution comes with a level-up, at the games' level for it
     if (grown) {
@@ -642,7 +675,8 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     if (!q.length) pendingSteps.delete(sessionId)
     lastStepAt.set(sessionId, now())
     if (random() >= ENCOUNTER_PER_STEP) return null
-    const uid = state.assign[sessionId]
+    // A subagent's step meets with its helper (if it is still around), else the partner
+    const uid = (step.uid && state.mons[step.uid]) ? step.uid : state.assign[sessionId]
     return encounter(sessionId, uid ? state.mons[uid] : null, step.tool, false, step.via)
   }
 
@@ -654,6 +688,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
   function tick() {
     if (species.length === 0) return
     let changed = false
+    if (dismissHelpers(h => now() - h.lastAt > HELPER_IDLE_MS)) publish(null)
     for (const sessionId of new Set([...pendingSteps.keys(), ...lastActivityAt.keys()])) {
       const session = sessionOf(sessionId)
       if (session?.main?.state === 'working' && now() - (lastActivityAt.get(sessionId) ?? now()) >= THINK_STEP_MS) {
@@ -749,7 +784,9 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     const fresh = ensureTrainer()
     if (session?.project) state.projects[sessionId] = session.project
     else if (ev.project && !state.projects[sessionId]) state.projects[sessionId] = ev.project
-    if (ev.type === 'session_ended') { if (state.thrownAt) delete state.thrownAt[sessionId]; save(); publish(null); return }
+    if (ev.type === 'session_ended') { if (state.thrownAt) delete state.thrownAt[sessionId]; dismissHelpers(h => h.sessionId === sessionId); save(); publish(null); return }
+    // A subagent finished: its helper goes back to the box
+    if (ev.type === 'agent_completed' && ev.agentId) { if (dismissHelpers((h, key) => key === helperKey(sessionId, ev.agentId))) publish(null); return }
     const { uid, isNew } = ensureAssigned(sessionId)
     const mon = uid ? state.mons[uid] : null
     let event = null
@@ -765,10 +802,14 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     if (!sessionOpenedAt.has(sessionId)) sessionOpenedAt.set(sessionId, now())
     if (ev.type === 'agent_working' && !ev.failed) {
       lastActivityAt.set(sessionId, now())
-      const grown = workStep(sessionId, mon, ev.tool)
+      // Inside a subagent the work is its helper's (the partner's when the box has no one free)
+      const help = ev.agentId ? helperFor(sessionId, ev.agentId) : { uid: null, isNew: false }
+      const worker = help.uid ? state.mons[help.uid] : mon
+      if (help.isNew && !event) event = { kind: 'helper', id: worker.dex, name: byId.get(worker.dex)?.ko, sessionId, uid: help.uid, shiny: worker.shiny, at: now() }
+      const grown = workStep(sessionId, worker, ev.tool, help.uid ? helperKey(sessionId, ev.agentId) : sessionId)
       if (grown) { if (event) publish(event); event = grown }
       // The step waits its turn: a burst of tool calls is met one step at a time
-      queueStep(sessionId, { tool: ev.tool, via: catchSource(ev, session) })
+      queueStep(sessionId, { tool: ev.tool, via: catchSource(ev, session), ...(help.uid ? { uid: help.uid } : {}) })
       const met = drainStep(sessionId)
       if (met) { if (event) publish(event); event = met }
     }
@@ -831,7 +872,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     const b = state.box.indexOf(boxUid)
     const p = state.party.indexOf(partyUid)
     if (b === -1 || p === -1) return { ok: false, reason: 'bad-request' }
-    if (busyUids().has(partyUid)) return { ok: false, reason: 'busy' }
+    if (busyUids().has(partyUid) || helpingUids().has(boxUid)) return { ok: false, reason: 'busy' }
     state.box.splice(b, 1)
     state.party[p] = boxUid
     state.mons[boxUid].traded = true
@@ -849,7 +890,7 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     const mon = state.mons[uid]
     if (!mon) return { ok: false, reason: 'unknown-pokemon' }
     if (state.party.includes(uid)) return { ok: false, reason: 'in-party' }
-    if (busyUids().has(uid)) return { ok: false, reason: 'busy' }
+    if (busyUids().has(uid) || helpingUids().has(uid)) return { ok: false, reason: 'busy' }
     const at = state.box.indexOf(uid)
     if (at !== -1) state.box.splice(at, 1)
     delete state.mons[uid]

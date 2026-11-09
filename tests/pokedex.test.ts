@@ -129,6 +129,33 @@ describe('pokedex', () => {
     expect(levelFrom(5, 21 * 60000).level).toBe(6)
   })
 
+  it('a subagent is worked by a box Pokémon (a helper): it grows, cannot be released, and goes back when the subagent stops', () => {
+    let t = new Date('2026-11-06T14:00:00').getTime()
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const queue = [0]
+    const dex = createPokedex({ file: join(dir, 'p.json'), species: SPECIES, broadcast: () => {}, random: () => (queue.length ? queue.shift()! : 0.99), now: () => t })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    const st0 = (dex as any)._state()
+    st0.mons.mbox = { uid: 'mbox', dex: 150, steps: 0, evos: 0, shiny: false, how: 'wild', place: 'x', at: 0, metLevel: 5, workMs: 0 }
+    st0.box.push('mbox')
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    const partner = dex.publicState().assign.s1
+    const partnerSteps = st0.mons[partner].steps
+    for (let i = 0; i < 3; i++) { t += 60_000; dex.noteEvent({ ...work('s1'), agentId: 'ag1' }, {}) }
+    expect(dex.publicState().helpers).toEqual({ s1: ['mbox'] })
+    expect(st0.mons.mbox.steps).toBe(3)
+    expect(st0.mons.mbox.workMs).toBe(2 * 60_000)
+    expect(st0.mons[partner].steps).toBe(partnerSteps) // the subagent's work is the helper's
+    expect(dex.release('mbox')).toMatchObject({ ok: false, reason: 'busy' })
+    // a second subagent finds no one free in the box: the partner works it, as before
+    dex.noteEvent({ ...work('s1'), agentId: 'ag2' }, {})
+    expect(st0.mons[partner].steps).toBe(partnerSteps + 1)
+    dex.noteEvent({ type: 'agent_completed', sessionId: 's1', agentId: 'ag1' }, {})
+    expect(dex.publicState().helpers).toEqual({})
+    expect(dex.release('mbox')).toEqual({ ok: true })
+  })
+
   it('swaps in a resting party Pokémon only; a box Pokémon is refused (it comes into the party first)', () => {
     const { dex } = setup([0])
     attended(dex)
