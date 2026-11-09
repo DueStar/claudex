@@ -477,9 +477,18 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 위쪽 뷰 전환 아이콘만(`w-view-icons`), 바는 overflow hidden. 위젯·알림 카드 그림자 제거(투명 창 경계에서 잘림), 알림 뒤 대기 카드 대신 +N. 컨텍스트 막대 accent, 기록 구분선, 확률표 라벨 칸 max-content(영어 Sub-legendary).
    - **Codex 정식 어댑터(3단계) 진행 중**: 이 PC에 codex-cli 0.167.0 설치·로그인됨. 확인한 것: `-c hooks.<Event>=[{hooks=[{type="command",command="..."}]}]`로 사용자 config를 안 건드리고 훅을 넣을 수 있다. 처음엔 "Hooks need review … 2. Trust all and continue"가 뜨고 한 번 승인하면 해시로 기억(`--dangerously-bypass-hook-trust`는 다른 미검토 훅도 돌려서 쓰지 않기로). 그다음 Windows 첫 실행에 "Set up default sandbox (requires Administrator)" 메뉴 — 사용자가 Codex 세션에서 한 번 설정해야 함. 남은 확인: Windows에서 훅 command가 어떤 셸로 도는지(cmd/PowerShell/직접), 그에 맞는 `command_windows`(ELECTRON_RUN_AS_NODE로 Claudex.exe를 노드로), session id는 SessionStart 훅에서 받기(미리 정할 수 없음), 이어하기 `codex resume <id>`, 사용량은 rollout JSONL `rate_limits` 또는 `codex app-server`. 목표: 도구가 바뀌어도 화면 동일.
 
+7-19. **2026-11-09 (1.3.29 준비, 테스트 빌드만, 아직 커밋 안 함 — 사용자가 "푸시해" 하면 릴리스)**
+   - 탭 끌기 회귀 수정: `useDragOrder`의 "안쪽 버튼이면 끌기 안 함"이 탭 자신(button)까지 걸렀다 → `inner !== currentTarget && currentTarget.contains(inner)`일 때만.
+   - 뷰 전환: 평소엔 아이콘+글자, 위쪽 바가 넘칠 때만 아이콘(`viewsCompact`, ResizeObserver, 넘칠 때의 scrollWidth를 기억했다가 그만큼 넓어지면 글자 복귀). 사용자 의도: "스크롤 생길 때만 최소화".
+   - Ctrl/Shift+Enter: 조합 중이 아니어도 줄바꿈을 15ms 늦게 보냄(조합이 막 끝난 글자를 xterm이 setTimeout(0)으로 보내기 때문), 조합 중 key 'Process'(229)도 `e.code === 'Enter'`로 인식.
+   - **개발자 개선(추천 1·2·4·5)**: ① Ctrl+F 터미널 검색(`@xterm/addon-search` 0.16.0, 오른쪽 위 바, Enter/Shift+Enter/Esc, 노란 하이라이트) ② 출력의 파일 경로 Ctrl+클릭(`registerLinkProvider` + `FILE_REF`, 넓은 글자 셀 보정) → main `terminals:open-path`: 세션 cwd 기준으로 풀고 존재하는 파일만, `app.getApplicationNameForProtocol`로 vscode:// → cursor:// → `shell.openPath` 순(명령줄 실행 없음) ④ Ctrl+Tab/Ctrl+Shift+Tab 세션 이동, Ctrl+Shift+T 새 세션, Ctrl+Shift+W 닫기(Ctrl+T/W는 Claude Code 몫이라 비움, Widget의 capture keydown) ⑤ 세션 알림: 줄 mood가 needs-you가 되거나 working→idle이면 `widget:alert` → main이 창이 앞에 없을 때만 Notification(클릭 시 창 표시) + flashFrame. 설정 `notify.sessions`(기본 켬).
+   - **컨텍스트 = HP**: 왼쪽 줄 막대가 남은 컨텍스트(100-used)로 줄어든다. 초록 >50%, 노랑 ≤50, 빨강 ≤20(포켓몬 HP 규칙), 앞에 작은 "HP". 숫자는 남은 토큰(`tokens()`: 124K, 1.2M; size가 없으면 남은 %), 툴팁 "남은 컨텍스트 124K / 200K (62%)". 모델명(`modelLabel`: 상태줄 display_name, 없으면 id를 "Opus 5.5"로)은 숫자 바로 왼쪽.
+   - 시상대: 사다리꼴 윗면·그라데이션 제거, 둥근 평면 블록 + 메달색 윗선, 단색 메달. 기록 줄 padding 12px(레벨업 줄 8px).
+   - 다음: 남은 개발자 개선 ③ 일반 셸 탭(보여줄 방식 상의) ⑥ git 브랜치 ⑦ 스크롤백 설정 ⑧ 터미널 글꼴 ⑨⑩ README 보강, 그리고 Codex 3단계(사용자 샌드박스 설정 대기).
+
 8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
    - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
-   - **개발자 관점 개선** (사용자에게 목록만 제시, 번호 선택 대기): ① 터미널 검색 Ctrl+F(xterm search addon) ② 에러의 파일 경로 Ctrl+클릭 → VS Code/Cursor로 그 줄 열기 ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ④ Ctrl+Tab/Ctrl+T/Ctrl+W ⑤ 앱이 뒤에 있을 때 턴 끝·확인 필요 OS 알림/작업표시줄 깜빡임 ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.
+   - **개발자 관점 개선**: ①②④⑤는 7-19에서 함(사용자: "추천대로 진행"). 남은 것: ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.
    - **카드뉴스**: 사용자가 캡처를 `Documents\claudex-promo\shots`에 넣으면 세로 4:5 6~8장. 블로그 초안은 `Documents\claudex-promo\blog.md`(한다체, 사용자의 Medium 글 말투), 이전 초안 `blog-draft1.md`.
    - unslop 스킬은 `.claude/skills/unslop`에 로컬만(`.git/info/exclude`).
 

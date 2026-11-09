@@ -6,7 +6,7 @@
  * and the Pokédex, box and log views.
  */
 
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 // terminal.css first: widget-expanded.css restyles the resume picker's frame
 import './styles/terminal.css'
 import './styles/widget.css'
@@ -101,6 +101,25 @@ interface Row {
   title: string | null
 }
 
+/**
+ * A session's model, short: the status line's display name ("Opus 5.5"), else the id from its
+ * start (claude-opus-5-5 -> "Opus 5.5"), else another tool's name; "Claude " and context notes trimmed
+ */
+function modelLabel(display?: string, id?: string): string {
+  const name = (display ?? '').replace(/^Claude\s+/i, '').replace(/\s*\((\d+[KM])\s*context\)/i, ' $1').trim()
+  if (name) return name
+  const m = /claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?!\d)/i.exec(id ?? '')
+  if (m) return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`
+  return (id ?? '').slice(0, 16)
+}
+
+/** A token count, short: 124K, 1.2M */
+function tokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}M`
+  if (n >= 1000) return `${Math.round(n / 1000)}K`
+  return String(Math.round(n))
+}
+
 function pct(n: number | null | undefined): string {
   return typeof n === 'number' ? String(Math.round(n)) : '—'
 }
@@ -161,6 +180,7 @@ const Widget: React.FC = () => {
   }), [])
   // Ctrl+1–5: 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
   // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
+  // Ctrl+Tab, Ctrl+Shift+Tab / T / W: sessions (below)
   useEffect(() => {
     const views = ['terminal', 'dex', 'box', 'today', 'rank'] as const
     const onKey = (e: KeyboardEvent) => {
@@ -171,6 +191,23 @@ const Widget: React.FC = () => {
         const step = !expanded ? 0 : e.key === 'ArrowRight' ? 1 : -1
         setView(views[(views.indexOf(view) + step + views.length) % views.length])
         setExpanded(true)
+        return
+      }
+      // Sessions, as in Windows Terminal: Ctrl+Tab / Ctrl+Shift+Tab next and previous, Ctrl+Shift+T
+      // a new one, Ctrl+Shift+W close the one in view (Ctrl+T and Ctrl+W stay Claude Code's)
+      if (e.ctrlKey && !e.altKey && e.key === 'Tab') {
+        e.preventDefault(); e.stopPropagation()
+        const list = withTerminal.filter(r => r.terminal)
+        if (!list.length) return
+        const at = Math.max(0, list.findIndex(r => r.sessionId === shown?.sessionId))
+        setTarget(list[(at + (e.shiftKey ? -1 : 1) + list.length) % list.length].sessionId)
+        setView('terminal'); setExpanded(true)
+        return
+      }
+      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.code === 'KeyW')) {
+        e.preventDefault(); e.stopPropagation()
+        if (e.code === 'KeyT') void launch(false)
+        else if (shown?.terminal) closeSession(shown)
         return
       }
       if (!e.ctrlKey || e.altKey || e.shiftKey || !/^[1-5]$/.test(e.key)) return
@@ -231,6 +268,20 @@ const Widget: React.FC = () => {
       }
     }).filter(r => r.mood !== 'ended' || r.terminal)
   }, [terminals, sessions, meters, castVersion])
+
+  // A session that finishes its turn or starts waiting on the trainer while the app is behind:
+  // a Windows notification and a flashing taskbar button (main skips it when the app is in front)
+  const lastMood = useRef(new Map<string, Mood>())
+  useEffect(() => {
+    for (const r of rows) {
+      const before = lastMood.current.get(r.sessionId)
+      lastMood.current.set(r.sessionId, r.mood)
+      if (!before || before === r.mood || !settings.notify.sessions || !r.terminal) continue
+      const name = r.title ?? r.name
+      if (r.mood === 'needs-you') bridge?.widget.alert(name, t('확인이 필요해요'))
+      else if (before === 'working' && r.mood === 'idle') bridge?.widget.alert(name, t('일을 마쳤어요'))
+    }
+  }, [rows, settings.notify.sessions])
 
   // The left panel's rows reorder by dragging, like the tabs (the same order: terminals.move)
   const rowById = new Map(rows.map(r => [r.sessionId, r]))
@@ -307,6 +358,24 @@ const Widget: React.FC = () => {
     return uid ? dex?.mons?.[uid] : undefined
   }
   const partyFull = freePartyCount(dex) <= 0
+  // The top bar never scrolls: when it runs out of room the view buttons drop their names (icons
+  // only), and get them back once it is wide enough again for the width they needed
+  const viewBarRef = useRef<HTMLDivElement>(null)
+  const [viewsCompact, setViewsCompact] = useState(false)
+  const namesWidth = useRef(0)
+  useLayoutEffect(() => {
+    const bar = viewBarRef.current
+    if (!bar) return
+    const check = () => {
+      if (!viewsCompact) {
+        if (bar.scrollWidth > bar.clientWidth + 1) { namesWidth.current = bar.scrollWidth; setViewsCompact(true) }
+      } else if (bar.clientWidth >= namesWidth.current + 8) setViewsCompact(false)
+    }
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(bar)
+    return () => ro.disconnect()
+  }, [viewsCompact, expanded, view])
   // Window / fullscreen: the left panel folds away (remembered), leaving the terminal the whole width
   const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('claudex-side-hidden') === '1' } catch { return false } })
   const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('claudex-side-hidden', next ? '1' : '0') } catch {} ; return next })
@@ -654,10 +723,26 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   )}
                 </div>
                 <div className="w-row-bottom">
-                  <div className={`w-ctx tone-${contextTone(r.meter?.context.used)}`} title={t('컨텍스트 사용량')}>
-                    <span style={{ width: `${Math.min(100, r.meter?.context.used ?? 0)}%` }} />
-                  </div>
-                  <span className="w-row-num">{typeof r.meter?.context.used === 'number' ? `${pct(r.meter.context.used)}%` : '—'}</span>
+                  {(() => {
+                    // The context window as the session's HP: what is left, draining like a Pokémon's
+                    // (green, yellow under half, red under a fifth); the number is the tokens left
+                    const used = r.meter?.context.used
+                    const size = r.meter?.context.size ?? null
+                    const left = typeof used === 'number' ? Math.max(0, Math.min(100, 100 - used)) : null
+                    const leftTokens = left !== null && size ? Math.round((size * left) / 100) : null
+                    const tip = left === null ? t('남은 컨텍스트')
+                      : leftTokens !== null ? t('남은 컨텍스트 {left} / {size} ({pct}%)', { left: tokens(leftTokens), size: tokens(size!), pct: Math.round(left) })
+                      : t('남은 컨텍스트 {pct}%', { pct: Math.round(left) })
+                    const m = modelLabel(r.meter?.model, r.session?.model)
+                    return <>
+                      <span className="w-hp-label" aria-hidden="true">HP</span>
+                      <div className={`w-ctx w-hp ${left === null ? 'hp-full' : left <= 20 ? 'hp-red' : left <= 50 ? 'hp-yellow' : 'hp-green'}`} title={tip} role="meter" aria-valuenow={left ?? 100} aria-valuemin={0} aria-valuemax={100} aria-label={tip}>
+                        <span style={{ width: `${left ?? 100}%` }} />
+                      </div>
+                      {m && <span className="w-row-model" title={r.meter?.modelId ?? r.session?.model}>{m}</span>}
+                      <span className="w-row-num" title={tip}>{leftTokens !== null ? tokens(leftTokens) : left !== null ? `${Math.round(left)}%` : '—'}</span>
+                    </>
+                  })()}
                 </div>
                 {/* Window mode: a session waiting on the trainer while its terminal is not in view
                     says so in its row (its Pokémon hops). A permission is answered right here; a
@@ -728,18 +813,18 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
       {expanded && (
         <section className="w-card w-term">
-          <div className="w-term-tabs">
+          <div className="w-term-tabs" ref={viewBarRef}>
             <button className={`w-icon w-side-toggle${sideHidden ? '' : ' on'}`} onClick={toggleSide}
               title={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-label={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-pressed={!sideHidden}>
               <SidePanelIcon size={15} />
             </button>
-            {/* The views as icons only (named on hover with their shortcut), so the bar never scrolls */}
-            <div className="w-view-switch w-view-icons">
-              <button className={`icon-only${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={15} /></button>
-              <button className={`icon-only${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')} aria-label={t('도감')}><DexIcon size={15} />{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
-              <button className={`icon-only${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')} aria-label={t('박스')}><BoxIcon size={15} /></button>
-              <button className={`icon-only${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')} aria-label={t('기록')}><TodayIcon size={15} /></button>
-              <button className={`icon-only${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')} aria-label={t('랭킹')}><RankIcon size={15} /></button>
+            {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
+            <div className={`w-view-switch${viewsCompact ? ' w-view-icons' : ''}`}>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')} aria-label={t('박스')}><BoxIcon size={14} />{!viewsCompact && t('박스')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')} aria-label={t('기록')}><TodayIcon size={14} />{!viewsCompact && t('기록')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')} aria-label={t('랭킹')}><RankIcon size={14} />{!viewsCompact && t('랭킹')}</button>
             </div>
             <span className="w-term-spacer" />
             {view === 'terminal' && (

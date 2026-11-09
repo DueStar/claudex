@@ -1031,6 +1031,24 @@ function registerTerminalIpc() {
       if (u.protocol === 'http:' || u.protocol === 'https:') shell.openExternal(u.toString())
     } catch {}
   }))
+  // A file named in a session's output (Ctrl+click): resolved against that session's folder, and
+  // only a file that exists. It opens at its line in VS Code or Cursor through their own
+  // vscode:// / cursor:// links (no command line, so nothing in the path is ever run), else
+  // with the file's default app
+  ipcMain.handle('terminals:open-path', guard(async ({ id, file, line, col } = {}) => {
+    const term = terminals.list().find(t => t.id === String(id))
+    if (!term || typeof file !== 'string' || file.length > 1024) return false
+    const abs = path.resolve(term.cwd, file)
+    try { if (!fs.statSync(abs).isFile()) return false } catch { return false }
+    const at = `${Number(line) > 0 ? `:${Math.floor(Number(line))}` : ''}${Number(line) > 0 && Number(col) > 0 ? `:${Math.floor(Number(col))}` : ''}`
+    for (const scheme of ['vscode', 'cursor']) {
+      if (app.getApplicationNameForProtocol(`${scheme}://`)) {
+        await shell.openExternal(`${scheme}://file/${abs.split(path.sep).map(encodeURIComponent).join('/').replace(/^([A-Za-z])%3A/, '$1:')}${at}`)
+        return true
+      }
+    }
+    return (await shell.openPath(abs)) === ''
+  }))
   ipcMain.handle('terminals:rename', guard(({ id, title } = {}) => terminals.rename(String(id), String(title ?? ''))))
   ipcMain.handle('terminals:move', guard(({ id, index } = {}) => terminals.move(String(id), Number(index))))
   ipcMain.handle('terminals:close', guard((id) => terminals.close(String(id))))
@@ -1058,6 +1076,21 @@ function registerTerminalIpc() {
   ipcMain.handle('update:get', guard(() => updater?.getState() ?? null))
   ipcMain.handle('update:install', guard(() => updater?.install() ?? null))
   ipcMain.handle('update:restart', guard(() => updater?.restart() ?? false))
+  // A session finished or needs the trainer while the app is not in front: a Windows
+  // notification (clicking it brings the app up) and the taskbar button flashes until it is
+  ipcMain.on('widget:alert', guard(({ title, body } = {}) => {
+    const win = widgetWin && !widgetWin.isDestroyed() ? widgetWin : null
+    if (!win || (win.isVisible() && win.isFocused())) return
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: String(title ?? APP_NAME).slice(0, 80), body: String(body ?? '').slice(0, 200), silent: true })
+      n.on('click', () => { if (!win.isDestroyed()) { win.show(); win.focus() } })
+      n.show()
+    }
+    if (win.isVisible()) {
+      win.flashFrame(true)
+      win.once('focus', () => { if (!win.isDestroyed()) win.flashFrame(false) })
+    }
+  }))
   ipcMain.handle('widget:minimize', guard(() => { if (widgetWin && !widgetWin.isDestroyed()) widgetWin.minimize() }))
   ipcMain.handle('widget:get-mode', guard(() => modeNow()))
   ipcMain.handle('widget:set-mode', guard((mode) => setWidgetMode(String(mode))))

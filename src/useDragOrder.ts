@@ -53,9 +53,10 @@ export function useDragOrder(ids: string[], axis: 'x' | 'y', onDrop: (id: string
       ref: (el: HTMLElement | null) => { if (el) refs.current.set(id, el); else refs.current.delete(id) },
       onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
         if (!enabled || e.button !== 0) return
-        // A button or a field inside the item keeps its own press
-        const target = e.target as HTMLElement
-        if (target !== e.currentTarget && target.closest('button, input, textarea, a, [data-no-drag]')) return
+        // A button or a field inside the item keeps its own press (the item itself may be a
+        // button, as a tab is: that one does not count)
+        const inner = (e.target as HTMLElement).closest('button, input, textarea, a, [data-no-drag]')
+        if (inner && inner !== e.currentTarget && e.currentTarget.contains(inner)) return
         const rects = shown.map(x => refs.current.get(x)?.getBoundingClientRect() ?? new DOMRect())
         dragRef.current = { id, from: index, start: at(e), rects, delta: 0, to: index, active: false, pointer: e.pointerId, el: e.currentTarget }
       },

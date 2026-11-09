@@ -8,6 +8,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { SearchAddon } from '@xterm/addon-search'
 import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont } from '../termFont'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, type PastSession, type TerminalInfo } from '../desktop'
@@ -29,6 +30,14 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
   const hostRef = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const xtermRef = useRef<Terminal | null>(null)
+  // Ctrl+F: find in this terminal's output (scrollback included)
+  const searchRef = useRef<SearchAddon | null>(null)
+  const openSearchRef = useRef<() => void>(() => {})
+  const [searching, setSearching] = useState(false)
+  const [query, setQuery] = useState('')
+  const [found, setFound] = useState<{ index: number; count: number } | null>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
+  openSearchRef.current = () => { setSearching(true); setTimeout(() => searchInput.current?.select(), 0) }
 
   useEffect(() => {
     if (!bridge || !hostRef.current) return
@@ -60,6 +69,41 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     xterm.loadAddon(new WebLinksAddon((event, uri) => {
       if (event.ctrlKey || event.metaKey) bridge!.terminals.openUrl(uri)
     }))
+    // Find (Ctrl+F): matches marked in the app's yellow, the current one solid
+    const search = new SearchAddon()
+    xterm.loadAddon(search)
+    searchRef.current = search
+    const offResults = search.onDidChangeResults(({ resultIndex, resultCount }) => setFound({ index: resultIndex, count: resultCount }))
+    // A file path in the output (src/app.ts:42:7, C:\x\y.py:3) opens in the code editor at that
+    // line with Ctrl+click, as a link does
+    const offPaths = xterm.registerLinkProvider({
+      provideLinks(y, callback) {
+        const line = xterm.buffer.active.getLine(y - 1)
+        if (!line) return callback(undefined)
+        // The text with each character's cell (a wide character such as Hangul takes two cells)
+        let text = ''
+        const cellOf: number[] = []
+        for (let x = 0; x < line.length; x++) {
+          const ch = line.getCell(x)?.getChars() ?? ''
+          if (!ch) { if (line.getCell(x)?.getWidth() === 0) continue; text += ' '; cellOf.push(x); continue }
+          for (const c of ch) { text += c; cellOf.push(x) }
+        }
+        const links: { range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: (e: MouseEvent) => void; decorations: { underline: boolean; pointerCursor: boolean } }[] = []
+        for (const m of text.matchAll(FILE_REF)) {
+          const at = m.index ?? 0
+          const ref = m[0]
+          const start = cellOf[at], end = cellOf[at + ref.length - 1]
+          if (start === undefined || end === undefined) continue
+          links.push({
+            range: { start: { x: start + 1, y }, end: { x: end + 1, y } },
+            text: ref,
+            decorations: { underline: true, pointerCursor: true },
+            activate: (e) => { if (e.ctrlKey || e.metaKey) void bridge!.terminals.openPath(term.id, m[1], Number(m[2] || 0), Number(m[3] || 0)) },
+          })
+        }
+        callback(links.length ? links : undefined)
+      },
+    })
     // Files dropped on the terminal arrive as their paths, quoted when they have spaces
     // (Claude Code attaches a dropped image by its path)
     const host = hostRef.current
@@ -93,7 +137,9 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       // While Korean (or any IME) text is being composed, the last syllable is only committed
       // after this key: send the newline once xterm has sent that syllable, or it lands on the
       // new line
-      if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey) && !e.altKey && !e.metaKey) {
+      // (mid-composition the browser may report the key as 'Process' (229): its code still says Enter)
+      const isEnter = e.key === 'Enter' || (e.keyCode === 229 && (e.code === 'Enter' || e.code === 'NumpadEnter'))
+      if (isEnter && (e.shiftKey || e.ctrlKey) && !e.altKey && !e.metaKey) {
         if (e.type === 'keydown') {
           const newline = () => bridge!.terminals.write(term.id, '\x1b\r')
           const ta = xterm.textarea
@@ -103,13 +149,23 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
             // xterm reads the committed text in a setTimeout(0) after compositionend: queue behind it
             ta.addEventListener('compositionend', () => setTimeout(once, 10), { once: true })
             setTimeout(once, 300) // no compositionend after all
-          } else newline()
+          } else {
+            // A syllable whose composition just ended is sent by xterm on a zero timeout:
+            // a beat later, so the newline comes after it
+            setTimeout(newline, 15)
+          }
         }
         return false
       }
       if (e.type !== 'keydown') return true
-      // Ctrl+1–4 switch the app's views (터미널/도감/박스/기록): not for the terminal
-      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) return false
+      // Ctrl+1–5 switch the app's views (터미널/도감/박스/기록/랭킹): not for the terminal
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-5]$/.test(e.key)) return false
+      // The app's session keys, as in a terminal app: Ctrl+Tab / Ctrl+Shift+Tab next and previous
+      // session, Ctrl+Shift+T a new one, Ctrl+Shift+W close (Ctrl+T and Ctrl+W stay Claude Code's)
+      if (e.ctrlKey && !e.altKey && e.key === 'Tab') return false
+      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.code === 'KeyW')) return false
+      // Ctrl+F: find in the output
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.code === 'KeyF') { openSearchRef.current(); return false }
       // Ctrl+= / Ctrl+- / Ctrl+0: text size
       if (e.ctrlKey && !e.altKey && (e.key === '=' || e.key === '+')) { stepTermFont(1); return false }
       if (e.ctrlKey && !e.altKey && e.key === '-') { stepTermFont(-1); return false }
@@ -159,6 +215,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       host.removeEventListener('dragover', onDragOver)
       host.removeEventListener('drop', onDrop)
       host.removeEventListener('wheel', onWheel)
+      offResults.dispose()
+      offPaths.dispose()
       offFont()
       document.fonts.removeEventListener('loadingdone', refont)
       document.removeEventListener('visibilitychange', doFit)
@@ -182,8 +240,62 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     return () => cancelAnimationFrame(id)
   }, [active, term.id])
 
-  return <div className="term-view" ref={hostRef} style={{ display: active ? 'block' : 'none' }} />
+  const find = (back = false) => {
+    const s = searchRef.current
+    if (!s || !query) return
+    const opts = { decorations: SEARCH_MARKS, incremental: false }
+    if (back) s.findPrevious(query, opts); else s.findNext(query, opts)
+  }
+  const closeSearch = () => {
+    setSearching(false)
+    setFound(null)
+    searchRef.current?.clearDecorations()
+    xtermRef.current?.clearSelection()
+    xtermRef.current?.focus()
+  }
+
+  return (
+    <div className="term-wrap" style={{ display: active ? 'contents' : 'none' }}>
+      <div className="term-view" ref={hostRef} />
+      {searching && (
+        <div className="term-search" role="search">
+          <input
+            ref={searchInput}
+            value={query}
+            placeholder={t('터미널에서 찾기')}
+            aria-label={t('터미널에서 찾기')}
+            onChange={e => {
+              const q = e.target.value
+              setQuery(q)
+              if (!q) { searchRef.current?.clearDecorations(); setFound(null); return }
+              searchRef.current?.findNext(q, { decorations: SEARCH_MARKS, incremental: true })
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { e.preventDefault(); closeSearch() }
+              else if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); find(e.shiftKey) }
+            }}
+          />
+          <span className="term-search-count">{query && found ? (found.count ? `${found.index + 1}/${found.count}` : t('없음')) : ''}</span>
+          <button onClick={() => find(true)} title={t('이전 (Shift+Enter)')} aria-label={t('이전')}>↑</button>
+          <button onClick={() => find(false)} title={t('다음 (Enter)')} aria-label={t('다음')}>↓</button>
+          <button onClick={closeSearch} title={t('닫기 (Esc)')} aria-label={t('닫기')}>×</button>
+        </div>
+      )}
+    </div>
+  )
 }
+
+/** Find's marks: matches in a dim yellow, the current one in the app's yellow */
+const SEARCH_MARKS = {
+  matchBackground: '#4a3f14', matchBorder: '#4a3f14', matchOverviewRuler: '#a8892b',
+  activeMatchBackground: '#f2c94c', activeMatchBorder: '#f2c94c', activeMatchColorOverviewRuler: '#f2c94c',
+}
+
+/**
+ * A file reference in output: a path with a folder part or a drive (src/app.ts, ./x.js,
+ * C:\a\b.py) or a bare file name followed by a line (app.ts:12), then :line and :column
+ */
+const FILE_REF = /(?<![\w/\:.@-])((?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|[\w@.-]+[\\/])[\w@.\-\\/]*\.[A-Za-z0-9]{1,8}|[\w@.-]+\.[A-Za-z0-9]{1,8}(?=:\d))(?::(\d+))?(?::(\d+))?/g
 
 function ago(ms: number): string {
   const m = Math.round((Date.now() - ms) / 60000)

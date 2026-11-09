@@ -228,3 +228,12 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 /* Limits: a hint before any session */
 .w-limits.idle { flex-direction: row; align-items: center; gap: 10px; padding: 11px 12px; }
 .w-limits-hint { font-size: 11px; color: var(--ink-3); }
+/* The session's model, left of its context bar */
+.w-row-model { flex: none; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-3); }
+/* The context window as HP: what is left drains like a Pokémon's HP bar */
+.w-hp-label { flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-3); }
+.w-ctx.w-hp span { transition: width 0.6s ease-out, background-color 0.3s; }
+.w-ctx.hp-green span, .w-ctx.hp-full span { background: #5fcf7a; }
+.w-ctx.hp-yellow span { background: var(--accent); }
+.w-ctx.hp-red span { background: var(--danger); }
+.w-ctx.hp-full span { opacity: 0.35; }

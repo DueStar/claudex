@@ -58,6 +58,8 @@ interface ClaudexBridge {
     move(id: string, index: number): Promise<boolean>
     pathForFile(file: File): string
     openUrl(url: string): Promise<void>
+    /** A file named in a session's output, at a line: opened in the code editor (Ctrl+click) */
+    openPath(id: string, file: string, line?: number, col?: number): Promise<boolean>
     onData(fn: (p: { id: string; data: string }) => void): () => void
     onList(fn: (list: TerminalInfo[]) => void): () => void
   }
@@ -118,6 +120,8 @@ interface ClaudexBridge {
     onMode(fn: (mode: WidgetMode) => void): () => void
     onOpenDex(fn: (id: number) => void): () => void
     resize(width: number, height: number): void
+    /** A Windows notification and a flashing taskbar button, only while the app is not in front */
+    alert(title: string, body: string): void
   }
 }
 
@@ -147,7 +151,7 @@ export type Lang = 'ko' | 'en' | 'ja'
 
 /** The 설정 screen's values (electron/settings.cjs keeps them and checks every change) */
 export interface AppSettings {
-  notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string; sound: boolean }
+  notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string; sound: boolean; sessions: boolean }
   privacy: { hidePrompts: boolean }
   session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean; restoreOnStart: boolean; tools: AiTool[]; defaultTool: string }
   app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean; language: 'auto' | Lang }

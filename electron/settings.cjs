@@ -23,6 +23,7 @@ const DEFAULTS = Object.freeze({
     duration: 'normal',       // short | normal | long
     quiet: false, quietFrom: '23:00', quietTo: '08:00', // no notifications in these hours
     sound: true,              // a short sound with each card (src/sounds.ts)
+    sessions: true,           // a Windows notification when a session finishes or needs you while the app is behind
   },
   privacy: { hidePrompts: false }, // the catch story without the request text
   // restoreOnStart: reopen the sessions open at the last close. tools: other AI tools a session can run

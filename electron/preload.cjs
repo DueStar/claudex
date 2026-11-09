@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('claudex', {
     pathForFile: (file) => { try { return webUtils.getPathForFile(file) || '' } catch { return '' } },
     // Ctrl+click on a link in a terminal: the user's browser opens it (http/https only)
     openUrl: (url) => ipcRenderer.invoke('terminals:open-url', String(url)),
+    openPath: (id, file, line, col) => ipcRenderer.invoke('terminals:open-path', { id, file, line, col }),
     onData: (fn) => on('terminals:data', fn),
     onList: (fn) => on('terminals:list', fn),
   },
@@ -85,5 +86,6 @@ contextBridge.exposeInMainWorld('claudex', {
     onMode: (fn) => on('widget:mode', fn),
     onOpenDex: (fn) => on('widget:open-dex', fn),
     resize: (width, height) => ipcRenderer.send('widget:resize', { width, height }),
+    alert: (title, body) => ipcRenderer.send('widget:alert', { title, body }),
   },
 })

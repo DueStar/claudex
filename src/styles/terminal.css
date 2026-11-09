@@ -4,3 +4,13 @@
 
 .term-view { position: absolute; inset: 4px 0 0 6px; }
 
+/* Find in the terminal (Ctrl+F): a small bar over the terminal's top right */
+.term-search {
+  position: absolute; top: 10px; right: 18px; z-index: 5;
+  display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 8px;
+  border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.12); background: #1b1e26;
+}
+.term-search input { width: 200px; font: inherit; font-size: 12px; color: #e6e6e6; background: transparent; border: 0; outline: none; }
+.term-search-count { min-width: 44px; text-align: right; font-size: 11px; color: #8a8f9c; font-variant-numeric: tabular-nums; }
+.term-search button { width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent; color: #a8adb8; font: inherit; font-size: 13px; cursor: pointer; }
+.term-search button:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }

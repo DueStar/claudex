@@ -147,6 +147,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onC
             <Toggle label={t('진화')} on={s.notify.evolve} onChange={v => set('notify', { evolve: v })} />
             <Toggle label={t('레벨 업')} on={s.notify.levelup} onChange={v => set('notify', { levelup: v })} />
             <Toggle label={t('희귀 등급 이상만')} hint={t('포획·도망 알림은 희귀 등급 이상이거나 색이 다른 포켓몬일 때만 표시해요')} on={s.notify.rareOnly} onChange={v => set('notify', { rareOnly: v })} />
+            <Toggle label={t('세션 알림')} hint={t('앱을 보고 있지 않을 때 세션이 일을 마치거나 확인이 필요하면 Windows 알림을 띄우고 작업 표시줄을 깜빡여요')} on={s.notify.sessions} onChange={v => set('notify', { sessions: v })} />
             <Toggle label={t('효과음')} hint={t('알림이 뜰 때 짧은 소리를 내요 (포획, 도망, 레벨 업, 진화)')} on={s.notify.sound} onChange={v => set('notify', { sound: v })} />
             <Choice label={t('표시 시간')} value={s.notify.duration} options={[['short', t('짧게')], ['normal', t('보통')], ['long', t('길게')]]} onChange={v => set('notify', { duration: v })} />
             <Toggle label={t('방해 금지')} hint={t('정한 시간에는 알림을 띄우지 않아요. 기록에는 그대로 남아요')} on={s.notify.quiet} onChange={v => set('notify', { quiet: v })} />
