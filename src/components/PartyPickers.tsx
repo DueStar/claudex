@@ -7,6 +7,7 @@
 import React, { useMemo, useState } from 'react'
 import { iconUrl, pokemonById, spriteUrl } from '../theme'
 import { genderMark, isFullyEvolved, levelOf, type DexState, type Mon } from '../pokedexStore'
+import type { AiTool } from '../desktop'
 import { t, nameOf } from '../i18n'
 
 const Dialog: React.FC<{ label: string; title: React.ReactNode; onClose: () => void; children: React.ReactNode }> = ({ label, title, onClose, children }) => (
@@ -73,18 +74,36 @@ export const SwapPicker: React.FC<{ dex: DexState; currentDex: number; onPick: (
   )
 }
 
-export const ThrowPicker: React.FC<{ dex: DexState; resume: boolean; onPick: (uid: string) => void; onClose: () => void }> = ({ dex, resume, onPick, onClose }) => {
+/**
+ * The party Pokémon a new session goes out with, and (when the trainer listed
+ * other AI tools in 설정 › 세션) which tool the session runs
+ */
+export const ThrowPicker: React.FC<{
+  dex: DexState; resume: boolean
+  tools?: AiTool[]; defaultTool?: string
+  onPick: (uid: string, tool: string) => void; onClose: () => void
+}> = ({ dex, resume, tools = [], defaultTool = 'claude', onPick, onClose }) => {
   const busy = busyOf(dex)
+  const choices = [{ id: 'claude', name: 'Claude Code' }, ...tools]
+  const [tool, setTool] = useState(choices.some(c => c.id === defaultTool) ? defaultTool : 'claude')
   return (
     <Dialog label={t('몬스터볼 던지기')} title={resume ? t('이 세션에 보낼 포켓몬') : t('누구를 보낼까요?')} onClose={onClose}>
       {resume && <div className="w-throw-hint">{t('이 세션의 포켓몬이 다른 세션에서 일하고 있어서, 대신 보낼 포켓몬을 골라주세요.')}</div>}
+      {choices.length > 1 && (
+        <div className="w-throw-tools" role="radiogroup" aria-label={t('AI 도구')}>
+          <span>{t('AI 도구')}</span>
+          {choices.map(c => (
+            <button key={c.id} role="radio" aria-checked={tool === c.id} className={tool === c.id ? 'on' : ''} onClick={() => setTool(c.id)}>{c.name}</button>
+          ))}
+        </div>
+      )}
       <div className="w-swap-list">
         {dex.party.map(uid => {
           const m = dex.mons[uid]
           if (!m) return null
           const working = busy.has(uid)
           return (
-            <button key={uid} className={`w-swap-item${working ? ' busy' : ''}`} disabled={working} onClick={() => onPick(uid)}>
+            <button key={uid} className={`w-swap-item${working ? ' busy' : ''}`} disabled={working} onClick={() => onPick(uid, tool)}>
               <img src={spriteUrl(m.dex, m.shiny)} alt="" />
               <span className="w-swap-name">{m.shiny ? '✦ ' : ''}{nameOf(pokemonById(m.dex))}</span>
               <span className="w-swap-meta">{working ? t('일하는 중') : t('쉬는 중 · {steps}걸음', { steps: m.steps })}</span>

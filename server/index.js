@@ -663,7 +663,8 @@ app.use((req, res, next) => {
   next()
 })
 
-app.use((req, res, next) => (req.path === '/event' ? eventJsonBody : jsonBody)(req, res, next))
+// (the box order lists up to 1200 uids: more than the 10kb other bodies get)
+app.use((req, res, next) => (req.path === '/event' || req.path === '/pokedex/arrange' ? eventJsonBody : jsonBody)(req, res, next))
 
 // CORS for local dev — only allow known localhost origins
 app.use((req, res, next) => {
@@ -793,6 +794,12 @@ app.post('/pokedex/exchange', requireToken, (req, res) => {
   const { boxUid, partyUid } = req.body ?? {}
   if (typeof boxUid !== 'string' || typeof partyUid !== 'string') return res.status(400).json({ ok: false, reason: 'bad-request' })
   res.json(pokedex.exchange(boxUid.slice(0, 40), partyUid.slice(0, 40)))
+})
+// The trainer's own box order (every box Pokémon, each once)
+app.post('/pokedex/arrange', requireToken, (req, res) => {
+  const { order } = req.body ?? {}
+  if (!Array.isArray(order) || order.length > 5000) return res.status(400).json({ ok: false, reason: 'bad-request' })
+  res.json(pokedex.arrangeBox(order.map(u => String(u).slice(0, 40))))
 })
 // Let a box Pokémon go (the desktop app sends it, with the token)
 app.post('/pokedex/release', requireToken, (req, res) => {

@@ -1,7 +1,6 @@
 /**
  * SessionTabs — the terminal's session tabs, a row of their own under the
- * view bar, shaped like browser tabs: the one in view joins the terminal
- * below it. A tab is dragged with the pointer (not HTML drag and drop), so it
+ * view bar (the same small rounded tabs as before). A tab is dragged with the pointer (not HTML drag and drop), so it
  * follows the cursor and the others slide out of its way as it passes them;
  * on release the order goes to the main process (terminals.move).
  */
@@ -134,7 +133,7 @@ export const SessionTabs: React.FC<{
             aria-selected={on}
             className={`w-sess-tab mood-${r.mood}${on ? ' on' : ''}${dragging ? ' dragging' : ''}${drag?.active ? ' sliding' : ''}`}
             style={{ transform: dragging ? `translateX(${drag!.dx}px)` : shift(i) ? `translateX(${shift(i)}px)` : undefined }}
-            title={r.terminal?.cwd}
+            title={[r.terminal?.tool && r.terminal.tool !== 'claude' ? r.terminal.toolName : '', r.terminal?.cwd].filter(Boolean).join(' · ')}
             onPointerDown={e => onPointerDown(e, i, r)}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}

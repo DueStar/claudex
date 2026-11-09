@@ -95,49 +95,36 @@
   flex-shrink: 0;
 }
 .w-term-tabs::-webkit-scrollbar { height: 0; }
-/* In the terminal view the bar and the session tabs below it read as one header */
-.w-term-tabs.with-sessions { border-bottom: 0; }
 
-/* ---------- Session tabs: browser-like, the one in view joined to the terminal ---------- */
+/* ---------- Session tabs: a row of their own under the view bar, in the old tabs' look ---------- */
 .w-sess-tabs {
-  --tab-bg: #101217; /* the terminal's own background */
-  display: flex; align-items: flex-end; flex-shrink: 0;
-  height: 38px; padding: 6px 12px 0; box-sizing: border-box;
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  padding: 6px 8px; border-bottom: 1px solid var(--line);
   background: var(--card); overflow-x: auto; overflow-y: hidden;
   -webkit-app-region: no-drag;
 }
 .w-sess-tabs::-webkit-scrollbar { height: 0; }
 .w-sess-tab {
-  position: relative; flex: 0 1 200px; min-width: 72px; height: 32px; box-sizing: border-box;
-  display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 8px;
-  font: inherit; font-size: 12px; color: var(--ink-3);
-  background: transparent; border: 0; border-radius: 8px 8px 0 0;
-  cursor: default; user-select: none; touch-action: none; white-space: nowrap;
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px;
+  font: inherit; font-size: 12px; color: var(--ink-2);
+  background: transparent; border: 1px solid transparent; border-radius: 10px;
+  cursor: pointer; user-select: none; touch-action: none; white-space: nowrap;
 }
-.w-sess-tab.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
-.w-sess-tab.dragging { transition: none; z-index: 2; background: var(--tab-bg); color: var(--ink); }
 .w-sess-tab img { width: 20px; height: 20px; object-fit: contain; flex: none; }
-.w-sess-tab-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.w-sess-tab:hover { background: var(--card-2); color: var(--ink); }
+.w-sess-tab.on { background: var(--card-2); border-color: var(--line); color: var(--ink); }
+.w-sess-tab-name { font-weight: 650; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 .w-sess-tab-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
 .w-sess-tab.mood-working .w-sess-tab-dot { background: var(--green); }
 .w-sess-tab.mood-needs-you .w-sess-tab-dot { background: var(--amber); }
 .w-sess-tab.mood-error .w-sess-tab-dot { background: var(--danger); }
 .w-sess-tab.mood-ended { opacity: 0.45; }
-.w-sess-tab:hover:not(.on) { color: var(--ink-2); background: rgba(255, 255, 255, 0.04); }
-/* hairlines between tabs, gone beside the one in view and the hovered one */
-.w-sess-tab:not(.on)::after {
-  content: ''; position: absolute; right: 0; top: 9px; bottom: 9px; width: 1px; background: var(--line);
-}
-.w-sess-tab:has(+ .w-sess-tab.on)::after, .w-sess-tab:hover::after, .w-sess-tab:has(+ .w-sess-tab:hover)::after { display: none; }
-/* The one in view: the terminal's colour, flowing out into it on curved feet */
-.w-sess-tab.on { color: var(--ink); background: var(--tab-bg); z-index: 1; }
-.w-sess-tab.on::before, .w-sess-tab.on::after {
-  content: ''; position: absolute; bottom: 0; width: 8px; height: 8px; pointer-events: none;
-}
-.w-sess-tab.on::before { left: -8px; background: radial-gradient(circle at 0 0, transparent 7.5px, var(--tab-bg) 8px); }
-.w-sess-tab.on::after { right: -8px; background: radial-gradient(circle at 100% 0, transparent 7.5px, var(--tab-bg) 8px); }
+/* Dragging: the tab follows the pointer, the others slide aside */
+.w-sess-tab.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
+.w-sess-tab.dragging { transition: none; z-index: 2; background: var(--card-2); border-color: var(--line); color: var(--ink); cursor: grabbing; }
 .w-sess-new {
-  flex: none; align-self: center; margin-left: 8px; display: inline-grid; place-items: center;
+  flex: none; margin-left: 2px; display: inline-grid; place-items: center;
   width: 26px; height: 26px; border-radius: 8px; border: 0; background: none; color: var(--ink-3); cursor: pointer;
 }
 .w-sess-new:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
@@ -343,3 +330,16 @@
 .set-btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
 .set-btn.primary:hover { filter: brightness(1.06); }
 .set-btn:disabled { opacity: 0.5; cursor: default; }
+/* 설정 › AI 도구 */
+.set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', monospace; }
+.set-tag { font-size: 11px; color: var(--ink-3); padding: 6px 4px; }
+.set-tool-add { flex-direction: column; align-items: stretch; gap: 10px; }
+.set-presets { display: flex; gap: 6px; margin-top: 6px; }
+.set-presets .set-btn { padding: 3px 10px; font-size: 11px; }
+.set-tool-form { display: flex; gap: 6px; }
+.set-tool-form input { font: inherit; font-size: 12px; color: var(--ink); min-width: 0; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--card-2); }
+.set-tool-form input:first-child { width: 120px; flex: none; }
+.set-tool-form input.set-mono { flex: 1; }
+.set-tool-form input:focus { outline: none; border-color: rgba(242, 201, 76, 0.5); }
+.set-btn:disabled { opacity: 0.45; cursor: default; }
+.set-foot { margin-top: 12px; line-height: 1.5; }

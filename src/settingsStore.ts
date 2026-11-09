@@ -8,9 +8,9 @@ import { useSyncExternalStore } from 'react'
 import { bridge, type AppSettings, type SettingsPatch } from './desktop'
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  notify: { catch: true, flee: true, evolve: true, levelup: true, rareOnly: false, duration: 'normal', quiet: false, quietFrom: '23:00', quietTo: '08:00' },
+  notify: { catch: true, flee: true, evolve: true, levelup: true, rareOnly: false, duration: 'normal', quiet: false, quietFrom: '23:00', quietTo: '08:00', sound: true },
   privacy: { hidePrompts: false },
-  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true },
+  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true, tools: [], defaultTool: 'claude' },
   app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' },
 }
 

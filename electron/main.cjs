@@ -790,7 +790,8 @@ function ensureToastWindow() {
     alwaysOnTop: true,
     show: false,
     backgroundColor: '#00000000',
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
+    // A card plays its short sound as it appears, with no click first (src/sounds.ts)
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD, autoplayPolicy: 'no-user-gesture-required' },
   })
   toastWin.setAlwaysOnTop(true, 'screen-saver')
   toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
@@ -978,6 +979,9 @@ function registerTerminalIpc() {
     // 설정 › 세션: the folder a session opens in when none is picked, and claude's model / permission mode
     defaultCwd: () => appSettings().session.defaultCwd || app.getPath('documents'),
     extraArgs: () => claudeArgs(appSettings().session),
+    // 설정 › 세션 › AI 도구: the other tools, whose sessions report through their terminal's output
+    tools: () => appSettings().session.tools,
+    emit: (event) => { void serverPost('/event', event) },
   })
   const guard = (fn) => (event, arg) => (fromOurWindow(event) ? fn(arg, event) : undefined)
   ipcMain.handle('settings:get', guard(() => appSettings()))
@@ -989,7 +993,7 @@ function registerTerminalIpc() {
   ipcMain.handle('terminals:restorable', guard(() => { const open = terminals.takeRestorable(); return appSettings().session.restoreOnStart ? open : [] }))
   ipcMain.handle('terminals:create', guard((opts) => {
     try {
-      return terminals.create({ cwd: typeof opts?.cwd === 'string' ? opts.cwd : undefined, resume: typeof opts?.resume === 'string' ? opts.resume : undefined, sessionId: typeof opts?.sessionId === 'string' ? opts.sessionId : undefined })
+      return terminals.create({ cwd: typeof opts?.cwd === 'string' ? opts.cwd : undefined, resume: typeof opts?.resume === 'string' ? opts.resume : undefined, sessionId: typeof opts?.sessionId === 'string' ? opts.sessionId : undefined, tool: typeof opts?.tool === 'string' ? opts.tool : undefined })
     } catch (err) {
       console.error('[main] Could not start a terminal:', err.message)
       return { error: err.message }
@@ -1040,6 +1044,7 @@ function registerTerminalIpc() {
   ipcMain.on('toast:ready', guard((_arg, event) => { if (toastWin && event.sender === toastWin.webContents) toastPageReady() }))
   ipcMain.on('toast:open', guard((id) => openDexAt(Number(id))))
   ipcMain.handle('game:exchange', guard((o) => serverPost('/pokedex/exchange', { boxUid: String(o?.boxUid), partyUid: String(o?.partyUid) })))
+  ipcMain.handle('game:arrange', guard((order) => serverPost('/pokedex/arrange', { order: Array.isArray(order) ? order.slice(0, 5000).map(String) : [] })))
   ipcMain.handle('game:release', guard((uid) => serverPost('/pokedex/release', { uid: String(uid) })))
   ipcMain.handle('game:swap', guard(({ sessionId, uid } = {}) => swapPokemon(String(sessionId), String(uid))))
   ipcMain.handle('update:get', guard(() => updater?.getState() ?? null))

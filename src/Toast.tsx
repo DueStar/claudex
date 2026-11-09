@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react'
+import { playFor } from './sounds'
 import './styles/widget.css'
 import './styles/toast.css'
 import { bridge } from './desktop'
@@ -113,6 +114,7 @@ const Toast: React.FC = () => {
     if (!current) return
     left.current = Math.round(durationOf(current, queue.current.length) * scale)
     setLeaving(false)
+    if (settings.notify.sound) playFor(current)
   }, [current])
 
   useEffect(() => {

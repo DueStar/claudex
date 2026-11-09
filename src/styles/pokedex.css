@@ -537,3 +537,19 @@ html.qa-mode #root { min-height: 100vh; }
 .w-swap-cell img { width: auto; height: auto; max-width: 40px; max-height: 40px; }
 .w-swap-cell:hover { border-color: rgba(255, 216, 74, 0.45); }
 .w-swap-cell.busy, .w-swap-cell:disabled { opacity: 0.4; cursor: default; }
+/* Arranging the box: a bar in the gap it would go into */
+.box-cell.ins-before::before, .box-cell.ins-after::after {
+  content: ''; position: absolute; top: 8px; bottom: 8px; width: 3px; border-radius: 2px;
+  background: var(--accent); pointer-events: none;
+}
+.box-cell.ins-before::before { left: -8px; }
+.box-cell.ins-after::after { right: -8px; }
+.box.look-icon .box-cell.ins-before::before { left: -7px; }
+.box.look-icon .box-cell.ins-after::after { right: -7px; }
+/* Which AI tool the new session runs (only when 설정 lists more than Claude Code) */
+.w-throw-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px 0; font-size: 12px; color: var(--ink-3); }
+.w-throw-tools span { margin-right: 4px; }
+.w-throw-tools button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+.w-throw-tools button.on { background: var(--card-2); color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
+/* A session running another AI tool than Claude Code: its name, quiet */
+.w-row-tool { flex: none; font-size: 10px; color: var(--ink-3); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }

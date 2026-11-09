@@ -11,7 +11,7 @@ import { cloudErrorText, useCloud } from '../cloudStore'
 import { CloseIcon } from './Icons'
 import { t, locale } from '../i18n'
 
-type Section = 'notify' | 'privacy' | 'session' | 'app' | 'data'
+type Section = 'notify' | 'privacy' | 'session' | 'tools' | 'app' | 'data'
 
 /** Claude Code's own mode names (code.claude.com/docs/en/permission-modes), one line on what each does; shown through t() */
 const PERMISSION_HINT: Record<AppSettings['session']['permissionMode'], string> = {
@@ -22,7 +22,76 @@ const PERMISSION_HINT: Record<AppSettings['session']['permissionMode'], string> 
   auto: '별도 모델이 작업을 검토한 뒤 확인 없이 실행해요',
 }
 // The names go through t() when shown, so a language change re-renders them
-const SECTIONS: [Section, string][] = [['notify', '알림'], ['privacy', '개인정보'], ['session', '세션'], ['app', '앱'], ['data', '데이터']]
+const SECTIONS: [Section, string][] = [['notify', '알림'], ['privacy', '개인정보'], ['session', '세션'], ['tools', 'AI 도구'], ['app', '앱'], ['data', '데이터']]
+
+/**
+ * The tools Claudex supports by name: one click fills the form (the trainer
+ * installs them). Claude Code is the default; Codex CLI is the other one
+ * people use most. Gemini CLI is left out on purpose: individual accounts
+ * moved to Antigravity CLI in 2026-06 and it behaves differently.
+ */
+const PRESETS: { name: string; command: string }[] = [
+  { name: 'Codex CLI', command: 'codex' },
+]
+
+/** A tool's id from its name: lowercase letters, digits and dashes, unique in the list */
+function toolId(name: string, taken: Set<string>): string {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'tool'
+  let id = base === 'claude' ? 'claude-2' : base
+  for (let n = 2; taken.has(id); n++) id = `${base.slice(0, 20)}-${n}`
+  return id
+}
+
+/** 설정 › AI 도구: Claude Code and the other terminal tools a session can run */
+const ToolsSection: React.FC<{ s: AppSettings; set: (part: Partial<AppSettings['session']>) => void }> = ({ s, set }) => {
+  const [name, setName] = useState('')
+  const [command, setCommand] = useState('')
+  const tools = s.session.tools
+  const add = () => {
+    const n = name.trim(); const c = command.trim()
+    if (!n || !c) return
+    const id = toolId(n, new Set(['claude', ...tools.map(x => x.id)]))
+    set({ tools: [...tools, { id, name: n.slice(0, 30), command: c.slice(0, 300) }] })
+    setName(''); setCommand('')
+  }
+  const remove = (id: string) => set({ tools: tools.filter(x => x.id !== id), ...(s.session.defaultTool === id ? { defaultTool: 'claude' } : {}) })
+  const isDefault = (id: string) => s.session.defaultTool === id || (id === 'claude' && !tools.some(x => x.id === s.session.defaultTool))
+  return <>
+    <h3>{t('AI 도구')}</h3>
+    <p className="set-lead">{t('Claude Code 말고도 터미널에서 도는 AI 도구를 세션으로 열 수 있어요. 새 세션을 열 때 고를 수 있어요.')}</p>
+    <div className="set-row">
+      <span className="set-text"><b>Claude Code</b><small>{t('훅으로 도구 사용, 확인 필요, 사용량, 이어하기까지 모두 연결돼요')}</small></span>
+      <span className="set-actions">{isDefault('claude') ? <span className="set-tag">{t('기본')}</span> : <button className="set-btn ghost" onClick={() => set({ defaultTool: 'claude' })}>{t('기본으로')}</button>}</span>
+    </div>
+    {tools.map(x => (
+      <div className="set-row" key={x.id}>
+        <span className="set-text"><b>{x.name}</b><small className="set-mono">{x.command}</small></span>
+        <span className="set-actions">
+          {isDefault(x.id) ? <span className="set-tag">{t('기본')}</span> : <button className="set-btn ghost" onClick={() => set({ defaultTool: x.id })}>{t('기본으로')}</button>}
+          <button className="set-btn ghost" onClick={() => remove(x.id)}>{t('삭제')}</button>
+        </span>
+      </div>
+    ))}
+    {tools.length < 12 && (
+      <div className="set-row set-tool-add">
+        <span className="set-text">
+          <b>{t('도구 추가')}</b>
+          <small>{t('터미널에서 그 도구를 실행하는 명령을 적어 주세요. 도구는 직접 설치해야 해요.')}</small>
+          <span className="set-presets">{PRESETS.filter(p => !tools.some(x => x.command === p.command)).map(p => (
+            <button key={p.command} className="set-btn ghost" onClick={() => { setName(p.name); setCommand(p.command) }}>{p.name}</button>
+          ))}</span>
+        </span>
+        <span className="set-tool-form">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t('이름')} aria-label={t('이름')} maxLength={30} />
+          <input className="set-mono" value={command} onChange={e => setCommand(e.target.value)} placeholder={t('명령 (예: codex)')} aria-label={t('명령')} maxLength={300}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add() }} />
+          <button className="set-btn" onClick={add} disabled={!name.trim() || !command.trim()}>{t('추가')}</button>
+        </span>
+      </div>
+    )}
+    <p className="set-lead set-foot">{t('Claude Code가 아닌 도구는 터미널 출력으로 일하는지 알아채요. 출력이 이어지는 동안 걸음이 쌓이고, 조용해지면 쉬는 중이 돼요. 사용량과 이어하기는 아직 없어요.')}</p>
+  </>
+}
 
 const Toggle: React.FC<{ label: string; hint?: string; on: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ label, hint, on, onChange, disabled }) => (
   <label className={`set-row${disabled ? ' off' : ''}`}>
@@ -78,6 +147,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onC
             <Toggle label={t('진화')} on={s.notify.evolve} onChange={v => set('notify', { evolve: v })} />
             <Toggle label={t('레벨 업')} on={s.notify.levelup} onChange={v => set('notify', { levelup: v })} />
             <Toggle label={t('희귀 등급 이상만')} hint={t('포획·도망 알림은 희귀 등급 이상이거나 색이 다른 포켓몬일 때만 표시해요')} on={s.notify.rareOnly} onChange={v => set('notify', { rareOnly: v })} />
+            <Toggle label={t('효과음')} hint={t('알림이 뜰 때 짧은 소리를 내요 (포획, 도망, 레벨 업, 진화)')} on={s.notify.sound} onChange={v => set('notify', { sound: v })} />
             <Choice label={t('표시 시간')} value={s.notify.duration} options={[['short', t('짧게')], ['normal', t('보통')], ['long', t('길게')]]} onChange={v => set('notify', { duration: v })} />
             <Toggle label={t('방해 금지')} hint={t('정한 시간에는 알림을 띄우지 않아요. 기록에는 그대로 남아요')} on={s.notify.quiet} onChange={v => set('notify', { quiet: v })} />
             <div className={`set-row set-sub${s.notify.quiet ? '' : ' off'}`}>
@@ -111,6 +181,8 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onC
             <Toggle label={t('세션 닫기 전 확인')} hint={t('끄면 × 한 번으로 바로 닫혀요')} on={s.session.confirmClose} onChange={v => set('session', { confirmClose: v })} />
             <Toggle label={t('시작할 때 세션 다시 열기')} hint={t('앱을 닫을 때 열려 있던 세션을 다음에 켤 때 이어서 열어요')} on={s.session.restoreOnStart} onChange={v => set('session', { restoreOnStart: v })} />
           </>}
+
+          {section === 'tools' && <ToolsSection s={s} set={part => set('session', part)} />}
 
           {section === 'app' && <>
             <h3>{t('앱')}</h3>

@@ -36,7 +36,7 @@ A Windows desktop app for running Claude Code sessions with Pokémon. Each sessi
 - They evolve at the main games' levels (Charmander 16, Charmeleon 36, …). Each Pokémon grows on its own.
   - Friendship evolutions: at the next level-up after you have raised it 20 levels.
   - Trade evolutions: at the next level-up after a swap or a trade.
-  - Eevee: from Lv.30, depending on the situation, Espeon (friendship, day), Umbreon (friendship, night), Leafeon (forest), Glaceon (cave, night), otherwise one of the stone evolutions.
+  - Eevee: from Lv.30, depending on the situation, Espeon (friendship, day), Umbreon (friendship, night), Leafeon (forest), Glaceon (cave, night), otherwise one of the stone evolutions or Sylveon.
   - Evolution stones: Lv.30 (40 for a second evolution).
 - Each catch of a species lowers its chance of appearing again by 10% (0.9, 0.81, …). The share it loses goes to the other Pokémon of the same tier.
 - The ball is drawn at set odds. Rarity follows how easy each ball is to come by in the games.

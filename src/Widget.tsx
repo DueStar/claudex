@@ -342,14 +342,14 @@ const Widget: React.FC = () => {
   }
 
   /** The chosen party Pokémon goes out with a new (or resumed) session */
-  const throwBall = async (uid: string, where: { cwd?: string; resume?: PastSession }, quiet = false) => {
+  const throwBall = async (uid: string, where: { cwd?: string; resume?: PastSession; tool?: string }, quiet = false) => {
     setThrowing(null)
     if (!bridge) return
     // Dress the session in its Pokémon first: the tab must never show a bare Poké Ball
     const sessionId = where.resume?.id ?? crypto.randomUUID()
     const mon = dex?.mons?.[uid]
     if (mon) castSession(sessionId, mon.dex, mon.shiny)
-    const r = await bridge.terminals.create(where.resume ? { cwd: where.resume.cwd, resume: where.resume.id } : { sessionId, ...(where.cwd ? { cwd: where.cwd } : {}) })
+    const r = await bridge.terminals.create(where.resume ? { cwd: where.resume.cwd, resume: where.resume.id } : { sessionId, ...(where.cwd ? { cwd: where.cwd } : {}), ...(where.tool ? { tool: where.tool } : {}) })
     if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return }
     const thrown = await bridge.game.throw(r.sessionId, uid)
     if (!thrown.ok) setNote(thrown.reason === 'busy' ? t('세션은 열렸어요. 고른 파트너가 다른 세션에서 일하고 있어서 다른 파트너가 함께해요.') : thrown.reason === 'no-token' ? t('세션은 열렸어요. 서버와 연결되는 중이라 파트너는 잠시 뒤에 배정돼요.') : t('세션은 열렸지만 파트너를 배정하지 못했어요 ({reason})', { reason: thrown.reason ?? t('알 수 없는 이유') }))
@@ -382,7 +382,9 @@ const Widget: React.FC = () => {
         const uid = remembered && free.includes(remembered) ? remembered : free[0]
         if (!uid) break
         used.add(uid)
-        await throwBall(uid, { resume: { id: s.sessionId, cwd: s.cwd } as PastSession }, true)
+        // Claude Code resumes; another tool cannot, and opens anew in the same folder
+        if (s.tool && s.tool !== 'claude') await throwBall(uid, { cwd: s.cwd, tool: s.tool }, true)
+        else await throwBall(uid, { resume: { id: s.sessionId, cwd: s.cwd } as PastSession }, true)
       }
     })()
   }, [dex]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -601,6 +603,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                       onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
                     >
                       <span className="w-row-name">{r.title ?? t('새 세션')}</span><span className="w-row-project">{r.name}</span>
+                      {r.terminal?.tool && r.terminal.tool !== 'claude' && <span className="w-row-tool" title={t('이 세션에서 도는 AI 도구')}>{r.terminal.toolName}</span>}
                     </span>
                   )}
                   {renaming !== r.sessionId && (dex?.helpers?.[r.sessionId] ?? []).length > 0 && (
@@ -708,7 +711,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
       {expanded && (
         <section className="w-card w-term">
-          <div className={`w-term-tabs${view === 'terminal' ? ' with-sessions' : ''}`}>
+          <div className="w-term-tabs">
             <div className="w-view-switch">
               <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')}><TerminalIcon size={14} />{t('터미널')}</button>
               <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')}><DexIcon size={14} />{t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
@@ -734,7 +737,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>
-          {/* The sessions: a row of browser-like tabs, the one in view joined to the terminal */}
+          {/* The sessions: their own row of tabs under the view bar, reordered by dragging */}
           {view === 'terminal' && (
             <SessionTabs
               rows={withTerminal}
@@ -774,7 +777,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
       {picking && <Suspense fallback={null}><ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
         monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: nameOf(pokemonById(m.dex)) } : null }} /></Suspense>}
       {throwing && dex && (
-        <ThrowPicker dex={dex} resume={!!throwing.resume} onPick={uid => throwBall(uid, throwing)} onClose={() => setThrowing(null)} />
+        <ThrowPicker dex={dex} resume={!!throwing.resume} tools={throwing.resume ? [] : settings.session.tools} defaultTool={settings.session.defaultTool}
+          onPick={(uid, tool) => throwBall(uid, { ...throwing, ...(tool && tool !== 'claude' ? { tool } : {}) })} onClose={() => setThrowing(null)} />
       )}
       <PatchNotes />
       {notesOpen && <PatchNotesHistory onClose={() => setNotesOpen(false)} />}

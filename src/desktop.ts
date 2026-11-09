@@ -16,9 +16,17 @@ export interface TerminalInfo {
   exitCode: number | null
   /** The trainer's name for the session, if given */
   title: string | null
-  /** Claude Code is waiting on a question (folder trust, a permission, a choice) */
+  /** The session is waiting on a question (folder trust, a permission, a choice) */
   asking?: boolean
+  /** The AI tool it runs: 'claude' (Claude Code) or an id from 설정 › 세션 › AI 도구 */
+  tool?: string
+  toolName?: string
+  /** Only Claude Code sessions resume by id */
+  canResume?: boolean
 }
+
+/** Another AI tool a session can run (설정 › 세션 › AI 도구) */
+export interface AiTool { id: string; name: string; command: string }
 
 export interface PastSession {
   id: string
@@ -35,10 +43,10 @@ interface ClaudexBridge {
   isDesktop: true
   terminals: {
     list(): Promise<TerminalInfo[]>
-    create(opts?: { cwd?: string; resume?: string; sessionId?: string }): Promise<TerminalInfo | { error: string }>
+    create(opts?: { cwd?: string; resume?: string; sessionId?: string; tool?: string }): Promise<TerminalInfo | { error: string }>
     pickFolder(): Promise<string | null>
     /** The sessions open when the app last closed, once per run; none when 설정 › 세션 says not to */
-    restorable(): Promise<{ sessionId: string; cwd: string }[]>
+    restorable(): Promise<{ sessionId: string; cwd: string; tool: string }[]>
     history(): Promise<PastSession[]>
     buffer(id: string): Promise<string>
     write(id: string, data: string): void
@@ -92,6 +100,8 @@ interface ClaudexBridge {
     throw(sessionId: string, uid: string): Promise<{ ok: boolean; reason?: string }>
     release(uid: string): Promise<{ ok: boolean; reason?: string }>
     exchange(boxUid: string, partyUid: string): Promise<{ ok: boolean; reason?: string }>
+    /** The box in the trainer's own order (every box Pokémon, each once) */
+    arrange(order: string[]): Promise<{ ok: boolean; reason?: string }>
     swap(sessionId: string, uid: string): Promise<{ ok: boolean; reason?: string }>
   }
   update: {
@@ -137,9 +147,9 @@ export type Lang = 'ko' | 'en' | 'ja'
 
 /** The 설정 screen's values (electron/settings.cjs keeps them and checks every change) */
 export interface AppSettings {
-  notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string }
+  notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string; sound: boolean }
   privacy: { hidePrompts: boolean }
-  session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean; restoreOnStart: boolean }
+  session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean; restoreOnStart: boolean; tools: AiTool[]; defaultTool: string }
   app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean; language: 'auto' | Lang }
 }
 export type BoardKind = 'caught' | 'shiny' | 'legends' | 'week'

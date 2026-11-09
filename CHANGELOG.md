@@ -2,6 +2,13 @@
 
 ## Claudex
 
+### 1.3.26
+- 다른 AI 도구: 설정 › AI 도구에 Codex CLI처럼 터미널에서 도는 도구를 추가하면, 새 세션을 열 때 고를 수 있어요. Claude Code가 기본이에요.
+- 알림에 짧은 효과음이 생겼어요(포획, 도망, 레벨 업, 진화). 설정 › 알림에서 끌 수 있어요.
+- 박스에서 포켓몬을 끌어 다른 포켓몬 사이에 끼워 넣을 수 있어요. 정렬에 "내 순서"가 생겼어요.
+- 세션 탭을 예전 모양으로 되돌렸어요. 끌면 다른 탭이 부드럽게 비켜나는 건 그대로예요.
+- 이브이가 님피아로도 진화해요.
+
 ### 1.3.25
 - 터미널의 세션 탭이 아래쪽 줄로 내려와 브라우저 탭처럼 바뀌었어요. 보고 있는 탭이 터미널과 이어져 보이고, 탭을 끌면 마우스를 따라오면서 다른 탭이 부드럽게 비켜나요.
 - 교체 버튼을 아이콘으로 바꿨어요. 교체 창에서 파티와 박스를 함께 보여주고, 박스 포켓몬을 고르면 지금 포켓몬과 자리를 바꿔요. 일하는 포켓몬은 흐리게 보여요.
@@ -196,6 +203,13 @@
 
 ## Claudex (English)
 
+### 1.3.26
+- Other AI tools: add a terminal tool such as Codex CLI in Settings › AI tools and pick it when you open a new session. Claude Code stays the default.
+- Notifications play a short sound (catch, escape, level up, evolution). Turn it off in Settings › Notifications.
+- Drag a Pokémon in the Box in between two others to move it; a new "My order" sort keeps it.
+- The session tabs are back to their earlier look; dragging still slides the others aside.
+- Eevee can evolve into Sylveon.
+
 ### 1.3.25
 - The terminal's session tabs moved to a row of their own and look like browser tabs: the one in view joins the terminal, and a dragged tab follows the cursor while the others slide out of its way.
 - The swap button is now an icon. The swap dialog shows both the party and the Box; picking a Box Pokémon trades places with the current one. Working Pokémon are shown dimmed.
@@ -253,6 +267,13 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.26
+- ほかのAIツール: 設定 › AIツールでCodex CLIのようなターミナルのツールを追加すると、新しいセッションを開くときに選べます。既定はClaude Codeです。
+- 通知に短い効果音がつきました(捕獲、逃走、レベルアップ、進化)。設定 › 通知でオフにできます。
+- ボックスでポケモンをドラッグして、ほかのポケモンの間に入れられます。並び替えに「自分の並び」が加わりました。
+- セッションタブを以前の見た目に戻しました。ドラッグするとほかのタブがなめらかによけるのはそのままです。
+- イーブイがニンフィアにも進化します。
 
 ### 1.3.25
 - ターミナルのセッションタブが下の段に移り、ブラウザのタブのような見た目になりました。表示中のタブはターミナルとつながって見え、ドラッグするとカーソルについてきて、ほかのタブがなめらかによけます。

@@ -378,6 +378,19 @@ describe('pokedex', () => {
     expect(dex.publicState().assign.s1).toBe(resting)
   })
 
+  it('the trainer arranges the box: the same Pokémon, each once, in a new order', () => {
+    const { dex } = setup([0])
+    attended(dex)
+    const st0 = (dex as any)._state()
+    for (const u of ['b1', 'b2', 'b3']) { st0.mons[u] = { uid: u, dex: 150, steps: 0, evos: 0, shiny: false, how: 'wild', place: 'x', at: 0 }; st0.box.push(u) }
+    expect(dex.arrangeBox(['b3', 'b1', 'b2'])).toEqual({ ok: true })
+    expect(dex.publicState().box).toEqual(['b3', 'b1', 'b2'])
+    expect(dex.arrangeBox(['b3', 'b1'])).toMatchObject({ ok: false })
+    expect(dex.arrangeBox(['b3', 'b1', 'b1'])).toMatchObject({ ok: false })
+    expect(dex.arrangeBox(['b3', 'b1', 'zz'])).toMatchObject({ ok: false })
+    expect(dex.publicState().box).toEqual(['b3', 'b1', 'b2'])
+  })
+
   it('every catch comes in a ball drawn by the balls’ weights', () => {
     const balls = JSON.parse(readFileSync(join(__dirname, '..', 'server', 'balls.json'), 'utf8')).balls
     expect(balls).toHaveLength(27)
@@ -522,6 +535,10 @@ describe('pokedex', () => {
     add('eevee', 133, 29)
     grow('eevee', 'c', 'Read', 60)
     expect(st.mons.eevee.dex).toBe(470)
+    // Anywhere else (an Edit on the road), one of the stone forms or Sylveon at random (here the last: Sylveon)
+    add('eevee2', 133, 29)
+    grow('eevee2', 'd', 'Edit', 60)
+    expect(st.mons.eevee2.dex).toBe(700)
   })
 
   it('steps wait their turn: a burst of tool calls is met one step at a time', () => {

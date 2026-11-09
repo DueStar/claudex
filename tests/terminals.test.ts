@@ -62,7 +62,7 @@ describe('terminals.cjs', () => {
       { sessionId: 'not-an-id', cwd: dir },
       { sessionId: '22222222-2222-4222-8222-222222222222', cwd: path.join(dir, 'gone') },
     ]))
-    expect(readOpenSessions(file)).toEqual([{ sessionId: a, cwd: dir }])
+    expect(readOpenSessions(file)).toEqual([{ sessionId: a, cwd: dir, tool: 'claude' }])
     fs.writeFileSync(file, '{broken')
     expect(readOpenSessions(file)).toEqual([])
     expect(readOpenSessions(path.join(dir, 'missing.json'))).toEqual([])

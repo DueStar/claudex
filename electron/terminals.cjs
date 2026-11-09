@@ -1,13 +1,16 @@
 'use strict'
 
 /**
- * terminals.cjs — Claude Code sessions that live inside the app.
+ * terminals.cjs — the AI coding sessions that live inside the app.
  *
- * Every terminal is a real pseudo-console (node-pty / ConPTY) running
+ * Every terminal is a real pseudo-console (node-pty / ConPTY) running one
+ * tool's adapter (adapters.cjs). Claude Code runs as
  * `claude --session-id <uuid>`, so the session id is known before Claude even
  * starts and the server can tie the terminal, the session and its Pokémon
  * together. Claudex's hooks are attached to these sessions only, through
  * `--settings` (a generated file) — ~/.claude/settings.json is never touched.
+ * Another tool (설정 › 세션 › AI 도구) reports nothing itself: its output is
+ * turned into the same server events here (adapters.createActivity).
  *
  * Input reaches a terminal from two places, both inside the app over IPC: the
  * keyboard in the terminal tab, and an instruction sent from the widget. No
@@ -18,6 +21,7 @@ const path = require('path')
 const fs = require('fs')
 const os = require('os')
 const crypto = require('crypto')
+const { adapterFor, createActivity } = require('./adapters.cjs')
 
 const MAX_BUFFER = 200_000 // characters of scrollback kept for a tab opened later
 
@@ -81,25 +85,18 @@ function cleanEnv(env) {
   return out
 }
 
-function claudeCommand() {
-  if (process.platform !== 'win32') return 'claude'
-  const local = path.join(os.homedir(), '.local', 'bin', 'claude.exe')
-  return fs.existsSync(local) ? local : 'claude.exe'
-}
-
 /**
- * Claude Code is asking the user something it cannot go on without: the
- * folder-trust question at start, a permission prompt, any numbered choice.
- * Read from the terminal's own output (the trust question comes before any
- * hook runs), with the escape codes taken out.
+ * A session asking the user something it cannot go on without (each adapter's
+ * `asking` pattern: for Claude Code the folder-trust question at start, a
+ * permission prompt, any numbered choice) is read from the terminal's own
+ * output (the trust question comes before any hook runs), escape codes out.
  */
-const ASKING = /Do you trust|trust (the files in )?this folder|Do you want to (proceed|make this edit|create|allow|run)|Yes, (proceed|I trust)|[❯>]\s*1\.\s+Yes/i
 const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b[=>78]/g
 function plainText(data) { return String(data).replace(ANSI, ' ') }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** open-sessions.json, checked: [{ sessionId, cwd }] with real ids and folders that still exist */
+/** open-sessions.json, checked: [{ sessionId, cwd, tool }] with real ids and folders that still exist (tool 'claude' when an older file has none) */
 function readOpenSessions(file) {
   let raw
   try { raw = JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return [] }
@@ -107,7 +104,7 @@ function readOpenSessions(file) {
   const seen = new Set()
   return raw.filter(s => s && typeof s.sessionId === 'string' && UUID.test(s.sessionId) && typeof s.cwd === 'string'
     && !seen.has(s.sessionId) && seen.add(s.sessionId) && fs.existsSync(s.cwd)).slice(0, 6)
-    .map(s => ({ sessionId: s.sessionId, cwd: s.cwd }))
+    .map(s => ({ sessionId: s.sessionId, cwd: s.cwd, tool: typeof s.tool === 'string' && /^[a-z0-9-]{1,24}$/.test(s.tool) ? s.tool : 'claude' }))
 }
 
 /** Claude Code keeps a session's transcript at ~/.claude/projects/<project>/<id>.jsonl */
@@ -117,7 +114,11 @@ function hasTranscript(sessionId, claudeDir = process.env.CLAUDE_CONFIG_DIR || p
   return projects.some(p => fs.existsSync(path.join(claudeDir, 'projects', p, `${sessionId}.jsonl`)))
 }
 
-function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} } }) {
+/**
+ * `tools()`: the trainer's other AI tools (설정 › 세션). `emit(event)`: a server
+ * event for a session whose tool has no hooks (main posts it to /event).
+ */
+function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {} }) {
   const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
   // The sessions open when the app last closed (open-sessions.json): what the
@@ -136,6 +137,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       id: t.id, sessionId: t.sessionId, cwd: t.cwd, project: path.basename(t.cwd),
       status: t.status, createdAt: t.createdAt, exitCode: t.exitCode ?? null,
       asking: !!t.asking,
+      tool: t.adapter.id, toolName: t.adapter.name, canResume: t.adapter.canResume,
       title: titles.get(t.sessionId) ?? null,
     }
   }
@@ -145,35 +147,36 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   /** The running sessions, written on every change (a crash or a kill leaves the last list) */
   function rememberOpen() {
     if (frozen) return
-    const open = [...terms.values()].filter(t => t.status !== 'exited').map(t => ({ sessionId: t.sessionId, cwd: t.cwd }))
+    const open = [...terms.values()].filter(t => t.status !== 'exited').map(t => ({ sessionId: t.sessionId, cwd: t.cwd, tool: t.adapter.id }))
     try { fs.writeFileSync(openFile, JSON.stringify(open)) } catch {}
   }
 
   /**
    * The sessions to reopen, once per run (a window swap reloads the page and
-   * must not reopen them again). Only those with a transcript: a session that
-   * never got a prompt has nothing to resume. None while some are open already.
+   * must not reopen them again). A Claude Code one only with a transcript: one
+   * that never got a prompt has nothing to resume. Another tool's opens anew
+   * in its folder (it cannot resume). None while some are open already.
    */
   function takeRestorable() {
-    const out = terms.size ? [] : restorable.filter(s => hasTranscript(s.sessionId))
+    const out = terms.size ? [] : restorable.filter(s => s.tool !== 'claude' || hasTranscript(s.sessionId))
     restorable = []
     return out
   }
 
   function list() { return [...terms.values()].map(info) }
 
-  function create({ cwd, resume, sessionId: wanted } = {}) {
+  function create({ cwd, resume, sessionId: wanted, tool } = {}) {
+    const adapter = adapterFor(tool, tools())
+    if (!adapter.canResume) resume = undefined
     // No folder picked: the default one (설정, else Documents), else home
     const def = typeof defaultCwd === 'function' ? defaultCwd() : defaultCwd
     const fallback = def && fs.existsSync(def) ? def : os.homedir()
     const dir = cwd && fs.existsSync(cwd) ? cwd : fallback
     // The widget may pick the id itself, so it can dress the session in its Pokémon before the tab shows
     const sessionId = resume || (typeof wanted === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(wanted) ? wanted : crypto.randomUUID())
-    let command = claudeCommand()
-    let args = resume ? ['--resume', resume] : ['--session-id', sessionId]
-    args.push('--settings', settings(), ...extraArgs())
+    let { file: command, args } = adapter.launch({ sessionId, resume, settingsFile: adapter.id === 'claude' ? settings() : null, extraArgs: adapter.id === 'claude' ? extraArgs() : [] })
     // Debug only: CLAUDEX_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
-    if (process.env.CLAUDEX_CLAUDE) { command = process.env.CLAUDEX_CLAUDE; args = [] }
+    if (process.env.CLAUDEX_CLAUDE && adapter.id === 'claude') { command = process.env.CLAUDEX_CLAUDE; args = [] }
     const pty = loadPty().spawn(command, args, {
       name: 'xterm-256color',
       cols: 100,
@@ -182,17 +185,24 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       env: cleanEnv(process.env),
       useConpty: true,
     })
-    const t = { id: sessionId, sessionId, cwd: dir, pty, buffer: '', status: 'running', createdAt: Date.now() }
+    const t = { id: sessionId, sessionId, cwd: dir, pty, buffer: '', status: 'running', createdAt: Date.now(), adapter }
     terms.set(t.id, t)
     t.scan = ''
+    // A tool without hooks: the server hears of it from here, its output standing in for its events
+    if (adapter.events === 'pty') {
+      t.activity = createActivity({ sessionId, tool: adapter.name, cwd: dir, emit })
+      emit({ type: 'session_started', sessionId, cwd: dir, project: path.basename(dir), source: 'startup', model: adapter.name })
+    }
     pty.onData((data) => {
       t.buffer = (t.buffer + data).slice(-MAX_BUFFER)
       send('terminals:data', { id: t.id, data })
       // Only output since the user last answered counts
       t.scan = (t.scan + plainText(data)).slice(-4000)
-      if (!t.asking && ASKING.test(t.scan)) { t.asking = true; broadcastList() }
+      if (!t.asking && adapter.asking.test(t.scan)) { t.asking = true; broadcastList() }
+      t.activity?.output(data)
     })
     pty.onExit(({ exitCode }) => {
+      t.activity?.stop()
       t.status = 'exited'
       t.exitCode = exitCode
       broadcastList()
@@ -217,6 +227,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const t = terms.get(id)
     if (!t || t.status === 'exited' || typeof data !== 'string') return false
     t.pty.write(data)
+    t.activity?.input()
     // An answer (Enter, or Esc to dismiss) clears the question
     if (/[\r\x1b]/.test(data)) {
       t.scan = ''
@@ -236,6 +247,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const clean = String(text ?? '').replace(/\r\n?/g, '\n').trim()
     if (!clean) return { ok: false, reason: 'empty' }
     if (clean.length > 20_000) return { ok: false, reason: 'too-long' }
+    t.activity?.input()
     if (clean.includes('\n')) t.pty.write(`\x1b[200~${clean}\x1b[201~`)
     else t.pty.write(clean)
     // Enter a beat later, so the TUI has taken the text in first

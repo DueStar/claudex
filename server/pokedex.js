@@ -747,7 +747,8 @@ ${agentId}`
       if (bonded) return where.night ? 197 : 196
       if (where.terrain === '숲') return 470
       if (where.terrain === '동굴' && where.night) return 471
-      return [134, 135, 136][Math.floor(random() * 3)]
+      // Otherwise one of the stone forms or Sylveon (its fairy-move route has no stand-in here), at random
+      return [134, 135, 136, 700][Math.floor(random() * 4)]
     }
     const ok = (nextOf.get(mon.dex) ?? []).filter((id) => {
       const sp = byId.get(id)
@@ -905,6 +906,21 @@ ${agentId}`
     return { ok: true }
   }
 
+  /** The trainer's own box order: `order` holds exactly the box's Pokémon, each once */
+  function arrangeBox(order) {
+    if (!Array.isArray(order) || order.length !== state.box.length) return { ok: false, reason: 'bad-request' }
+    const have = new Set(state.box)
+    const seen = new Set()
+    for (const uid of order) {
+      if (typeof uid !== 'string' || !have.has(uid) || seen.has(uid)) return { ok: false, reason: 'bad-request' }
+      seen.add(uid)
+    }
+    state.box = [...order]
+    save()
+    publish(null)
+    return { ok: true }
+  }
+
   /** Let a box Pokémon go (never one in the party or working a session) */
   function release(uid) {
     const mon = state.mons[uid]
@@ -949,5 +965,5 @@ ${agentId}`
     return true
   }
 
-  return { noteEvent, tick, swap, throwBall, release, exchange, publicState, exportState, importState, _state: () => state }
+  return { noteEvent, tick, swap, throwBall, release, exchange, arrangeBox, publicState, exportState, importState, _state: () => state }
 }

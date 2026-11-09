@@ -86,7 +86,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
   - 친밀도 등 레벨업 조건형(`level-up`)은 내가 레벨을 20(`BOND_LEVELS`) 올린 뒤 진화한다.
   - 통신 진화는 `traded` 표시가 있을 때 진화한다. swap이나 exchange를 하면 표시가 붙는다.
   - 돌 진화와 그 밖의 진화는 Lv.30/40이다.
-  - 이브이: Lv.30부터 친밀도 최대면 낮은 에브이, 밤은 블래키. 숲은 리피아, 동굴+밤은 글레이시아, 그 밖에는 돌 3종 중 무작위다.
+  - 이브이: Lv.30부터 친밀도 최대면 낮은 에브이, 밤은 블래키. 숲은 리피아, 동굴+밤은 글레이시아, 그 밖에는 돌 3종과 님피아 중 무작위다(1.3.26).
 - **볼** (balls.json, 합계 100%)
   - 흔한 볼 60, 특수 볼 29.4, 규격 외 볼 8.4, 한정 볼 2.0(사파리 1.2, 울트라볼 0.8), 마스터볼 0.2. 전설·환상은 마스터볼 1%.
   - 이벤트 볼(컴퍼티션·파크·드림·프레셔스)은 야생에서 나오지 않는다.
@@ -105,7 +105,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 ## 남은 일과 결정 대기
 1. **나중에 할 일**
    - 진화의 돌 아이템: 조우나 출석에서 돌을 얻어 쓰는 방식. 지금은 돌 진화를 Lv.30(두 번째 40) 고정으로 둔다.
-   - 님피아(700) 진화 경로: 지금은 진화할 방법이 없다. 돌 아이템을 할 때 같이 정한다.
+   - 님피아(700) 진화 경로: 1.3.26부터 이브이의 무작위 진화 후보(돌 3종 + 님피아)에 들어감(사용자 결정).
    - 이벤트 볼(컴퍼티션·파크·드림·프레셔스) 지급 방식: 아직 정하지 않았다.
 2. **로컬 업데이트 버튼**: 실제로 눌러서 확인한 적이 아직 없다. 아래 "다음 할 일" 3번에서 확인한다.
 3. 1.3.2에서 넣은 것
@@ -452,12 +452,21 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **위쪽 탭**: 포켓몬 이름(`w-term-tab-project`) 제거, 스프라이트 title로.
 
 7-15. **2026-11-09 1.3.25**
-   - **세션 탭**(`src/components/SessionTabs.tsx`): 뷰 바 아래 별도 줄(`.w-sess-tabs`), 터미널 화면에서만. 보고 있는 탭은 터미널 배경(`--tab-bg` #101217)에 radial-gradient 발(::before/::after)로 이어진다. 끌기는 HTML5 DnD가 아니라 pointer capture: 4px 넘게 움직이면 드래그, 시작 때 잰 탭 rect로 목적 슬롯(다른 탭 가운데를 몇 개 지났나)을 계산, 다른 탭은 transform으로 비켜남(0.15s). 놓으면 `terminals.move(id, to)`, main의 목록이 따라올 때까지(최대 1.5s) 낙관적 순서(`order`)로 그린다. 드래그 뒤 click은 무시.
+   - **세션 탭**(`src/components/SessionTabs.tsx`): 뷰 바 아래 별도 줄(`.w-sess-tabs`), 터미널 화면에서만. 1.3.25의 브라우저 탭 모양(터미널과 이어지는 탭, 늘어나는 폭)은 사용자가 거절해 1.3.26에서 예전 탭 모양(내용 폭, gap 4, 선택 탭은 card-2 배경+테두리)으로 되돌림. 사용자 요청은 '방식만' 바꾸는 것이었다: 디자인 변경은 요청받은 범위만. 끌기는 HTML5 DnD가 아니라 pointer capture: 4px 넘게 움직이면 드래그, 시작 때 잰 탭 rect로 목적 슬롯(다른 탭 가운데를 몇 개 지났나)을 계산, 다른 탭은 transform으로 비켜남(0.15s). 놓으면 `terminals.move(id, to)`, main의 목록이 따라올 때까지(최대 1.5s) 낙관적 순서(`order`)로 그린다. 드래그 뒤 click은 무시.
    - **교체**: 줄 버튼은 ⇄ 아이콘(`SwapIcon`). `SwapPicker`는 파티 + 박스(아이콘 그리드, 레벨순, 이름 검색), 일하는 포켓몬·조력자는 흐리게 disabled. 서버 `swap(sessionId, uid)`가 박스 포켓몬도 받는다: 지금 포켓몬의 파티 칸에 들어가고 지금 포켓몬은 박스의 그 자리로.
    - **쉬는 세션의 교환**: `exchange(boxUid, partyUid)`는 파티 포켓몬의 세션이 쉬는 중(`sessionResting`: working·compacting·waiting 아님, hard needs-you 아님)이면 허용하고 그 세션을 박스 포켓몬에게 넘긴다(`assign[sid] = boxUid`). 위젯은 `restingUids`(mood idle·error 줄)를 `BoxView`에 넘겨 드래그·교환 버튼을 연다.
    - 도감·박스 칸 테두리는 등급색 대신 `rgba(255,255,255,0.1)`. 한도 라벨 칸 34→44px + nowrap(영어 "5-hour").
 
+7-16. **2026-11-09 1.3.26**
+   - 탭은 1.3.24 모양으로 되돌림(7-15 참고), 박스 안 끌어서 끼워넣기(`arrangeBox(order)`, `/pokedex/arrange`·`game:arrange`, 정렬 "내 순서" `mine`은 localStorage `claudex-box-sort`, 왼쪽/오른쪽 절반으로 앞·뒤 막대, 검색·이로치 필터 중엔 끔. 동기화(merge.js)는 이 PC의 박스 순서를 먼저 둔다). 이브이 무작위 진화에 님피아(700) 추가.
+   - **다른 AI 도구 1·2단계(7-9 B)**: `electron/adapters.cjs`. Claude Code는 `CLAUDE` 어댑터(events 'hooks', canResume). 설정 › AI 도구(`session.tools` [{id,name,command}] 최대 12, `session.defaultTool`)의 도구는 `terminalAdapter`(events 'pty'): 명령은 `splitCommand`(큰따옴표), Windows에서 .exe가 PATH에 없으면 `cmd.exe /d /s /c`로(npm .cmd 심). 이벤트는 `createActivity`가 PTY 출력으로 만든다: 출력 시작 때와 이어지는 동안 15초마다 `agent_working`(tool=도구 이름 → 지형은 도로), 8초 조용하면 `session_turn_end`, 키 입력 후 250ms 안의 짧은 출력은 에코라 무시, 10분마다 `session_cwd`(2시간 stale sweep 방지). main이 `serverPost('/event')`로 보낸다. 확인 필요는 `GENERIC_ASKING`(Codex·Gemini 승인 문구 포함) → terminal.asking. 이어하기 없음: 시작 시 복원은 같은 폴더에서 새로 연다(`open-sessions.json`에 tool). 새 세션 창(`ThrowPicker`)에 도구 고르기(도구가 하나라도 있을 때만). 왼쪽 줄에 도구 이름 태그. 실제 Electron에서 PowerShell로 확인(이벤트 3종, asking).
+   - **3단계 조사(2026-11-09, 에이전트, 공식 문서 기준)**:
+     - Codex CLI: Claude Code와 거의 같은 훅(`SessionStart/End`, `UserPromptSubmit`, `Pre/PostToolUse`(tool_name), `PermissionRequest`, `Stop`, `SubagentStart/Stop` …), stdin JSON, `commandWindows`. hooks.json/`[hooks]`(~/.codex 또는 <repo>/.codex). 비관리 훅은 `/hooks`에서 신뢰 승인 필요(`--dangerously-bypass-hook-trust`). `-c`로 훅 주입 가능한지 미확인. 세션 id를 미리 정할 수 없음(SessionStart에서 받음), `codex resume <id>`. 사용량은 커스텀 상태줄 없음(rollout JSONL `rate_limits` 또는 `codex app-server`의 `account/rateLimits/read`). 승인 문구 "Would you like to run the following command?" 등.
+     - Gemini CLI: 2026-06-18부터 개인(무료·AI Pro/Ultra) 계정은 사용 불가, Antigravity CLI(`agy`)로 이전. 훅은 있음(`BeforeTool/AfterTool`, `AfterAgent`=턴 끝, `Notification`(ToolPermission)), stdin JSON. `GEMINI_CLI_SYSTEM_SETTINGS_PATH`로 사용자 파일을 안 건드리고 주입할 수 있어 보임(미검증). `agy`의 훅 형식은 확인 못 함.
+     - 결론(사용자 결정): Claude Code가 기본, 정식 지원은 Codex만. Gemini·agy는 하지 않는다(설정의 빠른 추가도 Codex만). 목표: 도구가 바뀌어도 화면은 똑같이(걸음·확인 필요·사용량·이어하기).
+   - **효과음**(`src/sounds.ts`): 파일 없이 Web Audio로 합성(포획: 두 음 올라감 + 희귀 이상 한 음 + 전설·환상 한 음, 도망: 내려가는 글리산도, 레벨 업: 짧은 3음, 진화: 5음, 이로치는 반짝임). 알림 창이 카드를 띄울 때 재생(`settings.notify.sound`, 기본 켬). 알림 창 `autoplayPolicy: 'no-user-gesture-required'`. 공식 효과음은 넣지 않는다.
+
 8. **나중에**
-   - 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명 (설정·리더보드·다른 AI 도구는 7-9로 옮김)
+   - 진화의 돌 아이템. 이벤트 볼 지급은 사용자가 필요할 때 말하기로(2026-11-09). 코드 서명은 하지 않기로 함(사용자 결정, 2026-11-09). (설정·리더보드·다른 AI 도구는 7-9로 옮김)
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)
    - 공식 효과음은 보류(7번)

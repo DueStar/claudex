@@ -10,6 +10,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const { validTool } = require('./adapters.cjs')
 
 const MODELS = ['', 'opus', 'sonnet', 'haiku']                 // '' = Claude Code's own default
 const PERMISSION_MODES = ['', 'default', 'acceptEdits', 'plan', 'auto'] // Claude Code's names; never bypassPermissions from a menu
@@ -21,9 +22,12 @@ const DEFAULTS = Object.freeze({
     rareOnly: false,          // catches and escapes: rare and above, or shiny
     duration: 'normal',       // short | normal | long
     quiet: false, quietFrom: '23:00', quietTo: '08:00', // no notifications in these hours
+    sound: true,              // a short sound with each card (src/sounds.ts)
   },
   privacy: { hidePrompts: false }, // the catch story without the request text
-  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true }, // restoreOnStart: reopen the sessions open at the last close
+  // restoreOnStart: reopen the sessions open at the last close. tools: other AI tools a session can run
+  // ({ id, name, command }, Claude Code is always there), defaultTool: the one + opens with
+  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true, tools: [], defaultTool: 'claude' },
   app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' }, // auto: the system's language
 })
 
@@ -35,6 +39,8 @@ const CHECKS = {
   'session.model': (v) => MODELS.includes(v),
   'session.permissionMode': (v) => PERMISSION_MODES.includes(v),
   'session.defaultCwd': (v) => typeof v === 'string' && v.length < 1024,
+  'session.tools': (v) => Array.isArray(v) && v.length <= 12 && v.every(validTool) && new Set(v.map(t => t.id)).size === v.length,
+  'session.defaultTool': (v) => typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,23}$/.test(v),
   'app.language': (v) => ['auto', 'ko', 'en', 'ja'].includes(v),
 }
 
@@ -47,7 +53,8 @@ function sanitize(input, base = DEFAULTS) {
       const v = input?.[group]?.[key]
       const check = CHECKS[`${group}.${key}`]
       const ok = v !== undefined && typeof v === typeof def && (!check || check(v))
-      out[group][key] = ok ? v : (base?.[group]?.[key] ?? def)
+      // (the one list, session.tools, is kept to its three fields)
+      out[group][key] = ok ? (Array.isArray(v) ? v.map(x => ({ id: x.id, name: x.name.trim(), command: x.command.trim() })) : v) : (base?.[group]?.[key] ?? def)
     }
   }
   return out

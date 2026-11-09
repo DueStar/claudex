@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld('claudex', {
     throw: (sessionId, uid) => ipcRenderer.invoke('game:throw', { sessionId, uid }),
     release: (uid) => ipcRenderer.invoke('game:release', uid),
     exchange: (boxUid, partyUid) => ipcRenderer.invoke('game:exchange', { boxUid, partyUid }),
+    arrange: (order) => ipcRenderer.invoke('game:arrange', order),
     swap: (sessionId, uid) => ipcRenderer.invoke('game:swap', { sessionId, uid }),
   },
   update: {
