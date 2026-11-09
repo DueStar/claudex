@@ -2,6 +2,13 @@
 
 ## Claudex
 
+### 1.3.25
+- 터미널의 세션 탭이 아래쪽 줄로 내려와 브라우저 탭처럼 바뀌었어요. 보고 있는 탭이 터미널과 이어져 보이고, 탭을 끌면 마우스를 따라오면서 다른 탭이 부드럽게 비켜나요.
+- 교체 버튼을 아이콘으로 바꿨어요. 교체 창에서 파티와 박스를 함께 보여주고, 박스 포켓몬을 고르면 지금 포켓몬과 자리를 바꿔요. 일하는 포켓몬은 흐리게 보여요.
+- 세션이 열려 있어도 쉬고 있는 포켓몬은 박스 포켓몬과 바꿀 수 있어요. 박스에서 온 포켓몬이 그 세션을 이어받아요.
+- 도감과 박스의 칸 테두리를 등급 색 대신 옅은 한 가지 색으로 통일했어요.
+- 영어로 볼 때 한도 이름("5-hour")이 줄바꿈되던 것을 고쳤어요.
+
 ### 1.3.24
 - 조력자: 서브에이전트가 일하면 박스에서 쉬던 포켓몬이 조력자로 나가요. 그동안의 성장과 조우는 조력자가 받고, 서브에이전트가 끝나면 박스로 돌아가요. 세션 줄에 조력자 아이콘이 보여요. 세션은 계속 파티 6마리까지예요.
 - 창 모드에서 확인을 기다리는 세션은 포켓몬이 통통 튀고, 무엇을 묻는지 한 줄로 보여줘요. 권한 확인은 거기서 바로 허용하거나 거절할 수 있고, 선택지가 있는 질문은 터미널에서 답해요.
@@ -189,6 +196,13 @@
 
 ## Claudex (English)
 
+### 1.3.25
+- The terminal's session tabs moved to a row of their own and look like browser tabs: the one in view joins the terminal, and a dragged tab follows the cursor while the others slide out of its way.
+- The swap button is now an icon. The swap dialog shows both the party and the Box; picking a Box Pokémon trades places with the current one. Working Pokémon are shown dimmed.
+- A Pokémon whose session is open but resting can trade places with a Box Pokémon, which takes over the session.
+- Pokédex and Box slots have one quiet border instead of tier colours.
+- Fixed the limit name ("5-hour") wrapping in English.
+
 ### 1.3.24
 - Helpers: when a subagent works, a Pokémon resting in your Box goes out to help. It takes that work's growth and encounters, and goes back to the Box when the subagent is done. Helpers show on the session's row. Sessions are still capped by your party of six.
 - In window mode, a session waiting on you makes its Pokémon hop and says in one line what it is asking. A permission can be allowed or declined right there; a question with choices is answered in the terminal.
@@ -239,6 +253,13 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.25
+- ターミナルのセッションタブが下の段に移り、ブラウザのタブのような見た目になりました。表示中のタブはターミナルとつながって見え、ドラッグするとカーソルについてきて、ほかのタブがなめらかによけます。
+- 入れ替えボタンをアイコンにしました。入れ替え画面では手持ちとボックスを一緒に表示し、ボックスのポケモンを選ぶと今のポケモンと入れ替わります。働いているポケモンは薄く表示されます。
+- セッションが開いていても休んでいるポケモンは、ボックスのポケモンと入れ替えられます。ボックスから来たポケモンがそのセッションを引き継ぎます。
+- 図鑑とボックスのマスの枠を、等級の色ではなく控えめな1色にそろえました。
+- 英語表示で上限の名前("5-hour")が折り返されるのを直しました。
 
 ### 1.3.24
 - お手伝い: サブエージェントが働くと、ボックスで休んでいたポケモンがお手伝いに出ます。その間の成長と出会いはお手伝いのポケモンのものになり、サブエージェントが終わるとボックスに戻ります。セッションの行にお手伝いのアイコンが表示されます。セッションは引き続き手持ち6匹までです。

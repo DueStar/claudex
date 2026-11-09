@@ -30,7 +30,8 @@ function tierOf(dex: number): Tier {
   return ((pokemonById(dex) as { tier?: Tier } | undefined)?.tier ?? 'common') as Tier
 }
 
-const BoxView: React.FC = () => {
+/** `resting`: party Pokémon whose session is open but not working (they may still trade places) */
+const BoxView: React.FC<{ resting?: Set<string> }> = ({ resting }) => {
   const { state } = usePokedex()
   const [sort, setSort] = useState<Sort>('recent')
   const [look, setLookState] = useState<Look>(readLook)
@@ -90,12 +91,14 @@ const BoxView: React.FC = () => {
 
   // Drag a box Pokémon onto a resting party slot to trade places (a working one cannot leave its session)
   const inBox = (uid: string) => !party.includes(uid)
-  const canDropOn = (uid: string) => !!dragging && party.includes(uid) && !working.has(uid)
+  // a working one stays; one whose session rests may go, and the box one takes over its session
+  const locked = (uid: string) => working.has(uid) && !resting?.has(uid)
+  const canDropOn = (uid: string) => !!dragging && party.includes(uid) && !locked(uid)
   // A plain function, not a component: a new component type every render would remount the cell mid-drag
   const cell = (m: Mon) => (
     <button
       key={m.uid}
-      className={`box-cell tier-${tierOf(m.dex)}${pick === m.uid ? ' picked' : ''}${working.has(m.uid) ? ' working' : ''}${dragging === m.uid ? ' dragging' : ''}${dropOn === m.uid ? ' drop' : ''}${dragging && party.includes(m.uid) && working.has(m.uid) ? ' nodrop' : ''}`}
+      className={`box-cell tier-${tierOf(m.dex)}${pick === m.uid ? ' picked' : ''}${working.has(m.uid) ? ' working' : ''}${dragging === m.uid ? ' dragging' : ''}${dropOn === m.uid ? ' drop' : ''}${dragging && party.includes(m.uid) && locked(m.uid) ? ' nodrop' : ''}`}
       onClick={() => select(m.uid)}
       title={`${nameById(m.dex)}${genderMark(m.gender)}${inBox(m.uid) ? ` · ${t('파티 칸으로 끌어서 교체')}` : ''}`}
       draggable={inBox(m.uid)}
@@ -195,7 +198,7 @@ const BoxView: React.FC = () => {
                     {party.map(uid => {
                       const m = mons[uid]
                       if (!m) return null
-                      const w = working.has(uid)
+                      const w = locked(uid)
                       return (
                         <button key={uid} className={`box-cell${w ? ' working' : ''}`} disabled={w} onClick={() => exchange(uid)} title={nameById(m.dex)}>
                           <img src={spriteUrl(m.dex, m.shiny)} alt="" />

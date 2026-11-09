@@ -24,8 +24,9 @@ import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
 import SettingsView from './components/SettingsView'
 import { useSettings } from './settingsStore'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
+import { SessionTabs } from './components/SessionTabs'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, SwapIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -49,8 +50,6 @@ import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
 
-/** The drag data type of a session tab (not a file: the terminal's file drop ignores it) */
-const TAB_DRAG = 'application/x-claudex-tab'
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
 
@@ -300,6 +299,8 @@ const Widget: React.FC = () => {
     return uid ? dex?.mons?.[uid] : undefined
   }
   const partyFull = freePartyCount(dex) <= 0
+  // Party Pokémon whose session is open but resting (turn over or stopped): they may trade places with a box one
+  const restingUids = useMemo(() => new Set(rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u)), [rows, dex])
   const FULL_NOTE = t('세션을 최대 {n}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.', { n: dex?.partySize ?? 6 })
   const chosen = sendable.find(r => r.sessionId === target) ?? sendable[0]
   // One line per chosen session, picked at random (not on every render)
@@ -369,8 +370,6 @@ const Widget: React.FC = () => {
   // The sessions open when the app last closed come back at start (설정 › 세션),
   // each with the Pokémon that worked it when it is resting in the party
   const restored = useRef(false)
-  /** A session tab being dragged to a new place: its terminal id and the gap it would drop into */
-  const [tabDrag, setTabDrag] = useState<{ id: string; at: number | null } | null>(null)
   useEffect(() => {
     if (restored.current || !bridge || !dex) return
     restored.current = true
@@ -622,7 +621,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   {(() => {
                     const m = monOf(r.sessionId)
                     return m ? (
-                      <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('이 세션에서 일할 포켓몬을 바꿔요 (잡은 포켓몬 중에서)')}>{t('교체')}</button>
+                      <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('교체: 이 세션에서 일할 포켓몬을 바꿔요 (파티나 박스에서)')} aria-label={t('교체')}><SwapIcon size={13} /></button>
                     ) : null
                   })()}
                   {r.terminal && (
@@ -709,7 +708,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
       {expanded && (
         <section className="w-card w-term">
-          <div className="w-term-tabs" role="tablist">
+          <div className={`w-term-tabs${view === 'terminal' ? ' with-sessions' : ''}`}>
             <div className="w-view-switch">
               <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')}><TerminalIcon size={14} />{t('터미널')}</button>
               <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')}><DexIcon size={14} />{t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
@@ -717,48 +716,6 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')}><TodayIcon size={14} />{t('기록')}</button>
               <button className={view === 'rank' ? 'on' : ''} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')}><RankIcon size={14} />{t('랭킹')}</button>
             </div>
-            {view === 'terminal' && withTerminal.map((r, i) => (
-              <button
-                key={r.sessionId}
-                role="tab"
-                aria-selected={shown?.sessionId === r.sessionId}
-                className={`w-term-tab mood-${r.mood}${shown?.sessionId === r.sessionId ? ' on' : ''}${tabDrag?.id === r.terminal?.id ? ' dragging' : ''}${tabDrag?.at === i && tabDrag.id !== r.terminal?.id ? ' drop-before' : ''}${tabDrag?.at === i + 1 && i === withTerminal.length - 1 ? ' drop-after' : ''}`}
-                onClick={() => setTarget(r.sessionId)}
-                title={r.terminal?.cwd}
-                draggable={!!r.terminal}
-                onDragStart={e => {
-                  if (!r.terminal) return
-                  e.dataTransfer.effectAllowed = 'move'
-                  e.dataTransfer.setData(TAB_DRAG, r.terminal.id)
-                  setTabDrag({ id: r.terminal.id, at: null })
-                }}
-                onDragOver={e => {
-                  if (!tabDrag) return
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  // The left half of a tab drops before it, the right half after
-                  const box = e.currentTarget.getBoundingClientRect()
-                  const at = e.clientX < box.left + box.width / 2 ? i : i + 1
-                  if (at !== tabDrag.at) setTabDrag({ ...tabDrag, at })
-                }}
-                onDrop={e => {
-                  e.preventDefault()
-                  if (!tabDrag || tabDrag.at === null) return
-                  // The tabs are the app's terminals in order; without the dragged tab, a later gap moves up one
-                  const from = withTerminal.findIndex(x => x.terminal?.id === tabDrag.id)
-                  const index = from >= 0 && from < tabDrag.at ? tabDrag.at - 1 : tabDrag.at
-                  if (from >= 0 && index !== from) void bridge?.terminals.move(tabDrag.id, index)
-                  setTabDrag(null)
-                }}
-                onDragEnd={() => setTabDrag(null)}
-              >
-                {/* The Pokémon shows as its sprite only (its name took too much of the tab), named on hover */}
-                <img src={r.sprite} alt={r.name} title={r.name} />
-                <span className="w-term-tab-name" onDoubleClick={() => r.terminal && setRenaming(r.sessionId)}>{r.title ?? t('새 세션')}</span>
-                <span className="w-term-tab-dot" />
-              </button>
-            ))}
-            {view === 'terminal' && <button className="w-icon w-term-new" onClick={() => launch(false)} title={t('새로운 세션 시작하기 (문서 폴더)')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={14} /></button>}
             <span className="w-term-spacer" />
             {view === 'terminal' && (
               <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 (Ctrl+휠로도 바꿀 수 있어요)')} title={t('글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-')}>
@@ -777,9 +734,20 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>
+          {/* The sessions: a row of browser-like tabs, the one in view joined to the terminal */}
+          {view === 'terminal' && (
+            <SessionTabs
+              rows={withTerminal}
+              shownId={shown?.sessionId}
+              onSelect={setTarget}
+              onRename={setRenaming}
+              onMove={(id, index) => { void bridge?.terminals.move(id, index) }}
+              onNew={() => launch(false)}
+            />
+          )}
           <Suspense fallback={null}>
             {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}
-            {view === 'box' && <div className="w-dex-body"><BoxView /></div>}
+            {view === 'box' && <div className="w-dex-body"><BoxView resting={restingUids} /></div>}
             {view === 'today' && <div className="w-dex-body"><TodayLog /></div>}
             {view === 'rank' && <div className="w-dex-body"><LeaderboardView /></div>}
           </Suspense>

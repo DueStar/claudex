@@ -31,7 +31,7 @@ const SPECIES = [
 const dirs: string[] = []
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }) })
 
-function setup(randoms: number[] = [], fallback = 0.99, active = (_: string) => true) {
+function setup(randoms: number[] = [], fallback = 0.99, active = (_: string) => true, sessionOf: (sid: string) => any = () => null) {
   const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
   dirs.push(dir)
   const sent: any[] = []
@@ -41,6 +41,7 @@ function setup(randoms: number[] = [], fallback = 0.99, active = (_: string) => 
     species: SPECIES,
     broadcast: (m: any) => sent.push(m),
     isActive: active,
+    sessionOf,
     now: () => new Date('2026-11-06T14:00:00').getTime(),
     random: () => (queue.length ? queue.shift()! : fallback),
   })
@@ -156,7 +157,7 @@ describe('pokedex', () => {
     expect(dex.release('mbox')).toEqual({ ok: true })
   })
 
-  it('swaps in a resting party Pokémon only; a box Pokémon is refused (it comes into the party first)', () => {
+  it('swaps in a resting party Pokémon, or a box one that trades places with the working one', () => {
     const { dex } = setup([0])
     attended(dex)
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
@@ -164,10 +165,14 @@ describe('pokedex', () => {
     const starterUid = st0.assign.s1
     st0.mons.mbox = { uid: 'mbox', dex: 150, steps: 0, evos: 0, shiny: false, how: 'wild', place: 'x', at: 0 }
     st0.box.push('mbox')
-    expect(dex.swap('s1', 'mbox')).toEqual({ ok: false, reason: 'not-in-party' })
+    // a box Pokémon takes the working one's party slot and session; that one goes to the box
+    const slot = dex.publicState().party.indexOf(starterUid)
+    expect(dex.swap('s1', 'mbox')).toEqual({ ok: true })
     let st = dex.publicState()
-    expect(st.assign.s1).toBe(starterUid)
-    expect(st.box).toContain('mbox')
+    expect(st.assign.s1).toBe('mbox')
+    expect(st.party[slot]).toBe('mbox')
+    expect(st.box).toContain(starterUid)
+    expect(st.box).not.toContain('mbox')
     // a party Pokémon that is resting can be swapped in, even unevolved; the party stays as it was
     const party = [...st.party]
     expect(dex.swap('s1', party[1])).toEqual({ ok: true })
@@ -348,8 +353,9 @@ describe('pokedex', () => {
     expect(st.mons.mbox).toBeUndefined()
   })
 
-  it('the PC trades a box Pokémon with a resting party one, never a working one', () => {
-    const { dex } = setup([0])
+  it('the PC trades a box Pokémon with a resting party one, never a working one; one whose session rests hands it over', () => {
+    const main: Record<string, any> = { s1: { state: 'working' } }
+    const { dex } = setup([0], 0.99, () => true, sid => ({ main: main[sid] }))
     attended(dex)
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
     const st0 = (dex as any)._state()
@@ -364,6 +370,12 @@ describe('pokedex', () => {
     expect(st.party[slot]).toBe('mbox')
     expect(st.box).toContain(resting)
     expect(st.box).not.toContain('mbox')
+    // the session's turn is over: its Pokémon may go, and the box one takes over the session
+    main.s1 = { state: 'needs-you', needsYou: { kind: 'permission' } }
+    expect(dex.exchange(resting, working)).toMatchObject({ ok: false, reason: 'busy' })
+    main.s1 = { state: 'idle' }
+    expect(dex.exchange(resting, working)).toEqual({ ok: true })
+    expect(dex.publicState().assign.s1).toBe(resting)
   })
 
   it('every catch comes in a ball drawn by the balls’ weights', () => {

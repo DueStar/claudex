@@ -181,7 +181,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 
 /* ---------- Limits: two slim rows instead of four big tiles ---------- */
 .w-limits { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
-.w-limit { display: grid; grid-template-columns: 34px 1fr 40px 86px; align-items: center; gap: 8px; }
+.w-limit { display: grid; grid-template-columns: 44px 1fr 40px 86px; align-items: center; gap: 8px; }
+/* the label never wraps ("5-hour", "Weekly" in English): the bar gives up the room */
+.w-limit > .w-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-limit .w-bar { height: 6px; }
 .w-limit-pct { text-align: right; font-weight: 650; font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .w-limit-pct small { font-size: 10px; font-weight: 500; color: var(--ink-3); margin-left: 1px; }

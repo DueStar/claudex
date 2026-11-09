@@ -66,6 +66,10 @@ export const RankIcon: React.FC<P> = (p) => (
 export const MinimizeIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M3.5 8h9" /></Svg>
 )
+/** Two opposed arrows: swap the Pokémon working a session */
+export const SwapIcon: React.FC<P> = (p) => (
+  <Svg {...p}><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13" /></Svg>
+)
 /** × : close */
 export const CloseIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M4 4l8 8M12 4l-8 8" /></Svg>

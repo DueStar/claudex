@@ -95,41 +95,52 @@
   flex-shrink: 0;
 }
 .w-term-tabs::-webkit-scrollbar { height: 0; }
-.w-term-tab {
+/* In the terminal view the bar and the session tabs below it read as one header */
+.w-term-tabs.with-sessions { border-bottom: 0; }
+
+/* ---------- Session tabs: browser-like, the one in view joined to the terminal ---------- */
+.w-sess-tabs {
+  --tab-bg: #101217; /* the terminal's own background */
+  display: flex; align-items: flex-end; flex-shrink: 0;
+  height: 38px; padding: 6px 12px 0; box-sizing: border-box;
+  background: var(--card); overflow-x: auto; overflow-y: hidden;
   -webkit-app-region: no-drag;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 4px;
-  font: inherit;
-  font-size: 12px;
-  color: var(--ink-2);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  white-space: nowrap;
 }
-/* Session tabs above the terminal: a small Pokémon */
-.w-term-tab img { width: 20px; height: 20px; }
-.w-term-tab:hover { background: var(--card-2); color: var(--ink); }
-.w-term-tab.on { background: var(--card-2); border-color: var(--line); color: var(--ink); }
-.w-term-tab-name { font-weight: 650; }
-.w-term-tab-project { color: var(--ink-3); font-size: 11px; }
-.w-term-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
-.w-term-tab.mood-working .w-term-tab-dot { background: var(--green); }
-.w-term-tab.mood-needs-you .w-term-tab-dot { background: var(--amber); }
-.w-term-tab.mood-error .w-term-tab-dot { background: var(--danger); }
-.w-term-tab.mood-ended { opacity: 0.45; }
-.w-term-tab { position: relative; }
-/* Dragging a tab to a new place: the tab fades, a bar marks where it lands */
-.w-term-tab.dragging { opacity: 0.4; }
-.w-term-tab.drop-before::before, .w-term-tab.drop-after::after {
-  content: ''; position: absolute; top: 3px; bottom: 3px; width: 2px;
-  border-radius: 1px; background: var(--ink); pointer-events: none;
+.w-sess-tabs::-webkit-scrollbar { height: 0; }
+.w-sess-tab {
+  position: relative; flex: 0 1 200px; min-width: 72px; height: 32px; box-sizing: border-box;
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 8px;
+  font: inherit; font-size: 12px; color: var(--ink-3);
+  background: transparent; border: 0; border-radius: 8px 8px 0 0;
+  cursor: default; user-select: none; touch-action: none; white-space: nowrap;
 }
-.w-term-tab.drop-before::before { left: -2px; }
-.w-term-tab.drop-after::after { right: -2px; }
+.w-sess-tab.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
+.w-sess-tab.dragging { transition: none; z-index: 2; background: var(--tab-bg); color: var(--ink); }
+.w-sess-tab img { width: 20px; height: 20px; object-fit: contain; flex: none; }
+.w-sess-tab-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.w-sess-tab-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+.w-sess-tab.mood-working .w-sess-tab-dot { background: var(--green); }
+.w-sess-tab.mood-needs-you .w-sess-tab-dot { background: var(--amber); }
+.w-sess-tab.mood-error .w-sess-tab-dot { background: var(--danger); }
+.w-sess-tab.mood-ended { opacity: 0.45; }
+.w-sess-tab:hover:not(.on) { color: var(--ink-2); background: rgba(255, 255, 255, 0.04); }
+/* hairlines between tabs, gone beside the one in view and the hovered one */
+.w-sess-tab:not(.on)::after {
+  content: ''; position: absolute; right: 0; top: 9px; bottom: 9px; width: 1px; background: var(--line);
+}
+.w-sess-tab:has(+ .w-sess-tab.on)::after, .w-sess-tab:hover::after, .w-sess-tab:has(+ .w-sess-tab:hover)::after { display: none; }
+/* The one in view: the terminal's colour, flowing out into it on curved feet */
+.w-sess-tab.on { color: var(--ink); background: var(--tab-bg); z-index: 1; }
+.w-sess-tab.on::before, .w-sess-tab.on::after {
+  content: ''; position: absolute; bottom: 0; width: 8px; height: 8px; pointer-events: none;
+}
+.w-sess-tab.on::before { left: -8px; background: radial-gradient(circle at 0 0, transparent 7.5px, var(--tab-bg) 8px); }
+.w-sess-tab.on::after { right: -8px; background: radial-gradient(circle at 100% 0, transparent 7.5px, var(--tab-bg) 8px); }
+.w-sess-new {
+  flex: none; align-self: center; margin-left: 8px; display: inline-grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 8px; border: 0; background: none; color: var(--ink-3); cursor: pointer;
+}
+.w-sess-new:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
 .w-term-spacer { flex: 1; }
 .w-term-tabs .w-icon { -webkit-app-region: no-drag; }
 .w-term-body { position: relative; flex: 1; min-height: 0; }
@@ -253,7 +264,6 @@
 .term-view .xterm .scrollbar.vertical { width: 8px !important; }
 
 /* ---------- Tab bar: new session right after the open sessions; window controls at the far right ---------- */
-.w-term-new { flex: none; -webkit-app-region: no-drag; }
 .w-win-controls { display: flex; gap: 2px; margin-left: 4px; -webkit-app-region: no-drag; flex: none; }
 .w-win-controls .w-icon { width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); }
 .w-win-controls .w-icon:hover { background: var(--card-2); color: var(--ink); }

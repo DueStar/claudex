@@ -366,6 +366,15 @@ ${agentId}`
     helpers.set(key, { uid, sessionId, lastAt: now() })
     return { uid, isNew: true }
   }
+  /** A session that is not working right now (its turn is over, or it stopped on an error): its Pokémon may leave the party */
+  const HARD_NEEDS_YOU = new Set(['permission', 'agent-input', 'registry'])
+  function sessionResting(sid) {
+    const m = sessionOf(sid)?.main
+    if (!m) return true
+    if (m.state === 'working' || m.state === 'compacting' || m.state === 'waiting') return false
+    return !(m.state === 'needs-you' && HARD_NEEDS_YOU.has(m.needsYou?.kind))
+  }
+
   function dismissHelpers(test) {
     let any = false
     for (const [key, h] of helpers) if (test(h, key)) { helpers.delete(key); lastWorkAt.delete(key); any = true }
@@ -829,9 +838,17 @@ ${agentId}`
     if (!cur) return { ok: false, reason: 'no-pokemon' }
     if (!next) return { ok: false, reason: 'unknown-pokemon' }
     if (uid === current) return { ok: false, reason: 'same' }
-    if (!state.party.includes(uid)) return { ok: false, reason: 'not-in-party' }
+    const inBox = state.box.indexOf(uid)
+    if (!state.party.includes(uid) && inBox === -1) return { ok: false, reason: 'unknown-pokemon' }
     const busy = busyUids()
-    if (busy.has(uid)) return { ok: false, reason: 'busy' }
+    if (busy.has(uid) || helpingUids().has(uid)) return { ok: false, reason: 'busy' }
+    // A box Pokémon takes the working one's party slot, and that one goes to the box in its place
+    if (inBox !== -1) {
+      const slot = state.party.indexOf(current)
+      if (slot === -1) return { ok: false, reason: 'not-in-party' }
+      state.party[slot] = uid
+      state.box[inBox] = current
+    }
     state.assign[sessionId] = uid
     next.traded = true // a trade: trade evolutions happen at its next level-up
     const event = { kind: 'swap', id: next.dex, from: cur.dex, name: byId.get(next.dex)?.ko, fromName: byId.get(cur.dex)?.ko, sessionId, uid, shiny: next.shiny, at: now() }
@@ -872,13 +889,16 @@ ${agentId}`
     const b = state.box.indexOf(boxUid)
     const p = state.party.indexOf(partyUid)
     if (b === -1 || p === -1) return { ok: false, reason: 'bad-request' }
-    if (busyUids().has(partyUid) || helpingUids().has(boxUid)) return { ok: false, reason: 'busy' }
+    // A party Pokémon with a session may go while that session rests: the box one takes over its session
+    const sid = busyUids().get(partyUid)
+    if ((sid && !sessionResting(sid)) || helpingUids().has(boxUid)) return { ok: false, reason: 'busy' }
     state.box.splice(b, 1)
     state.party[p] = boxUid
+    if (sid) state.assign[sid] = boxUid
     state.mons[boxUid].traded = true
     state.box.push(partyUid)
     const mon = state.mons[boxUid]
-    const event = { kind: 'exchange', id: mon.dex, name: byId.get(mon.dex)?.ko, uid: boxUid, from: state.mons[partyUid].dex, at: now() }
+    const event = { kind: 'exchange', id: mon.dex, name: byId.get(mon.dex)?.ko, uid: boxUid, from: state.mons[partyUid].dex, ...(sid ? { sessionId: sid, shiny: mon.shiny } : {}), at: now() }
     pushLog(event)
     save()
     publish(event)

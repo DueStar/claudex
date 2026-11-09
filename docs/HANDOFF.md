@@ -451,6 +451,12 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **박스 아이콘**: SV 아이콘(pokemondb)은 포켓몬 실제 크기로 잘려 있어 작은 종은 30px 안팎이다. 칸에 맞춰 키우던 것을 원래 크기 이하로만(최대 48px) 보이게 했다. 더 좋은 일관된 아이콘 출처는 찾지 못함. 칸 padding 14~16, gap 10~12, 칸 76(아이콘)·96(그림).
    - **위쪽 탭**: 포켓몬 이름(`w-term-tab-project`) 제거, 스프라이트 title로.
 
+7-15. **2026-11-09 1.3.25**
+   - **세션 탭**(`src/components/SessionTabs.tsx`): 뷰 바 아래 별도 줄(`.w-sess-tabs`), 터미널 화면에서만. 보고 있는 탭은 터미널 배경(`--tab-bg` #101217)에 radial-gradient 발(::before/::after)로 이어진다. 끌기는 HTML5 DnD가 아니라 pointer capture: 4px 넘게 움직이면 드래그, 시작 때 잰 탭 rect로 목적 슬롯(다른 탭 가운데를 몇 개 지났나)을 계산, 다른 탭은 transform으로 비켜남(0.15s). 놓으면 `terminals.move(id, to)`, main의 목록이 따라올 때까지(최대 1.5s) 낙관적 순서(`order`)로 그린다. 드래그 뒤 click은 무시.
+   - **교체**: 줄 버튼은 ⇄ 아이콘(`SwapIcon`). `SwapPicker`는 파티 + 박스(아이콘 그리드, 레벨순, 이름 검색), 일하는 포켓몬·조력자는 흐리게 disabled. 서버 `swap(sessionId, uid)`가 박스 포켓몬도 받는다: 지금 포켓몬의 파티 칸에 들어가고 지금 포켓몬은 박스의 그 자리로.
+   - **쉬는 세션의 교환**: `exchange(boxUid, partyUid)`는 파티 포켓몬의 세션이 쉬는 중(`sessionResting`: working·compacting·waiting 아님, hard needs-you 아님)이면 허용하고 그 세션을 박스 포켓몬에게 넘긴다(`assign[sid] = boxUid`). 위젯은 `restingUids`(mood idle·error 줄)를 `BoxView`에 넘겨 드래그·교환 버튼을 연다.
+   - 도감·박스 칸 테두리는 등급색 대신 `rgba(255,255,255,0.1)`. 한도 라벨 칸 34→44px + nowrap(영어 "5-hour").
+
 8. **나중에**
    - 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명 (설정·리더보드·다른 AI 도구는 7-9로 옮김)
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)
