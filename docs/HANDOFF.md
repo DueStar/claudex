@@ -480,7 +480,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
    - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
    - **개발자 관점 개선** (사용자에게 목록만 제시, 번호 선택 대기): ① 터미널 검색 Ctrl+F(xterm search addon) ② 에러의 파일 경로 Ctrl+클릭 → VS Code/Cursor로 그 줄 열기 ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ④ Ctrl+Tab/Ctrl+T/Ctrl+W ⑤ 앱이 뒤에 있을 때 턴 끝·확인 필요 OS 알림/작업표시줄 깜빡임 ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.
-   - **카드뉴스**: 사용자가 캡처를 `Documents\claudex-promo\shots`에 넣으면 세로 4:5 6~8장. 블로그 초안은 `Documents\claudex-promolog.md`(한다체, 사용자의 Medium 글 말투), 이전 초안 `blog-draft1.md`.
+   - **카드뉴스**: 사용자가 캡처를 `Documents\claudex-promo\shots`에 넣으면 세로 4:5 6~8장. 블로그 초안은 `Documents\claudex-promo\blog.md`(한다체, 사용자의 Medium 글 말투), 이전 초안 `blog-draft1.md`.
    - unslop 스킬은 `.claude/skills/unslop`에 로컬만(`.git/info/exclude`).
 
 9. **나중에**
