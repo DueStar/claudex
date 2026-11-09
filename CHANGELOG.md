@@ -2,6 +2,9 @@
 
 ## Claudex
 
+### 1.3.27
+- 창 모드와 전체화면에서 왼쪽 패널을 접고 펼 수 있어요. 위쪽 줄 맨 왼쪽 버튼을 누르면 터미널이 화면 전체를 써요. 접은 상태는 기억해요.
+
 ### 1.3.26
 - 다른 AI 도구: 설정 › AI 도구에 Codex CLI처럼 터미널에서 도는 도구를 추가하면, 새 세션을 열 때 고를 수 있어요. Claude Code가 기본이에요.
 - 알림에 짧은 효과음이 생겼어요(포획, 도망, 레벨 업, 진화). 설정 › 알림에서 끌 수 있어요.
@@ -203,6 +206,9 @@
 
 ## Claudex (English)
 
+### 1.3.27
+- In window and fullscreen mode the side panel folds away: the button at the far left of the top bar gives the terminal the whole width. It stays the way you left it.
+
 ### 1.3.26
 - Other AI tools: add a terminal tool such as Codex CLI in Settings › AI tools and pick it when you open a new session. Claude Code stays the default.
 - Notifications play a short sound (catch, escape, level up, evolution). Turn it off in Settings › Notifications.
@@ -267,6 +273,9 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.27
+- ウィンドウモードと全画面で、左のパネルを折りたためます。上の段のいちばん左のボタンで、ターミナルが画面の幅いっぱいになります。たたんだ状態は記憶されます。
 
 ### 1.3.26
 - ほかのAIツール: 設定 › AIツールでCodex CLIのようなターミナルのツールを追加すると、新しいセッションを開くときに選べます。既定はClaude Codeです。

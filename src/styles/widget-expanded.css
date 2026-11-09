@@ -343,3 +343,7 @@
 .set-tool-form input:focus { outline: none; border-color: rgba(242, 201, 76, 0.5); }
 .set-btn:disabled { opacity: 0.45; cursor: default; }
 .set-foot { margin-top: 12px; line-height: 1.5; }
+/* The left panel folded away (window / fullscreen): the terminal takes the width */
+.widget.expanded.side-hidden .w-side { display: none; }
+.w-side-toggle { flex: none; -webkit-app-region: no-drag; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-right: 4px; }
+.w-side-toggle:hover { background: var(--card-2); color: var(--ink); }

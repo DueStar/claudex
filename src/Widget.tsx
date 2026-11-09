@@ -26,7 +26,7 @@ import { useSettings } from './settingsStore'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, SwapIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -299,6 +299,9 @@ const Widget: React.FC = () => {
     return uid ? dex?.mons?.[uid] : undefined
   }
   const partyFull = freePartyCount(dex) <= 0
+  // Window / fullscreen: the left panel folds away (remembered), leaving the terminal the whole width
+  const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('claudex-side-hidden') === '1' } catch { return false } })
+  const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('claudex-side-hidden', next ? '1' : '0') } catch {} ; return next })
   // Party Pokémon whose session is open but resting (turn over or stopped): they may trade places with a box one
   const restingUids = useMemo(() => new Set(rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u)), [rows, dex])
   const FULL_NOTE = t('세션을 최대 {n}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.', { n: dex?.partySize ?? 6 })
@@ -435,7 +438,7 @@ const Widget: React.FC = () => {
   }, [swapFor, dex])
 
   return (
-    <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}`}>
+    <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}`}>
       <div className="w-side">
         <div className="w-bento">
           <header className="w-card w-head">
@@ -712,6 +715,10 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
       {expanded && (
         <section className="w-card w-term">
           <div className="w-term-tabs">
+            <button className={`w-icon w-side-toggle${sideHidden ? '' : ' on'}`} onClick={toggleSide}
+              title={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-label={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-pressed={!sideHidden}>
+              <SidePanelIcon size={15} />
+            </button>
             <div className="w-view-switch">
               <button className={view === 'terminal' ? 'on' : ''} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')}><TerminalIcon size={14} />{t('터미널')}</button>
               <button className={view === 'dex' ? 'on' : ''} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')}><DexIcon size={14} />{t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>

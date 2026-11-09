@@ -466,6 +466,10 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - 결론(사용자 결정): Claude Code가 기본, 정식 지원은 Codex만. Gemini·agy는 하지 않는다(설정의 빠른 추가도 Codex만). 목표: 도구가 바뀌어도 화면은 똑같이(걸음·확인 필요·사용량·이어하기).
    - **효과음**(`src/sounds.ts`): 파일 없이 Web Audio로 합성(포획: 두 음 올라감 + 희귀 이상 한 음 + 전설·환상 한 음, 도망: 내려가는 글리산도, 레벨 업: 짧은 3음, 진화: 5음, 이로치는 반짝임). 알림 창이 카드를 띄울 때 재생(`settings.notify.sound`, 기본 켬). 알림 창 `autoplayPolicy: 'no-user-gesture-required'`. 공식 효과음은 넣지 않는다.
 
+7-17. **2026-11-09 1.3.27**
+   - 왼쪽 패널 접기: 위쪽 줄 맨 왼쪽 `w-side-toggle`(`SidePanelIcon`), `.widget.expanded.side-hidden .w-side { display: none }`, localStorage `claudex-side-hidden`. 단축키는 없음(Ctrl+B는 터미널 안에서 Claude Code가 쓴다).
+   - Codex CLI 0.167.0을 이 PC에 설치함(`npm i -g @openai/codex`). 로그인은 사용자가 `codex login`. 다음: Codex 정식 어댑터(3단계), 개발자 관점 개선 목록(터미널 검색, 파일 경로 Ctrl+클릭, Ctrl+Tab/T/W, 턴 끝·확인 필요 OS 알림, git 브랜치 표시, 스크롤백 설정, 터미널 글꼴, README에 훅 공존·데이터 표).
+
 8. **나중에**
    - 진화의 돌 아이템. 이벤트 볼 지급은 사용자가 필요할 때 말하기로(2026-11-09). 코드 서명은 하지 않기로 함(사용자 결정, 2026-11-09). (설정·리더보드·다른 AI 도구는 7-9로 옮김)
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)

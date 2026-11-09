@@ -66,6 +66,10 @@ export const RankIcon: React.FC<P> = (p) => (
 export const MinimizeIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M3.5 8h9" /></Svg>
 )
+/** A window with its left column: show or hide the side panel */
+export const SidePanelIcon: React.FC<P> = (p) => (
+  <Svg {...p}><rect x="2.5" y="3" width="11" height="10" rx="2" /><path d="M6.5 3v10" /></Svg>
+)
 /** Two opposed arrows: swap the Pokémon working a session */
 export const SwapIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13" /></Svg>
