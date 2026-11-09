@@ -66,6 +66,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
   /** syncMark of the game at the last change that scheduled a sync */
   let lastMark = null
   let lastSyncAt = null
+  // { code, detail? } — the page words it in the user's language (src/cloudStore.ts cloudErrorText)
   let lastError = null
   let syncTimer = null
 
@@ -151,7 +152,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
       publish()
       return { ok: true }
     } catch (err) {
-      lastError = `로그인 실패: ${err.message}`
+      lastError = { code: 'sign-in-failed', detail: err.message }
       publish()
       return { ok: false, reason: err.message }
     }
@@ -163,7 +164,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
       try {
         saveSession(toSession(await authRequest('refresh_token', { refresh_token: session.refresh_token })))
       } catch (err) {
-        lastError = '로그인이 만료됐어요. 다시 로그인해주세요.'
+        lastError = { code: 'session-expired' }
         saveSession(null)
         publish()
         return null
@@ -243,7 +244,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     if (syncTimer) return
     syncTimer = setTimeout(async () => {
       syncTimer = null
-      try { await sync() } catch (err) { lastError = err.message === 'signed-out' ? null : `동기화 실패: ${err.message}` }
+      try { await sync() } catch (err) { lastError = err.message === 'signed-out' ? null : { code: 'sync-failed', detail: err.message } }
       publish()
     }, SYNC_DEBOUNCE_MS)
     syncTimer.unref?.()

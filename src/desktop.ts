@@ -37,6 +37,8 @@ interface ClaudexBridge {
     list(): Promise<TerminalInfo[]>
     create(opts?: { cwd?: string; resume?: string; sessionId?: string }): Promise<TerminalInfo | { error: string }>
     pickFolder(): Promise<string | null>
+    /** The sessions open when the app last closed, once per run; none when 설정 › 세션 says not to */
+    restorable(): Promise<{ sessionId: string; cwd: string }[]>
     history(): Promise<PastSession[]>
     buffer(id: string): Promise<string>
     write(id: string, data: string): void
@@ -112,6 +114,9 @@ export interface UpdateState {
   current: string
   latest: string | null
   notes: string
+  /** The same notes in English and Japanese; empty from a manifest that has none */
+  notesEn?: string
+  notesJa?: string
   progress: number
   error: string | null
   /** The new release needs a new Electron: download the full app instead */
@@ -132,7 +137,7 @@ export type Lang = 'ko' | 'en' | 'ja'
 export interface AppSettings {
   notify: { catch: boolean; flee: boolean; evolve: boolean; levelup: boolean; rareOnly: boolean; duration: 'short' | 'normal' | 'long'; quiet: boolean; quietFrom: string; quietTo: string }
   privacy: { hidePrompts: boolean }
-  session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean }
+  session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean; restoreOnStart: boolean }
   app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean; language: 'auto' | Lang }
 }
 export type BoardKind = 'caught' | 'shiny' | 'legends' | 'week'

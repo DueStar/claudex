@@ -65,11 +65,17 @@ function writeSessionSettings(repoRoot, dir, runtime = process.execPath) {
  * The environment for a new session, without another Claude Code's markers:
  * an app started from inside a Claude Code session would otherwise make every
  * session it opens a "child" of that one (no transcript, no hooks).
+ * Claude Code also sets NO_COLOR=1 for the commands it runs; inherited, it
+ * turns off every colour and background in the app's sessions, so it goes
+ * too when the app was started from inside Claude Code (a NO_COLOR the user
+ * set themselves, with no Claude Code around, is kept).
  */
 function cleanEnv(env) {
   const out = {}
+  const fromClaude = 'CLAUDECODE' in env
   for (const [k, v] of Object.entries(env)) {
     if (k === 'CLAUDECODE' || k === 'CLAUDE_PID' || k.startsWith('CLAUDE_CODE_')) continue
+    if (fromClaude && k === 'NO_COLOR') continue
     out[k] = v
   }
   return out
@@ -91,9 +97,34 @@ const ASKING = /Do you trust|trust (the files in )?this folder|Do you want to (p
 const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b[=>78]/g
 function plainText(data) { return String(data).replace(ANSI, ' ') }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** open-sessions.json, checked: [{ sessionId, cwd }] with real ids and folders that still exist */
+function readOpenSessions(file) {
+  let raw
+  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return [] }
+  if (!Array.isArray(raw)) return []
+  const seen = new Set()
+  return raw.filter(s => s && typeof s.sessionId === 'string' && UUID.test(s.sessionId) && typeof s.cwd === 'string'
+    && !seen.has(s.sessionId) && seen.add(s.sessionId) && fs.existsSync(s.cwd)).slice(0, 6)
+    .map(s => ({ sessionId: s.sessionId, cwd: s.cwd }))
+}
+
+/** Claude Code keeps a session's transcript at ~/.claude/projects/<project>/<id>.jsonl */
+function hasTranscript(sessionId, claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')) {
+  let projects = []
+  try { projects = fs.readdirSync(path.join(claudeDir, 'projects')) } catch { return false }
+  return projects.some(p => fs.existsSync(path.join(claudeDir, 'projects', p, `${sessionId}.jsonl`)))
+}
+
 function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} } }) {
   const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
+  // The sessions open when the app last closed (open-sessions.json): what the
+  // next start may reopen. Read once at start, before this run writes over it.
+  const openFile = path.join(userDataDir, 'open-sessions.json')
+  let restorable = readOpenSessions(openFile)
+  let frozen = false // quitting: the sessions killed on the way out stay listed
 
   function settings() {
     if (!settingsFile) settingsFile = writeSessionSettings(repoRoot, userDataDir)
@@ -109,7 +140,25 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     }
   }
 
-  function broadcastList() { send('terminals:list', list()) }
+  function broadcastList() { rememberOpen(); send('terminals:list', list()) }
+
+  /** The running sessions, written on every change (a crash or a kill leaves the last list) */
+  function rememberOpen() {
+    if (frozen) return
+    const open = [...terms.values()].filter(t => t.status !== 'exited').map(t => ({ sessionId: t.sessionId, cwd: t.cwd }))
+    try { fs.writeFileSync(openFile, JSON.stringify(open)) } catch {}
+  }
+
+  /**
+   * The sessions to reopen, once per run (a window swap reloads the page and
+   * must not reopen them again). Only those with a transcript: a session that
+   * never got a prompt has nothing to resume. None while some are open already.
+   */
+  function takeRestorable() {
+    const out = terms.size ? [] : restorable.filter(s => hasTranscript(s.sessionId))
+    restorable = []
+    return out
+  }
 
   function list() { return [...terms.values()].map(info) }
 
@@ -214,10 +263,11 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   }
 
   function killAll() {
+    frozen = true
     for (const t of terms.values()) if (t.status !== 'exited') { try { t.pty.kill() } catch {} }
   }
 
-  return { create, write, sendInstruction, resize, buffer, list, rename, close, killAll }
+  return { create, write, sendInstruction, resize, buffer, list, rename, close, killAll, takeRestorable }
 }
 
-module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, HOOK_EVENTS }
+module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, HOOK_EVENTS }

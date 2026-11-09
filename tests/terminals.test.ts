@@ -4,15 +4,15 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import fs, { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import os, { tmpdir } from 'node:os'
+import path, { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { writeSessionSettings, cleanEnv } = require('../electron/terminals.cjs')
+const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript } = require('../electron/terminals.cjs')
 
 const REPO = fileURLToPath(new URL('..', import.meta.url))
 
@@ -51,5 +51,34 @@ describe('terminals.cjs', () => {
       CLAUDE_CODE_CHILD_SESSION: '1', CLAUDE_CODE_SESSION_ID: 'x', CLAUDE_CONFIG_DIR: '/c',
     })
     expect(env).toEqual({ PATH: '/bin', HOME: '/h', CLAUDE_CONFIG_DIR: '/c' })
+  })
+
+  it('reads back the sessions open at the last close: real ids, folders that exist, no repeats', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-open-'))
+    const file = path.join(dir, 'open-sessions.json')
+    const a = '11111111-1111-4111-8111-111111111111'
+    fs.writeFileSync(file, JSON.stringify([
+      { sessionId: a, cwd: dir }, { sessionId: a, cwd: dir },
+      { sessionId: 'not-an-id', cwd: dir },
+      { sessionId: '22222222-2222-4222-8222-222222222222', cwd: path.join(dir, 'gone') },
+    ]))
+    expect(readOpenSessions(file)).toEqual([{ sessionId: a, cwd: dir }])
+    fs.writeFileSync(file, '{broken')
+    expect(readOpenSessions(file)).toEqual([])
+    expect(readOpenSessions(path.join(dir, 'missing.json'))).toEqual([])
+  })
+
+  it('reopens only sessions that have a transcript', () => {
+    const claude = fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-claude-'))
+    const id = '33333333-3333-4333-8333-333333333333'
+    fs.mkdirSync(path.join(claude, 'projects', 'C--work'), { recursive: true })
+    fs.writeFileSync(path.join(claude, 'projects', 'C--work', `${id}.jsonl`), '{}\n')
+    expect(hasTranscript(id, claude)).toBe(true)
+    expect(hasTranscript('44444444-4444-4444-8444-444444444444', claude)).toBe(false)
+  })
+
+  it('drops the NO_COLOR Claude Code sets, keeps one the user set', () => {
+    expect(cleanEnv({ PATH: '/bin', CLAUDECODE: '1', NO_COLOR: '1' })).toEqual({ PATH: '/bin' })
+    expect(cleanEnv({ PATH: '/bin', NO_COLOR: '1' })).toEqual({ PATH: '/bin', NO_COLOR: '1' })
   })
 })

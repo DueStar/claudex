@@ -424,8 +424,13 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - 업데이트 전 버전의 PC는 새 코드(`@wild|…`)를 그대로 보여 줄 수 있다. 모든 PC를 1.3.20 이상으로 올리면 해결된다.
    - **패치노트**: CHANGELOG에 `## Claudex (English)`와 `## Claudex (日本語)` 섹션을 1.3.16부터 둔다(`src/patchNotes.ts` `releasesIn`). 그 언어에 최신 버전이 없으면 영어, 그다음 한국어로 보여 준다. **릴리스마다 세 언어로 쓴다.** 업데이트 버튼 툴팁의 notes는 아직 한국어다(manifest가 한국어 notes만 담는다).
    - **리더보드 닉네임**: 히라가나·가타카나·한자도 허용한다(`supabase/leaderboard.sql` 정규식). 사용자가 SQL을 다시 실행함(2026-11-08).
-   - 남은 한국어: `server/cloud.js` lastError 3개(로그인·동기화 실패 문구), QA 페이지(개발용), README.
+   - 남은 한국어: QA 페이지(개발용), README. (클라우드 오류 문구와 업데이트 툴팁 노트는 7-11에서 처리)
    - 사용자 수 예상과 Supabase: 언어는 사용자당 용량·전송량을 바꾸지 않는다(오히려 코드가 조금 짧다). 바뀌는 건 사용자 수뿐이다. 무료 한도는 약 1,350명(전송량 기준, 7-9)이고, 그 이상이면 Pro($25/월, 전송량 250GB·DB 8GB → 수만 명)로 간다.
+
+7-11. **2026-11-09 회사 PC 작업(1.3.21 준비, 아직 릴리스 안 함)**
+   - **터미널 색이 사라지던 문제**: Claude Code는 자기가 실행하는 명령에 `NO_COLOR=1`을 건다. Claude Code 안에서 Claudex를 켜면 이게 모든 세션으로 넘어가 색·배경이 다 꺼졌다. `cleanEnv`가 `CLAUDECODE`가 있을 때만 `NO_COLOR`도 뺀다(사용자가 직접 건 `NO_COLOR`는 유지).
+   - **세션 자동 복원**(사용자 요청): `userData/open-sessions.json`에 실행 중인 세션(`sessionId`, `cwd`, 최대 6개)을 목록이 바뀔 때마다 쓴다(강제 종료돼도 마지막 목록이 남는다). 종료할 때 `killAll`이 먼저 `frozen`을 걸어서, 꺼지면서 죽는 세션 때문에 목록이 지워지지 않는다. 다음 시작 때 위젯이 `terminals:restorable`로 한 번만 받아(창 전환으로 다시 열지 않음) 각 세션을 `--resume`으로 연다. 이때 그 세션의 포켓몬(`dex.remembered`)이 파티에서 쉬고 있으면 그 포켓몬이, 아니면 쉬는 파티 포켓몬이 같이 나간다. 대화 기록(`~/.claude/projects/*/<id>.jsonl`)이 없는 세션은 이어 열 수 없어서 뺀다. 설정 › 세션 › "시작할 때 세션 다시 열기"(`session.restoreOnStart`, 기본 켜짐). 꺼져 있어도 목록은 소비해서, 나중에 켰을 때 옛 목록이 열리지 않는다.
+   - **번역 마무리**: `server/cloud.js`는 오류를 `{ code, detail }`로만 보내고 화면이 `cloudErrorText`(`src/cloudStore.ts`)로 각 언어 문구를 만든다. `latest.json`에 `notesEn`·`notesJa`를 넣는다(`release.mjs`가 CHANGELOG의 영어·일본어 섹션에서 읽음, 서명 범위에 포함). 업데이트 버튼 툴팁은 `updateNotes()`로 언어별 노트를 고른다. 1.3.20 이하 manifest에는 없으므로 한국어로 보인다.
 
 8. **나중에**
    - 진화의 돌·님피아, 이벤트 볼 지급, 코드 서명 (설정·리더보드·다른 AI 도구는 7-9로 옮김)

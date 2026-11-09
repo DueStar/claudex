@@ -10,7 +10,7 @@ import { bridge, type AppSettings, type SettingsPatch } from './desktop'
 export const DEFAULT_SETTINGS: AppSettings = {
   notify: { catch: true, flee: true, evolve: true, levelup: true, rareOnly: false, duration: 'normal', quiet: false, quietFrom: '23:00', quietTo: '08:00' },
   privacy: { hidePrompts: false },
-  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true },
+  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true },
   app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' },
 }
 

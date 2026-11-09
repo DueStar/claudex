@@ -18,7 +18,7 @@ import { dispatchMeters, useMeters, formatClockTime, contextTone, limitNow, type
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
-import { dispatchCloud, useCloud } from './cloudStore'
+import { cloudErrorText, dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, type Mon } from './pokedexStore'
 import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
 import SettingsView from './components/SettingsView'
@@ -47,9 +47,17 @@ function preloadViews() {
 }
 import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
-import { t, josa, nameOf, locale } from './i18n'
+import { t, josa, nameOf, locale, lang } from './i18n'
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
+
+/** The update's notes in the app's language: English, then Korean, when that language has none */
+function updateNotes(u: { notes: string; notesEn?: string; notesJa?: string }): string {
+  const l = lang()
+  if (l === 'ja') return u.notesJa || u.notesEn || u.notes
+  if (l === 'en') return u.notesEn || u.notes
+  return u.notes
+}
 
 function moodOf(s: SessionInfo | undefined, t: TerminalInfo | undefined): Mood {
   if (t?.status === 'exited' || s?.state === 'ended') return 'ended'
@@ -330,7 +338,7 @@ const Widget: React.FC = () => {
   }
 
   /** The chosen party Pokémon goes out with a new (or resumed) session */
-  const throwBall = async (uid: string, where: { cwd?: string; resume?: PastSession }) => {
+  const throwBall = async (uid: string, where: { cwd?: string; resume?: PastSession }, quiet = false) => {
     setThrowing(null)
     if (!bridge) return
     // Dress the session in its Pokémon first: the tab must never show a bare Poké Ball
@@ -342,7 +350,7 @@ const Widget: React.FC = () => {
     const thrown = await bridge.game.throw(r.sessionId, uid)
     if (!thrown.ok) setNote(thrown.reason === 'busy' ? t('세션은 열렸어요. 고른 파트너가 다른 세션에서 일하고 있어서 다른 파트너가 함께해요.') : thrown.reason === 'no-token' ? t('세션은 열렸어요. 서버와 연결되는 중이라 파트너는 잠시 뒤에 배정돼요.') : t('세션은 열렸지만 파트너를 배정하지 못했어요 ({reason})', { reason: thrown.reason ?? t('알 수 없는 이유') }))
     setTarget(r.sessionId)
-    if (where.resume) { setView('terminal'); setExpanded(true) }
+    if (where.resume && !quiet) { setView('terminal'); setExpanded(true) }
   }
 
   const resume = async (past: PastSession) => {
@@ -354,6 +362,26 @@ const Widget: React.FC = () => {
     if (remembered && dex?.party.includes(remembered) && !busyUids.has(remembered)) { await throwBall(remembered, { resume: past }); return }
     setThrowing({ resume: past })
   }
+
+  // The sessions open when the app last closed come back at start (설정 › 세션),
+  // each with the Pokémon that worked it when it is resting in the party
+  const restored = useRef(false)
+  useEffect(() => {
+    if (restored.current || !bridge || !dex) return
+    restored.current = true
+    void (async () => {
+      const open = await bridge.terminals.restorable().catch(() => [])
+      const used = new Set(Object.values(dex.assign ?? {}))
+      for (const s of open) {
+        const free = dex.party.filter(u => !used.has(u))
+        const remembered = dex.remembered?.[s.sessionId]
+        const uid = remembered && free.includes(remembered) ? remembered : free[0]
+        if (!uid) break
+        used.add(uid)
+        await throwBall(uid, { resume: { id: s.sessionId, cwd: s.cwd } as PastSession }, true)
+      }
+    })()
+  }, [dex]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeSession = (r: Row) => {
     if (!r.terminal) return
@@ -419,9 +447,9 @@ const Widget: React.FC = () => {
               <button
                 className={`w-update ${update.status}${update.status === 'available' && update.error ? ' failed' : ''}`}
                 disabled={update.status === 'downloading'}
-                title={`${update.current} → ${update.latest}${update.notes ? `
+                title={`${update.current} → ${update.latest}${updateNotes(update) ? `
 
-${update.notes}` : ''}${update.error ? `
+${updateNotes(update)}` : ''}${update.error ? `
 
 ${t('오류: {error}', { error: update.error })}` : ''}`}
                 onClick={() => {
@@ -451,7 +479,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 <span>{cloud.user.email}</span>
               </div>
               <div className="w-account-sync">
-                {cloud.error ? <span className="tone-warn">{cloud.error}</span>
+                {cloud.error ? <span className="tone-warn">{cloudErrorText(cloud.error)}</span>
                   : cloud.lastSyncAt ? t('마지막 동기화 · {time}', { time: new Date(cloud.lastSyncAt).toLocaleString(locale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })
                   : t('아직 저장 전이에요')}
               </div>
@@ -461,7 +489,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               </div>
             </section>
           )}
-          {cloud?.error && !cloud.user && <div className="w-card w-note-card">{cloud.error}</div>}
+          {cloud?.error && !cloud.user && <div className="w-card w-note-card">{cloudErrorText(cloud.error)}</div>}
 
           {missing.length > 0 && (
             <section className="w-card w-setup" role="alert">

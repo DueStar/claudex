@@ -41,8 +41,20 @@ const given = process.argv.slice(2).filter(a => !a.startsWith('--')).join(' ').t
 // under "### <version>" (read here as UTF-8: notes piped through a Windows
 // shell can arrive in the console code page and show as mojibake)
 const notes = given || changelogNotes(version)
-function changelogNotes(v) {
-  const md = readFileSync(join(root, 'CHANGELOG.md'), 'utf8').replace(/\r\n?/g, '\n')
+// The update button's tooltip shows the notes in the app's language
+const notesEn = given ? '' : changelogNotes(version, 'Claudex (English)')
+const notesJa = given ? '' : changelogNotes(version, 'Claudex (日本語)')
+/** The "### <v>" notes in the "## <section>" part of CHANGELOG.md (by default the first, Korean, one) */
+function changelogNotes(v, section = null) {
+  let md = readFileSync(join(root, 'CHANGELOG.md'), 'utf8').replace(/\r\n?/g, '\n')
+  if (section) {
+    const s = md.indexOf(`\n## ${section}\n`)
+    if (s < 0) return ''
+    md = md.slice(s + section.length + 4)
+    const next = md.search(/^## /m)
+    if (next >= 0) md = md.slice(0, next)
+    md = `\n${md}`
+  }
   const head = `\n### ${v}\n`
   const at = md.indexOf(head)
   if (at < 0) return ''
@@ -138,6 +150,8 @@ const unsigned = {
   version,
   electron: electronVersion,
   notes,
+  notesEn,
+  notesJa,
   date: builtAt,
   app: { file: appZip, sha256: sha, size: statSync(join(out, appZip)).size },
   full: { file: fullZip, size: statSync(join(out, fullZip)).size },

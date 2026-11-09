@@ -49,6 +49,8 @@ const en: Record<string, string> = {
   '별도 모델이 작업을 검토한 뒤 확인 없이 실행해요': 'A separate model reviews each action, then runs it without asking',
   '세션 닫기 전 확인': 'Confirm before closing a session',
   '끄면 × 한 번으로 바로 닫혀요': 'When off, one click on × closes it',
+  '시작할 때 세션 다시 열기': 'Reopen sessions at start',
+  '앱을 닫을 때 열려 있던 세션을 다음에 켤 때 이어서 열어요': 'Sessions that were open when the app closed open again next time',
 
   // 앱
   '언어': 'Language',
@@ -129,6 +131,8 @@ const ja: Record<string, string> = {
   '별도 모델이 작업을 검토한 뒤 확인 없이 실행해요': '別のモデルが作業を確認してから、確認なしで実行します',
   '세션 닫기 전 확인': 'セッションを閉じる前に確認',
   '끄면 × 한 번으로 바로 닫혀요': 'オフにすると × を一度押すだけで閉じます',
+  '시작할 때 세션 다시 열기': '起動時にセッションを再開',
+  '앱을 닫을 때 열려 있던 세션을 다음에 켤 때 이어서 열어요': 'アプリを閉じたときに開いていたセッションを、次の起動時に再び開きます',
 
   // 앱
   '언어': '言語',

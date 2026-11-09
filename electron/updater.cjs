@@ -120,7 +120,7 @@ function ownBuildDate(app) {
 }
 
 function createUpdater({ app, send, isPackaged }) {
-  let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
+  let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', notesEn: '', notesJa: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
   let manifest = null
   const publish = (patch) => { state = { ...state, ...patch }; send('update:state', state) }
 
@@ -143,7 +143,9 @@ function createUpdater({ app, send, isPackaged }) {
       if (!isNewer(m)) { publish({ status: 'current', latest: m.version, error: null }); return state }
       manifest = m
       publish({
-        status: 'available', latest: m.version, notes: String(m.notes ?? '').slice(0, 2000), error: null,
+        status: 'available', latest: m.version, notes: String(m.notes ?? '').slice(0, 2000),
+        // English and Japanese notes (1.3.21+ manifests); the page picks by its language
+        notesEn: String(m.notesEn ?? '').slice(0, 2000), notesJa: String(m.notesJa ?? '').slice(0, 2000), error: null,
         needsFull: !!m.electron && m.electron !== process.versions.electron,
       })
     } catch (err) {

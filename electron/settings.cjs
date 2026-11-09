@@ -23,7 +23,7 @@ const DEFAULTS = Object.freeze({
     quiet: false, quietFrom: '23:00', quietTo: '08:00', // no notifications in these hours
   },
   privacy: { hidePrompts: false }, // the catch story without the request text
-  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true },
+  session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true }, // restoreOnStart: reopen the sessions open at the last close
   app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' }, // auto: the system's language
 })
 

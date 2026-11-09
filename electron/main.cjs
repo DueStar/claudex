@@ -985,6 +985,8 @@ function registerTerminalIpc() {
   ipcMain.handle('data:export', guard(() => exportBackup()))
   ipcMain.handle('data:open-folder', guard(() => shell.openPath(runtimeDirFromEnv(process.env)).then(() => true).catch(() => false)))
   ipcMain.handle('terminals:list', guard(() => terminals.list()))
+  // Taken either way, so turning the setting on later does not reopen an old list
+  ipcMain.handle('terminals:restorable', guard(() => { const open = terminals.takeRestorable(); return appSettings().session.restoreOnStart ? open : [] }))
   ipcMain.handle('terminals:create', guard((opts) => {
     try {
       return terminals.create({ cwd: typeof opts?.cwd === 'string' ? opts.cwd : undefined, resume: typeof opts?.resume === 'string' ? opts.resume : undefined, sessionId: typeof opts?.sessionId === 'string' ? opts.sessionId : undefined })

@@ -2,6 +2,11 @@
 
 ## Claudex
 
+### 1.3.21
+- 앱을 닫을 때 열려 있던 세션을 다음에 켤 때 이어서 열어요. 세션마다 함께하던 포켓몬이 같이 돌아와요. 설정 › 세션에서 끌 수 있어요.
+- Claude Code 안에서 Claudex를 켜면 터미널 색과 배경이 모두 사라지던 문제를 고쳤어요.
+- 업데이트 버튼에 마우스를 올리면 나오는 패치노트와 로그인·동기화 오류 문구도 고른 언어로 보여줘요.
+
 ### 1.3.20
 - 영어와 일본어를 지원해요. 설정 › 앱 › 언어에서 고를 수 있고, 처음에는 시스템 언어를 따라요.
 - 포켓몬·성격·볼·타입 이름과 도감 설명은 각 언어의 공식 표기로 나와요.
@@ -167,6 +172,11 @@
 
 ## Claudex (English)
 
+### 1.3.21
+- Sessions that were open when you closed the app open again next time, each with the Pokémon that worked it. Turn this off in Settings › Session.
+- Fixed terminals losing every colour and background when Claudex was started from inside Claude Code.
+- The patch notes on the update button and the sign-in and sync error messages show in your language too.
+
 ### 1.3.20
 - Claudex now speaks English and Japanese. Pick a language in Settings › App › Language; by default it follows your system.
 - Pokémon, nature, ball and type names and Pokédex entries use each language's official names.
@@ -195,6 +205,11 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.21
+- アプリを閉じたときに開いていたセッションを、次の起動時に再び開きます。一緒に働いていたポケモンも戻ってきます。設定 › セッションでオフにできます。
+- Claude Code の中から Claudex を起動すると、ターミナルの色と背景がすべて消えてしまう問題を修正しました。
+- アップデートボタンのパッチノートと、ログイン・同期のエラーメッセージも選んだ言語で表示されます。
 
 ### 1.3.20
 - 英語と日本語に対応しました。設定 › アプリ › 言語で選べます。最初はシステムの言語に合わせます。

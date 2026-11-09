@@ -7,7 +7,7 @@
 import React, { useState } from 'react'
 import { bridge, type AppSettings, type SettingsPatch } from '../desktop'
 import { useSettings, changeSettings } from '../settingsStore'
-import { useCloud } from '../cloudStore'
+import { cloudErrorText, useCloud } from '../cloudStore'
 import { CloseIcon } from './Icons'
 import { t, locale } from '../i18n'
 
@@ -109,6 +109,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onC
             <Choice label={t('모델')} hint={t('기본값은 Claude Code 설정을 따라요')} value={s.session.model} options={[['', t('기본값')], ['opus', 'Opus'], ['sonnet', 'Sonnet'], ['haiku', 'Haiku']]} onChange={v => set('session', { model: v })} />
             <Choice label="Permission mode" hint={t(PERMISSION_HINT[s.session.permissionMode])} value={s.session.permissionMode} options={[['', t('기본값')], ['default', 'Manual'], ['acceptEdits', 'Accept edits'], ['plan', 'Plan'], ['auto', 'Auto']]} onChange={v => set('session', { permissionMode: v })} />
             <Toggle label={t('세션 닫기 전 확인')} hint={t('끄면 × 한 번으로 바로 닫혀요')} on={s.session.confirmClose} onChange={v => set('session', { confirmClose: v })} />
+            <Toggle label={t('시작할 때 세션 다시 열기')} hint={t('앱을 닫을 때 열려 있던 세션을 다음에 켤 때 이어서 열어요')} on={s.session.restoreOnStart} onChange={v => set('session', { restoreOnStart: v })} />
           </>}
 
           {section === 'app' && <>
@@ -126,7 +127,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onC
                 <b>{t('클라우드 동기화')}</b>
                 <small>{!cloud?.enabled ? t('이 버전에서는 사용할 수 없어요')
                   : !cloud.user ? t('Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요')
-                  : cloud.error ? cloud.error
+                  : cloud.error ? cloudErrorText(cloud.error)
                   : cloud.lastSyncAt ? `${cloud.user.email ?? ''} · ${t('마지막 동기화 {time}', { time: new Date(cloud.lastSyncAt).toLocaleString(locale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })}`
                   : `${cloud.user.email ?? ''} · ${t('아직 동기화하지 않았어요')}`}</small>
               </span>
