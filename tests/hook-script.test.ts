@@ -905,10 +905,18 @@ describe('claudex-hook: the script', () => {
     expect(run.stderr).toBe('')
     expect(run.hits).toHaveLength(1)
     expect(run.hits[0].url).toBe('/event')
-    expect(run.body).toEqual({ type: 'session_prompt', text: 'fix the bug', isWakeup: false, promptId: 'p1', sessionId: 's-wrap', project: 'proj', cwd: '/home/me/proj', transcriptPath: '/t/s-wrap.jsonl' })
+    expect(run.body).toEqual({ type: 'session_prompt', text: 'fix the bug', isWakeup: false, promptId: 'p1', sessionId: 's-wrap', project: 'proj', cwd: '/home/me/proj', transcriptPath: '/t/s-wrap.jsonl', at: expect.any(Number) })
     // No token file: nothing to sign with, and never an Authorization header
     expect(run.hits[0].headers.authorization).toBeUndefined()
     expect(run.hits[0].headers['x-claudex-signature']).toBeUndefined()
+  })
+
+  it('every event carries when the hook started (at), so the server can tell a late one', async () => {
+    const before = Date.now()
+    const run = await runScript({ ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: '/x/a.ts' } })
+    expect(run.body).toMatchObject({ type: 'agent_working' })
+    expect(run.body.at).toBeGreaterThanOrEqual(before)
+    expect(run.body.at).toBeLessThanOrEqual(Date.now())
   })
 
   it('a 300 KB tool_response is read whole from stdin; the event carries none of it', async () => {

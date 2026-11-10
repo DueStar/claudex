@@ -31,6 +31,12 @@ describe('terminals.cjs', () => {
     expect(settings.statusLine.command).toMatch(/^ELECTRON_RUN_AS_NODE=1 ".+" ".+\/hooks\/status-line\.cjs"$/)
   })
 
+  it('tool-call hooks run in the background (async); the ones that change what the session is doing do not', () => {
+    const settings = JSON.parse(readFileSync(writeSessionSettings(REPO, tempDir(), process.execPath), 'utf8'))
+    for (const e of ['PreToolUse', 'PostToolUse', 'PostToolBatch']) expect(settings.hooks[e][0].hooks[0].async, e).toBe(true)
+    for (const e of ['Stop', 'PermissionRequest', 'SessionStart', 'SessionEnd', 'UserPromptSubmit', 'PostToolUseFailure', 'Notification']) expect(settings.hooks[e][0].hooks[0].async, e).toBeUndefined()
+  })
+
   it('the hook command really runs in a shell: reads the payload, prints nothing, exits 0 (server down)', () => {
     // Here the "app" is the Node running the tests, which ignores ELECTRON_RUN_AS_NODE
     const settings = JSON.parse(readFileSync(writeSessionSettings(REPO, tempDir(), process.execPath), 'utf8'))

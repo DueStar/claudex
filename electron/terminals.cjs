@@ -57,6 +57,15 @@ const HOOK_EVENTS = [
 ]
 
 /**
+ * Hooks Claude Code runs in the background instead of waiting for (`async`):
+ * the tool-call ones, two or three per tool call, each starting the app in
+ * Node mode (~0.2 s). They only report; the server tells a late one by the
+ * time it carries (`at`). The ones that change what the session is doing
+ * (a prompt, the turn's end, a permission, start and end) stay in order.
+ */
+const ASYNC_HOOKS = new Set(['PreToolUse', 'PostToolUse', 'PostToolBatch'])
+
+/**
  * A command that runs one of hooks/*.cjs with this very app in Node mode
  * (ELECTRON_RUN_AS_NODE), so a session needs nothing installed besides
  * Claude Code: no Python, no curl. Claude Code runs hook commands in its
@@ -71,7 +80,7 @@ function nodeCommand(runtime, script) {
 function writeSessionSettings(repoRoot, dir, runtime = process.execPath) {
   const hook = nodeCommand(runtime, path.join(repoRoot, 'hooks', 'claudex-hook.cjs'))
   const settings = {
-    hooks: Object.fromEntries(HOOK_EVENTS.map(e => [e, [{ hooks: [{ type: 'command', command: hook }] }]])),
+    hooks: Object.fromEntries(HOOK_EVENTS.map(e => [e, [{ hooks: [{ type: 'command', command: hook, ...(ASYNC_HOOKS.has(e) ? { async: true } : {}) }] }]])),
     statusLine: { type: 'command', command: nodeCommand(runtime, path.join(repoRoot, 'hooks', 'status-line.cjs')) },
   }
   fs.mkdirSync(dir, { recursive: true })

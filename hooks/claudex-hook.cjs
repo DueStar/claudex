@@ -349,6 +349,9 @@ function buildEvent(d, terminalId = terminalSessionId()) {
 
 /** stdin -> event -> signed POST; always exits 0, prints nothing */
 async function main() {
+  // When the hook started: a tool-call hook runs in the background (async), so its event can
+  // reach the server after a later one; the server tells by this time
+  const startedAt = Date.now()
   const { readStdin, postJson, serverUrl } = require('./post.cjs')
   let event = null
   let d = null
@@ -361,7 +364,7 @@ async function main() {
       try { require('fs').writeFileSync(link, String(d.session_id)) } catch { /* not worth failing the hook */ }
     }
   }
-  if (event) await postJson(serverUrl('event'), JSON.stringify(event))
+  if (event) await postJson(serverUrl('event'), JSON.stringify({ ...event, at: startedAt }))
   process.exit(0)
 }
 

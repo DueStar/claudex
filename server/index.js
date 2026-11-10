@@ -915,6 +915,8 @@ app.post('/event', requireToken, (req, res) => {
     oldCwd:           clampString(body.oldCwd, 400),
     fromModel:        clampString(body.fromModel, 80),
     switchSource:     clampString(body.switchSource, 20),
+    // When the hook started (ms): a tool-call hook runs in the background and can arrive late
+    at:               typeof body.at === 'number' && Number.isFinite(body.at) && body.at > 0 ? body.at : undefined,
   }
 
   const event = processEvent(sanitised)
@@ -955,6 +957,14 @@ function processEvent(body) {
         const lowered = threadMovedOn(session, body.agentId, `subagent: ${logText(body.status)}`, { now })
         if (lowered) saveSessions()
         return lowered
+      }
+      // A tool call from before the session last changed state (its hook ran in the
+      // background and arrived late) must not undo that change: the turn ended, a
+      // permission was asked
+      const main = mainOf(session, now)
+      if (typeof body.at === 'number' && main.state !== 'working' && body.at < main.since) {
+        saveSessionsSoon()
+        return null
       }
       // Most tool calls change nothing but the activity time: that is saved a few seconds on
       if (mainWorking(session, body.status, now)) saveSessions()

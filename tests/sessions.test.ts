@@ -368,3 +368,21 @@ describe('POST /flush', () => {
     expect(res.body).toEqual({ ok: true })
   })
 })
+
+describe('a tool call that arrives late', () => {
+  let office: Office
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
+
+  it('a tool call older than the turn end does not set the session working again; a newer one does', async () => {
+    office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
+    office.server.processEvent({ type: 'session_prompt', ...ALPHA, text: 'go' })
+    const before = Date.now() - 1000 // the hook started before the turn ended
+    office.server.processEvent({ type: 'session_turn_end', ...ALPHA, text: 'done', backgroundTasks: [], crons: 0 })
+    expect(office.server.sessions.get(ALPHA.sessionId).main.state).toBe('idle')
+    office.server.processEvent({ type: 'agent_working', ...ALPHA, status: 'Read', at: before })
+    expect(office.server.sessions.get(ALPHA.sessionId).main.state).toBe('idle')
+    office.server.processEvent({ type: 'agent_working', ...ALPHA, status: 'Read', at: Date.now() + 1 })
+    expect(office.server.sessions.get(ALPHA.sessionId).main.state).toBe('working')
+  })
+})
