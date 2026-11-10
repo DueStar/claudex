@@ -15,7 +15,7 @@
  *               minute: replaying it can only repeat the victim's own event.
  */
 
-import { readFileSync, writeFileSync, chmodSync, unlinkSync, openSync, fstatSync, closeSync, constants as fsConstants } from 'fs'
+import { readFileSync, writeFileSync, renameSync, chmodSync, unlinkSync, openSync, fstatSync, closeSync, constants as fsConstants } from 'fs'
 import { randomBytes, timingSafeEqual, createHmac } from 'crypto'
 
 /** What the server writes: 32 random bytes as 64 lowercase hex digits */
@@ -53,9 +53,13 @@ export function readTokenFile(file) {
 /**
  * Write a file only this user can read. The mode applies when the file is
  * created, so a file an older version left world-readable is fixed as well.
+ * Written to a temporary file and renamed over the old one, so a write cut
+ * short leaves the previous content, never half a file.
  */
 export function writePrivate(path, data) {
-  writeFileSync(path, data, { mode: 0o600 })
+  const tmp = `${path}.tmp`
+  writeFileSync(tmp, data, { mode: 0o600 })
+  renameSync(tmp, path)
   try { chmodSync(path, 0o600) } catch {}
 }
 
