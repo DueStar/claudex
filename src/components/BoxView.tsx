@@ -11,7 +11,7 @@
 import React, { useMemo, useState } from 'react'
 import { pokemonById, spriteUrl, iconUrl } from '../theme'
 import { bridge } from '../desktop'
-import { t, locale, nameOf, statName } from '../i18n'
+import { t, locale, nameOf, statName, useLang } from '../i18n'
 import { usePokedex, TIER_LABEL, NATURE_BY_ID, genderMark, sourceText, placeText, ballName, levelOf, minutesToNext, BALL_BY_ID, BALL_TIER_LABEL, type Mon, type Tier } from '../pokedexStore'
 import { PokeBall, SearchIcon } from './Icons'
 
@@ -38,6 +38,7 @@ function tierOf(dex: number): Tier {
 
 /** `resting`: party Pokémon whose session is open but not working (they may still trade places) */
 const BoxView: React.FC<{ resting?: Set<string> }> = ({ resting }) => {
+  useLang() // memoized: re-render when the language changes (설정 opens over this view)
   const { state } = usePokedex()
   const [sort, setSortState] = useState<Sort>(savedSort)
   const setSort = (s: Sort) => { setSortState(s); try { localStorage.setItem(SORT_KEY, s) } catch {} }

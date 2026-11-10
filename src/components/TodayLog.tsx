@@ -10,7 +10,7 @@
 import React from 'react'
 import { iconUrl, spriteUrl, pokemonById } from '../theme'
 import { usePokedex, TIER_LABEL, ballName, genderMark, sourceText, placeText, type DexEvent } from '../pokedexStore'
-import { t, josa, locale, nameOf } from '../i18n'
+import { t, josa, locale, nameOf, useLang } from '../i18n'
 import { PokeBall } from './Icons'
 
 const time = (t: number) => new Date(t).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
@@ -73,6 +73,7 @@ const Icon: React.FC<{ e: DexEvent; className?: string }> = ({ e, className }) =
 )
 
 const TodayLog: React.FC = () => {
+  useLang() // memoized: re-render when the language changes (설정 opens over this view)
   const { state } = usePokedex()
   const events = [...(state?.log ?? [])].filter(e => e.kind !== 'sendout' && e.kind !== 'swap' && e.kind !== 'exchange').reverse()
   const today = events.filter(e => dayOf(e.at) === dayOf(Date.now()))

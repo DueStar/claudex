@@ -10,7 +10,7 @@ import { bridge, type BoardKind, type BoardProfile, type BoardRow } from '../des
 import { useCloud } from '../cloudStore'
 import { usePokedex } from '../pokedexStore'
 import { iconUrl, pokemonById } from '../theme'
-import { t, locale, nameOf, josa } from '../i18n'
+import { t, locale, nameOf, josa, useLang } from '../i18n'
 import { npcsFor, npcValue } from '../npcTrainers'
 
 /** A row as shown: a trainer from the database, or an NPC (marked as one) */
@@ -41,6 +41,7 @@ function withNick(text: string, name: string): React.ReactNode {
 }
 
 const LeaderboardView: React.FC = () => {
+  useLang() // memoized: re-render when the language changes (설정 opens over this view)
   const cloud = useCloud()
   const { state } = usePokedex()
   const [board, setBoard] = useState<BoardKind>('week')
