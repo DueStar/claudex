@@ -407,6 +407,16 @@ ${agentId}`
     for (const [key, h] of helpers) if (test(h, key)) { helpers.delete(key); lastWorkAt.delete(key); any = true }
     return any
   }
+  // When a subagent finished (by helper key): its tool calls run their hooks in the
+  // background, so one from before the end can arrive after it and must not call a
+  // helper back for HELPER_IDLE_MS. Kept an hour.
+  const finishedAt = new Map()
+  function noteFinished(key) {
+    const t = now()
+    finishedAt.set(key, t)
+    for (const [k, at] of finishedAt) if (t - at > 60 * 60_000) finishedAt.delete(k)
+  }
+  const lateFor = (ev, key) => typeof ev.at === 'number' && ev.at < (finishedAt.get(key) ?? -Infinity)
 
   function publicState() {
     ensureTrainer()
@@ -833,7 +843,7 @@ ${agentId}`
     else if (ev.project && !state.projects[sessionId]) state.projects[sessionId] = ev.project
     if (ev.type === 'session_ended') { if (state.thrownAt) delete state.thrownAt[sessionId]; dismissHelpers(h => h.sessionId === sessionId); save(); publish(null); return }
     // A subagent finished: its helper goes back to the box
-    if (ev.type === 'agent_completed' && ev.agentId) { if (dismissHelpers((h, key) => key === helperKey(sessionId, ev.agentId))) publish(null); return }
+    if (ev.type === 'agent_completed' && ev.agentId) { noteFinished(helperKey(sessionId, ev.agentId)); if (dismissHelpers((h, key) => key === helperKey(sessionId, ev.agentId))) publish(null); return }
     const { uid, isNew } = ensureAssigned(sessionId)
     const mon = uid ? state.mons[uid] : null
     let event = null
@@ -850,7 +860,7 @@ ${agentId}`
     if (ev.type === 'agent_working' && !ev.failed) {
       lastActivityAt.set(sessionId, now())
       // Inside a subagent the work is its helper's (the partner's when the box has no one free)
-      const help = ev.agentId ? helperFor(sessionId, ev.agentId) : { uid: null, isNew: false }
+      const help = ev.agentId && !lateFor(ev, helperKey(sessionId, ev.agentId)) ? helperFor(sessionId, ev.agentId) : { uid: null, isNew: false }
       const worker = help.uid ? state.mons[help.uid] : mon
       if (help.isNew && !event) event = { kind: 'helper', id: worker.dex, name: byId.get(worker.dex)?.ko, sessionId, uid: help.uid, shiny: worker.shiny, at: now() }
       const grown = workStep(sessionId, worker, ev.tool, help.uid ? helperKey(sessionId, ev.agentId) : sessionId)

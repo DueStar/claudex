@@ -44,9 +44,33 @@ export const CLOUD_LOG = 200
  * always takes them from the local side: session assignments, the projects,
  * today's catch number, session starts), and only the newest CLOUD_LOG events.
  */
-export function cloudCopy(game) {
+export function cloudCopy(game, { hidePrompts = false } = {}) {
   const { assign, projects, daily, thrownAt, ...rest } = game ?? {}
-  return Array.isArray(rest.log) ? { ...rest, log: rest.log.slice(-CLOUD_LOG) } : rest
+  const copy = Array.isArray(rest.log) ? { ...rest, log: rest.log.slice(-CLOUD_LOG) } : rest
+  return hidePrompts ? withoutRequests(copy) : copy
+}
+
+/**
+ * 설정 › 프롬프트 숨기기: a catch story keeps its tool, never the request text
+ * or the tool's argument ('Bash(npm test)' → 'Bash'), wherever one is kept
+ * (the log, the dex entry, the Pokémon). The game itself is not changed.
+ */
+function withoutRequests(game) {
+  const bare = (via) => (via && typeof via === 'object'
+    ? { tool: via.tool ?? null, label: String(via.label ?? '').replace(/\(.*\)$/s, '') || null, prompt: null }
+    : via)
+  const each = (obj, fix) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fix(v)]))
+  const out = { ...game }
+  if (Array.isArray(game.log)) out.log = game.log.map(e => (e?.via ? { ...e, via: bare(e.via) } : e))
+  if (game.caught && typeof game.caught === 'object') out.caught = each(game.caught, c => (c?.via ? { ...c, via: bare(c.via) } : c))
+  if (game.mons && typeof game.mons === 'object') out.mons = each(game.mons, m => (m?.via ? { ...m, via: bare(m.via) } : m))
+  return out
+}
+
+/** The app's 프롬프트 숨기기 setting, read from its settings file (missing or unreadable: off) */
+export function readHidePrompts(file) {
+  if (!file) return false
+  try { return JSON.parse(readFileSync(file, 'utf8'))?.privacy?.hidePrompts === true } catch { return false }
 }
 
 /** What a sync is worth doing for: the log's newest event, the box, the party, the released (not steps or work time) */
@@ -59,7 +83,7 @@ function b64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGame, replaceGame, now = () => Date.now(), fetchImpl = fetch }) {
+export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGame, replaceGame, now = () => Date.now(), fetchImpl = fetch, hidePrompts = () => false }) {
   const enabled = !!(config?.supabaseUrl && config?.publishableKey)
   const base = enabled ? config.supabaseUrl.replace(/\/+$/, '') : ''
   const pending = new Map() // state -> { verifier, at }
@@ -216,7 +240,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
       user_id: session.user.id,
       display_name: session.user.user_metadata?.full_name ?? session.user.email ?? null,
       ...summary(game),
-      state: cloudCopy(game),
+      state: cloudCopy(game, { hidePrompts: hidePrompts() }),
       updated_at: new Date(now()).toISOString(),
     }
     // Only updated_at comes back, so the upload costs no egress beyond a few bytes

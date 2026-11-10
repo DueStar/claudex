@@ -206,7 +206,8 @@ function startServer() {
   const command = packaged ? process.execPath : (process.env.npm_node_execpath || 'node')
   // The child binds the port this process resolved, so an unparsable
   // CLAUDEX_PORT falls back to 3334 on both sides alike.
-  const env = { ...process.env, CLAUDEX_PORT: String(SERVER_PORT) }
+  // The settings file: the server reads 설정 › 프롬프트 숨기기 from it before a cloud upload
+  const env = { ...process.env, CLAUDEX_PORT: String(SERVER_PORT), CLAUDEX_SETTINGS_FILE: settingsFile() }
   if (packaged) env.ELECTRON_RUN_AS_NODE = '1'
 
   console.log(`[main] Spawning server: ${command} ${SERVER_ENTRY} (port ${SERVER_PORT})`)
@@ -407,6 +408,8 @@ async function exportBackup() {
   const opts = { title: t('도감 백업 저장'), defaultPath: path.join(app.getPath('documents'), `claudex-backup-${day}.json`), filters: [{ name: 'JSON', extensions: ['json'] }] }
   const r = widgetWin && !widgetWin.isDestroyed() ? await dialog.showSaveDialog(widgetWin, opts) : await dialog.showSaveDialog(opts)
   if (r.canceled || !r.filePath) return { ok: false, reason: 'canceled' }
+  // Steps are saved in batches (up to 30 s): write them first, so the copy has them
+  await serverPost('/flush', {}, 1500)
   try { fs.copyFileSync(src, r.filePath); return { ok: true, path: r.filePath } } catch (err) { return { ok: false, reason: err.message } }
 }
 
@@ -872,6 +875,7 @@ function openDexAt(id) {
 }
 
 function toggleWidget() {
+  if (quitting) return // the windows went at the start of the quit; showing one now could close it halfway
   const w = createWidgetWindow()
   if (!w) return
   if (w.isVisible()) { w.hide(); state.widgetHidden = true }
@@ -1088,7 +1092,7 @@ function registerTerminalIpc() {
     if (!win || (win.isVisible() && win.isFocused())) return
     if (Notification.isSupported()) {
       const n = new Notification({ title: String(title ?? APP_NAME).slice(0, 80), body: String(body ?? '').slice(0, 200), silent: true })
-      n.on('click', () => { if (!win.isDestroyed()) { win.show(); win.focus() } })
+      n.on('click', () => { if (!quitting && !win.isDestroyed()) { win.show(); win.focus() } })
       n.show()
     }
     if (win.isVisible()) {

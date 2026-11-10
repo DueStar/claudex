@@ -708,3 +708,25 @@ describe('pokedex saves', () => {
     expect(steps(file)).toBeGreaterThan(before)
   })
 })
+
+describe('helpers and late subagent calls', () => {
+  it("a subagent's tool call from before it finished (a background hook arriving late) does not call a helper back", () => {
+    const t = new Date('2026-11-06T14:00:00').getTime()
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const dex = createPokedex({ file: join(dir, 'p.json'), species: SPECIES, broadcast: () => {}, random: () => 0.99, now: () => t })
+    dex.publicState(); (dex as any)._state().attendedOn = '2026-11-06'
+    const st0 = (dex as any)._state()
+    st0.mons.mbox = { uid: 'mbox', dex: 150, steps: 0, evos: 0, shiny: false, how: 'wild', place: 'x', at: 0, metLevel: 5, workMs: 0 }
+    st0.box.push('mbox')
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, {})
+    dex.noteEvent({ ...work('s1'), agentId: 'ag1', at: t }, {})
+    expect(dex.publicState().helpers).toEqual({ s1: ['mbox'] })
+    dex.noteEvent({ type: 'agent_completed', sessionId: 's1', agentId: 'ag1' }, {})
+    expect(dex.publicState().helpers).toEqual({})
+    dex.noteEvent({ ...work('s1'), agentId: 'ag1', at: t - 1000 }, {})
+    expect(dex.publicState().helpers).toEqual({})
+    dex.noteEvent({ ...work('s1'), agentId: 'ag1', at: t + 1 }, {})
+    expect(dex.publicState().helpers).toEqual({ s1: ['mbox'] })
+  })
+})
