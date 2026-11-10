@@ -43,7 +43,9 @@ const SLACK_MS = 2000
  * first prompt, maybe much later. A log stamped later than this after a tab
  * opened belongs to another tab.
  */
-const MAX_START_GAP_MS = 30_000
+const MAX_START_GAP_MS = 5 * 60_000
+/** Tabs opened this close together cannot be told apart by when their Codex started */
+const TOGETHER_MS = 10_000
 /** A thread to resume not found this long: its log is gone, so the tab takes the new log Codex starts */
 const RESUME_WAIT_MS = 10_000
 /** A session header holds the instructions too: read up to this much for it */
@@ -154,8 +156,10 @@ const limit = (w) => (w && typeof w === 'object' && typeof w.used_percent === 'n
 
 // ---- One matcher for every tab still looking for its log ----
 
-/** Logs some tab follows */
+/** Logs some open tab follows */
 const claimed = new Set()
+/** Logs a closed tab followed: never handed to a new tab (it would replay them), but a tab may resume one */
+const retired = new Set()
 /** Tabs still looking: { root, cwd, startedAt, take(file) } */
 const waiting = new Set()
 
@@ -181,7 +185,7 @@ function match() {
       for (const name of names) {
         if (!name.endsWith('.jsonl')) continue
         const f = path.join(dir, name)
-        if (claimed.has(f)) continue
+        if (claimed.has(f) || retired.has(f)) continue
         const h = headerOf(f)
         if (!h || h.cwd !== tabs[0].cwd || h.at < earliest - SLACK_MS) continue
         logs.push({ f, h })
@@ -189,7 +193,12 @@ function match() {
     }
     logs.sort((a, b) => a.h.at - b.h.at)
     for (const log of logs) {
-      const tab = tabs.find(w => waiting.has(w) && log.h.at >= w.startedAt - SLACK_MS && log.h.at <= w.startedAt + MAX_START_GAP_MS)
+      // The tab opened last before that Codex started; tabs opened within moments of each other
+      // cannot be told apart by time, and take their logs in the order they opened
+      const fits = tabs.filter(w => waiting.has(w) && log.h.at >= w.startedAt - SLACK_MS && log.h.at <= w.startedAt + MAX_START_GAP_MS)
+      if (!fits.length) continue
+      const latest = fits[fits.length - 1].startedAt
+      const tab = fits.find(w => w.startedAt >= latest - TOGETHER_MS)
       if (!tab) continue
       claimed.add(log.f)
       waiting.delete(tab)
@@ -219,6 +228,7 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread: resumeAsked
   function findResumed() {
     const f = findThreadFile(sessionsDir, resumeThread)
     if (!f || claimed.has(f)) return
+    retired.delete(f)
     claimed.add(f)
     file = f
     // Resuming: the past is the old turns; only what Codex adds from now on is told
@@ -314,7 +324,8 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread: resumeAsked
     stopped = true
     if (timer) clearInterval(timer)
     waiting.delete(me)
-    // The log stays claimed: handed to a tab still waiting, it would replay this tab's session as its own
+    // Handed to a tab still waiting, the log would replay this tab's session as its own: retired, not freed
+    if (file) { claimed.delete(file); retired.add(file) }
   }
 
   return { poll, stop, found: () => !!file }

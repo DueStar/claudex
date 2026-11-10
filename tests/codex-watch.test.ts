@@ -238,3 +238,42 @@ describe('codex watch, tabs that wait', () => {
     w.stop()
   })
 })
+
+describe('codex watch, closed and reopened', () => {
+  it('a thread whose tab was closed can be resumed by a new tab in the same run', () => {
+    const { day, make } = setup()
+    const a: string[] = [], b: string[] = []
+    const wa = make({ sessionId: 'a', onThread: (id: string) => a.push(id) })
+    writeFileSync(join(day, 'rollout-r-01a1c401-1111-7000-8000-000000000001.jsonl'), meta('01a1c401-1111-7000-8000-000000000001', CWD, START + 500))
+    wa.poll()
+    expect(a).toEqual(['01a1c401-1111-7000-8000-000000000001'])
+    wa.stop()
+    const wb = make({ sessionId: 'b', resumeThread: '01a1c401-1111-7000-8000-000000000001', onThread: (id: string) => b.push(id) })
+    wb.poll()
+    expect(b).toEqual(['01a1c401-1111-7000-8000-000000000001'])
+    wb.stop()
+  })
+
+  it('a Codex that took minutes to start (a trust prompt left open) still finds its tab', () => {
+    const { day, threads, make } = setup()
+    const w = make()
+    writeFileSync(join(day, 'rollout-slow-ssss.jsonl'), meta('ssss', CWD, START + 4 * 60_000))
+    w.poll()
+    expect(threads).toEqual(['ssss'])
+    w.stop()
+  })
+})
+
+describe('codex watch, an idle tab and a later one', () => {
+  it('a tab opened minutes after an idle one in the same folder gets its own log', () => {
+    const { day, make } = setup()
+    const a: string[] = [], b: string[] = []
+    const wa = make({ sessionId: 'a', startedAt: START, onThread: (id: string) => a.push(id) })
+    const wb = make({ sessionId: 'b', startedAt: START + 3 * 60_000, onThread: (id: string) => b.push(id) })
+    writeFileSync(join(day, 'rollout-b-later.jsonl'), meta('later', CWD, START + 3 * 60_000 + 700))
+    wa.poll(); wb.poll()
+    expect(a).toEqual([])
+    expect(b).toEqual(['later'])
+    wa.stop(); wb.stop()
+  })
+})
