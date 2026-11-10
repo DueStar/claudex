@@ -521,6 +521,18 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 사용자 문의 답: 같은 종 재포획 가능(새 종 ×8, 잡을 때마다 ×0.9, 최저 0.3) — 지금 일반 등급 중복 확률 약 2.3%. 도감 완성 기대값(시뮬 40회) 약 9,000마리 포획·1만 번 조우, 하루 31번이면 약 11개월(병목은 환상 23종).
    - Codex: 로그인은 사용자가 11-09에 `codex login`한 `~/.codex/auth.json`을 Codex CLI가 재사용(Claudex는 관여 안 함). 사용량·HP는 Codex에 상태줄·훅이 없어 비어 있음 → `~/.codex/sessions` 기록에서 읽는 기능은 다음 후보(계획 먼저).
 
+7-24. **2026-11-10 1.3.33 — Codex 정식 연동, 백그라운드 셸, 미뤄 둔 것**
+   - **백그라운드 셸**: Port Congestion 세션이 `pnpm dev`(run_in_background) 때문에 턴이 끝나도 `waiting`(= 일하는 중 표시)에 머묾. 사용자 결정 "셸은 쉬는 중": `server/index.js` `TASK_SHELL`(shell|bash|local_bash)은 `waitingOn`에서 뺌, 서브에이전트만 waiting.
+   - **Codex(사용자: "모든 기능 호환")**: `electron/codexWatch.cjs`가 `~/.codex/sessions/YYYY/MM/DD/rollout-…-<thread>.jsonl`을 1초마다 따라 읽음 → session_prompt(사용자 메시지, `<…>`·"# AGENTS.md instructions"는 제외)·agent_working(exec→Bash, apply_patch→Edit 등)·session_turn_end(task_complete)·session_model(turn_context)·`POST /status`(token_count: 컨텍스트 = last_token_usage.total/model_context_window, `codexLimits` primary/secondary). 어댑터 `kind: 'codex'`(`codexTool`: 명령이 codex/codex.cmd/codex.exe), `canResume`, `codex … resume <thread>`; 스레드 id는 `session-links/<탭 id>`(UUID 검사). 기록을 찾으면 출력 기반 활동은 `mute()`(진행 중이던 턴은 끝냄).
+     - 기록 찾기: 공유 매처 — 기록 머리의 시각은 그 Codex 시작 시각(파일은 첫 요청 때 생김). 탭을 연 뒤 -2초~+5분 안에 시작한 기록만, 그중 가장 최근에 연 탭에(10초 안에 함께 연 탭끼리는 연 순서). 닫은 탭의 기록은 retired(새 탭에 안 넘김, 이어 열기는 가능). 이어 열기는 날짜 폴더 전체에서 스레드 파일을 찾고, 10초 못 찾으면 새 기록을 따라감. 머리 줄 최대 32MB까지 읽음, UTF-8은 StringDecoder, 1분 넘게 못 찾으면 5초 간격.
+     - 서버 `status.js`: `codexLimits`는 Claude 한도와 따로(전역 + at), summary·스냅숏·이벤트에 포함. 화면: 사용량 카드에 Codex 줄(기간 길이로 이름: 300분 5시간, 1주 주간, 28~31일 월간 — 사용자 계정은 실제로 30일 창), Claude 줄은 Claude 한도가 있거나 Claude 세션이 열려 있을 때만.
+     - 복원: 셸 말고 모든 탭이 resume 경로(`create({resume, tool})`)로 같은 id를 유지(이어 못 하는 도구는 같은 id로 새로 시작, 설정에서 지운 도구는 새 Claude).
+     - 한계: 이어하기 목록은 Claude만, Codex 안 `/new`는 첫 대화를 계속 따라감, 권한 확인은 화면 문구 감지 그대로.
+   - **프롬프트 숨기기**: 서버가 `CLAUDEX_SETTINGS_FILE`(없으면 %APPDATA%\Claudex\settings.json)에서 읽어, 켜져 있으면 클라우드 사본의 log·caught·mons의 `via`에서 prompt와 도구 인자 제거(`cloudCopy(game, { hidePrompts })`). 로컬 pokedex.json은 그대로. 설정 설명 문구 3개 언어 갱신.
+   - **미뤄 둔 것**: 늦은 서브에이전트 호출이 끝난 조력자를 다시 부르지 않음(`pokedex.js` finishedAt), 백업 내보내기 전에 `/flush`, 종료 중 `createWidgetWindow`·`setWidgetMode`·`revealToast`·`ensureToastWindow`·창 전환 대기열·알림 클릭이 창을 만들거나 보이지 않음.
+   - README: 영어·일본어에 "Using it with your own Claude Code hooks"/"What is stored and what is sent" 섹션, 세 언어 모두 async 훅·Codex·프롬프트 숨기기 반영.
+   - 리뷰: opus 리뷰(중요 6) → 재검토(중요 1 남음: 놀고 있는 탭이 나중 탭의 기록을 가져감) → 재검토(닫은 탭 기록 재사용 불가, 30초 창이 너무 좁음) → 마지막 매칭 규칙(가장 최근 탭, 10초 안 FIFO, 5분 창)은 테스트로만 확인.
+
 8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
    - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
    - **개발자 관점 개선**: ①②④⑤는 7-19에서 함(사용자: "추천대로 진행"). 남은 것: ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.

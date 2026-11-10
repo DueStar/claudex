@@ -2,6 +2,13 @@
 
 ## Claudex
 
+### 1.3.33
+- Codex CLI 세션도 Claude 세션처럼 보여요. 요청과 답변, 도구를 쓸 때마다 포켓몬의 걸음, 일하는 중·쉬는 중, HP(컨텍스트), 모델, Codex 사용량 한도(위쪽 사용량 카드에 따로)가 나오고, 앱을 다시 켜면 같은 대화로 이어 열어요. Codex가 스스로 남기는 세션 기록을 읽어요(설정 › AI 도구에 `codex` 명령으로 넣은 도구).
+- 개발 서버처럼 끝나지 않는 셸을 백그라운드로 띄워 둬도 세션이 계속 '일하는 중'으로 보이지 않아요.
+- 설정의 "프롬프트 숨기기"를 켜면 클라우드 백업에도 요청 내용과 도구 인자를 올리지 않아요.
+- 종료하는 동안 트레이·알림을 눌러도 창이 다시 뜨지 않고, 백업 내보내기에 방금 걸은 걸음까지 들어가요.
+- README(영어·일본어)에 내 Claude Code 훅과 같이 쓰는 법, 저장하는 것과 보내는 것을 정리했어요.
+
 ### 1.3.32
 - 세션 카드가 두 줄이 됐어요. 첫 줄은 세션 이름과 상태만, 둘째 줄에 Lv·폴더·AI 도구·git 브랜치가 들어가요. 조력자 세션은 글자 대신 상자 아이콘으로 표시돼요. 이름이 길거나 표시가 많아도 이름이 잘리지 않아요.
 - 업데이트로 재시작하거나 앱을 끌 때 이전 앱이 멈춘 채 메모리에 남던 문제를 고쳤어요. 열린 세션을 끝까지 정리한 뒤 꺼지고, 그래도 멈추면 10초 뒤 저절로 정리돼요.
@@ -243,6 +250,13 @@
 
 ## Claudex (English)
 
+### 1.3.33
+- Codex CLI sessions now show like Claude sessions: prompts and replies, a step for the Pokémon on every tool use, working and resting, HP (context), the model and Codex's own usage limits (in their own rows of the usage card), and reopening the app resumes the same conversation. Claudex reads the session log Codex writes itself (a tool added under Settings › AI tools with the `codex` command).
+- A shell left running in the background that never ends (a dev server) no longer keeps the session shown as working.
+- With "Hide prompts" on, request text and tool arguments are kept out of the cloud backup too.
+- While the app quits, tray and notification clicks no longer bring a window back, and a backup export includes the latest steps.
+- The README (English and Japanese) explains using Claudex alongside your own Claude Code hooks, and what is stored and what is sent.
+
 ### 1.3.32
 - Session cards now take two lines: the name and status first, then Lv, folder, AI tool and git branch. A helper session shows a box icon instead of a label. Long names are no longer squeezed out.
 - Quitting or restarting for an update no longer leaves the old app stuck in memory. Open sessions are wound down first, and anything still hanging is cleaned up after 10 seconds.
@@ -347,6 +361,13 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.33
+- Codex CLIのセッションもClaudeのセッションと同じように表示されます。リクエストと返答、ツールを使うたびのポケモンの歩み、作業中・休憩中、HP(コンテキスト)、モデル、Codexの使用量の上限(使用量カードに別の行で)が出て、アプリを開き直すと同じ会話を続けます。Codexが自分で書くセッション記録を読みます(設定 › AIツールに`codex`コマンドで入れたツール)。
+- 開発サーバーのように終わらないシェルをバックグラウンドで動かしていても、セッションがずっと「作業中」に見えなくなりました。
+- 設定の「プロンプトを隠す」をオンにすると、クラウドのバックアップにもリクエストの内容とツールの引数を上げません。
+- 終了中にトレイや通知を押してもウィンドウが出ず、バックアップの書き出しに直前の歩数も入ります。
+- README(英語・日本語)に、自分のClaude Codeフックとの併用方法と、保存するもの・送るものをまとめました。
 
 ### 1.3.32
 - セッションカードが2行になりました。1行目は名前と状態だけ、2行目にLv・フォルダ・AIツール・gitブランチが入ります。お手伝いのセッションは文字の代わりに箱のアイコンで表示されます。名前が長くても切れません。
