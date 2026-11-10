@@ -11,17 +11,29 @@ const fs = require('fs')
 const path = require('path')
 const util = require('util')
 
+/** The server token in a page link (…/#token=…): never written to the log */
+const TOKEN_IN_LINK = /#token=[^\s&]+/g
+function scrubSecrets(text) {
+  return String(text).replace(TOKEN_IN_LINK, '#token=…')
+}
+
 function createLog(dir, { maxBytes = 1024 * 1024 } = {}) {
   const file = path.join(dir, 'claudex.log')
   const old = path.join(dir, 'claudex.old.log')
   let size = 0
   try {
     fs.mkdirSync(dir, { recursive: true })
+    // Logs from older versions hold the server's page link with its token
+    for (const f of [file, old]) {
+      if (!fs.existsSync(f)) continue
+      const text = fs.readFileSync(f, 'utf8')
+      if (text.includes('#token=')) fs.writeFileSync(f, scrubSecrets(text))
+    }
     size = fs.existsSync(file) ? fs.statSync(file).size : 0
   } catch { /* logging must never stop the app */ }
 
   function write(text) {
-    const lines = String(text).replace(/\r?\n$/, '').split(/\r?\n/)
+    const lines = scrubSecrets(text).replace(/\r?\n$/, '').split(/\r?\n/)
     const stamp = new Date().toISOString()
     const chunk = lines.map(l => `${stamp} ${l}\n`).join('')
     try {
@@ -49,4 +61,4 @@ function teeConsole(log) {
   }
 }
 
-module.exports = { createLog, teeConsole }
+module.exports = { createLog, teeConsole, scrubSecrets }

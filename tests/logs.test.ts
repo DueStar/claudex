@@ -3,14 +3,14 @@
  * claudex.old.log past its size limit so the folder stays small.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { createLog } = require('../electron/logs.cjs')
+const { createLog, scrubSecrets } = require('../electron/logs.cjs')
 
 const dirs: string[] = []
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })
@@ -41,5 +41,25 @@ describe('the app log', () => {
     createLog(dir, { maxBytes: 120 }).write('b'.repeat(80))
     expect(readFileSync(join(dir, 'claudex.old.log'), 'utf8')).toContain('aaa')
     expect(readFileSync(join(dir, 'claudex.log'), 'utf8')).not.toContain('aaa')
+  })
+})
+
+describe('secrets in the log', () => {
+  it('never writes the server token: it is scrubbed from each line', () => {
+    expect(scrubSecrets('Page: http://127.0.0.1:3334/#token=abc123 x')).toBe('Page: http://127.0.0.1:3334/#token=… x')
+    expect(scrubSecrets('no secret here')).toBe('no secret here')
+    const log = createLog(tempDir())
+    log.write('[server]   Page: http://127.0.0.1:3334/#token=s3cr3t-T0KEN_value\n')
+    expect(readFileSync(log.file, 'utf8')).not.toContain('s3cr3t')
+  })
+
+  it('scrubs a token that logs from an older version still hold', () => {
+    const dir = tempDir()
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'claudex.log'), 'x Page: http://127.0.0.1:3334/#token=oldtoken1\n')
+    writeFileSync(join(dir, 'claudex.old.log'), 'y Page: http://127.0.0.1:3334/#token=oldtoken2\n')
+    createLog(dir)
+    expect(readFileSync(join(dir, 'claudex.log'), 'utf8')).toBe('x Page: http://127.0.0.1:3334/#token=…\n')
+    expect(readFileSync(join(dir, 'claudex.old.log'), 'utf8')).not.toContain('oldtoken2')
   })
 })
