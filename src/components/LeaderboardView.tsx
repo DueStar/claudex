@@ -179,4 +179,5 @@ const LeaderboardView: React.FC = () => {
   )
 }
 
-export default LeaderboardView
+// Memoized: the widget re-renders on every server message, and this view reads its own stores
+export default React.memo(LeaderboardView)

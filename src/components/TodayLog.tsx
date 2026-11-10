@@ -140,4 +140,5 @@ const TodayLog: React.FC = () => {
   )
 }
 
-export default TodayLog
+// Memoized: the widget re-renders on every server message, and this view reads its own stores
+export default React.memo(TodayLog)

@@ -402,7 +402,9 @@ const Widget: React.FC = () => {
   const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('claudex-side-hidden') === '1' } catch { return false } })
   const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('claudex-side-hidden', next ? '1' : '0') } catch {} ; return next })
   // Party Pokémon whose session is open but resting (turn over or stopped): they may trade places with a box one
-  const restingUids = useMemo(() => new Set(rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u)), [rows, dex])
+  // The same members give the same Set, so the (memoized) box does not re-render for nothing
+  const restingKey = rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u).sort().join(',')
+  const restingUids = useMemo(() => new Set(restingKey ? restingKey.split(',') : []), [restingKey])
   const FULL_NOTE = t('세션을 최대 {n}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.', { n: dex?.sessionLimit ?? dex?.partySize ?? 12 })
   const chosen = sendable.find(r => r.sessionId === target) ?? sendable[0]
   // One line per chosen session, picked at random (not on every render)

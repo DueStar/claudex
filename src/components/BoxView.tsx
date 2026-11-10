@@ -264,4 +264,5 @@ const BoxView: React.FC<{ resting?: Set<string> }> = ({ resting }) => {
   )
 }
 
-export default BoxView
+// Memoized: the widget re-renders on every server message, and this view reads its own stores
+export default React.memo(BoxView)

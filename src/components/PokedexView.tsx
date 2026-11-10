@@ -313,4 +313,5 @@ const PokedexView: React.FC = () => {
   )
 }
 
-export default PokedexView
+// Memoized: the widget re-renders on every server message, and this view reads its own stores
+export default React.memo(PokedexView)
