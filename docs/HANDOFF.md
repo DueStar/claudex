@@ -508,6 +508,19 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **서브에이전트가 찾은 것(결정 대기)**: 설정 "요청 내용 숨기기"(`privacy.hidePrompts`)는 화면에서만 가림 — 포획 기록 `via.prompt`(요청 앞 40자)·프로젝트 폴더 이름·도구 인자 앞부분이 게임 사본으로 클라우드(Supabase)에 올라감. `cleanEnv`가 사용자가 둔 `CLAUDE_CODE_*`도 뺌. `server/pokedex.js` 주석의 "logPrompts setting"은 없는 설정.
    - **다음(사용자 합의, 2026-11-10)**: ① 서비스 전체 코드 리뷰 ② 개발 실행으로 화면 확인(조력자 태그·셸 탭·브랜치·설정) ③ README.en/ja에 같은 섹션. 앞으로 모든 작업은 superpowers로 계획 먼저.
 
+7-23. **2026-11-10 1.3.32 — 최적화 리뷰와 멈춘 종료 수정 (branch perf/optimization, 계획 `docs/superpowers/plans/2026-11-10-claudex-optimization.md`)**
+   - 진행: 사용자 요청 "서비스 전체 코드 리뷰, 목적은 최적화". 읽기 전용 리뷰어 3명(화면/서버/본체·훅) → 계획(사용자 승인, 결정 A 걸음 저장 30초, B 비동기 훅은 PreToolUse·PostToolUse·PostToolBatch만, C 스크롤 1000/5000/10000, D 멈춘 인스턴스 종료) → 구현은 메인 세션, 작업마다 새 리뷰어 + 브랜치 전체 최종 리뷰(opus).
+   - **멈춘 종료(실측)**: 11-09 16:59 업데이트 재시작 때 이전 main이 네이티브 정리 단계에서 멈춰 ~550MB를 쥐고 relauncher와 함께 하루 넘게 남음(파이프 동기 읽기에 막힌 스레드). 원인: `before-quit`이 node-pty의 비동기 kill(콘솔 목록 에이전트 fork, conout 워커 정리) 도중 앱을 끝냄, 그리고 node-pty는 프로세스가 스스로 끝나면 가상 콘솔·conout 워커를 닫지 않음. 수정: `terminals.shutdown()` = taskkill /T /F로 트리 종료 → 종료 대기(한 기한 3초) → 모든 pty `kill()`(ClosePseudoConsole) → 1.2초 드레인. `close()`도 끝난 세션의 pty를 닫음. `main.cjs` before-quit: 창 숨김 → [session_ended POST → `POST /flush`] ∥ shutdown → 서버 정지 → quit. 패키지 빌드는 `quitWatchdog.cjs`(노드 모드 별도 프로세스, 10초 뒤 main 강제 종료). 14:54 재시작 때도 이전 빌드(수정 전)가 같은 식으로 남음 → 수정은 14:56 빌드부터, 실제 재시작 확인은 사용자 대기.
+   - **서버**: 도감 걸음만 바뀐 저장은 30초 묶음(`saveSoon`/`flush`, 포획·레벨 등은 300ms 그대로), agents.json은 실제 상태 변화 때만(활동 시각만 → 5초), 등록부 전용 세션은 저장 안 함, `writePrivate` tmp+rename, 상태줄이 같으면 방송·로그 안 함, 클라우드는 400/401만 로그아웃(그 외 `offline`, 5분 뒤 재시도)·요청 15초 제한·동기화 겹침 없음, 로그 파일에서 `#token=` 지움(옛 로그 포함).
+   - **터미널**: 출력 16ms 묶음 + 묶음 번호(`seq`), 버퍼는 보낸 조각만(200KB, 조각 배열), 탭 열기는 `terminalReplay.ts` 게이트(겹침·누락 없음), 화면은 터미널별 IPC 라우팅(`onTerminalData`), WebGL은 보이는 터미널만(숨기면 30초 뒤 해제).
+   - **화면**: 도감·박스·오늘·랭킹 `React.memo` + `useLang()`(설정 오버레이에서 언어 바꿀 때), 박스의 resting Set 안정화, 같은 상태줄이면 meters 상태 그대로.
+   - **훅**: PreToolUse·PostToolUse·PostToolBatch에 `async: true`(Claude Code 문서 확인: hooks "Run hooks in the background"). 모든 이벤트에 `at`(훅 시작 시각). 서버는 메인 스레드 상태 변화(`main.since`)보다 오래된 도구 호출, 대기(`needsYou.since`)보다 오래된 도구 결과·서브에이전트 도구 호출을 무시.
+   - **세션 카드**: 두 줄(1줄 이름+상태, 2줄 Lv·폴더·도구·브랜치·조력자 상자 아이콘 `HelperIcon`), 버튼은 2줄 끝에 겹쳐 뜸(`--row-bg`).
+   - 측정 기준(작업 전): Claudex 프로세스 합 약 2.2GB(멈춘 인스턴스 포함), 훅 1회 중앙값 183ms(Claudex.exe 노드 모드 시작 140ms).
+   - **미뤄 둔 것(사용자: "이후에 해결")**: 늦은 서브에이전트 호출이 조력자를 10분 다시 불러냄(`pokedex.js` helperFor), 백업 내보내기 전에 `/flush` 안 함(최대 30초 걸음 빠짐), 종료 중 트레이·알림 클릭으로 창이 다시 뜸. 그 밖의 작은 것은 계획 워크스페이스 장부에 있었음(브랜치 머지 후 삭제).
+   - 사용자 문의 답: 같은 종 재포획 가능(새 종 ×8, 잡을 때마다 ×0.9, 최저 0.3) — 지금 일반 등급 중복 확률 약 2.3%. 도감 완성 기대값(시뮬 40회) 약 9,000마리 포획·1만 번 조우, 하루 31번이면 약 11개월(병목은 환상 23종).
+   - Codex: 로그인은 사용자가 11-09에 `codex login`한 `~/.codex/auth.json`을 Codex CLI가 재사용(Claudex는 관여 안 함). 사용량·HP는 Codex에 상태줄·훅이 없어 비어 있음 → `~/.codex/sessions` 기록에서 읽는 기능은 다음 후보(계획 먼저).
+
 8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
    - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
    - **개발자 관점 개선**: ①②④⑤는 7-19에서 함(사용자: "추천대로 진행"). 남은 것: ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.

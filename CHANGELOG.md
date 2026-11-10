@@ -2,6 +2,15 @@
 
 ## Claudex
 
+### 1.3.32
+- 세션 카드가 두 줄이 됐어요. 첫 줄은 세션 이름과 상태만, 둘째 줄에 Lv·폴더·AI 도구·git 브랜치가 들어가요. 조력자 세션은 글자 대신 상자 아이콘으로 표시돼요. 이름이 길거나 표시가 많아도 이름이 잘리지 않아요.
+- 업데이트로 재시작하거나 앱을 끌 때 이전 앱이 멈춘 채 메모리에 남던 문제를 고쳤어요. 열린 세션을 끝까지 정리한 뒤 꺼지고, 그래도 멈추면 10초 뒤 저절로 정리돼요.
+- 하루 종일 켜 둬도 가벼워졌어요. 파일 저장과 화면 갱신 횟수를 크게 줄이고, 터미널 출력은 묶어서 보내고, 그래픽 가속은 보이는 터미널에만 써요.
+- Claude가 도구를 쓸 때마다 앱의 훅을 기다리지 않아요. 도구 한 번마다 0.4~0.6초쯤 빨라져요.
+- 네트워크가 잠깐 끊겨도 로그아웃되지 않아요. 연결이 돌아오면 동기화를 이어서 해요.
+- 터미널 스크롤 기록은 최대 10000줄이에요(50000줄로 두셨다면 10000줄로 바뀌어요).
+- 앱 로그 파일에 내부 접속 토큰을 남기지 않아요.
+
 ### 1.3.31
 - 파티 6마리가 모두 일하고 있으면 박스의 포켓몬이 "조력자"로 새 세션을 맡아요. 세션을 최대 12개까지 열 수 있고, 조력자 세션은 왼쪽 패널에 "조력자" 표시가 붙어요. 새 세션 창에서 보낼 박스 포켓몬을 직접 고를 수도 있어요.
 - 셸 탭: 탭 줄의 >_ 버튼으로 포켓몬 없이 PowerShell만 여는 탭을 열 수 있어요(최대 3개). 직접 명령을 칠 때 앱 밖으로 나가지 않아도 돼요.
@@ -234,6 +243,15 @@
 
 ## Claudex (English)
 
+### 1.3.32
+- Session cards now take two lines: the name and status first, then Lv, folder, AI tool and git branch. A helper session shows a box icon instead of a label. Long names are no longer squeezed out.
+- Quitting or restarting for an update no longer leaves the old app stuck in memory. Open sessions are wound down first, and anything still hanging is cleaned up after 10 seconds.
+- Lighter to leave open all day: far fewer file writes and screen updates, terminal output sent in batches, and graphics acceleration only for the terminal on screen.
+- Claude no longer waits for the app's hooks on every tool call — about 0.4–0.6 s faster per tool use.
+- A brief network drop no longer signs you out; syncing picks up when the connection is back.
+- Terminal scrollback goes up to 10,000 lines (a 50,000-line setting becomes 10,000).
+- The app's log file no longer holds its internal access token.
+
 ### 1.3.31
 - When your whole party is working, a Pokémon from the Box works a new session as a "helper". Up to 12 sessions can be open; helper sessions are tagged in the side panel, and you can pick the Box Pokémon yourself when you open one.
 - Shell tabs: the >_ button in the tab row opens PowerShell alone, with no Pokémon (up to 3), for typing commands without leaving the app.
@@ -329,6 +347,15 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.32
+- セッションカードが2行になりました。1行目は名前と状態だけ、2行目にLv・フォルダ・AIツール・gitブランチが入ります。お手伝いのセッションは文字の代わりに箱のアイコンで表示されます。名前が長くても切れません。
+- アップデートでの再起動やアプリの終了で、古いアプリが止まったままメモリに残る問題を直しました。開いているセッションを片付けてから終了し、それでも止まった場合は10秒後に自動で片付きます。
+- 一日中開いたままでも軽くなりました。ファイル保存と画面更新を大きく減らし、ターミナル出力はまとめて送り、グラフィック加速は表示中のターミナルだけに使います。
+- Claudeがツールを使うたびにアプリのフックを待たなくなりました。ツール1回あたり約0.4〜0.6秒速くなります。
+- ネットワークが一時的に切れてもログアウトしません。接続が戻ると同期を続けます。
+- ターミナルのスクロール履歴は最大10000行です(50000行にしていた場合は10000行になります)。
+- アプリのログファイルに内部の接続トークンを残しません。
 
 ### 1.3.31
 - 手持ちの6匹が全員作業中のときは、ボックスのポケモンが「お手伝い」として新しいセッションを担当します。セッションは最大12個まで開けて、お手伝いのセッションには左パネルに印が付きます。新しいセッションを開くときにボックスのポケモンを自分で選ぶこともできます。
