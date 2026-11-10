@@ -13,6 +13,7 @@ import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont, termFontSt
 import { getSettings, useSettings } from '../settingsStore'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, onTerminalData, type PastSession, type TerminalInfo } from '../desktop'
+import { createReplayGate } from '../terminalReplay'
 import { t } from '../i18n'
 
 const THEME = {
@@ -129,8 +130,10 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     host.addEventListener('wheel', onWheel, { passive: false })
 
     let disposed = false
-    bridge.terminals.buffer(term.id).then((buf) => { if (!disposed && buf) xterm.write(buf) })
-    const offData = onTerminalData(term.id, (data) => xterm.write(data))
+    // The output so far, then live, each piece once (src/terminalReplay.ts)
+    const gate = createReplayGate((data) => xterm.write(data))
+    bridge.terminals.buffer(term.id).then(({ data, seq }) => { if (!disposed) gate.replay(data, seq) }, () => { if (!disposed) gate.fail() })
+    const offData = onTerminalData(term.id, (data, seq) => gate.live(data, seq))
     const input = xterm.onData((data) => bridge!.terminals.write(term.id, data))
     // When a Shift/Ctrl+Enter that ended an IME composition queued its newline
     let imeEnterAt = 0

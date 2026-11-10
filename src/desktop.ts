@@ -50,7 +50,8 @@ interface ClaudexBridge {
     /** The git branch of each folder (null: not in a repository) */
     branches(dirs: string[]): Promise<Record<string, string | null>>
     history(): Promise<PastSession[]>
-    buffer(id: string): Promise<string>
+    /** The output so far, and the number of the last batch in it (terminals:data carries each batch's) */
+    buffer(id: string): Promise<{ data: string; seq: number }>
     write(id: string, data: string): void
     resize(id: string, cols: number, rows: number): void
     send(id: string, text: string): Promise<{ ok: boolean; reason?: string }>
@@ -62,7 +63,7 @@ interface ClaudexBridge {
     openUrl(url: string): Promise<void>
     /** A file named in a session's output, at a line: opened in the code editor (Ctrl+click) */
     openPath(id: string, file: string, line?: number, col?: number): Promise<boolean>
-    onData(fn: (p: { id: string; data: string }) => void): () => void
+    onData(fn: (p: { id: string; data: string; seq: number }) => void): () => void
     onList(fn: (list: TerminalInfo[]) => void): () => void
   }
   cloud: {
@@ -185,15 +186,15 @@ if (bridge) {
 
 // Terminal output: one subscription for the whole page, handed to the terminal it is for.
 // A subscription per terminal copied every chunk across the bridge once per open terminal.
-const dataHandlers = new Map<string, Set<(data: string) => void>>()
+const dataHandlers = new Map<string, Set<(data: string, seq: number) => void>>()
 let dataSubscribed = false
 
 /** Output of one terminal; returns the unsubscribe */
-export function onTerminalData(id: string, fn: (data: string) => void): () => void {
+export function onTerminalData(id: string, fn: (data: string, seq: number) => void): () => void {
   if (!bridge) return () => {}
   if (!dataSubscribed) {
     dataSubscribed = true
-    bridge.terminals.onData(({ id: from, data }) => { dataHandlers.get(from)?.forEach(h => h(data)) })
+    bridge.terminals.onData(({ id: from, data, seq }) => { dataHandlers.get(from)?.forEach(h => h(data, seq)) })
   }
   let set = dataHandlers.get(id)
   if (!set) { set = new Set(); dataHandlers.set(id, set) }

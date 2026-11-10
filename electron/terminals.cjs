@@ -251,7 +251,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     // Output reaches the window in batches (pending, sent every OUTPUT_BATCH_MS) and is kept
     // for a tab opened later as the chunks sent (chunks/size): appending to one 200 KB string
     // copied all of it on every chunk. What a tab replays was sent already, so nothing doubles.
-    const t = { id: sessionId, sessionId, cwd: dir, pty, chunks: [], size: 0, pending: '', flushTimer: null, status: 'running', createdAt: Date.now(), adapter }
+    const t = { id: sessionId, sessionId, cwd: dir, pty, chunks: [], size: 0, pending: '', flushTimer: null, seq: 0, status: 'running', createdAt: Date.now(), adapter }
     t.exited = new Promise((resolve) => { t.markExited = resolve })
     terms.set(t.id, t)
     t.scan = ''
@@ -339,17 +339,23 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     if (!t.pending) return
     const data = t.pending
     t.pending = ''
-    send('terminals:data', { id: t.id, data })
+    t.seq += 1
+    send('terminals:data', { id: t.id, data, seq: t.seq })
     t.chunks.push(data)
     t.size += data.length
     while (t.chunks.length > 1 && t.size - t.chunks[0].length >= MAX_BUFFER) t.size -= t.chunks.shift().length
   }
 
+  /**
+   * What a tab opened now replays: the output sent so far (at most MAX_BUFFER
+   * characters) and the number of the last batch in it, so the tab writes
+   * only the batches after that one, however the messages are ordered.
+   */
   function buffer(id) {
     const t = terms.get(id)
-    if (!t) return ''
+    if (!t) return { data: '', seq: 0 }
     const all = t.chunks.join('')
-    return all.length > MAX_BUFFER ? all.slice(-MAX_BUFFER) : all
+    return { data: all.length > MAX_BUFFER ? all.slice(-MAX_BUFFER) : all, seq: t.seq }
   }
 
   function close(id) {

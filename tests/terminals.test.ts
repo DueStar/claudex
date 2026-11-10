@@ -196,7 +196,7 @@ describe('terminal output', () => {
       pty.data(100, 'a'); pty.data(100, 'b'); pty.data(100, 'c')
       expect(sent).toEqual([])
       await vi.advanceTimersByTimeAsync(20)
-      expect(sent).toEqual([{ id: t.id, data: 'abc' }])
+      expect(sent).toEqual([{ id: t.id, data: 'abc', seq: 1 }])
     } finally { vi.useRealTimers() }
   })
 
@@ -207,12 +207,13 @@ describe('terminal output', () => {
       const terms = manager(pty, () => {})
       const t = terms.create({ tool: 'shell' })
       pty.data(100, 'pending')
-      expect(terms.buffer(t.id)).toBe('')
+      expect(terms.buffer(t.id)).toEqual({ data: '', seq: 0 })
       await vi.advanceTimersByTimeAsync(20)
-      expect(terms.buffer(t.id)).toBe('pending')
+      expect(terms.buffer(t.id)).toEqual({ data: 'pending', seq: 1 })
       for (let i = 0; i < 3000; i++) { pty.data(100, String(i % 10).repeat(100)); if (i % 50 === 49) await vi.advanceTimersByTimeAsync(20) }
       await vi.advanceTimersByTimeAsync(20)
-      const buf = terms.buffer(t.id)
+      const { data: buf, seq } = terms.buffer(t.id)
+      expect(seq).toBeGreaterThan(1)
       expect(buf.length).toBe(200000)
       expect(buf.endsWith('9'.repeat(100))).toBe(true)
     } finally { vi.useRealTimers() }
