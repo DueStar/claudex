@@ -604,7 +604,7 @@ describe('session_turn_end (Stop)', () => {
     expect(main(office, ALPHA.sessionId)).not.toHaveProperty('needsYou')
   })
 
-  it('with a running background task: waiting, waitingOn counts running/pending entries', () => {
+  it('with a running background subagent: waiting, waitingOn counts the running/pending subagents (not shells)', () => {
     office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-2', text: 'count in the background' })
     const tasks = [
       { id: 'ac5ff55b850b4fecf', type: 'subagent', status: 'running', description: 'Count etc' },
@@ -615,7 +615,7 @@ describe('session_turn_end (Stop)', () => {
     const log = mainLog(() => {
       ev = office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-2', text: 'Counting; I will reply DONE when it finishes.', backgroundTasks: tasks, crons: 1, stopHookActive: false })
     })
-    expect(log[0]).toBe('[main] alpha: working -> waiting (turn ended, 2 background task(s) still running)')
+    expect(log[0]).toBe('[main] alpha: working -> waiting (turn ended, 1 background task(s) still running)')
     expect(ev).toMatchObject({
       type: 'session_turn_end', crons: 1,
       backgroundTasks: [
@@ -623,7 +623,7 @@ describe('session_turn_end (Stop)', () => {
         { id: 'sh1', type: 'shell', status: 'pending', description: 'npm test' },
         { id: 'sh0', type: 'shell', status: 'completed', description: 'npm ci' },
       ],
-      main: expect.objectContaining({ state: 'waiting', waitingOn: 2, crons: 1, lastReply: 'Counting; I will reply DONE when it finishes.' }),
+      main: expect.objectContaining({ state: 'waiting', waitingOn: 1, crons: 1, lastReply: 'Counting; I will reply DONE when it finishes.' }),
     })
     expect(ev.backgroundTasks[0]).not.toHaveProperty('officeId')
 
@@ -632,6 +632,12 @@ describe('session_turn_end (Stop)', () => {
     expect(main(office, ALPHA.sessionId)).toMatchObject({ state: 'working' })
     office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-3', text: 'DONE', backgroundTasks: [], crons: 0 })
     expect(main(office, ALPHA.sessionId)).toMatchObject({ state: 'idle', waitingOn: 0, lastReply: 'DONE' })
+  })
+
+  it('a background shell still running (a dev server) leaves the session resting, not working', () => {
+    office.server.processEvent({ type: 'session_prompt', ...ALPHA, promptId: 'p-5', text: 'start the dev server' })
+    office.server.processEvent({ type: 'session_turn_end', ...ALPHA, promptId: 'p-5', text: 'It runs on :5173.', backgroundTasks: [{ id: 'sh9', type: 'shell', status: 'running', description: 'pnpm dev' }], crons: 0 })
+    expect(main(office, ALPHA.sessionId)).toMatchObject({ state: 'idle', waitingOn: 0 })
   })
 
   it('an empty reply is kept empty; a Stop without a sessionId is ignored', () => {

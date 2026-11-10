@@ -219,6 +219,10 @@ const PERMISSION_RACE_MS = 1_000
 const NEEDS_YOU_TIMEOUT_MS = 10 * 60_000
 // Stop.background_tasks statuses that mean the task is still in flight
 const TASK_IN_FLIGHT = /^(running|pending)$/i
+// A background shell is not something the session waits on: a dev server never
+// ends, and when a shell does end Claude is woken with a new prompt anyway. Only
+// the others (a subagent at work) keep the session "waiting" (shown as working).
+const TASK_SHELL = /^(shell|bash|local_bash)$/i
 
 /** @type {Map<string, {wait: object, agentId?: string, timer: ReturnType<typeof setTimeout>}>} sessionId -> needs-you waiting out the debounce */
 const pendingNeedsYou = new Map()
@@ -1108,7 +1112,7 @@ function processEvent(body) {
       const main = mainOf(session, now)
       const text = transcriptText(body.text)
       const tasks = Array.isArray(body.backgroundTasks) ? body.backgroundTasks : []
-      const inFlight = tasks.filter(t => TASK_IN_FLIGHT.test(t.status ?? ''))
+      const inFlight = tasks.filter(t => TASK_IN_FLIGHT.test(t.status ?? '') && !TASK_SHELL.test(t.type ?? ''))
       main.lastReply = text
       main.lastReplyAt = now
       main.waitingOn = inFlight.length
