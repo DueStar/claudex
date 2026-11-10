@@ -15,7 +15,7 @@ export interface CloudState {
 }
 
 /** What went wrong, as a code: the server has no language, the page words it */
-export interface CloudError { code: 'sign-in-failed' | 'session-expired' | 'sync-failed'; detail?: string }
+export interface CloudError { code: 'sign-in-failed' | 'session-expired' | 'sync-failed' | 'offline'; detail?: string }
 
 /** The error in the language in use. A plain string (an older server) shows as it is. */
 export function cloudErrorText(err: CloudError | string | null | undefined): string {
@@ -26,6 +26,7 @@ export function cloudErrorText(err: CloudError | string | null | undefined): str
     case 'sign-in-failed': return t('로그인 실패: {error}', { error: detail })
     case 'session-expired': return t('로그인이 만료됐어요. 다시 로그인해주세요.')
     case 'sync-failed': return t('동기화 실패: {error}', { error: detail })
+    case 'offline': return t('오프라인이라 잠시 동기화를 미뤘어요')
     default: return detail || t('알 수 없는 이유')
   }
 }

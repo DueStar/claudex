@@ -31,6 +31,10 @@ import { mergeGames, sameGame } from './merge.js'
 
 const PENDING_TTL_MS = 10 * 60 * 1000
 const SYNC_DEBOUNCE_MS = 30 * 1000
+/** Offline, a sync is tried again this much later */
+const OFFLINE_RETRY_MS = 5 * 60 * 1000
+/** No cloud request waits longer than this (a hung one kept the next sync waiting forever) */
+const REQUEST_TIMEOUT_MS = 15 * 1000
 
 /** How many of the newest log events the cloud copy keeps (each PC keeps its own LOG_LIMIT) */
 export const CLOUD_LOG = 200
@@ -119,14 +123,16 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     return { ok: true, url }
   }
 
+  /** A failed request: the HTTP status when the server answered, none when the network failed */
   async function authRequest(grant, body) {
     const res = await fetchImpl(`${base}/auth/v1/token?grant_type=${grant}`, {
       method: 'POST',
       headers: { apikey: config.publishableKey, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.error_description || data.msg || data.error || `HTTP ${res.status}`)
+    if (!res.ok) throw Object.assign(new Error(data.error_description || data.msg || data.error || `HTTP ${res.status}`), { status: res.status })
     return data
   }
 
@@ -164,8 +170,13 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
       try {
         saveSession(toSession(await authRequest('refresh_token', { refresh_token: session.refresh_token })))
       } catch (err) {
-        lastError = { code: 'session-expired' }
-        saveSession(null)
+        // Only the auth server saying no ends the sign-in; no network keeps it for later
+        if (err.status === 400 || err.status === 401) {
+          lastError = { code: 'session-expired' }
+          saveSession(null)
+        } else {
+          lastError = { code: 'offline' }
+        }
         publish()
         return null
       }
@@ -175,11 +186,19 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
 
   async function rest(path, init = {}) {
     const token = await accessToken()
-    if (!token) throw new Error('signed-out')
-    const res = await fetchImpl(`${base}/rest/v1/${path}`, {
-      ...init,
-      headers: { apikey: config.publishableKey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) },
-    })
+    if (!token) throw new Error(session ? 'offline' : 'signed-out')
+    let res
+    try {
+      res = await fetchImpl(`${base}/rest/v1/${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: { apikey: config.publishableKey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+      })
+    } catch {
+      // No answer at all (no network, or the request timed out)
+      lastError = { code: 'offline' }
+      throw new Error('offline')
+    }
     const text = await res.text()
     if (!res.ok) throw new Error(`${res.status} ${text.slice(0, 200)}`)
     return text ? JSON.parse(text) : null
@@ -241,12 +260,28 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
       if (mark === lastMark) return
       lastMark = mark
     }
+    scheduleSync(SYNC_DEBOUNCE_MS)
+  }
+
+  // One sync at a time: a change noted while one runs syncs after it ends.
+  // Offline, the sync is tried again OFFLINE_RETRY_MS later (the change that
+  // asked for it would not ask again).
+  let syncing = false
+  let syncAgain = false
+  function scheduleSync(delay) {
     if (syncTimer) return
     syncTimer = setTimeout(async () => {
       syncTimer = null
-      try { await sync() } catch (err) { lastError = err.message === 'signed-out' ? null : { code: 'sync-failed', detail: err.message } }
+      if (syncing) { syncAgain = true; return }
+      syncing = true
+      let offline = false
+      try { await sync() } catch (err) {
+        offline = err.message === 'offline'
+        if (!offline) lastError = err.message === 'signed-out' ? null : { code: 'sync-failed', detail: err.message }
+      } finally { syncing = false }
       publish()
-    }, SYNC_DEBOUNCE_MS)
+      if (syncAgain) { syncAgain = false; scheduleSync(SYNC_DEBOUNCE_MS) } else if (offline) scheduleSync(OFFLINE_RETRY_MS)
+    }, delay)
     syncTimer.unref?.()
   }
 
@@ -262,6 +297,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     if (signedIn && !token) throw new Error('signed-out')
     const res = await fetchImpl(`${base}/rest/v1/rpc/${name}`, {
       method: 'POST',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: { apikey: config.publishableKey, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(args ?? {}),
     })
@@ -328,7 +364,7 @@ export function createCloud({ config, sessionFile, callbackUrl, broadcast, getGa
     lastError = null
     publish()
     if (token && enabled) {
-      fetchImpl(`${base}/auth/v1/logout`, { method: 'POST', headers: { apikey: config.publishableKey, Authorization: `Bearer ${token}` } }).catch(() => {})
+      fetchImpl(`${base}/auth/v1/logout`, { method: 'POST', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), headers: { apikey: config.publishableKey, Authorization: `Bearer ${token}` } }).catch(() => {})
     }
     return { ok: true }
   }
