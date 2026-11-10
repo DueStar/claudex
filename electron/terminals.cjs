@@ -24,6 +24,7 @@ const crypto = require('crypto')
 const { adapterFor, createActivity } = require('./adapters.cjs')
 
 const MAX_BUFFER = 200_000 // characters of scrollback kept for a tab opened later
+const OUTPUT_BATCH_MS = 16 // a session's output goes to the window at most once a frame
 
 function loadPty() {
   // Loaded lazily: a missing native module must not stop the app window
@@ -247,7 +248,10 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       env: adapter.id === 'claude' ? { ...cleanEnv(process.env), CLAUDEX_SESSION_ID: sessionId, CLAUDEX_LINK_FILE: linkFile(userDataDir, sessionId) } : cleanEnv(process.env),
       useConpty: true,
     })
-    const t = { id: sessionId, sessionId, cwd: dir, pty, buffer: '', status: 'running', createdAt: Date.now(), adapter }
+    // Output reaches the window in batches (pending, sent every OUTPUT_BATCH_MS) and is kept
+    // for a tab opened later as the chunks sent (chunks/size): appending to one 200 KB string
+    // copied all of it on every chunk. What a tab replays was sent already, so nothing doubles.
+    const t = { id: sessionId, sessionId, cwd: dir, pty, chunks: [], size: 0, pending: '', flushTimer: null, status: 'running', createdAt: Date.now(), adapter }
     t.exited = new Promise((resolve) => { t.markExited = resolve })
     terms.set(t.id, t)
     t.scan = ''
@@ -257,14 +261,15 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       emit({ type: 'session_started', sessionId, cwd: dir, project: path.basename(dir), source: 'startup', model: adapter.name })
     }
     pty.onData((data) => {
-      t.buffer = (t.buffer + data).slice(-MAX_BUFFER)
-      send('terminals:data', { id: t.id, data })
+      t.pending += data
+      if (!t.flushTimer) t.flushTimer = setTimeout(() => flushOutput(t), OUTPUT_BATCH_MS)
       // Only output since the user last answered counts
       t.scan = (t.scan + plainText(data)).slice(-4000)
       if (!t.asking && adapter.asking.test(t.scan)) { t.asking = true; broadcastList() }
       t.activity?.output(data)
     })
     pty.onExit(({ exitCode }) => {
+      flushOutput(t)
       t.activity?.stop()
       t.status = 'exited'
       t.exitCode = exitCode
@@ -328,11 +333,29 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     if (process.env.CLAUDEX_DEBUG_RESIZE) console.log(`[terminals] resize ${id.slice(0, 8)} ${c}x${r}`)
   }
 
-  function buffer(id) { return terms.get(id)?.buffer ?? '' }
+  /** Send what a session printed since the last batch, and keep it for a tab opened later */
+  function flushOutput(t) {
+    if (t.flushTimer) { clearTimeout(t.flushTimer); t.flushTimer = null }
+    if (!t.pending) return
+    const data = t.pending
+    t.pending = ''
+    send('terminals:data', { id: t.id, data })
+    t.chunks.push(data)
+    t.size += data.length
+    while (t.chunks.length > 1 && t.size - t.chunks[0].length >= MAX_BUFFER) t.size -= t.chunks.shift().length
+  }
+
+  function buffer(id) {
+    const t = terms.get(id)
+    if (!t) return ''
+    const all = t.chunks.join('')
+    return all.length > MAX_BUFFER ? all.slice(-MAX_BUFFER) : all
+  }
 
   function close(id) {
     const t = terms.get(id)
     if (!t) return
+    if (t.flushTimer) { clearTimeout(t.flushTimer); t.flushTimer = null }
     if (t.status !== 'exited') { try { t.pty.kill() } catch {} }
     terms.delete(id)
     broadcastList()

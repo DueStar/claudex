@@ -9,7 +9,7 @@ import { createRequire } from 'node:module'
 import os, { tmpdir } from 'node:os'
 import path, { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
 const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch, createTerminalManager } = require('../electron/terminals.cjs')
@@ -182,5 +182,51 @@ describe('terminal manager shutdown', () => {
   it('shutdown with nothing running resolves at once', async () => {
     const terms = manager(fakePty(), () => { throw new Error('no tree to kill') })
     expect(await terms.shutdown(1000, 0)).toEqual({ exited: 0, stuck: 0 })
+  })
+})
+
+describe('terminal output', () => {
+  it('output within 16 ms goes out as one message', async () => {
+    vi.useFakeTimers()
+    try {
+      const pty = fakePty()
+      const sent: { id: string; data: string }[] = []
+      const terms = manager(pty, () => {}, { send: (ch: string, p: any) => { if (ch === 'terminals:data') sent.push(p) } })
+      const t = terms.create({ tool: 'shell' })
+      pty.data(100, 'a'); pty.data(100, 'b'); pty.data(100, 'c')
+      expect(sent).toEqual([])
+      await vi.advanceTimersByTimeAsync(20)
+      expect(sent).toEqual([{ id: t.id, data: 'abc' }])
+    } finally { vi.useRealTimers() }
+  })
+
+  it('the replay buffer holds only output already sent, at most 200000 characters', async () => {
+    vi.useFakeTimers()
+    try {
+      const pty = fakePty()
+      const terms = manager(pty, () => {})
+      const t = terms.create({ tool: 'shell' })
+      pty.data(100, 'pending')
+      expect(terms.buffer(t.id)).toBe('')
+      await vi.advanceTimersByTimeAsync(20)
+      expect(terms.buffer(t.id)).toBe('pending')
+      for (let i = 0; i < 3000; i++) { pty.data(100, String(i % 10).repeat(100)); if (i % 50 === 49) await vi.advanceTimersByTimeAsync(20) }
+      await vi.advanceTimersByTimeAsync(20)
+      const buf = terms.buffer(t.id)
+      expect(buf.length).toBe(200000)
+      expect(buf.endsWith('9'.repeat(100))).toBe(true)
+    } finally { vi.useRealTimers() }
+  })
+
+  it("a session's last output is sent before its exit is reported", async () => {
+    const pty = fakePty()
+    const order: string[] = []
+    const terms = manager(pty, () => {}, { send: (ch: string, p: any) => order.push(ch === 'terminals:data' ? `data ${p.data}` : ch) })
+    terms.create({ tool: 'shell' })
+    order.length = 0
+    pty.data(100, 'bye')
+    pty.exit(100)
+    expect(order[0]).toBe('data bye')
+    expect(order).toContain('terminals:list')
   })
 })

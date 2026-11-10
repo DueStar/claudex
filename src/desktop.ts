@@ -183,6 +183,29 @@ if (bridge) {
   bridge.terminals.onList(setList)
 }
 
+// Terminal output: one subscription for the whole page, handed to the terminal it is for.
+// A subscription per terminal copied every chunk across the bridge once per open terminal.
+const dataHandlers = new Map<string, Set<(data: string) => void>>()
+let dataSubscribed = false
+
+/** Output of one terminal; returns the unsubscribe */
+export function onTerminalData(id: string, fn: (data: string) => void): () => void {
+  if (!bridge) return () => {}
+  if (!dataSubscribed) {
+    dataSubscribed = true
+    bridge.terminals.onData(({ id: from, data }) => { dataHandlers.get(from)?.forEach(h => h(data)) })
+  }
+  let set = dataHandlers.get(id)
+  if (!set) { set = new Set(); dataHandlers.set(id, set) }
+  set.add(fn)
+  return () => {
+    const s = dataHandlers.get(id)
+    if (!s) return
+    s.delete(fn)
+    if (!s.size) dataHandlers.delete(id)
+  }
+}
+
 export function useTerminals(): TerminalInfo[] {
   return useSyncExternalStore(
     (cb) => { listeners.add(cb); return () => listeners.delete(cb) },

@@ -12,7 +12,7 @@ import { SearchAddon } from '@xterm/addon-search'
 import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont, termFontStack } from '../termFont'
 import { getSettings, useSettings } from '../settingsStore'
 import '@xterm/xterm/css/xterm.css'
-import { bridge, type PastSession, type TerminalInfo } from '../desktop'
+import { bridge, onTerminalData, type PastSession, type TerminalInfo } from '../desktop'
 import { t } from '../i18n'
 
 const THEME = {
@@ -131,7 +131,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
 
     let disposed = false
     bridge.terminals.buffer(term.id).then((buf) => { if (!disposed && buf) xterm.write(buf) })
-    const offData = bridge.terminals.onData(({ id, data }) => { if (id === term.id) xterm.write(data) })
+    const offData = onTerminalData(term.id, (data) => xterm.write(data))
     const input = xterm.onData((data) => bridge!.terminals.write(term.id, data))
     // When a Shift/Ctrl+Enter that ended an IME composition queued its newline
     let imeEnterAt = 0
