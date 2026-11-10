@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('claudex', {
     create: (opts) => ipcRenderer.invoke('terminals:create', opts ?? {}),
     pickFolder: () => ipcRenderer.invoke('terminals:pick-folder'),
     restorable: () => ipcRenderer.invoke('terminals:restorable'),
+    branches: (dirs) => ipcRenderer.invoke('terminals:branches', dirs),
     history: () => ipcRenderer.invoke('sessions:history'),
     buffer: (id) => ipcRenderer.invoke('terminals:buffer', id),
     write: (id, data) => ipcRenderer.send('terminals:write', { id, data }),

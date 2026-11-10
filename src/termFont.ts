@@ -4,6 +4,22 @@
  */
 
 import { useSyncExternalStore } from 'react'
+import type { TerminalFont } from './desktop'
+
+/**
+ * The terminal font choices (설정 › 앱 › 터미널 글꼴), each a CSS font stack.
+ * Only D2Coding has Hangul of its own: every stack ends in Pretendard and
+ * Malgun Gothic so Korean always has a font. A font that is not installed is
+ * skipped: a missing Cascadia or D2Coding falls back to Consolas (still
+ * monospace), and Hangul to Pretendard.
+ */
+export const TERM_FONT_STACKS: Record<TerminalFont, string> = {
+  default: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', Consolas, monospace",
+  consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+  cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+  d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+}
+export const termFontStack = (font: TerminalFont | undefined): string => TERM_FONT_STACKS[font ?? 'default'] ?? TERM_FONT_STACKS.default
 
 export const FONT_PRESETS = [
   { label: '소', size: 13 },

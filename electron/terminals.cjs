@@ -105,7 +105,7 @@ function readOpenSessions(file) {
   if (!Array.isArray(raw)) return []
   const seen = new Set()
   return raw.filter(s => s && typeof s.sessionId === 'string' && UUID.test(s.sessionId) && typeof s.cwd === 'string'
-    && !seen.has(s.sessionId) && seen.add(s.sessionId) && fs.existsSync(s.cwd)).slice(0, 6)
+    && !seen.has(s.sessionId) && seen.add(s.sessionId) && fs.existsSync(s.cwd)).slice(0, 12)
     .map(s => ({ sessionId: s.sessionId, cwd: s.cwd, tool: typeof s.tool === 'string' && /^[a-z0-9-]{1,24}$/.test(s.tool) ? s.tool : 'claude' }))
 }
 
@@ -114,6 +114,34 @@ function hasTranscript(sessionId, claudeDir = process.env.CLAUDE_CONFIG_DIR || p
   let projects = []
   try { projects = fs.readdirSync(path.join(claudeDir, 'projects')) } catch { return false }
   return projects.some(p => fs.existsSync(path.join(claudeDir, 'projects', p, `${sessionId}.jsonl`)))
+}
+
+/**
+ * The git branch of the repository `dir` is in (walking up to its .git), the
+ * short commit when HEAD is detached, else null. Reads files only: no git run.
+ * A worktree's or submodule's `.git` file points at its real git dir.
+ */
+function gitBranch(dir) {
+  let at = path.resolve(String(dir || ''))
+  for (let i = 0; i < 40 && at; i++) {
+    const dotGit = path.join(at, '.git')
+    try {
+      let gitDir = dotGit
+      if (fs.statSync(dotGit).isFile()) {
+        const m = fs.readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m)
+        if (!m) return null
+        gitDir = path.resolve(at, m[1].trim())
+      }
+      const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim()
+      const ref = head.match(/^ref:\s*refs\/heads\/(.+)$/)
+      if (ref) return ref[1]
+      return /^[0-9a-f]{40}$/i.test(head) ? head.slice(0, 7) : null
+    } catch { /* no .git here: one folder up */ }
+    const up = path.dirname(at)
+    if (up === at) break
+    at = up
+  }
+  return null
 }
 
 /**
@@ -313,4 +341,4 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   return { create, write, sendInstruction, resize, buffer, list, rename, close, move, killAll, takeRestorable }
 }
 
-module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, HOOK_EVENTS }
+module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch, HOOK_EVENTS }

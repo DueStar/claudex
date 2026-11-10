@@ -129,7 +129,8 @@ async function run(payload: unknown, home: string, { args = [], url = serverUrl,
   const out = await execScript(process.execPath, [SCRIPT, ...args], {
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     timeout: 10_000,
-    env: { ...process.env, CLAUDEX_PORT: '', CLAUDEX_STATUS_URL: url, CLAUDEX_HOME: home, ...env },
+    // not an app terminal's, though the tests may run inside one
+    env: { ...process.env, CLAUDEX_SESSION_ID: '', CLAUDEX_PORT: '', CLAUDEX_STATUS_URL: url, CLAUDEX_HOME: home, ...env },
   })
   return { out, ms: Date.now() - started }
 }

@@ -9,7 +9,8 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
-import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont } from '../termFont'
+import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont, termFontStack } from '../termFont'
+import { getSettings, useSettings } from '../settingsStore'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, type PastSession, type TerminalInfo } from '../desktop'
 import { t } from '../i18n'
@@ -38,17 +39,20 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
   const [found, setFound] = useState<{ index: number; count: number } | null>(null)
   const searchInput = useRef<HTMLInputElement>(null)
   openSearchRef.current = () => { setSearching(true); setTimeout(() => searchInput.current?.select(), 0) }
+  // 설정 › 앱: scrollback and font, applied to this terminal as soon as they change
+  const { scrollback, font } = useSettings().terminal
+  const fitNowRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (!bridge || !hostRef.current) return
     const xterm = new Terminal({
-      // Monaspace Neon for code. It has no Hangul, so Korean falls through to
-      // Pretendard; the WebGL renderer keeps every glyph on the cell grid
-      fontFamily: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', Consolas, monospace",
+      // Monaspace Neon for code by default (설정 can pick another). It has no Hangul, so
+      // Korean falls through to Pretendard; the WebGL renderer keeps every glyph on the cell grid
+      fontFamily: termFontStack(getSettings().terminal.font),
       fontSize: getTermFont(),
       lineHeight: 1.15,
       cursorBlink: true,
-      scrollback: 5000,
+      scrollback: getSettings().terminal.scrollback,
       allowProposedApi: true,
       theme: THEME,
       // Claude Code's logo is block/quadrant characters (▐▛███▜▌): drawn by xterm itself, not taken from a font
@@ -203,6 +207,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
         bridge!.terminals.resize(term.id, xterm.cols, xterm.rows)
       } catch {}
     }
+    fitNowRef.current = doFit
     const ro = new ResizeObserver(doFit)
     ro.observe(hostRef.current)
     doFit()
@@ -219,6 +224,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
 
     return () => {
       disposed = true
+      fitNowRef.current = () => {}
       host.removeEventListener('dragover', onDragOver)
       host.removeEventListener('drop', onDrop)
       host.removeEventListener('wheel', onWheel)
@@ -234,6 +240,21 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       xterm.dispose()
     }
   }, [term.id])
+
+  // A new scrollback or font from 설정: xterm takes both live. A new font changes the cell
+  // size, so fit again, and once more when the font has loaded (a font in use for the first time)
+  useEffect(() => {
+    const x = xtermRef.current
+    if (!x) return
+    if (x.options.scrollback !== scrollback) x.options.scrollback = scrollback
+    const stack = termFontStack(font)
+    if (x.options.fontFamily === stack) return
+    x.options.fontFamily = stack
+    fitNowRef.current()
+    let gone = false
+    document.fonts.load(`13px ${stack.split(',')[0]}`).then(() => { if (!gone) fitNowRef.current() }, () => {})
+    return () => { gone = true }
+  }, [scrollback, font])
 
   useEffect(() => {
     if (!active) return

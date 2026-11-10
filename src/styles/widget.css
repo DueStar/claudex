@@ -242,3 +242,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-ctx.hp-yellow span { background: var(--accent); }
 .w-ctx.hp-red span { background: var(--danger); }
 .w-ctx.hp-full span { opacity: 0.35; }
+/* The session folder's git branch, after the project: quiet, cut short when the row is narrow */
+.w-row-branch { flex: 0 1 auto; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ink-3); padding: 0 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.05); font-family: 'Monaspace Neon Var', Consolas, monospace; }
+.w-row-branch::before { content: '⎇ '; opacity: 0.7; }

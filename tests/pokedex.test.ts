@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { createPokedex, catchSource, STARTERS, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel, THINK_STEP_MS } from '../server/pokedex.js'
+import { createPokedex, catchSource, STARTERS, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel, THINK_STEP_MS, SESSION_LIMIT } from '../server/pokedex.js'
 
 const S = (id: number, ko: string, tier: string, evolvesFrom: number | null, types = ['normal'], captureRate = 255) =>
   ({ id, ko, types, tier, captureRate, evolvesFrom })
@@ -194,6 +194,50 @@ describe('pokedex', () => {
     // a box Pokémon cannot be thrown, only party members
     expect(dex.throwBall('new-3', 'nope')).toMatchObject({ ok: false })
     expect(dex.publicState().remembered['new-1']).toBe(party[3])
+  })
+
+  it('past the party of six, box Pokémon work sessions as helpers, up to the session limit', () => {
+    const { dex } = setup([0])
+    attended(dex)
+    const st = dex._state()
+    const party = dex.publicState().party
+    const boxIds = Array.from({ length: SESSION_LIMIT - PARTY_SIZE + 1 }, (_, i) => `box${i}`)
+    for (const id of boxIds) { st.mons[id] = { ...st.mons[party[0]], uid: id }; st.box.push(id) }
+    // a box Pokémon is not sent while the party has someone resting
+    expect(dex.throwBall('early', boxIds[0])).toMatchObject({ ok: false, reason: 'party-free' })
+    party.forEach((uid: string, i: number) => expect(dex.throwBall(`p${i}`, uid)).toEqual({ ok: true }))
+    // the party is all out: a chosen box Pokémon goes, and a session's first event takes a resting one
+    expect(dex.throwBall('h0', boxIds[0])).toEqual({ ok: true })
+    dex.noteEvent({ type: 'session_started', sessionId: 'h1' }, {})
+    const auto = dex.publicState().assign.h1
+    expect(boxIds).toContain(auto)
+    expect(auto).not.toBe(boxIds[0])
+    // the party stays six
+    expect(dex.publicState().party).toEqual(party)
+    for (let i = 2; i < SESSION_LIMIT - PARTY_SIZE; i++) dex.noteEvent({ type: 'session_started', sessionId: `h${i}` }, {})
+    expect(Object.keys(dex.publicState().assign)).toHaveLength(SESSION_LIMIT)
+    // twelve open: no thirteenth, though one box Pokémon still rests
+    const spare = boxIds.find(id => !Object.values(dex.publicState().assign).includes(id))!
+    expect(spare).toBeDefined()
+    expect(dex.throwBall('over', spare)).toMatchObject({ ok: false, reason: 'full' })
+    dex.noteEvent({ type: 'session_started', sessionId: 'over2' }, {})
+    expect(dex.publicState().assign.over2).toBeUndefined()
+    expect(dex.publicState().sessionLimit).toBe(SESSION_LIMIT)
+  })
+
+  it('a helper session swaps its worker without moving anyone between party and box', () => {
+    const { dex } = setup([0])
+    attended(dex)
+    const st = dex._state()
+    const party = dex.publicState().party
+    for (const id of ['bx1', 'bx2']) { st.mons[id] = { ...st.mons[party[1]], uid: id, dex: party.length }; st.box.push(id) }
+    party.forEach((uid: string, i: number) => dex.throwBall(`p${i}`, uid))
+    expect(dex.throwBall('h', 'bx1')).toEqual({ ok: true })
+    expect(dex.swap('h', 'bx2')).toEqual({ ok: true })
+    const after = dex.publicState()
+    expect(after.assign.h).toBe('bx2')
+    expect(after.party).toEqual(party)
+    expect(after.box).toEqual(expect.arrayContaining(['bx1', 'bx2']))
   })
 
   it('a throw held by the last run does not keep the party busy after a restart', () => {

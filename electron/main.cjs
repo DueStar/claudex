@@ -27,7 +27,7 @@ const {
   healthChallenge,
 } = require('./helpers.cjs')
 const { createTray } = require('./tray.cjs')
-const { createTerminalManager } = require('./terminals.cjs')
+const { createTerminalManager, gitBranch } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
@@ -999,6 +999,8 @@ function registerTerminalIpc() {
   ipcMain.handle('data:export', guard(() => exportBackup()))
   ipcMain.handle('data:open-folder', guard(() => shell.openPath(runtimeDirFromEnv(process.env)).then(() => true).catch(() => false)))
   ipcMain.handle('terminals:list', guard(() => terminals.list()))
+  // The git branch of each session's folder (files read only; at most 24 folders a call)
+  ipcMain.handle('terminals:branches', guard((dirs) => Object.fromEntries((Array.isArray(dirs) ? dirs : []).filter(d => typeof d === 'string' && d).slice(0, 24).map(d => [d, gitBranch(d)]))))
   // Taken either way, so turning the setting on later does not reopen an old list
   ipcMain.handle('terminals:restorable', guard(() => { const open = terminals.takeRestorable(); return appSettings().session.restoreOnStart ? open : [] }))
   ipcMain.handle('terminals:create', guard((opts) => {

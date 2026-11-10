@@ -7,6 +7,8 @@
  *   claude   Claude Code: `claude --session-id <uuid> --settings <hooks>`.
  *            Its hooks (hooks/claudex-hook.cjs) send every event to the
  *            server; it resumes by id.
+ *   shell    A plain shell (PowerShell on Windows), no AI and no Pokémon: the
+ *            game never hears of it. It cannot be resumed.
  *   <tool>   Any other terminal program the trainer lists in 설정 › 세션
  *            (Codex CLI, Gemini CLI, a shell…). Nothing reports from inside
  *            it, so the terminal's own output stands in: output that keeps
@@ -88,12 +90,25 @@ const CLAUDE = Object.freeze({
   },
 })
 
+/** A plain shell: nothing reported, so no Pokémon goes with it */
+const SHELL = Object.freeze({
+  id: 'shell',
+  name: process.platform === 'win32' ? 'PowerShell' : 'Shell',
+  events: 'none',
+  canResume: false,
+  asking: /(?!)/,
+  launch() {
+    if (process.platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] }
+    return { file: process.env.SHELL || '/bin/bash', args: ['-l'] }
+  },
+})
+
 const ID = /^[a-z0-9][a-z0-9-]{0,23}$/
 
 /** A tool the trainer listed: { id, name, command } checked */
 function validTool(t) {
   return !!t && typeof t === 'object'
-    && typeof t.id === 'string' && ID.test(t.id) && t.id !== 'claude'
+    && typeof t.id === 'string' && ID.test(t.id) && t.id !== 'claude' && t.id !== 'shell'
     && typeof t.name === 'string' && t.name.trim().length > 0 && t.name.length <= 30
     && typeof t.command === 'string' && splitCommand(t.command).length > 0 && t.command.length <= 300
 }
@@ -116,6 +131,7 @@ function terminalAdapter(tool) {
 /** The adapter for a tool id: Claude Code, or one from the list (unknown ids fall back to Claude Code) */
 function adapterFor(id, tools = []) {
   if (!id || id === 'claude') return CLAUDE
+  if (id === 'shell') return SHELL
   const tool = (Array.isArray(tools) ? tools : []).find(t => validTool(t) && t.id === id)
   return tool ? terminalAdapter(tool) : CLAUDE
 }

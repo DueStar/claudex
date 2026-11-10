@@ -41,6 +41,7 @@ describe('adapters.cjs', () => {
   it('checks a listed tool: an id of its own, a name, a command', () => {
     expect(validTool({ id: 'gemini', name: 'Gemini', command: 'gemini' })).toBe(true)
     expect(validTool({ id: 'claude', name: 'x', command: 'x' })).toBe(false)
+    expect(validTool({ id: 'shell', name: 'x', command: 'x' })).toBe(false) // the built-in shell tab
     expect(validTool({ id: 'Bad Id', name: 'x', command: 'x' })).toBe(false)
     expect(validTool({ id: 'x', name: '', command: 'x' })).toBe(false)
     expect(validTool({ id: 'x', name: 'x', command: '  ' })).toBe(false)
@@ -82,5 +83,17 @@ describe('adapters.cjs', () => {
     expect(sent.at(-1)).toEqual({ type: 'session_turn_end', sessionId: 's' })
     t += QUIET_MS; run()
     expect(sent.filter(e => e.type === 'session_turn_end').length).toBe(1)
+  })
+})
+
+describe('adapters: the plain shell tab', () => {
+  it('runs PowerShell (the login shell elsewhere), reports nothing and cannot resume', () => {
+    const a = adapterFor('shell', [{ id: 'shell', name: 'Mine', command: 'mine' }])
+    expect(a.id).toBe('shell')
+    expect(a.events).toBe('none')
+    expect(a.canResume).toBe(false)
+    expect(a.asking.test('Do you want to proceed? [y/N]')).toBe(false)
+    const { file } = a.launch({})
+    expect(file).toMatch(process.platform === 'win32' ? /^powershell\.exe$/ : /sh$/)
   })
 })

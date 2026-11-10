@@ -357,3 +357,6 @@
 .w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
 .w-row.dragging { z-index: 3; transition: none; cursor: grabbing; background: #1f232d; }
 .w-row input, .w-row textarea { user-select: text; }
+/* A plain shell tab: a prompt mark where the Pokémon would be */
+.w-sess-shell { flex: none; width: 20px; text-align: center; font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
+.w-sess-new-shell { font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; }

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation } = require('../electron/terminals.cjs')
+const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch } = require('../electron/terminals.cjs')
 
 const REPO = fileURLToPath(new URL('..', import.meta.url))
 
@@ -86,6 +86,22 @@ describe('terminals.cjs', () => {
   it("does not pass another app terminal's identity on", () => {
     const env = cleanEnv({ PATH: '/bin', CLAUDEX_SESSION_ID: 'x', CLAUDEX_LINK_FILE: 'y' })
     expect(env).toEqual({ PATH: '/bin' })
+  })
+
+  it("reads a folder's git branch from its repository (detached: the short commit; a worktree's .git file; none outside)", () => {
+    const repo = tempDir()
+    fs.mkdirSync(join(repo, '.git'))
+    fs.mkdirSync(join(repo, 'src', 'deep'), { recursive: true })
+    fs.writeFileSync(join(repo, '.git', 'HEAD'), 'ref: refs/heads/feature/hp-bar\n')
+    expect(gitBranch(join(repo, 'src', 'deep'))).toBe('feature/hp-bar')
+    fs.writeFileSync(join(repo, '.git', 'HEAD'), 'eb017ee82a26a403af65ca01db31e9284e3d032d\n')
+    expect(gitBranch(repo)).toBe('eb017ee')
+    const wt = tempDir()
+    fs.mkdirSync(join(repo, '.git', 'worktrees', 'w'), { recursive: true })
+    fs.writeFileSync(join(repo, '.git', 'worktrees', 'w', 'HEAD'), 'ref: refs/heads/side\n')
+    fs.writeFileSync(join(wt, '.git'), `gitdir: ${join(repo, '.git', 'worktrees', 'w')}\n`)
+    expect(gitBranch(wt)).toBe('side')
+    expect(gitBranch(tempDir())).toBeNull()
   })
 
   it('reopens only sessions that have a transcript', () => {

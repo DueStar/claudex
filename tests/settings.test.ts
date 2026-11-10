@@ -55,6 +55,20 @@ describe('settings', () => {
     expect(applyPatch(sanitize(null), { session: { permissionMode: 'auto' } }).session.permissionMode).toBe('auto')
   })
 
+  it('checks the terminal settings: scrollback from its list, a known font', () => {
+    expect(DEFAULTS.terminal).toEqual({ scrollback: 5000, font: 'default' })
+    const s = applyPatch(sanitize(null), { terminal: { scrollback: 50000, font: 'd2coding' } })
+    expect(s.terminal).toEqual({ scrollback: 50000, font: 'd2coding' })
+    expect(applyPatch(s, { terminal: { font: 'cascadia' } }).terminal).toEqual({ scrollback: 50000, font: 'cascadia' })
+    // a number off the list, a string number, a negative, an unknown or CSS font: the current value stays
+    for (const bad of [{ scrollback: 1234 }, { scrollback: '10000' }, { scrollback: -1 }, { scrollback: Infinity }, { font: 'Comic Sans' }, { font: "x'; }" }, { font: 3 }]) {
+      expect(applyPatch(s, { terminal: bad }).terminal).toEqual(s.terminal)
+    }
+    expect(sanitize({ terminal: { scrollback: 999999, font: 'Arial', extra: true } }).terminal).toEqual(DEFAULTS.terminal)
+    for (const n of [1000, 5000, 10000, 50000]) expect(applyPatch(s, { terminal: { scrollback: n } }).terminal.scrollback).toBe(n)
+    for (const f of ['default', 'consolas', 'cascadia', 'd2coding']) expect(applyPatch(s, { terminal: { font: f } }).terminal.font).toBe(f)
+  })
+
   it('reads and writes its file; a broken file means the defaults', () => {
     const dir = mkdtempSync(join(tmpdir(), 'claudex-settings-'))
     const file = join(dir, 'settings.json')

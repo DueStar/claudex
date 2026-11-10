@@ -121,6 +121,8 @@ export interface DexState {
   /** sessionId -> the box Pokémon helping that session's subagents right now */
   helpers?: Record<string, string[]>
   partySize: number
+  /** Sessions open at once: the party, then box Pokémon as helpers (server SESSION_LIMIT) */
+  sessionLimit?: number
   boxLimit?: number
   encounters: number
   sinceLegend: number
@@ -182,6 +184,26 @@ export function freePartyCount(s: DexState | null): number {
   if (!s) return Infinity
   const busy = new Set(Object.values(s.assign ?? {}))
   return s.party.filter(uid => !busy.has(uid)).length
+}
+
+/** Resting box Pokémon that could work a session as a helper (not working, not helping a subagent) */
+export function freeBoxUids(s: DexState): string[] {
+  const busy = new Set([...Object.values(s.assign ?? {}), ...Object.values(s.helpers ?? {}).flat()])
+  return s.box.filter(uid => s.mons[uid] && !busy.has(uid))
+}
+
+/** How many more sessions may open: the party first, then box helpers, up to the session limit */
+export function freeSessionCount(s: DexState | null): number {
+  if (!s) return Infinity
+  const open = Object.keys(s.assign ?? {}).length
+  const room = (s.sessionLimit ?? s.partySize) - open
+  return Math.max(0, Math.min(room, freePartyCount(s) + freeBoxUids(s).length))
+}
+
+/** A session worked by a box Pokémon: the party was all out when it opened */
+export function isHelperSession(s: DexState | null, sessionId: string): boolean {
+  const uid = s?.assign?.[sessionId]
+  return !!uid && !!s && !s.party.includes(uid) && s.box.includes(uid)
 }
 
 // ---------------------------------------------------------------------------

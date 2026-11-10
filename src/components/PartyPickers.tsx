@@ -1,12 +1,13 @@
 /**
  * PartyPickers — the two "who goes?" dialogs of the widget:
  *   SwapPicker   another Pokémon for a running session: a resting party one, or a box one (they trade places)
- *   ThrowPicker  the party Pokémon a new (or resumed) session is thrown out with
+ *   ThrowPicker  the party Pokémon a new (or resumed) session is thrown out with (a box one, as a
+ *                helper, once the party is all out)
  */
 
 import React, { useMemo, useState } from 'react'
 import { iconUrl, pokemonById, spriteUrl } from '../theme'
-import { genderMark, isFullyEvolved, levelOf, type DexState, type Mon } from '../pokedexStore'
+import { freeBoxUids, genderMark, isFullyEvolved, levelOf, type DexState, type Mon } from '../pokedexStore'
 import type { AiTool } from '../desktop'
 import { t, nameOf } from '../i18n'
 
@@ -25,7 +26,7 @@ const Dialog: React.FC<{ label: string; title: React.ReactNode; onClose: () => v
 /** Who works now: the Pokémon some session was thrown out with */
 const busyOf = (dex: DexState) => new Set(Object.values(dex.assign ?? {}))
 
-export const SwapPicker: React.FC<{ dex: DexState; currentDex: number; onPick: (uid: string) => void; onClose: () => void }> = ({ dex, currentDex, onPick, onClose }) => {
+export const SwapPicker: React.FC<{ dex: DexState; currentDex: number; helper?: boolean; onPick: (uid: string) => void; onClose: () => void }> = ({ dex, currentDex, helper = false, onPick, onClose }) => {
   const [query, setQuery] = useState('')
   // Working ones (in another session, or helping a subagent) are shown, dimmed, not hidden
   const busy = new Set([...busyOf(dex), ...Object.values(dex.helpers ?? {}).flat()])
@@ -53,7 +54,8 @@ export const SwapPicker: React.FC<{ dex: DexState; currentDex: number; onPick: (
       </div>
       <div className="w-swap-section">
         <span>{t('박스')}</span>
-        <small>{t('고르면 지금 포켓몬과 자리를 바꿔요')}</small>
+        {/* A helper session (worked by a box Pokémon) just changes worker: nobody moves */}
+        <small>{helper ? t('고르면 이 세션을 맡는 포켓몬만 바뀌어요') : t('고르면 지금 포켓몬과 자리를 바꿔요')}</small>
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('이름 검색')} aria-label={t('이름 검색')} />
       </div>
       <div className="w-swap-box">
@@ -86,6 +88,14 @@ export const ThrowPicker: React.FC<{
   const busy = busyOf(dex)
   const choices = [{ id: 'claude', name: 'Claude Code' }, ...tools]
   const [tool, setTool] = useState(choices.some(c => c.id === defaultTool) ? defaultTool : 'claude')
+  // The party all out: a resting box Pokémon goes as a helper
+  const partyOut = dex.party.every(uid => !dex.mons[uid] || busy.has(uid))
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const box = useMemo(() => partyOut ? freeBoxUids(dex)
+    .map(uid => dex.mons[uid])
+    .filter(m => !q || nameOf(pokemonById(m.dex)).toLowerCase().includes(q) || String(m.dex) === q)
+    .sort((a, b) => levelOf(b) - levelOf(a) || b.at - a.at) : [], [dex, q, partyOut])
   return (
     <Dialog label={t('몬스터볼 던지기')} title={resume ? t('이 세션에 보낼 포켓몬') : t('누구를 보낼까요?')} onClose={onClose}>
       {resume && <div className="w-throw-hint">{t('이 세션의 포켓몬이 다른 세션에서 일하고 있어서, 대신 보낼 포켓몬을 골라주세요.')}</div>}
@@ -111,6 +121,25 @@ export const ThrowPicker: React.FC<{
           )
         })}
       </div>
+      {partyOut && <>
+        <div className="w-swap-section">
+          <span>{t('박스')}</span>
+          <small>{t('파티가 모두 일하는 중이에요. 박스의 포켓몬이 조력자로 가요.')}</small>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('이름 검색')} aria-label={t('이름 검색')} />
+        </div>
+        <div className="w-swap-box">
+          {box.length === 0 && <div className="resume-empty">{q ? t('찾는 포켓몬이 없어요') : t('박스가 비어 있어요')}</div>}
+          {box.map(m => {
+            const name = nameOf(pokemonById(m.dex))
+            return (
+              <button key={m.uid} className="w-swap-cell" onClick={() => onPick(m.uid, tool)} title={`${m.shiny ? '✦ ' : ''}${name} Lv.${levelOf(m)}`}>
+                <img src={iconUrl(m.dex)} alt={name} loading="lazy" />
+                <span>Lv.{levelOf(m)}</span>
+              </button>
+            )
+          })}
+        </div>
+      </>}
     </Dialog>
   )
 }

@@ -498,6 +498,16 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 원인: 서버의 `THROW_HOLD_MS`(던진 뒤 10분 동안 그 포켓몬을 붙잡음, `state.thrownAt`은 pokedex.json에 저장)를 `session_ended`가 풀어야 하는데, `before-quit`이 `postSessionEnded`를 보내자마자 `stopServer()`해서 신호가 도착하지 못했다. 09:16에 6개 복원 → 09:18 업데이트 재시작이라 6개 모두 hold 중이었다. 복원 루프도 `dex.assign` 전체를 used로 봐서 자기 자신이 가진 포켓몬을 못 받았다. 1.3.29 변경 탓은 아님(원래 있던 버그, 빠른 재시작에서만 드러남).
    - 수정: ① 서버 시작 시 `thrownAt` 비움(앱과 터미널은 서버와 함께 재시작되므로 지난 실행의 hold는 의미 없음) ② `before-quit`이 끝남 POST를 기다린 뒤(최대 2초) 서버 정지, `postSessionEnded`는 Promise ③ 복원은 돌아오는 세션의 기존 배정을 used에서 뺌. 회귀 테스트 `pokedex.test.ts` "a throw held by the last run…".
 
+7-22. **2026-11-10 1.3.31**
+   - **조력자 세션(사용자 결정: 상한 12, 조우는 평소와 같게 — "세션을 많이 여는 건 더 많이 일한 것")**: `server/pokedex.js` `SESSION_LIMIT = 12`. 파티가 다 나가 있으면 `ensureAssigned`가 쉬는 박스 포켓몬(일 안 하고 서브에이전트 조력자도 아닌)을 무작위로, `throwBall`은 박스 uid를 파티가 다 나간 뒤에만(`party-free`)·12 안에서만(`full`) 받음. 파티는 6 그대로. `swap`: 조력자 세션(일꾼이 박스에 있음)은 자리를 바꾸지 않고 일꾼만 교체. `exchange`: 자기 세션을 맡은 박스 포켓몬은 다른 세션을 못 넘겨받음. 클라이언트 `freeSessionCount`/`freeBoxUids`/`isHelperSession`(`pokedexStore.ts`), ThrowPicker는 파티가 다 나가면 박스 그리드(검색), 왼쪽 줄에 "조력자" 태그(묶음 대신 태그: 끌기 순서와 충돌), 복원 12개(`readOpenSessions` slice 12). 조우는 걸음(실제 작업)에 비례하므로 세션 수 보정 없음.
+   - **셸 탭(③)**: `adapters.cjs` 내장 `SHELL`(id `shell`, events `none`, PowerShell `-NoLogo`, 예약 id라 `validTool`이 거부). 서버에 아무것도 안 보내므로 포켓몬 없음. 탭 줄 `>_` 버튼(`onNewShell`), 줄·탭에 `>_` 표시, HP줄·상태 알약 없음, 알림 제외, 최대 3(세션 12 + 셸 3 + 확인 카드 = WebGL ~16). 복원 시 같은 폴더에서 새 셸.
+   - **git 브랜치(⑥)**: `terminals.cjs` `gitBranch(dir)`(위로 올라가며 .git, worktree의 .git 파일, detached면 짧은 해시; git 실행 없음) → IPC `terminals:branches`(최대 24폴더) → Widget이 15초마다, 세션 cwd(서버) 기준. 줄에 `⎇ 브랜치`, 탭 툴팁.
+   - **설정(⑦⑧, 서브에이전트)**: `settings.terminal = { scrollback: 1000|5000|10000|50000, font: default|consolas|cascadia|d2coding }`(`electron/settings.cjs` 검사, `termFont.ts` `TERM_FONT_STACKS` — 모든 스택 끝에 Pretendard·맑은 고딕, 미설치 글꼴은 Consolas로). 설정 › 앱 맨 아래, 열린 터미널에 바로 적용.
+   - **README(⑨⑩, 서브에이전트)**: "내 Claude Code 훅과 같이 쓰기", "저장하는 것과 보내는 것"(한국어 README만, en/ja 아직).
+   - 테스트: 스크립트 테스트가 앱 터미널 안에서 돌면 `CLAUDEX_SESSION_ID`가 섞여 실패 → 테스트 env에서 비움.
+   - **서브에이전트가 찾은 것(결정 대기)**: 설정 "요청 내용 숨기기"(`privacy.hidePrompts`)는 화면에서만 가림 — 포획 기록 `via.prompt`(요청 앞 40자)·프로젝트 폴더 이름·도구 인자 앞부분이 게임 사본으로 클라우드(Supabase)에 올라감. `cleanEnv`가 사용자가 둔 `CLAUDE_CODE_*`도 뺌. `server/pokedex.js` 주석의 "logPrompts setting"은 없는 설정.
+   - **다음(사용자 합의, 2026-11-10)**: ① 서비스 전체 코드 리뷰 ② 개발 실행으로 화면 확인(조력자 태그·셸 탭·브랜치·설정) ③ README.en/ja에 같은 섹션. 앞으로 모든 작업은 superpowers로 계획 먼저.
+
 8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
    - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
    - **개발자 관점 개선**: ①②④⑤는 7-19에서 함(사용자: "추천대로 진행"). 남은 것: ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.

@@ -78,6 +78,11 @@ const en: Record<string, string> = {
   '창을 띄우지 않고 시작해요. 작업 표시줄 트레이의 몬스터볼로 열 수 있어요': 'Starts without a window. Open it from the Poké Ball in the taskbar tray',
   '위젯 항상 위에 표시': 'Keep widget on top',
   '위젯 모드에서 다른 창 위에 고정돼요': 'In widget mode, it stays above other windows',
+  '터미널 글꼴': 'Terminal font',
+  '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요': 'Applies to open terminals right away. A font that is not installed shows as Consolas',
+  '스크롤 기록': 'Scrollback',
+  '터미널마다 위로 올려 볼 수 있는 줄 수예요. 많을수록 메모리를 더 써요': 'How many lines each terminal keeps to scroll back through. More lines use more memory',
+  '{n}줄': '{n} lines',
 
   // 데이터
   '클라우드 동기화': 'Cloud sync',
@@ -177,6 +182,11 @@ const ja: Record<string, string> = {
   '창을 띄우지 않고 시작해요. 작업 표시줄 트레이의 몬스터볼로 열 수 있어요': 'ウィンドウを表示せずに起動します。タスクバーのトレイにあるモンスターボールから開けます',
   '위젯 항상 위에 표시': 'ウィジェットを常に手前に表示',
   '위젯 모드에서 다른 창 위에 고정돼요': 'ウィジェットモードでほかのウィンドウより手前に固定されます',
+  '터미널 글꼴': 'ターミナルのフォント',
+  '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요': '開いているターミナルにもすぐ適用されます。インストールされていないフォントは Consolas で表示されます',
+  '스크롤 기록': 'スクロールバック',
+  '터미널마다 위로 올려 볼 수 있는 줄 수예요. 많을수록 메모리를 더 써요': 'ターミナルごとにさかのぼって見られる行数です。多いほどメモリを多く使います',
+  '{n}줄': '{n}行',
 
   // 데이터
   '클라우드 동기화': 'クラウド同期',

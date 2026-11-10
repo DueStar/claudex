@@ -2,6 +2,13 @@
 
 ## Claudex
 
+### 1.3.31
+- 파티 6마리가 모두 일하고 있으면 박스의 포켓몬이 "조력자"로 새 세션을 맡아요. 세션을 최대 12개까지 열 수 있고, 조력자 세션은 왼쪽 패널에 "조력자" 표시가 붙어요. 새 세션 창에서 보낼 박스 포켓몬을 직접 고를 수도 있어요.
+- 셸 탭: 탭 줄의 >_ 버튼으로 포켓몬 없이 PowerShell만 여는 탭을 열 수 있어요(최대 3개). 직접 명령을 칠 때 앱 밖으로 나가지 않아도 돼요.
+- 세션 줄과 탭에 지금 폴더의 git 브랜치가 보여요.
+- 설정 › 앱에서 터미널 글꼴(기본·Consolas·Cascadia·D2Coding)과 스크롤 기록(위로 올려 볼 수 있는 줄 수)을 고를 수 있어요. 열린 터미널에 바로 적용돼요.
+- README에 내 Claude Code 훅과 같이 쓰는 법, 저장하는 것과 보내는 것을 정리했어요.
+
 ### 1.3.30
 - 세션을 연 지 얼마 안 돼서 앱을 다시 켜면(업데이트 포함) 파티가 모두 일하는 중으로 보여서 새 세션도, 이어하기도 열리지 않던 문제를 고쳤어요.
 - 앱을 끌 때 열려 있던 세션이 끝났다는 걸 서버가 확실히 받은 뒤에 꺼져요.
@@ -227,6 +234,13 @@
 
 ## Claudex (English)
 
+### 1.3.31
+- When your whole party is working, a Pokémon from the Box works a new session as a "helper". Up to 12 sessions can be open; helper sessions are tagged in the side panel, and you can pick the Box Pokémon yourself when you open one.
+- Shell tabs: the >_ button in the tab row opens PowerShell alone, with no Pokémon (up to 3), for typing commands without leaving the app.
+- Session rows and tabs show the git branch of their folder.
+- Settings › App: pick the terminal font (Default, Consolas, Cascadia, D2Coding) and the scrollback (how many lines you can scroll back). Open terminals change right away.
+- The README explains using Claudex alongside your own Claude Code hooks, and what is stored and what is sent.
+
 ### 1.3.30
 - Restarting the app soon after opening sessions (an update included) no longer leaves the whole party "working", which kept new and resumed sessions from opening.
 - When the app quits, the server now hears that the open sessions are over before it stops.
@@ -315,6 +329,13 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.31
+- 手持ちの6匹が全員作業中のときは、ボックスのポケモンが「お手伝い」として新しいセッションを担当します。セッションは最大12個まで開けて、お手伝いのセッションには左パネルに印が付きます。新しいセッションを開くときにボックスのポケモンを自分で選ぶこともできます。
+- シェルタブ: タブの列の >_ ボタンで、ポケモンなしのPowerShellだけのタブを開けます(最大3個)。コマンドを直接打つときにアプリの外に出なくて済みます。
+- セッションの行とタブに、そのフォルダのgitブランチが表示されます。
+- 設定 › アプリで、ターミナルのフォント(デフォルト・Consolas・Cascadia・D2Coding)とスクロール履歴(さかのぼれる行数)を選べます。開いているターミナルにすぐ反映されます。
+- READMEに、自分のClaude Codeフックとの併用方法と、保存するもの・送るものをまとめました。
 
 ### 1.3.30
 - セッションを開いてすぐにアプリを再起動すると(アップデートを含む)、パーティ全員が作業中のままになり、新しいセッションも再開も開けなかった問題を直しました。

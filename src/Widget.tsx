@@ -19,7 +19,7 @@ import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetM
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
 import { cloudErrorText, dispatchCloud, useCloud } from './cloudStore'
-import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, type Mon } from './pokedexStore'
+import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, freeSessionCount, freeBoxUids, isHelperSession, type Mon } from './pokedexStore'
 import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
 import SettingsView from './components/SettingsView'
 import { useSettings } from './settingsStore'
@@ -97,6 +97,10 @@ interface Row {
   name: string
   sprite: string
   project: string
+  /** The git branch of the session's folder (null: not a repository) */
+  branch?: string | null
+  /** A plain shell tab: no AI, no Pokémon */
+  shell?: boolean
   /** The trainer's name for the session */
   title: string | null
 }
@@ -250,6 +254,21 @@ const Widget: React.FC = () => {
     setMode(flag ? 'window' : 'widget')
   }
 
+  // Each session folder's git branch: read again every 15 s (a checkout in the terminal shows up soon)
+  const [branches, setBranches] = useState<Record<string, string | null>>({})
+  const branchDirs = [...new Set(terminals.map(tm => sessions.find(s => s.id === tm.sessionId)?.cwd ?? tm.cwd).filter(Boolean))].sort().join('|')
+  useEffect(() => {
+    const b = bridge
+    if (!b || !branchDirs) return
+    let live = true
+    const read = () => b.terminals.branches(branchDirs.split('|'))
+      .then(got => { if (live) setBranches(prev => JSON.stringify(prev) === JSON.stringify(got) ? prev : got) })
+      .catch(() => {})
+    read()
+    const timer = setInterval(read, 15_000)
+    return () => { live = false; clearInterval(timer) }
+  }, [branchDirs])
+
   const rows: Row[] = useMemo(() => {
     const ids = new Set<string>()
     for (const t of terminals) ids.add(t.sessionId)
@@ -265,9 +284,11 @@ const Widget: React.FC = () => {
         title: terminal?.title ?? null,
         sprite: sessionSprite(sessionId),
         project: terminal?.project ?? session?.project ?? meter?.project ?? '',
+        branch: branches[session?.cwd ?? terminal?.cwd ?? ''] ?? null,
+        shell: terminal?.tool === 'shell',
       }
     }).filter(r => r.mood !== 'ended' || r.terminal)
-  }, [terminals, sessions, meters, castVersion])
+  }, [terminals, sessions, meters, castVersion, branches])
 
   // A session that finishes its turn or starts waiting on the trainer while the app is behind:
   // a Windows notification and a flashing taskbar button (main skips it when the app is in front)
@@ -276,7 +297,7 @@ const Widget: React.FC = () => {
     for (const r of rows) {
       const before = lastMood.current.get(r.sessionId)
       lastMood.current.set(r.sessionId, r.mood)
-      if (!before || before === r.mood || !settings.notify.sessions || !r.terminal) continue
+      if (!before || before === r.mood || !settings.notify.sessions || !r.terminal || r.shell) continue
       const name = r.title ?? r.name
       if (r.mood === 'needs-you') bridge?.widget.alert(name, t('확인이 필요해요'))
       else if (before === 'working' && r.mood === 'idle') bridge?.widget.alert(name, t('일을 마쳤어요'))
@@ -357,7 +378,8 @@ const Widget: React.FC = () => {
     const uid = dex?.assign?.[sessionId]
     return uid ? dex?.mons?.[uid] : undefined
   }
-  const partyFull = freePartyCount(dex) <= 0
+  // Full: the session limit is reached, or nobody is left to send (the party, then the box as helpers)
+  const partyFull = freeSessionCount(dex) <= 0
   // The top bar never scrolls: when it runs out of room the view buttons drop their names (icons
   // only), and get them back once it is wide enough again for the width they needed
   const viewBarRef = useRef<HTMLDivElement>(null)
@@ -381,7 +403,7 @@ const Widget: React.FC = () => {
   const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('claudex-side-hidden', next ? '1' : '0') } catch {} ; return next })
   // Party Pokémon whose session is open but resting (turn over or stopped): they may trade places with a box one
   const restingUids = useMemo(() => new Set(rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u)), [rows, dex])
-  const FULL_NOTE = t('세션을 최대 {n}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.', { n: dex?.partySize ?? 6 })
+  const FULL_NOTE = t('세션을 최대 {n}개까지 열 수 있어요. 지금 연 세션 하나를 닫으면 새로 열 수 있어요.', { n: dex?.sessionLimit ?? dex?.partySize ?? 12 })
   const chosen = sendable.find(r => r.sessionId === target) ?? sendable[0]
   // One line per chosen session, picked at random (not on every render)
   const askPick = useMemo(() => Math.floor(Math.random() * ASK_LINES.length), [chosen?.sessionId])
@@ -437,6 +459,20 @@ const Widget: React.FC = () => {
     if (where.resume && !quiet) { setView('terminal'); setExpanded(true) }
   }
 
+  /** A plain shell tab (PowerShell): no Pokémon goes, so the party is not asked; at most MAX_SHELLS */
+  const MAX_SHELLS = 3 // twelve sessions + three shells + the ask card stay within Chromium's ~16 WebGL contexts
+  const openShell = async () => {
+    if (!bridge) return
+    if (terminals.filter(tm => tm.tool === 'shell' && tm.status === 'running').length >= MAX_SHELLS) {
+      setNote(t('셸 탭은 {n}개까지 열 수 있어요.', { n: MAX_SHELLS }))
+      return
+    }
+    const r = await bridge.terminals.create({ tool: 'shell' })
+    if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return }
+    setTarget(r.sessionId)
+    setView('terminal')
+  }
+
   const resume = async (past: PastSession) => {
     setPicking(false)
     if (!bridge) return
@@ -458,8 +494,14 @@ const Widget: React.FC = () => {
       // A session coming back may hold its own Pokémon still (the last run's record): that one is not "used"
       const back = new Set(open.map(s => s.sessionId))
       const used = new Set(Object.entries(dex.assign ?? {}).filter(([sid]) => !back.has(sid)).map(([, uid]) => uid))
+      const limit = dex.sessionLimit ?? dex.partySize
       for (const s of open) {
-        const free = dex.party.filter(u => !used.has(u))
+        // A shell tab comes back as a fresh shell in its folder, with no Pokémon
+        if (s.tool === 'shell') { await bridge.terminals.create({ cwd: s.cwd, tool: 'shell' }); continue }
+        if (used.size >= limit) break
+        // The party first; past it a resting box Pokémon comes as a helper
+        const freeParty = dex.party.filter(u => !used.has(u))
+        const free = freeParty.length ? freeParty : freeBoxUids(dex).filter(u => !used.has(u))
         const remembered = dex.remembered?.[s.sessionId]
         const uid = remembered && free.includes(remembered) ? remembered : free[0]
         if (!uid) break
@@ -611,7 +653,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
           )}
 
           <section className="w-card w-launch">
-            <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? t('파티의 포켓몬이 모두 일하는 중') : t('문서 폴더에서 새 Claude 세션')}>
+            <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('문서 폴더에서 새 Claude 세션')}>
               <PokeBall size={18} /> {t('새로운 세션 시작하기')}
             </button>
             <button className="w-launch-alt" onClick={() => launch(true)} title={t('다른 폴더에서 새 세션')} aria-label={t('다른 폴더에서 새 세션')}><FolderIcon /></button>
@@ -669,7 +711,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
                 <div className="w-row-top">
-                  <img className="w-row-mon" src={r.sprite} alt="" />
+                  {r.shell ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span> : <img className="w-row-mon" src={r.sprite} alt="" />}
                   {renaming === r.sessionId ? (
                     <input
                       className="w-row-rename"
@@ -691,7 +733,9 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                       onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
                     >
                       <span className="w-row-name">{r.title ?? t('새 세션')}</span><span className="w-row-project">{r.name}</span>
+                      {r.branch && <span className="w-row-branch" title={t('git 브랜치')}>{r.branch}</span>}
                       {r.terminal?.tool && r.terminal.tool !== 'claude' && <span className="w-row-tool" title={t('이 세션에서 도는 AI 도구')}>{r.terminal.toolName}</span>}
+                      {isHelperSession(dex, r.sessionId) && <span className="w-row-tool helper" title={t('파티가 모두 일하는 중이라 박스의 포켓몬이 이 세션을 맡았어요')}>{t('조력자')}</span>}
                     </span>
                   )}
                   {renaming !== r.sessionId && (dex?.helpers?.[r.sessionId] ?? []).length > 0 && (
@@ -704,7 +748,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   {r.terminal && renaming !== r.sessionId && (
                     <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
                   )}
-                  {r.mood === 'needs-you' && r.terminal ? (
+                  {r.shell ? null : r.mood === 'needs-you' && r.terminal ? (
                     <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}>{t('확인 필요')}</button>
                   ) : (
                     <span className={`w-pill mood-${r.mood}`}>{t(MOOD_LABEL[r.mood])}</span>
@@ -724,7 +768,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     >{closing === r.sessionId ? t('닫기?') : '×'}</button>
                   )}
                 </div>
-                <div className="w-row-bottom">
+                {!r.shell && <div className="w-row-bottom">
                   {(() => {
                     // The context window as the session's HP: what is left, draining like a Pokémon's
                     // (green, yellow under half, red under a fifth); the number is the tokens left
@@ -745,7 +789,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                       <span className="w-row-num" title={tip}>{leftTokens !== null ? tokens(leftTokens) : left !== null ? `${Math.round(left)}%` : '—'}</span>
                     </>
                   })()}
-                </div>
+                </div>}
                 {/* Window mode: a session waiting on the trainer while its terminal is not in view
                     says so in its row (its Pokémon hops). A permission is answered right here; a
                     question with choices opens its terminal, where the choices can be read. No
@@ -855,6 +899,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               onRename={setRenaming}
               onMove={(id, index) => { void bridge?.terminals.move(id, index) }}
               onNew={() => launch(false)}
+              onNewShell={openShell}
             />
           )}
           <Suspense fallback={null}>
@@ -881,7 +926,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
       )}
 
       {swapFor && dex && (
-        <SwapPicker dex={dex} currentDex={monOf(swapFor)?.dex ?? 0} onPick={uid => doSwap(swapFor, uid)} onClose={() => setSwapFor(null)} />
+        <SwapPicker dex={dex} currentDex={monOf(swapFor)?.dex ?? 0} helper={isHelperSession(dex, swapFor)} onPick={uid => doSwap(swapFor, uid)} onClose={() => setSwapFor(null)} />
       )}
       {picking && <Suspense fallback={null}><ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
         monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: nameOf(pokemonById(m.dex)) } : null }} /></Suspense>}

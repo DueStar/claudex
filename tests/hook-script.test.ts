@@ -884,7 +884,8 @@ describe('claudex-hook: the script', () => {
     hits.length = 0
     return new Promise<{ status: number | null; stdout: string; stderr: string; hits: Hit[]; body: any }>((resolve) => {
       const child = spawn(process.execPath, [HOOK], {
-        env: { ...process.env, CLAUDEX_EVENT_URL: '', CLAUDEX_HOME: dir, CLAUDEX_PORT: String(port), ...env },
+        // not an app terminal's, though the tests may run inside one
+        env: { ...process.env, CLAUDEX_SESSION_ID: '', CLAUDEX_LINK_FILE: '', CLAUDEX_EVENT_URL: '', CLAUDEX_HOME: dir, CLAUDEX_PORT: String(port), ...env },
       })
       let stdout = ''
       let stderr = ''

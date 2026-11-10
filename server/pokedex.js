@@ -25,6 +25,12 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from 'fs'
 export const STARTERS = [1, 4, 7]
 export const PARTY_SIZE = 6
 /**
+ * Sessions open at once. The party's six go first; past them a resting box
+ * Pokémon works the session as a "helper" (the party stays six, as in the games).
+ * Twelve: every terminal holds a WebGL context and Chromium allows about 16.
+ */
+export const SESSION_LIMIT = 12
+/**
  * The PC box holds this many Pokémon (the party's six are separate). It keeps
  * one trainer's saved game bounded (about 0.4 MB of individuals at ~360 bytes
  * each) so the free cloud tier lasts. When it is full, a new catch still fills
@@ -404,6 +410,7 @@ ${agentId}`
       // sessionId -> the box Pokémon helping its subagents
       helpers: [...helpers.values()].reduce((m, h) => { (m[h.sessionId] ??= []).push(h.uid); return m }, {}),
       partySize: PARTY_SIZE,
+      sessionLimit: SESSION_LIMIT,
       boxLimit: BOX_LIMIT,
       encounters: state.encounters,
       sinceLegend: state.sinceLegend,
@@ -518,7 +525,13 @@ ${agentId}`
     const have = state.assign[sessionId]
     if (have && state.mons[have]) return { uid: have, isNew: false }
     const busy = busyUids()
-    const uid = state.party.find(u => !busy.has(u))
+    let uid = state.party.find(u => !busy.has(u))
+    // The party is all out: a resting box Pokémon helps, up to SESSION_LIMIT sessions
+    if (!uid && busy.size < SESSION_LIMIT) {
+      const out = helpingUids()
+      const free = state.box.filter(u => state.mons[u] && !busy.has(u) && !out.has(u))
+      if (free.length) uid = free[Math.floor(random() * free.length)]
+    }
     if (!uid) return { uid: null, isNew: false }
     state.assign[sessionId] = uid
     return { uid, isNew: true }
@@ -688,6 +701,7 @@ ${agentId}`
     const step = q.shift()
     if (!q.length) pendingSteps.delete(sessionId)
     lastStepAt.set(sessionId, now())
+    // A helper session meets as often as any: encounters follow the work done (steps), not the session count
     if (random() >= ENCOUNTER_PER_STEP) return null
     // A subagent's step meets with its helper (if it is still around), else the partner
     const uid = (step.uid && state.mons[step.uid]) ? step.uid : state.assign[sessionId]
@@ -848,8 +862,9 @@ ${agentId}`
     if (!state.party.includes(uid) && inBox === -1) return { ok: false, reason: 'unknown-pokemon' }
     const busy = busyUids()
     if (busy.has(uid) || helpingUids().has(uid)) return { ok: false, reason: 'busy' }
-    // A box Pokémon takes the working one's party slot, and that one goes to the box in its place
-    if (inBox !== -1) {
+    // A box Pokémon takes the working one's party slot, and that one goes to the box in its place.
+    // A helper session (its worker is in the box) just changes worker: nobody moves
+    if (inBox !== -1 && state.party.includes(current)) {
       const slot = state.party.indexOf(current)
       if (slot === -1) return { ok: false, reason: 'not-in-party' }
       state.party[slot] = uid
@@ -873,10 +888,17 @@ ${agentId}`
     ensureTrainer()
     const mon = state.mons[uid]
     if (!mon) return { ok: false, reason: 'unknown-pokemon' }
-    if (!state.party.includes(uid)) return { ok: false, reason: 'not-in-party' }
     const busy = busyUids()
     const holder = busy.get(uid)
     if (holder && holder !== sessionId) return { ok: false, reason: 'busy' }
+    if (!state.party.includes(uid)) {
+      // A box Pokémon goes out as a helper: only once the party is all out, and within SESSION_LIMIT
+      if (!state.box.includes(uid)) return { ok: false, reason: 'unknown-pokemon' }
+      if (helpingUids().has(uid)) return { ok: false, reason: 'busy' }
+      const others = [...busy.values()].filter(sid => sid !== sessionId)
+      if (state.party.some(u => !busy.has(u) || busy.get(u) === sessionId)) return { ok: false, reason: 'party-free' }
+      if (others.length >= SESSION_LIMIT) return { ok: false, reason: 'full' }
+    }
     state.assign[sessionId] = uid
     ;(state.thrownAt ??= {})[sessionId] = now()
     const event = { kind: 'sendout', id: mon.dex, name: byId.get(mon.dex)?.ko, sessionId, uid, shiny: mon.shiny, at: now() }
@@ -897,7 +919,7 @@ ${agentId}`
     if (b === -1 || p === -1) return { ok: false, reason: 'bad-request' }
     // A party Pokémon with a session may go while that session rests: the box one takes over its session
     const sid = busyUids().get(partyUid)
-    if ((sid && !sessionResting(sid)) || helpingUids().has(boxUid)) return { ok: false, reason: 'busy' }
+    if ((sid && !sessionResting(sid)) || helpingUids().has(boxUid) || (sid && busyUids().has(boxUid))) return { ok: false, reason: 'busy' }
     state.box.splice(b, 1)
     state.party[p] = boxUid
     if (sid) state.assign[sid] = boxUid

@@ -15,6 +15,8 @@ const { validTool } = require('./adapters.cjs')
 const MODELS = ['', 'opus', 'sonnet', 'haiku']                 // '' = Claude Code's own default
 const PERMISSION_MODES = ['', 'default', 'acceptEdits', 'plan', 'auto'] // Claude Code's names; never bypassPermissions from a menu
 const DURATIONS = { short: 0.6, normal: 1, long: 1.6 }
+const SCROLLBACKS = [1000, 5000, 10000, 50000]                 // lines a terminal keeps above the screen
+const TERMINAL_FONTS = ['default', 'consolas', 'cascadia', 'd2coding'] // the stacks are in src/termFont.ts
 
 const DEFAULTS = Object.freeze({
   notify: {
@@ -30,6 +32,8 @@ const DEFAULTS = Object.freeze({
   // ({ id, name, command }, Claude Code is always there), defaultTool: the one + opens with
   session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true, tools: [], defaultTool: 'claude' },
   app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' }, // auto: the system's language
+  // the terminals' look, applied to open terminals at once (the text size stays per PC: src/termFont.ts)
+  terminal: { scrollback: 5000, font: 'default' },
 })
 
 const isTime = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
@@ -43,6 +47,8 @@ const CHECKS = {
   'session.tools': (v) => Array.isArray(v) && v.length <= 12 && v.every(validTool) && new Set(v.map(t => t.id)).size === v.length,
   'session.defaultTool': (v) => typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,23}$/.test(v),
   'app.language': (v) => ['auto', 'ko', 'en', 'ja'].includes(v),
+  'terminal.scrollback': (v) => SCROLLBACKS.includes(v),
+  'terminal.font': (v) => TERMINAL_FONTS.includes(v),
 }
 
 /** `input` made safe: the shape and types of DEFAULTS, `base` for what it leaves out */
@@ -116,4 +122,4 @@ function createSettingsStore(file) {
   }
 }
 
-module.exports = { DEFAULTS, DURATIONS, MODELS, PERMISSION_MODES, sanitize, applyPatch, inQuietHours, toastAllowed, claudeArgs, createSettingsStore }
+module.exports = { DEFAULTS, DURATIONS, MODELS, PERMISSION_MODES, SCROLLBACKS, TERMINAL_FONTS, sanitize, applyPatch, inQuietHours, toastAllowed, claudeArgs, createSettingsStore }

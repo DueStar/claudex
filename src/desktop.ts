@@ -47,6 +47,8 @@ interface ClaudexBridge {
     pickFolder(): Promise<string | null>
     /** The sessions open when the app last closed, once per run; none when 설정 › 세션 says not to */
     restorable(): Promise<{ sessionId: string; cwd: string; tool: string }[]>
+    /** The git branch of each folder (null: not in a repository) */
+    branches(dirs: string[]): Promise<Record<string, string | null>>
     history(): Promise<PastSession[]>
     buffer(id: string): Promise<string>
     write(id: string, data: string): void
@@ -155,7 +157,10 @@ export interface AppSettings {
   privacy: { hidePrompts: boolean }
   session: { defaultCwd: string; model: '' | 'opus' | 'sonnet' | 'haiku'; permissionMode: '' | 'default' | 'acceptEdits' | 'plan' | 'auto'; confirmClose: boolean; restoreOnStart: boolean; tools: AiTool[]; defaultTool: string }
   app: { openAtLogin: boolean; startHidden: boolean; widgetOnTop: boolean; language: 'auto' | Lang }
+  terminal: { scrollback: 1000 | 5000 | 10000 | 50000; font: TerminalFont }
 }
+/** The terminal font choices (their font stacks: src/termFont.ts) */
+export type TerminalFont = 'default' | 'consolas' | 'cascadia' | 'd2coding'
 export type BoardKind = 'caught' | 'shiny' | 'legends' | 'week'
 export interface BoardRow { place: number; rn: number; nickname: string; partner: number | null; value: number; me: boolean }
 export interface BoardProfile { nickname: string; isPublic: boolean; partner: number | null; caught: number; shiny: number; legends: number; week: number; flagged: boolean }

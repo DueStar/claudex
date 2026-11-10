@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   privacy: { hidePrompts: false },
   session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true, tools: [], defaultTool: 'claude' },
   app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' },
+  terminal: { scrollback: 5000, font: 'default' },
 }
 
 let current: AppSettings = DEFAULT_SETTINGS
