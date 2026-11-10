@@ -104,6 +104,12 @@ function byRecency(a: SessionStatus, b: SessionStatus) {
   return (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
 }
 
+/** Alike but for their times (updatedAt, firstSeenAt, a limit's `at`) */
+function sameExceptTime(a: unknown, b: unknown): boolean {
+  const strip = (v: unknown) => JSON.stringify(v, (k, x) => (k === 'updatedAt' || k === 'firstSeenAt' || k === 'at' ? undefined : x))
+  return strip(a) === strip(b)
+}
+
 export function reduceMeters(prev: MetersState, event: ServerEvent): MetersState {
   if (event.type !== 'session_status') return prev
   // Snapshot form: the server's whole store replaces ours (a reconnect
@@ -118,6 +124,10 @@ export function reduceMeters(prev: MetersState, event: ServerEvent): MetersState
   }
   if (!event.session) return prev
   const next: SessionStatus = { ...event.session, sessionId: event.sessionId }
+  // Only its time moved: the same state, so nothing re-renders
+  const limits = event.rateLimits ?? prev.limits
+  const old = prev.sessions.find(s => s.sessionId === event.sessionId)
+  if (old && sameExceptTime(old, next) && sameExceptTime(prev.limits, limits)) return prev
   return { sessions: [...prev.sessions.filter(s => s.sessionId !== event.sessionId), next].sort(byRecency), limits: event.rateLimits ?? prev.limits }
 }
 

@@ -58,6 +58,12 @@ function sanitiseRateLimits(raw) {
   return Object.keys(out).length ? out : undefined
 }
 
+/** Two records alike but for their times (firstSeenAt, updatedAt) */
+function sameStatus(a, b) {
+  const strip = ({ firstSeenAt, updatedAt, ...rest }) => rest
+  return JSON.stringify(strip(a)) === JSON.stringify(strip(b))
+}
+
 /** The store: statuses keyed by session id. `now` is injectable for tests. */
 export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now(), limitsFile } = {}) {
   /** @type {Map<string, object>} sessionId -> status record */
@@ -72,7 +78,12 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
     } catch { /* none yet */ }
   }
 
-  /** Ingest a validated body; returns the event to broadcast. */
+  /**
+   * Ingest a validated body; returns the event to broadcast, or null when
+   * nothing but its time changed (the status line runs every few seconds per
+   * session, mostly with the same numbers): the session is kept fresh, and
+   * nothing is broadcast or logged.
+   */
   function ingest(body, t = now()) {
     const id = clampString(body.sessionId)
     const prev = statuses.get(id)
@@ -93,14 +104,16 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
       updatedAt: t,
     }
     statuses.set(id, rec)
+    let limitsChanged = false
     if (rec.rateLimits) {
-      const changed = JSON.stringify(rec.rateLimits) !== JSON.stringify(limits && { ...limits, at: undefined })
+      limitsChanged = JSON.stringify(rec.rateLimits) !== JSON.stringify(limits && { ...limits, at: undefined })
       limits = { ...rec.rateLimits, at: t }
       // Written only on a change: the status line runs on every state change of every session
-      if (changed && limitsFile) {
+      if (limitsChanged && limitsFile) {
         try { writeFileSync(limitsFile, JSON.stringify(limits)) } catch (e) { console.warn(`[status] could not save the usage limits: ${e.message}`) }
       }
     }
+    if (prev && !limitsChanged && sameStatus(prev, rec)) return null
     const used = rec.context.used
     console.log(
       `[status] ${rec.project ?? id} · ${rec.model ?? '?'}` +

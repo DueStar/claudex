@@ -34,6 +34,14 @@ describe('reduceMeters', () => {
     expect(updated.sessions[0].context.used).toBe(50)
   })
 
+  it('the same status again (only its time moved) leaves the state as it is', () => {
+    const one = reduceMeters(EMPTY, { type: 'session_status', sessionId: 'sess-1', session: session(), rateLimits: { fiveHour: 12 } })
+    const again = reduceMeters(one, { type: 'session_status', sessionId: 'sess-1', session: session({ updatedAt: 5000 }), rateLimits: { fiveHour: 12 } })
+    expect(again).toBe(one)
+    const moved = reduceMeters(one, { type: 'session_status', sessionId: 'sess-1', session: session({ updatedAt: 5000 }), rateLimits: { fiveHour: 13 } })
+    expect(moved).not.toBe(one)
+  })
+
   it('the snapshot form replaces everything', () => {
     const prev = reduceMeters(EMPTY, { type: 'session_status', sessionId: 'gone', session: session({ sessionId: 'gone' }) })
     const next = reduceMeters(prev, { type: 'session_status', statuses: [session({ sessionId: 'a', updatedAt: 1 }), session({ sessionId: 'b', updatedAt: 2 })] })

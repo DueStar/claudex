@@ -156,6 +156,24 @@ describe('limitNow', () => {
   })
 })
 
+describe('unchanged status lines', () => {
+  it('the same status again returns nothing and logs nothing, but keeps the session fresh; a change returns the event', () => {
+    let t = 1_000
+    const s = createStatusStore({ staleMs: 60_000, now: () => t })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      expect(s.ingest(status())).toMatchObject({ type: 'session_status', sessionId: SID })
+      log.mockClear()
+      t = 50_000
+      expect(s.ingest(status())).toBeNull()
+      expect(log).not.toHaveBeenCalled()
+      t = 100_000 // 50 s after the repeat, 99 s after the first: not stale, the repeat counted
+      expect(s.expireStale()).toEqual([])
+      expect(s.ingest(status({ context: { used: 50, size: 200000, input: 1, output: 1 } }))).toMatchObject({ type: 'session_status' })
+    } finally { log.mockRestore() }
+  })
+})
+
 describe('expiry', () => {
   it('drops sessions quiet for staleMs and returns removal events', () => {
     let t = 1_000
