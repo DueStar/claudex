@@ -550,6 +550,19 @@ describe('a permission a worker asked for (PermissionRequest inside a subagent)'
     vi.useRealTimers()
   })
 
+  it('its own tool call that started before the hand (a background hook arriving late) does not lower it, even past the race window', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      const before = Date.now() - 10
+      office.server.processEvent({ type: 'session_needs_you', ...ALPHA, kind: 'permission', promptId: 'p-1', toolName: 'Bash', summary: 'rm x', agentId: SUB, callKey: RM })
+      vi.advanceTimersByTime(DEBOUNCE_MS + 1_500)
+      office.server.processEvent({ type: 'agent_working', ...ALPHA, agentId: SUB, agentType: 'Explore', status: 'running: rm x', tool: 'Bash', at: before })
+      expect(main(office, ALPHA.sessionId).state).toBe('needs-you')
+      office.server.processEvent({ type: 'agent_working', ...ALPHA, agentId: SUB, agentType: 'Explore', status: 'grep', tool: 'Grep', at: Date.now() })
+      expect(main(office, ALPHA.sessionId).state).toBe('working')
+    } finally { vi.useRealTimers() }
+  })
+
   it('its batch ending lowers it; the worker finishing does too, and a hand raised after the main turn ended goes back to waiting', () => {
     ask()
     expect(office.server.processEvent({ type: 'session_tool_done', ...ALPHA, batch: true, count: 1, agentId: OTHER })).toBeNull()

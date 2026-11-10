@@ -961,6 +961,10 @@ function processEvent(body) {
       if (!session) return null
       const now = Date.now()
       if (body.agentId) {
+        // The worker's own tool call from before its hand went up (the hook ran in the
+        // background and arrived late) says nothing about the answer
+        const hand = mainOf(session, now).needsYou
+        if (typeof body.at === 'number' && hand && body.at < hand.since) return null
         const lowered = threadMovedOn(session, body.agentId, `subagent: ${logText(body.status)}`, { now })
         if (lowered) saveSessions()
         return lowered

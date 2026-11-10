@@ -371,7 +371,9 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const t = terms.get(id)
     if (!t) return
     if (t.flushTimer) { clearTimeout(t.flushTimer); t.flushTimer = null }
-    if (t.status !== 'exited') { try { t.pty.kill() } catch {} }
+    // An ended session's pty is closed too: node-pty leaves its pseudo-console and output
+    // worker open after a plain exit, and once the tab is gone shutdown() cannot reach it
+    try { t.pty.kill() } catch {}
     terms.delete(id)
     broadcastList()
   }
@@ -403,8 +405,10 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const running = all.filter(t => t.status !== 'exited')
     if (!all.length) return { exited: 0, stuck: 0 }
     const sleep = (ms) => new Promise((resolve) => { const timer = setTimeout(resolve, ms); timer.unref?.() })
+    // One deadline for both waits: the trees ended, then their exits reported
+    const end = Date.now() + timeoutMs
     await Promise.race([Promise.all(running.map(t => Promise.resolve().then(() => killTree(t.pty.pid)).catch(() => {}))), sleep(timeoutMs)])
-    await Promise.race([Promise.all(running.map(t => t.exited)), sleep(timeoutMs)])
+    await Promise.race([Promise.all(running.map(t => t.exited)), sleep(Math.max(0, end - Date.now()))])
     const stuck = running.filter(t => t.status !== 'exited').length
     for (const t of all) { try { t.pty.kill() } catch {} }
     await sleep(drainMs)

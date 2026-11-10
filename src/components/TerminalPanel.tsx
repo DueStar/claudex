@@ -132,7 +132,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     let disposed = false
     // The output so far, then live, each piece once (src/terminalReplay.ts)
     const gate = createReplayGate((data) => xterm.write(data))
-    bridge.terminals.buffer(term.id).then(({ data, seq }) => { if (!disposed) gate.replay(data, seq) }, () => { if (!disposed) gate.fail() })
+    // (no reply at all — the main process refused the sender — counts as an empty replay)
+    bridge.terminals.buffer(term.id).then((r) => { if (!disposed) gate.replay(r?.data ?? '', r?.seq ?? 0) }, () => { if (!disposed) gate.fail() })
     const offData = onTerminalData(term.id, (data, seq) => gate.live(data, seq))
     const input = xterm.onData((data) => bridge!.terminals.write(term.id, data))
     // When a Shift/Ctrl+Enter that ended an IME composition queued its newline

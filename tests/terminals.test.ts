@@ -191,6 +191,18 @@ describe('terminal manager shutdown', () => {
   })
 })
 
+describe('closing a tab', () => {
+  it("closes the pty of a session that already ended (it still holds its pseudo-console)", () => {
+    const log: string[] = []
+    const pty = fakePty(log)
+    const terms = manager(pty, () => {})
+    const t = terms.create({ tool: 'shell' })
+    pty.exit(100)
+    terms.close(t.id)
+    expect(log).toEqual(['pty 100'])
+  })
+})
+
 describe('terminal output', () => {
   it('output within 16 ms goes out as one message', async () => {
     vi.useFakeTimers()
