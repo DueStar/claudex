@@ -192,3 +192,49 @@ describe('codex watch, harder cases', () => {
     w.stop()
   })
 })
+
+describe('codex watch, tabs that wait', () => {
+  it('a tab left idle does not take the log of a tab opened later in the same folder (a log is written at the first prompt)', () => {
+    const { day, make } = setup()
+    const a: string[] = [], b: string[] = []
+    const wa = make({ sessionId: 'a', startedAt: START, onThread: (id: string) => a.push(id) })
+    const wb = make({ sessionId: 'b', startedAt: START + 5 * 60_000, onThread: (id: string) => b.push(id) })
+    // B's Codex started with B's tab and got the first prompt; A's Codex is still idle
+    writeFileSync(join(day, 'rollout-b-bbbb.jsonl'), meta('bbbb', CWD, START + 5 * 60_000 + 800))
+    wa.poll(); wb.poll()
+    expect(a).toEqual([])
+    expect(b).toEqual(['bbbb'])
+    // A's prompt comes at last: its log is stamped with A's Codex start
+    writeFileSync(join(day, 'rollout-a-aaaa.jsonl'), meta('aaaa', CWD, START + 700))
+    wa.poll()
+    expect(a).toEqual(['aaaa'])
+    wa.stop(); wb.stop()
+  })
+
+  it("a closed tab's log is not handed to another tab", () => {
+    const { day, make } = setup()
+    const a: string[] = [], b: string[] = []
+    const wa = make({ sessionId: 'a', startedAt: START, onThread: (id: string) => a.push(id) })
+    const wb = make({ sessionId: 'b', startedAt: START + 10, onThread: (id: string) => b.push(id) })
+    writeFileSync(join(day, 'rollout-a-cccc.jsonl'), meta('cccc', CWD, START + 600))
+    wa.poll()
+    expect(a).toEqual(['cccc'])
+    wa.stop()
+    wb.poll()
+    expect(b).toEqual([])
+    wb.stop()
+  })
+
+  it("a thread to resume that is gone: after a while the tab takes the new log Codex starts instead", () => {
+    const { day, threads, make } = setup()
+    let t = START + 1000
+    const w = make({ resumeThread: '01a1c401-0000-7000-8000-000000000000', now: () => t })
+    w.poll()
+    expect(threads).toEqual([])
+    writeFileSync(join(day, 'rollout-new-nnnn.jsonl'), meta('nnnn', CWD, START + 900))
+    t = START + 15_000
+    w.poll()
+    expect(threads).toEqual(['nnnn'])
+    w.stop()
+  })
+})

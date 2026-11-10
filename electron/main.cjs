@@ -708,6 +708,7 @@ function painted(win, ms = 4000) {
 let swapping = Promise.resolve()
 function swapAppWindow(mode) {
   swapping = swapping.then(async () => {
+    if (quitting) return // queued before the quit: no new window now
     const old = widgetWin && !widgetWin.isDestroyed() ? widgetWin : null
     if (old && old.claudexKind === kindOf(mode)) { setWidgetMode(mode); return }
     const wasVisible = !old || old.isVisible()
@@ -791,6 +792,7 @@ function toastBounds() {
 
 function ensureToastWindow() {
   if (toastWin && !toastWin.isDestroyed()) return Promise.resolve(toastWin)
+  if (quitting) return Promise.resolve(null)
   const url = pageWith('toast')
   if (!url) return Promise.resolve(null)
   toastWin = new BrowserWindow({

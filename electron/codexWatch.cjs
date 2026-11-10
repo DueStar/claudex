@@ -37,6 +37,15 @@ const PROMPT_MAX = 2000
 const REPLY_MAX = 2000
 /** A log's header may be stamped a little before the tab's own start time */
 const SLACK_MS = 2000
+/**
+ * A log's header is stamped when that Codex started, which is when its tab
+ * opened (give or take its start-up); the file itself appears only at the
+ * first prompt, maybe much later. A log stamped later than this after a tab
+ * opened belongs to another tab.
+ */
+const MAX_START_GAP_MS = 30_000
+/** A thread to resume not found this long: its log is gone, so the tab takes the new log Codex starts */
+const RESUME_WAIT_MS = 10_000
 /** A session header holds the instructions too: read up to this much for it */
 const HEADER_MAX = 32 * 1024 * 1024
 /** Still nothing found this long after the tab opened (Codex never started, or ran elsewhere): look less often */
@@ -91,22 +100,22 @@ function headerOf(f) {
     for (;;) {
       const buf = Buffer.alloc(64 * 1024)
       const n = fs.readSync(fd, buf, 0, buf.length, pos)
-      if (n <= 0) return undefined // no newline yet: Codex is still writing it
+      if (n <= 0) return undefined // no newline yet: Codex is still writing it (not kept: read again later)
       const nl = buf.subarray(0, n).indexOf(0x0a)
       chunks.push(buf.subarray(0, nl >= 0 ? nl : n))
       pos += n
       if (nl >= 0) break
       if (pos > HEADER_MAX) { headers.set(f, null); return null }
     }
-    const rec = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    let rec = null
+    try { rec = JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { /* not a session log */ }
     const meta = rec?.type === 'session_meta' ? rec.payload : null
     const at = Date.parse(meta?.timestamp ?? rec?.timestamp ?? '')
     const out = meta && meta.cwd && Number.isFinite(at) ? { id: String(meta.id ?? ''), at, cwd: normPath(meta.cwd) } : null
     headers.set(f, out)
     return out
   } catch {
-    headers.set(f, null)
-    return null
+    return undefined // busy or gone right now: not kept, tried again at the next look
   } finally {
     if (fd !== undefined) try { fs.closeSync(fd) } catch {}
   }
@@ -180,7 +189,7 @@ function match() {
     }
     logs.sort((a, b) => a.h.at - b.h.at)
     for (const log of logs) {
-      const tab = tabs.find(w => waiting.has(w) && log.h.at >= w.startedAt - SLACK_MS)
+      const tab = tabs.find(w => waiting.has(w) && log.h.at >= w.startedAt - SLACK_MS && log.h.at <= w.startedAt + MAX_START_GAP_MS)
       if (!tab) continue
       claimed.add(log.f)
       waiting.delete(tab)
@@ -189,7 +198,7 @@ function match() {
   }
 }
 
-function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit, status, onThread = () => {}, sessionsDir = path.join(os.homedir(), '.codex', 'sessions'), pollMs = 1000, now = () => Date.now() }) {
+function createCodexWatch({ sessionId, cwd, startedAt, resumeThread: resumeAsked = null, emit, status, onThread = () => {}, sessionsDir = path.join(os.homedir(), '.codex', 'sessions'), pollMs = 1000, now = () => Date.now() }) {
   let file = null
   let offset = 0
   let decoder = new StringDecoder('utf8')
@@ -197,6 +206,7 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit
   let model = null
   let stopped = false
   let polls = 0
+  let resumeThread = resumeAsked
 
   const me = {
     root: sessionsDir,
@@ -267,8 +277,11 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit
     if (!file) {
       polls++
       if (now() - startedAt > SLOW_AFTER_MS && polls % SLOW_EVERY !== 0) return
-      if (resumeThread) findResumed()
-      else match()
+      if (resumeThread) {
+        findResumed()
+        if (!file && now() - startedAt > RESUME_WAIT_MS) { resumeThread = null; waiting.add(me) }
+      }
+      if (!resumeThread && !file) match()
       if (!file) return
     }
     let size
@@ -301,7 +314,7 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit
     stopped = true
     if (timer) clearInterval(timer)
     waiting.delete(me)
-    if (file) claimed.delete(file)
+    // The log stays claimed: handed to a tab still waiting, it would replay this tab's session as its own
   }
 
   return { poll, stop, found: () => !!file }
