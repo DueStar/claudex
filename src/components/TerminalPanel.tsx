@@ -27,6 +27,9 @@ const THEME = {
 }
 
 /** `focus`: take the keyboard when shown (not for a question opened beside the terminal in use) */
+/** How long a terminal put away keeps its WebGL renderer */
+const WEBGL_IDLE_MS = 30_000
+
 export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus?: boolean }> = ({ term, active, focus = true }) => {
   const hostRef = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -42,6 +45,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
   // 설정 › 앱: scrollback and font, applied to this terminal as soon as they change
   const { scrollback, font } = useSettings().terminal
   const fitNowRef = useRef<() => void>(() => {})
+  const webglRef = useRef<WebglAddon | null>(null)
 
   useEffect(() => {
     if (!bridge || !hostRef.current) return
@@ -62,11 +66,6 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     const fit = new FitAddon()
     xterm.loadAddon(fit)
     xterm.open(hostRef.current)
-    try {
-      const webgl = new WebglAddon()
-      webgl.onContextLoss(() => webgl.dispose())
-      xterm.loadAddon(webgl)
-    } catch { /* no WebGL: the DOM renderer still works */ }
     xtermRef.current = xterm
     fitRef.current = fit
     // Links open with Ctrl+click, as in Windows Terminal (a plain click selects text)
@@ -237,9 +236,33 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       ro.disconnect()
       offData()
       input.dispose()
+      webglRef.current = null // disposed with xterm
       xterm.dispose()
     }
   }, [term.id])
+
+  // The WebGL renderer only for the terminal on screen: every open terminal holding a GL
+  // context (and its own glyph atlas) for hours came close to Chromium's ~16-context cap. A
+  // terminal put away keeps it WEBGL_IDLE_MS (switching back is instant), then draws with the
+  // DOM renderer until it is shown again.
+  useEffect(() => {
+    const x = xtermRef.current
+    if (!x) return
+    if (active) {
+      if (!webglRef.current) {
+        try {
+          const webgl = new WebglAddon()
+          webgl.onContextLoss(() => { webgl.dispose(); if (webglRef.current === webgl) webglRef.current = null })
+          x.loadAddon(webgl)
+          webglRef.current = webgl
+        } catch { /* no WebGL: the DOM renderer still works */ }
+      }
+      return
+    }
+    if (!webglRef.current) return
+    const timer = setTimeout(() => { webglRef.current?.dispose(); webglRef.current = null }, WEBGL_IDLE_MS)
+    return () => clearTimeout(timer)
+  }, [active, term.id])
 
   // A new scrollback or font from 설정: xterm takes both live. A new font changes the cell
   // size, so fit again, and once more when the font has loaded (a font in use for the first time)
