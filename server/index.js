@@ -775,7 +775,7 @@ const cloud = createCloud({
   getGame: () => pokedex.exportState(),
   replaceGame: (game) => pokedex.importState(game),
   // 설정 › 프롬프트 숨기기 (the app passes its settings file; read at each upload)
-  hidePrompts: () => readHidePrompts(process.env.CLAUDEX_SETTINGS_FILE),
+  hidePrompts: () => readHidePrompts(process.env.CLAUDEX_SETTINGS_FILE || undefined),
 })
 app.get('/cloud', (_req, res) => res.json(cloud.publicState()))
 // The desktop app asks for a sign-in URL and opens it in the browser

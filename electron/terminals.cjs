@@ -238,8 +238,11 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   function create({ cwd, resume, sessionId: wanted, tool } = {}) {
     const adapter = adapterFor(tool, tools())
     // A tab reopened keeps its id (and so its Pokémon) even when its tool cannot resume
-    const reopened = typeof resume === 'string' && resume ? resume : undefined
+    // (only a real session id: it names files under session-links)
+    const reopened = typeof resume === 'string' && UUID.test(resume) ? resume : undefined
     if (!adapter.canResume) resume = undefined
+    // A tool no longer in 설정 falls back to Claude Code: a fresh one, its id never had a Claude conversation
+    if (tool && tool !== 'claude' && adapter.id === 'claude') resume = undefined
     // No folder picked: the default one (설정, else Documents), else home
     const def = typeof defaultCwd === 'function' ? defaultCwd() : defaultCwd
     const fallback = def && fs.existsSync(def) ? def : os.homedir()

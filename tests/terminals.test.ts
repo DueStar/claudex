@@ -301,3 +301,19 @@ describe('a Codex tab', () => {
     expect(watches.at(-1).opts).toMatchObject({ sessionId: id, resumeThread: '01a1bf02-5c65-7463-ac3e-1dc7420b39fc' })
   })
 })
+
+describe('reopening tabs', () => {
+  it('a reopened id that is not a session id is not taken (it names a file)', () => {
+    const terms = manager(fakePty(), () => {})
+    const t = terms.create({ tool: 'shell', resume: '..\..\escape' })
+    expect(t.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+  })
+
+  it('a tab whose tool was removed from the settings opens a fresh Claude Code, not a resume of an id it never had', () => {
+    const pty = fakePty()
+    const terms = manager(pty, () => {})
+    terms.create({ tool: 'gone-tool', resume: '77777777-7777-4777-8777-777777777777' })
+    expect(pty.spawned.at(-1)!.args).not.toContain('--resume')
+    expect(pty.spawned.at(-1)!.args).toContain('--session-id')
+  })
+})

@@ -26,6 +26,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, unlinkSync, chmodSync } from 'fs'
+import { join } from 'path'
 import { createHash, randomBytes } from 'crypto'
 import { mergeGames, sameGame } from './merge.js'
 
@@ -67,8 +68,13 @@ function withoutRequests(game) {
   return out
 }
 
+/** Where the app keeps its settings (a server the app reused, started without CLAUDEX_SETTINGS_FILE, still finds them) */
+function defaultSettingsFile() {
+  return process.env.APPDATA ? join(process.env.APPDATA, 'Claudex', 'settings.json') : null
+}
+
 /** The app's 프롬프트 숨기기 setting, read from its settings file (missing or unreadable: off) */
-export function readHidePrompts(file) {
+export function readHidePrompts(file = defaultSettingsFile()) {
   if (!file) return false
   try { return JSON.parse(readFileSync(file, 'utf8'))?.privacy?.hidePrompts === true } catch { return false }
 }

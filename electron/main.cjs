@@ -657,6 +657,9 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
 }
 
 function createWidgetWindow({ hidden = false } = {}) {
+  // Quitting: the windows went at the start of the quit; one shown (or built) now could be
+  // closed halfway through it (tray, toast and update clicks all come through here)
+  if (quitting) return null
   if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
   widgetWin = buildAppWindow(modeNow(), { hidden })
   return widgetWin
@@ -739,7 +742,7 @@ function swapAppWindow(mode) {
  */
 const WIDGET_MODES = new Set(['widget', 'window', 'fullscreen'])
 function setWidgetMode(mode) {
-  if (!WIDGET_MODES.has(mode)) return modeNow()
+  if (!WIDGET_MODES.has(mode) || quitting) return modeNow()
   const w = widgetWin && !widgetWin.isDestroyed() ? widgetWin : null
   if (!w || w.claudexKind !== kindOf(mode)) {
     swapAppWindow(mode)
@@ -817,6 +820,7 @@ function ensureToastWindow() {
 }
 
 function revealToast(w) {
+  if (quitting) return
   w.setBounds(toastBounds())
   if (!w.isVisible()) w.showInactive()
   w.setAlwaysOnTop(true, 'screen-saver')

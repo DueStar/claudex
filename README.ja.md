@@ -120,7 +120,7 @@ ClaudexはClaude Codeを`claude --session-id <id> --settings %APPDATA%\Claudex\s
 
 - **外す環境変数**: セッションの環境から`CLAUDECODE`、`CLAUDE_PID`、`CLAUDE_CODE_`で始まる変数を外します。Claude Codeの中からClaudexを起動したとき、新しいセッションがそのセッションの子セッションにならないようにするためです。そのため`CLAUDE_CODE_…`をシステムの環境変数にしていても、Claudexのセッションには渡りません。
 - **Claudexの外のセッションは数えません**: 歩数・捕獲・上限はClaudexのターミナルで開いたセッションからだけ入ります。ほかのターミナルやIDEで開いたClaude CodeのセッションにはClaudexのフックがないので、ポケモンは歩きません。
-- **Codex CLI**: 設定 › AIツールにCodex(`codex`コマンド)を入れると、ClaudexはCodexが自分で書くセッション記録(`~/.codex/sessions/…jsonl`)を読んでいきます。リクエスト・ツール呼び出し(歩数)・ターンの終わり・モデル・コンテキスト(HP)・Codexの使用量の上限(プランによって5時間・週間・月間)がClaudeのセッションと同じように表示され、アプリを開き直すと同じ会話を`codex resume`で続けます。Codexの設定やログインには触れません。
+- **Codex CLI**: 設定 › AIツールにCodex(`codex`コマンド)を入れると、ClaudexはCodexが自分で書くセッション記録(`~/.codex/sessions/…jsonl`)を読んでいきます。リクエスト・ツール呼び出し(歩数)・ターンの終わり・モデル・コンテキスト(HP)・Codexの使用量の上限(プランによって5時間・週間・月間)がClaudeのセッションと同じように表示され、アプリを開き直すと同じ会話を`codex resume`で続けます。Codexの設定やログインには触れません。Codexの中で`/new`で新しい会話を始めると、そのタブは最初の会話を追い続けます。
 - **ほかのAIツール**: それ以外のツール(Gemini CLIなど)にはフックも上の環境変数も入れません。ターミナルの出力だけで歩数を数えます。
 
 ## 保存するものと送るもの
@@ -144,7 +144,7 @@ ClaudexはClaude Codeを`claude --session-id <id> --settings %APPDATA%\Claudex\s
 | `%APPDATA%\Claudex\session-settings.json` | Claudexのセッションに渡すフック・ステータスラインの設定 |
 | `%APPDATA%\Claudex\logs\claudex.log` | アプリとローカルサーバーのログ |
 
-- 続きから開くセッションの一覧を作るために、`~/.claude/projects`(会話の記録)と`~/.claude/sessions`(実行中のセッション)を読むだけです。Codexのタブが開いているときは、そのタブの`~/.codex/sessions`の記録を読むだけです。
+- 続きから開くセッションの一覧を作るために、`~/.claude/projects`(会話の記録)と`~/.claude/sessions`(実行中のセッション)を読むだけです。Codexのタブが開いているときは、そのタブの記録を見つけるためにその日と前日のCodexの記録の1行目(セッション情報: id・時刻・フォルダ)を読み、見つけた後はそのタブの記録だけを読みます。
 - ローカルサーバーは`127.0.0.1`でだけ開き、フックと画面からの要求は`auth-token`で署名または確認します。
 - 設定の「プロンプトを隠す」をオンにすると、画面で隠すほか、クラウドに上げるゲームのコピーからもリクエストの内容とツールの引数を外します(ツール名だけ残ります)。このPCの`pokedex.json`にはそのまま残ります。
 

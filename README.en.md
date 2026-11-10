@@ -120,7 +120,7 @@ Claudex starts Claude Code as `claude --session-id <id> --settings %APPDATA%\Cla
 
 - **Environment variables left out**: `CLAUDECODE`, `CLAUDE_PID` and anything starting with `CLAUDE_CODE_` are removed from the session environment, so a Claudex started from inside Claude Code does not open its sessions as child sessions. A `CLAUDE_CODE_…` variable you set system-wide therefore does not reach Claudex sessions.
 - **Sessions outside Claudex don't count**: steps, catches and limits come only from sessions opened in a Claudex terminal. A Claude Code session in another terminal or an IDE has no Claudex hooks, so no Pokémon walks with it.
-- **Codex CLI**: add Codex (the `codex` command) under Settings › AI tools, and Claudex follows the session log Codex writes itself (`~/.codex/sessions/…jsonl`): prompts, tool calls (steps), turn ends, the model, the context (HP) and Codex's usage limits (5-hour, weekly or monthly, depending on the plan) show as they do for Claude, and reopening the app resumes the same conversation with `codex resume`. Claudex never touches Codex's settings or sign-in.
+- **Codex CLI**: add Codex (the `codex` command) under Settings › AI tools, and Claudex follows the session log Codex writes itself (`~/.codex/sessions/…jsonl`): prompts, tool calls (steps), turn ends, the model, the context (HP) and Codex's usage limits (5-hour, weekly or monthly, depending on the plan) show as they do for Claude, and reopening the app resumes the same conversation with `codex resume`. Claudex never touches Codex's settings or sign-in. Starting a new conversation with `/new` inside Codex leaves the tab following the first one.
 - **Other AI tools**: other tools (Gemini CLI and so on) get no hooks and none of the variables above. Their steps are counted from the terminal output alone.
 
 ## What is stored and what is sent
@@ -144,7 +144,7 @@ Claudex starts Claude Code as `claude --session-id <id> --settings %APPDATA%\Cla
 | `%APPDATA%\Claudex\session-settings.json` | The hook and status-line settings given to Claudex sessions |
 | `%APPDATA%\Claudex\logs\claudex.log` | The app's and the local server's log |
 
-- To list sessions to resume, Claudex only reads `~/.claude/projects` (transcripts) and `~/.claude/sessions` (running sessions). While a Codex tab is open, it only reads that tab's log under `~/.codex/sessions`.
+- To list sessions to resume, Claudex only reads `~/.claude/projects` (transcripts) and `~/.claude/sessions` (running sessions). While a Codex tab is open, finding its log reads the first line (the session header: id, time, folder) of that day's and the previous day's Codex logs; after that it reads only the tab's own log.
 - The local server listens on `127.0.0.1` only; requests from the hooks and the app are signed or checked with `auth-token`.
 - With "Hide prompts" on in Settings, prompts are hidden on screen, and the game copy uploaded to the cloud leaves out request text and tool arguments (only tool names remain). This PC's `pokedex.json` keeps them.
 

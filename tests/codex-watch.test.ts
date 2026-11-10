@@ -17,7 +17,7 @@ const { createCodexWatch, codexTool } = require('../electron/codexWatch.cjs')
 const dirs: string[] = []
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }) })
 
-const START = Date.parse('2026-11-10T05:50:00Z')
+const START = new Date(2026, 10, 10, 14, 50).getTime() // local time: the date folders are local
 const CWD = 'C:\\Users\\me\\work'
 const line = (o: unknown) => JSON.stringify(o) + '\n'
 const meta = (id: string, cwd = CWD, at = START + 1000) => line({ timestamp: new Date(at).toISOString(), type: 'session_meta', payload: { id, session_id: id, timestamp: new Date(at).toISOString(), cwd } })
@@ -107,9 +107,11 @@ describe('codex watch', () => {
     w.stop()
   })
 
-  it('a reopened tab follows the thread it resumes, from its end (the past is not told again)', () => {
+  it('a reopened tab follows the thread it resumes, from its end (the past is not told again), however old its folder', () => {
     const { day, events, threads, make } = setup()
-    const f = join(day, 'rollout-2026-11-09-ggg.jsonl')
+    const old = join(day, '..', '..', '10', '02')
+    mkdirSync(old, { recursive: true })
+    const f = join(old, 'rollout-2026-10-02-ggg.jsonl')
     writeFileSync(f, meta('ggg', CWD, START - 86_400_000) + msg('user', 'old prompt') + ev('task_complete', { last_agent_message: 'old' }))
     const w = make({ resumeThread: 'ggg' })
     w.poll()
@@ -127,5 +129,66 @@ describe('codex watch', () => {
     expect(codexTool({ command: '"C:\\Program Files\\codex\\codex.exe"' })).toBe(true)
     expect(codexTool({ command: 'gemini' })).toBe(false)
     expect(codexTool({ command: 'codexx' })).toBe(false)
+  })
+})
+
+describe('codex watch, harder cases', () => {
+  it('two tabs opened in one folder at once take the logs in the order they started', () => {
+    const { day, make } = setup()
+    const a: string[] = [], b: string[] = []
+    const wa = make({ sessionId: 'a', startedAt: START, onThread: (id: string) => a.push(id) })
+    const wb = make({ sessionId: 'b', startedAt: START + 5, onThread: (id: string) => b.push(id) })
+    writeFileSync(join(day, 'rollout-1-first.jsonl'), meta('first', CWD, START + 1500))
+    writeFileSync(join(day, 'rollout-2-second.jsonl'), meta('second', CWD, START + 1700))
+    wb.poll() // the later tab polls first
+    wa.poll()
+    expect(a).toEqual(['first'])
+    expect(b).toEqual(['second'])
+    wa.stop(); wb.stop()
+  })
+
+  it('reads a log whose first line is very long (instructions in the session header)', () => {
+    const { day, threads, make } = setup()
+    const big = JSON.stringify({ type: 'session_meta', payload: { id: 'hhh', timestamp: new Date(START + 1000).toISOString(), cwd: CWD, base_instructions: { text: 'x'.repeat(200_000) } } }) + '\n'
+    writeFileSync(join(day, 'rollout-big-hhh.jsonl'), big)
+    const w = make()
+    w.poll()
+    expect(threads).toEqual(['hhh'])
+    w.stop()
+  })
+
+  it('a Korean prompt split across two reads stays whole', () => {
+    const { day, events, make } = setup()
+    const f = join(day, 'rollout-x-kkk.jsonl')
+    writeFileSync(f, meta('kkk'))
+    const w = make()
+    w.poll()
+    const bytes = Buffer.from(msg('user', '로그인 버그 고쳐줘'))
+    const cut = bytes.indexOf(Buffer.from('버')) + 1 // inside a three-byte character
+    appendFileSync(f, bytes.subarray(0, cut))
+    w.poll()
+    appendFileSync(f, bytes.subarray(cut))
+    w.poll()
+    expect(events).toEqual([{ type: 'session_prompt', sessionId: 's1', text: '로그인 버그 고쳐줘' }])
+    w.stop()
+  })
+
+  it("Codex's injected instructions are not prompts", () => {
+    const { day, events, make } = setup()
+    const f = join(day, 'rollout-x-lll.jsonl')
+    writeFileSync(f, meta('lll') + msg('user', '# AGENTS.md instructions for C:\\work\n\nbe nice') + msg('user', 'real one'))
+    const w = make()
+    w.poll()
+    expect(events).toEqual([{ type: 'session_prompt', sessionId: 's1', text: 'real one' }])
+    w.stop()
+  })
+
+  it('usage limits without a token count still arrive', () => {
+    const { day, statuses, make } = setup()
+    writeFileSync(join(day, 'rollout-x-mmm.jsonl'), meta('mmm') + ev('token_count', { info: null, rate_limits: { primary: { used_percent: 5, window_minutes: 43200, resets_at: 1 } } }))
+    const w = make()
+    w.poll()
+    expect(statuses).toEqual([{ type: 'session_status', sessionId: 's1', codexLimits: { primary: { usedPercent: 5, windowMinutes: 43200, resetsAt: 1 }, secondary: null } }])
+    w.stop()
   })
 })

@@ -105,3 +105,16 @@ describe('adapters: the plain shell tab', () => {
     expect(file).toMatch(process.platform === 'win32' ? /^powershell\.exe$/ : /sh$/)
   })
 })
+
+describe('createActivity muted', () => {
+  it('a better source taking over ends the turn the output had started', () => {
+    const events: any[] = []
+    const a = createActivity({ sessionId: 's', tool: 'Codex', cwd: '/w', emit: (e: any) => events.push(e), setTimer: () => 1 as any, clearTimer: () => {}, every: () => null as any, stopEvery: () => {} })
+    a.output('Codex banner'.repeat(10))
+    expect(events.map(e => e.type)).toEqual(['agent_working'])
+    a.mute()
+    expect(events.map(e => e.type)).toEqual(['agent_working', 'session_turn_end'])
+    a.output('more'.repeat(20))
+    expect(events).toHaveLength(2)
+  })
+})

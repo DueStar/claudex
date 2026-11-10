@@ -442,7 +442,7 @@ const Widget: React.FC = () => {
       const value = limitNow(w.usedPercent, w.resetsAt ?? undefined)
       const m = w.windowMinutes ?? 0
       const day = 24 * 60
-      const label = m === 300 ? t('Codex 5시간') : m === 7 * day ? t('Codex 주간') : m >= 28 * day && m <= 31 * day ? t('Codex 월간')
+      const label = !m ? 'Codex' : m === 300 ? t('Codex 5시간') : m === 7 * day ? t('Codex 주간') : m >= 28 * day && m <= 31 * day ? t('Codex 월간')
         : m >= day ? t('Codex {d}일', { d: Math.round(m / day) }) : t('Codex {h}시간', { h: Math.max(1, Math.round(m / 60)) })
       const reset = value !== 0 && w.resetsAt ? (m > 24 * 60 ? resetText(w.resetsAt) : formatClockTime(w.resetsAt)) : null
       return { key, label, value, reset }

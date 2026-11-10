@@ -15,23 +15,33 @@
  *   agent_working      a tool call: a step for the session's Pokémon
  *   session_turn_end   the turn is over (its last answer)
  *   session_model      the model in use
- *   status             context used and Codex's 5-hour / weekly limits (codexLimits)
+ *   status             context used and Codex's usage limits (codexLimits)
  *   onThread           the thread id, which reopening the tab resumes (`codex resume <id>`)
  *
- * Only the fields named above are read; nothing else in the log leaves it.
- * The log a tab follows: the one Codex started in the tab's folder after the
- * tab opened (or, resuming, the thread's own, from its end).
+ * Only the fields named above are read from the log a tab follows. Finding
+ * it reads the first line (the session header: id, time, folder) of the
+ * Codex logs started that day and the day before:
+ *   - a new tab: the log Codex started in the tab's folder after the tab
+ *     opened. Tabs opened in one folder at once take those logs in the order
+ *     they started (one shared matcher, not each tab for itself).
+ *   - a reopened tab: its thread's own log, wherever its date folder is,
+ *     from its end (the old turns are not told again).
  */
 
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-
-/** Logs some tab already follows: two tabs in one folder never share one */
-const claimed = new Set()
+const { StringDecoder } = require('string_decoder')
 
 const PROMPT_MAX = 2000
 const REPLY_MAX = 2000
+/** A log's header may be stamped a little before the tab's own start time */
+const SLACK_MS = 2000
+/** A session header holds the instructions too: read up to this much for it */
+const HEADER_MAX = 32 * 1024 * 1024
+/** Still nothing found this long after the tab opened (Codex never started, or ran elsewhere): look less often */
+const SLOW_AFTER_MS = 60_000
+const SLOW_EVERY = 5
 
 /** A tool's command line runs Codex CLI (`codex`, `codex.cmd`, `…\codex.exe`, with any arguments) */
 function codexTool(tool) {
@@ -40,8 +50,7 @@ function codexTool(tool) {
   return /^codex(\.(cmd|exe|ps1))?$/i.test(path.basename(program ?? ''))
 }
 
-const samePath = (a, b) => path.resolve(String(a ?? '')).replace(/[\\/]+$/, '').toLowerCase()
-  === path.resolve(String(b ?? '')).replace(/[\\/]+$/, '').toLowerCase()
+const normPath = (p) => path.resolve(String(p ?? '')).replace(/[\\/]+$/, '').toLowerCase()
 
 /** The date folders a session started at `t` can be in (that day and the day before, local time) */
 function dayDirs(root, t) {
@@ -51,6 +60,56 @@ function dayDirs(root, t) {
     out.push(path.join(root, String(d.getFullYear()), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')))
   }
   return out
+}
+
+/** The log of thread `id`, in whichever date folder it lives (newest first) */
+function findThreadFile(root, id) {
+  const desc = (dir) => { try { return fs.readdirSync(dir).filter(n => /^\d+$/.test(n)).sort((a, b) => Number(b) - Number(a)) } catch { return [] } }
+  for (const y of desc(root)) for (const m of desc(path.join(root, y))) for (const d of desc(path.join(root, y, m))) {
+    const dir = path.join(root, y, m, d)
+    let names = []
+    try { names = fs.readdirSync(dir) } catch { continue }
+    const hit = names.find(n => n.endsWith('.jsonl') && n.includes(id))
+    if (hit) return path.join(dir, hit)
+  }
+  return null
+}
+
+/**
+ * A log's session header ({ id, at, cwd }), read up to its first newline;
+ * null when it is not one; undefined while the line is still being written.
+ * Headers never change, so they are kept by path.
+ */
+const headers = new Map()
+function headerOf(f) {
+  if (headers.has(f)) return headers.get(f)
+  let fd
+  try {
+    fd = fs.openSync(f, 'r')
+    const chunks = []
+    let pos = 0
+    for (;;) {
+      const buf = Buffer.alloc(64 * 1024)
+      const n = fs.readSync(fd, buf, 0, buf.length, pos)
+      if (n <= 0) return undefined // no newline yet: Codex is still writing it
+      const nl = buf.subarray(0, n).indexOf(0x0a)
+      chunks.push(buf.subarray(0, nl >= 0 ? nl : n))
+      pos += n
+      if (nl >= 0) break
+      if (pos > HEADER_MAX) { headers.set(f, null); return null }
+    }
+    const rec = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    const meta = rec?.type === 'session_meta' ? rec.payload : null
+    const at = Date.parse(meta?.timestamp ?? rec?.timestamp ?? '')
+    const out = meta && meta.cwd && Number.isFinite(at) ? { id: String(meta.id ?? ''), at, cwd: normPath(meta.cwd) } : null
+    headers.set(f, out)
+    return out
+  } catch {
+    headers.set(f, null)
+    return null
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd) } catch {}
+  }
 }
 
 /** Codex's tool names as the game's terrains know them */
@@ -77,62 +136,84 @@ const textOf = (content) => (Array.isArray(content) ? content : [])
   .filter(c => c && (c.type === 'input_text' || c.type === 'output_text' || c.type === 'text'))
   .map(c => String(c.text ?? '')).join('\n').trim()
 
+/** Codex's own context it sends as user messages: not something the user typed */
+const INJECTED = /^(<[a-z_]+>|# AGENTS\.md instructions)/i
+
 const limit = (w) => (w && typeof w === 'object' && typeof w.used_percent === 'number'
   ? { usedPercent: w.used_percent, windowMinutes: typeof w.window_minutes === 'number' ? w.window_minutes : null, resetsAt: typeof w.resets_at === 'number' ? w.resets_at : null }
   : null)
 
-function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit, status, onThread = () => {}, sessionsDir = path.join(os.homedir(), '.codex', 'sessions'), pollMs = 1000, now = () => Date.now() }) {
-  let file = null
-  let offset = 0
-  let partial = ''
-  let model = null
-  let stopped = false
+// ---- One matcher for every tab still looking for its log ----
 
-  function readFirstLine(f) {
-    try {
-      const fd = fs.openSync(f, 'r')
-      try {
-        const buf = Buffer.alloc(64 * 1024)
-        const n = fs.readSync(fd, buf, 0, buf.length, 0)
-        const text = buf.toString('utf8', 0, n)
-        const end = text.indexOf('\n')
-        return JSON.parse(end >= 0 ? text.slice(0, end) : text)
-      } finally { fs.closeSync(fd) }
-    } catch { return null }
+/** Logs some tab follows */
+const claimed = new Set()
+/** Tabs still looking: { root, cwd, startedAt, take(file) } */
+const waiting = new Set()
+
+/**
+ * Hand new logs to the tabs waiting for them: per folder, the logs in the
+ * order they started go to the tabs in the order they opened, each log to
+ * the first tab that opened before it (less the slack).
+ */
+function match() {
+  const byFolder = new Map()
+  for (const w of waiting) {
+    const key = `${w.root}|${w.cwd}`
+    if (!byFolder.has(key)) byFolder.set(key, [])
+    byFolder.get(key).push(w)
   }
-
-  function find() {
-    const candidates = []
-    for (const dir of dayDirs(sessionsDir, resumeThread ? now() : startedAt).concat(resumeThread ? dayDirs(sessionsDir, startedAt) : [])) {
+  for (const tabs of byFolder.values()) {
+    tabs.sort((a, b) => a.startedAt - b.startedAt)
+    const earliest = tabs[0].startedAt
+    const logs = []
+    for (const dir of new Set(tabs.flatMap(w => dayDirs(w.root, w.startedAt)))) {
       let names = []
       try { names = fs.readdirSync(dir) } catch { continue }
       for (const name of names) {
         if (!name.endsWith('.jsonl')) continue
         const f = path.join(dir, name)
         if (claimed.has(f)) continue
-        if (resumeThread) { if (name.includes(resumeThread)) candidates.push({ f, at: 0, resume: true }); continue }
-        let st
-        try { st = fs.statSync(f) } catch { continue }
-        if (st.mtimeMs < startedAt - 5000) continue
-        const first = readFirstLine(f)
-        const meta = first?.type === 'session_meta' ? first.payload : null
-        const at = Date.parse(meta?.timestamp ?? first?.timestamp ?? '')
-        if (!meta || !samePath(meta.cwd, cwd) || !(at >= startedAt - 5000)) continue
-        candidates.push({ f, at, meta })
+        const h = headerOf(f)
+        if (!h || h.cwd !== tabs[0].cwd || h.at < earliest - SLACK_MS) continue
+        logs.push({ f, h })
       }
     }
-    if (!candidates.length) return
-    candidates.sort((a, b) => a.at - b.at)
-    const pick = candidates[0]
-    file = pick.f
-    claimed.add(file)
-    if (pick.resume) {
-      // Resuming: the past is the old turns; only what Codex adds from now on is told
-      try { offset = fs.statSync(file).size } catch { offset = 0 }
-      onThread(resumeThread)
-    } else {
-      offset = 0
+    logs.sort((a, b) => a.h.at - b.h.at)
+    for (const log of logs) {
+      const tab = tabs.find(w => waiting.has(w) && log.h.at >= w.startedAt - SLACK_MS)
+      if (!tab) continue
+      claimed.add(log.f)
+      waiting.delete(tab)
+      tab.take(log.f)
     }
+  }
+}
+
+function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit, status, onThread = () => {}, sessionsDir = path.join(os.homedir(), '.codex', 'sessions'), pollMs = 1000, now = () => Date.now() }) {
+  let file = null
+  let offset = 0
+  let decoder = new StringDecoder('utf8')
+  let partial = ''
+  let model = null
+  let stopped = false
+  let polls = 0
+
+  const me = {
+    root: sessionsDir,
+    cwd: normPath(cwd),
+    startedAt,
+    take(f) { file = f; offset = 0 },
+  }
+  if (!resumeThread) waiting.add(me)
+
+  function findResumed() {
+    const f = findThreadFile(sessionsDir, resumeThread)
+    if (!f || claimed.has(f)) return
+    claimed.add(f)
+    file = f
+    // Resuming: the past is the old turns; only what Codex adds from now on is told
+    try { offset = fs.statSync(f).size } catch { offset = 0 }
+    onThread(resumeThread)
   }
 
   function handle(rec) {
@@ -148,8 +229,7 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit
     if (rec?.type === 'response_item') {
       if (p.type === 'message' && p.role === 'user') {
         const text = textOf(p.content)
-        // Codex's own context (<environment_context>, <user_instructions>, …) is not a prompt
-        if (text && !text.startsWith('<')) emit({ type: 'session_prompt', sessionId, text: text.slice(0, PROMPT_MAX) })
+        if (text && !INJECTED.test(text)) emit({ type: 'session_prompt', sessionId, text: text.slice(0, PROMPT_MAX) })
         return
       }
       if (p.type === 'custom_tool_call' || p.type === 'function_call' || p.type === 'local_shell_call') {
@@ -165,35 +245,43 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit
         emit({ type: 'session_turn_end', sessionId, text: String(p.last_agent_message ?? '').slice(0, REPLY_MAX), backgroundTasks: [], crons: 0 })
         return
       }
-      if (p.type === 'token_count' && p.info) {
-        const last = p.info.last_token_usage ?? {}
-        const size = typeof p.info.model_context_window === 'number' ? p.info.model_context_window : null
-        const total = typeof last.total_tokens === 'number' ? last.total_tokens : null
-        const used = size && total !== null ? Math.min(100, Math.round((total / size) * 1000) / 10) : null
+      if (p.type === 'token_count') {
         const primary = limit(p.rate_limits?.primary)
         const secondary = limit(p.rate_limits?.secondary)
-        status({
-          type: 'session_status', sessionId, ...(model ? { model } : {}),
-          context: { used, size, input: last.input_tokens ?? 0, output: last.output_tokens ?? 0 },
-          ...(primary || secondary ? { codexLimits: { primary, secondary } } : {}),
-        })
+        const limits = primary || secondary ? { codexLimits: { primary, secondary } } : {}
+        if (p.info) {
+          const last = p.info.last_token_usage ?? {}
+          const size = typeof p.info.model_context_window === 'number' ? p.info.model_context_window : null
+          const total = typeof last.total_tokens === 'number' ? last.total_tokens : null
+          const used = size && total !== null ? Math.min(100, Math.round((total / size) * 1000) / 10) : null
+          status({ type: 'session_status', sessionId, ...(model ? { model } : {}), context: { used, size, input: last.input_tokens ?? 0, output: last.output_tokens ?? 0 }, ...limits })
+        } else if (primary || secondary) {
+          status({ type: 'session_status', sessionId, ...(model ? { model } : {}), ...limits })
+        }
       }
     }
   }
 
   function poll() {
     if (stopped) return
-    if (!file) { find(); if (!file) return }
+    if (!file) {
+      polls++
+      if (now() - startedAt > SLOW_AFTER_MS && polls % SLOW_EVERY !== 0) return
+      if (resumeThread) findResumed()
+      else match()
+      if (!file) return
+    }
     let size
     try { size = fs.statSync(file).size } catch { return }
-    if (size < offset) { offset = 0; partial = '' } // rewritten from the start
+    if (size < offset) { offset = 0; partial = ''; decoder = new StringDecoder('utf8') } // rewritten from the start
     if (size === offset) return
     const fd = fs.openSync(file, 'r')
     let text = ''
     try {
       const buf = Buffer.alloc(size - offset)
       fs.readSync(fd, buf, 0, buf.length, offset)
-      text = partial + buf.toString('utf8')
+      // A character split across two reads waits in the decoder for its last bytes
+      text = partial + decoder.write(buf)
     } finally { fs.closeSync(fd) }
     offset = size
     const lines = text.split('\n')
@@ -212,6 +300,7 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread = null, emit
   function stop() {
     stopped = true
     if (timer) clearInterval(timer)
+    waiting.delete(me)
     if (file) claimed.delete(file)
   }
 

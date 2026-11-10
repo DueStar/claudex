@@ -184,7 +184,13 @@ function createActivity({ sessionId, tool, cwd, emit, now = () => Date.now(), se
   }
   function input() { lastKey = now() }
   function stop() { if (quietTimer) clearTimer(quietTimer); quietTimer = null; stopEvery(heartbeat) }
-  function mute() { muted = true; working = false; if (quietTimer) clearTimer(quietTimer); quietTimer = null }
+  function mute() {
+    muted = true
+    if (quietTimer) clearTimer(quietTimer)
+    quietTimer = null
+    // The output had started a turn (a banner, a redraw): it is over; the new source says when the next starts
+    if (working) { working = false; emit({ type: 'session_turn_end', sessionId }) }
+  }
   return { output, input, stop, mute }
 }
 

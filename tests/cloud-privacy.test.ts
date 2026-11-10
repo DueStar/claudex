@@ -48,6 +48,6 @@ describe('cloud copy and 프롬프트 숨기기', () => {
     expect(readHidePrompts(file)).toBe(true)
     writeFileSync(file, '{broken')
     expect(readHidePrompts(file)).toBe(false)
-    expect(readHidePrompts(undefined)).toBe(false)
+    expect(readHidePrompts(null)).toBe(false)
   })
 })
