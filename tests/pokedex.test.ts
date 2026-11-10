@@ -4,7 +4,7 @@
  * the fully evolved, and gacha-style encounters with pities.
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -194,6 +194,18 @@ describe('pokedex', () => {
     // a box Pokémon cannot be thrown, only party members
     expect(dex.throwBall('new-3', 'nope')).toMatchObject({ ok: false })
     expect(dex.publicState().remembered['new-1']).toBe(party[3])
+  })
+
+  it('a throw held by the last run does not keep the party busy after a restart', () => {
+    const { dex, file } = setup([0], 0.99, () => false)
+    attended(dex)
+    const party = dex.publicState().party
+    expect(dex.throwBall('gone-1', party[0])).toEqual({ ok: true })
+    expect(dex.publicState().assign['gone-1']).toBe(party[0]) // held while it starts up
+    writeFileSync(file, JSON.stringify(dex._state()))
+    const again = createPokedex({ file, species: SPECIES, broadcast: () => {}, isActive: () => false, now: () => new Date('2026-11-06T14:02:00').getTime() })
+    expect(again.publicState().assign).toEqual({})
+    expect(again.publicState().remembered['gone-1']).toBe(party[0])
   })
 
   it('a step may meet a wild Pokémon in the terrain of the tool; a caught one goes to the box', () => {

@@ -455,7 +455,9 @@ const Widget: React.FC = () => {
     restored.current = true
     void (async () => {
       const open = await bridge.terminals.restorable().catch(() => [])
-      const used = new Set(Object.values(dex.assign ?? {}))
+      // A session coming back may hold its own Pokémon still (the last run's record): that one is not "used"
+      const back = new Set(open.map(s => s.sessionId))
+      const used = new Set(Object.entries(dex.assign ?? {}).filter(([sid]) => !back.has(sid)).map(([, uid]) => uid))
       for (const s of open) {
         const free = dex.party.filter(u => !used.has(u))
         const remembered = dex.remembered?.[s.sessionId]

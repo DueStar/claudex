@@ -905,16 +905,18 @@ function fromOurWindow(event) {
  */
 function postSessionEnded(sessionId) {
   const token = readServerToken(TOKEN_FILE)
-  if (!token) return
-  const body = JSON.stringify({ type: 'session_ended', sessionId, reason: 'terminal closed' })
-  const req = http.request(`${SERVER_URL}/event`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), Authorization: `Bearer ${token}` },
-    timeout: 1500,
-  }, (res) => res.resume())
-  req.on('error', () => {})
-  req.on('timeout', () => req.destroy())
-  req.end(body)
+  if (!token) return Promise.resolve()
+  return new Promise((resolve) => {
+    const body = JSON.stringify({ type: 'session_ended', sessionId, reason: 'terminal closed' })
+    const req = http.request(`${SERVER_URL}/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), Authorization: `Bearer ${token}` },
+      timeout: 1500,
+    }, (res) => { res.resume(); res.on('end', resolve); res.on('error', resolve) })
+    req.on('error', resolve)
+    req.on('timeout', () => { req.destroy(); resolve() })
+    req.end(body)
+  })
 }
 
 /** Put another Pokémon on a session: the server checks the rules; this carries the server token */
@@ -1176,12 +1178,23 @@ if (app.isPackaged && !takeInstanceLock()) {
     app.quit()
   })
 
-  app.on('before-quit', () => {
+  // The server must hear that the open sessions are over before it is stopped: posted
+  // and stopped at once, it was gone before they arrived and kept them working
+  let endingSessions = null
+  app.on('before-quit', (e) => {
     quitting = true
-    if (terminals) {
-      for (const t of terminals.list()) if (t.status === 'running') postSessionEnded(t.sessionId)
-      terminals.killAll()
+    if (endingSessions === null) {
+      const running = terminals ? terminals.list().filter(t => t.status === 'running') : []
+      if (running.length) {
+        e.preventDefault()
+        endingSessions = Promise.all(running.map(t => postSessionEnded(t.sessionId)))
+        // at most 2 s, then quit anyway
+        Promise.race([endingSessions, new Promise(r => setTimeout(r, 2000))]).then(() => app.quit())
+        return
+      }
+      endingSessions = Promise.resolve()
     }
+    if (terminals) terminals.killAll()
     if (tray) { tray.dispose(); tray = null }
     stopServer()
   })

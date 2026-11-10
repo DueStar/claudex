@@ -276,6 +276,11 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
   for (const s of species) if (s.evolvesFrom) (nextOf.get(s.evolvesFrom) ?? nextOf.set(s.evolvesFrom, []).get(s.evolvesFrom)).push(s.id)
 
   let state = load()
+  // A throw holds its Pokémon only while that session starts up in this run: the
+  // app and its terminals restart with the server, so a hold saved by the last run
+  // would only keep the party "busy" with sessions that are gone (a quick restart
+  // after a restore left all six busy and nothing could open)
+  if (state.thrownAt) state.thrownAt = {}
   /** Individuals saved by older versions get the fields added since (on load and on a synced game) */
   function upgradeMons() {
     for (const m of Object.values(state.mons ?? {})) {

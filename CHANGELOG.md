@@ -2,6 +2,10 @@
 
 ## Claudex
 
+### 1.3.30
+- 세션을 연 지 얼마 안 돼서 앱을 다시 켜면(업데이트 포함) 파티가 모두 일하는 중으로 보여서 새 세션도, 이어하기도 열리지 않던 문제를 고쳤어요.
+- 앱을 끌 때 열려 있던 세션이 끝났다는 걸 서버가 확실히 받은 뒤에 꺼져요.
+
 ### 1.3.29
 - 터미널 찾기(Ctrl+F): 출력에서 글자를 찾아 노란색으로 보여줘요. 출력에 나온 파일 경로는 Ctrl+클릭하면 코드 편집기에서 그 줄이 열려요.
 - 세션 단축키: Ctrl+Tab·Ctrl+Shift+Tab으로 세션 이동, Ctrl+Shift+T 새 세션, Ctrl+Shift+W 닫기. 앱이 뒤에 있을 때 세션이 끝나거나 확인이 필요하면 Windows 알림으로 알려줘요(설정 › 알림).
@@ -223,6 +227,10 @@
 
 ## Claudex (English)
 
+### 1.3.30
+- Restarting the app soon after opening sessions (an update included) no longer leaves the whole party "working", which kept new and resumed sessions from opening.
+- When the app quits, the server now hears that the open sessions are over before it stops.
+
 ### 1.3.29
 - Find in the terminal (Ctrl+F): matches are marked in yellow. Ctrl+click a file path in the output to open it at that line in your code editor.
 - Session keys: Ctrl+Tab and Ctrl+Shift+Tab move between sessions, Ctrl+Shift+T opens one, Ctrl+Shift+W closes it. While the app is behind, a Windows notification says when a session finishes or needs you (Settings › Notifications).
@@ -307,6 +315,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.30
+- セッションを開いてすぐにアプリを再起動すると(アップデートを含む)、パーティ全員が作業中のままになり、新しいセッションも再開も開けなかった問題を直しました。
+- アプリを閉じるとき、開いていたセッションが終わったことをサーバーが確実に受け取ってから終了します。
 
 ### 1.3.29
 - ターミナル内検索(Ctrl+F): 一致した文字を黄色で表示します。出力に出たファイルパスはCtrl+クリックでコードエディタのその行が開きます。
