@@ -1182,11 +1182,13 @@ if (app.isPackaged && !takeInstanceLock()) {
   })
 
   // Quitting (and an update restart, which quits too) runs one sequence before the app
-  // goes: the server hears the open sessions are over (posted and stopped at once, it was
-  // gone before they arrived and kept them working), saves what it holds, the sessions'
-  // processes are ended and waited for, then the server stops. Quitting while node-pty
-  // was still killing sessions once left the main process hung in its native teardown,
-  // so a watchdog process ends the main if the quit has not finished 10 s on.
+  // goes. Two things at once: the server hears the open sessions are over (posted and
+  // stopped at once, it was gone before they arrived and kept them working) and saves
+  // what it holds; the sessions' processes are ended and node-pty is let go of
+  // (terminals.shutdown). Then the server stops. Quitting while node-pty was still busy
+  // once left the main process hung in its native teardown, so a watchdog process ends
+  // the main if the quit has not finished 10 s on. The windows go at once, so nothing
+  // can be closed (and the server stopped by window-all-closed) halfway through.
   let quitSequence = null
   app.on('before-quit', (e) => {
     quitting = true
@@ -1194,21 +1196,26 @@ if (app.isPackaged && !takeInstanceLock()) {
     e.preventDefault()
     if (quitSequence) return
     if (app.isPackaged) { try { startQuitWatchdog(process.pid) } catch {} }
+    for (const w of BrowserWindow.getAllWindows()) { try { w.hide() } catch {} }
     const sleep = (ms) => new Promise(r => setTimeout(r, ms))
-    quitSequence = (async () => {
-      const running = terminals ? terminals.list().filter(t => t.status === 'running') : []
+    const running = terminals ? terminals.list().filter(t => t.status === 'running') : []
+    const tellServer = (async () => {
       if (running.length) await Promise.race([Promise.all(running.map(t => postSessionEnded(t.sessionId))), sleep(2000)])
       await serverPost('/flush', {}, 1500)
-      if (terminals) {
-        const { stuck } = await terminals.shutdown(3000)
-        if (stuck) console.warn(`[main] quit: ${stuck} session(s) did not exit`)
-      }
-      if (tray) { tray.dispose(); tray = null }
-      stopServer()
-    })().catch((err) => console.error('[main] quit sequence:', err?.message ?? err)).finally(() => {
-      quitSequence = 'done'
-      app.quit()
-    })
+    })()
+    const endSessions = (async () => {
+      if (!terminals) return
+      const { stuck } = await terminals.shutdown(3000)
+      if (stuck) console.warn(`[main] quit: ${stuck} session(s) did not exit`)
+    })()
+    quitSequence = Promise.all([tellServer, endSessions])
+      .catch((err) => console.error('[main] quit sequence:', err?.message ?? err))
+      .finally(() => {
+        try { if (tray) { tray.dispose(); tray = null } } catch {}
+        try { stopServer() } catch {}
+        quitSequence = 'done'
+        app.quit()
+      })
   })
 
   app.on('activate', reopen)

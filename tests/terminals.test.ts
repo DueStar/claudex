@@ -120,7 +120,7 @@ describe('terminals.cjs', () => {
 })
 
 /** A stand-in for node-pty: records what was spawned; `exit(pid)` plays the process ending */
-function fakePty() {
+function fakePty(log: string[] = []) {
   let next = 100
   const procs = new Map<number, { onExit?: (e: { exitCode: number }) => void; onData?: (d: string) => void; killed: boolean }>()
   return {
@@ -135,7 +135,7 @@ function fakePty() {
         pid,
         onData(cb: (d: string) => void) { p.onData = cb },
         onExit(cb: (e: { exitCode: number }) => void) { p.onExit = cb },
-        kill() { p.killed = true },
+        kill() { p.killed = true; log.push(`pty ${pid}`) },
         write() {}, resize() {},
       }
     },
@@ -154,7 +154,7 @@ describe('terminal manager shutdown', () => {
     const terms = manager(pty, (pid) => { killed.push(pid); setTimeout(() => pty.exit(pid), 10) })
     terms.create({ tool: 'shell' })
     terms.create({ tool: 'shell' })
-    expect(await terms.shutdown(1000)).toEqual({ exited: 2, stuck: 0 })
+    expect(await terms.shutdown(1000, 0)).toEqual({ exited: 2, stuck: 0 })
     expect(killed.sort()).toEqual([100, 101])
     expect([...pty.procs.values()].every(p => p.killed)).toBe(true)
   })
@@ -164,12 +164,23 @@ describe('terminal manager shutdown', () => {
     const terms = manager(pty, () => {})
     terms.create({ tool: 'shell' })
     const t0 = Date.now()
-    expect(await terms.shutdown(50)).toEqual({ exited: 0, stuck: 1 })
+    expect(await terms.shutdown(50, 0)).toEqual({ exited: 0, stuck: 1 })
     expect(Date.now() - t0).toBeLessThan(1000)
+  })
+
+  it('kills the tree first and the pty only after the exit; a session that ended by itself has its pty closed too', async () => {
+    const order: string[] = []
+    const pty = fakePty(order)
+    const terms = manager(pty, (pid) => { order.push(`tree ${pid}`); pty.exit(pid) })
+    terms.create({ tool: 'shell' })
+    terms.create({ tool: 'shell' })
+    pty.exit(101) // ended on its own earlier: still holds its pseudo-console
+    expect(await terms.shutdown(1000, 0)).toEqual({ exited: 1, stuck: 0 })
+    expect(order).toEqual(['tree 100', 'pty 100', 'pty 101'])
   })
 
   it('shutdown with nothing running resolves at once', async () => {
     const terms = manager(fakePty(), () => { throw new Error('no tree to kill') })
-    expect(await terms.shutdown(1000)).toEqual({ exited: 0, stuck: 0 })
+    expect(await terms.shutdown(1000, 0)).toEqual({ exited: 0, stuck: 0 })
   })
 })

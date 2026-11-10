@@ -32,15 +32,16 @@ function loadPty() {
 
 /**
  * End a session's whole process tree at once (Claude Code and whatever it
- * started). node-pty's own kill finds the console's processes later, in a
- * forked helper; quitting while that is still under way left the app's main
- * process hung in its native teardown.
+ * started); resolves when taskkill is done. node-pty's own kill finds the
+ * console's processes later, in a forked helper.
  */
 function killTreeNow(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return
-  try {
-    require('child_process').execFile('taskkill', ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, () => {})
-  } catch { /* the process is gone already */ }
+  return new Promise((resolve) => {
+    if (!Number.isInteger(pid) || pid <= 0) return resolve()
+    try {
+      require('child_process').execFile('taskkill', ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, () => resolve())
+    } catch { resolve() /* the process is gone already */ }
+  })
 }
 
 /**
@@ -349,24 +350,26 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   }
 
   /**
-   * Quitting: end every running session's process tree and wait (at most
-   * timeoutMs) until each has reported its exit, so nothing of node-pty is
-   * still running when the app tears down. The sessions stay listed as open
-   * (frozen), for the next start to reopen.
+   * Quitting: leave nothing of node-pty running when the app tears down (a
+   * main quit while it was still busy hung in its native teardown, threads
+   * blocked in pipe reads). Each running session's process tree is ended and
+   * its exit waited for (at most timeoutMs). Then every pty is killed, which
+   * closes its pseudo-console: that ends the read the output worker thread is
+   * blocked in (node-pty never stops that worker when the process just exits),
+   * and drainMs leaves time for the worker's own drain-then-terminate (1 s).
+   * The sessions stay listed as open (frozen), for the next start to reopen.
    */
-  async function shutdown(timeoutMs = 3000) {
+  async function shutdown(timeoutMs = 3000, drainMs = 1200) {
     frozen = true
-    const running = [...terms.values()].filter(t => t.status !== 'exited')
-    if (!running.length) return { exited: 0, stuck: 0 }
-    for (const t of running) {
-      try { killTree(t.pty.pid) } catch {}
-      try { t.pty.kill() } catch {}
-    }
-    let timer
-    const timeout = new Promise((resolve) => { timer = setTimeout(resolve, timeoutMs) })
-    await Promise.race([Promise.all(running.map(t => t.exited)), timeout])
-    clearTimeout(timer)
+    const all = [...terms.values()]
+    const running = all.filter(t => t.status !== 'exited')
+    if (!all.length) return { exited: 0, stuck: 0 }
+    const sleep = (ms) => new Promise((resolve) => { const timer = setTimeout(resolve, ms); timer.unref?.() })
+    await Promise.race([Promise.all(running.map(t => Promise.resolve().then(() => killTree(t.pty.pid)).catch(() => {}))), sleep(timeoutMs)])
+    await Promise.race([Promise.all(running.map(t => t.exited)), sleep(timeoutMs)])
     const stuck = running.filter(t => t.status !== 'exited').length
+    for (const t of all) { try { t.pty.kill() } catch {} }
+    await sleep(drainMs)
     return { exited: running.length - stuck, stuck }
   }
 
