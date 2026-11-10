@@ -274,7 +274,7 @@ function emptyState() {
   }
 }
 
-export function createPokedex({ file, species, natures = [], balls = [], stepSpacingMs = 0, sessionOf = () => null, broadcast, isActive = () => true, onChange = () => {}, now = () => Date.now(), random = Math.random }) {
+export function createPokedex({ file, species, natures = [], balls = [], stepSpacingMs = 0, sessionOf = () => null, broadcast, isActive = () => true, onChange = () => {}, now = () => Date.now(), random = Math.random, stepSaveMs = 30_000 }) {
   const byId = new Map(species.map(s => [s.id, s]))
   const byTier = {}
   for (const s of species) (byTier[s.tier] ??= []).push(s)
@@ -319,21 +319,37 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
     }
   }
 
+  // Two speeds: a change worth keeping (a catch, a level, a swap…) is written
+  // 300 ms on; a step and nothing else waits up to stepSaveMs, since a tool
+  // call is a step and rewriting the whole file on every one cost thousands of
+  // writes a day. Either write holds everything changed so far; flush() writes
+  // whatever waits at once (quitting).
   let saveTimer = null
+  let stepTimer = null
+  function writeNow() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+    if (stepTimer) { clearTimeout(stepTimer); stepTimer = null }
+    try {
+      const tmp = `${file}.tmp`
+      writeFileSync(tmp, JSON.stringify(state))
+      renameSync(tmp, file)
+      onChange(state)
+    } catch (err) {
+      console.error('[pokedex] could not save:', err.message)
+    }
+  }
   function save() {
     if (saveTimer) return
-    saveTimer = setTimeout(() => {
-      saveTimer = null
-      try {
-        const tmp = `${file}.tmp`
-        writeFileSync(tmp, JSON.stringify(state))
-        renameSync(tmp, file)
-        onChange(state)
-      } catch (err) {
-        console.error('[pokedex] could not save:', err.message)
-      }
-    }, 300)
+    saveTimer = setTimeout(writeNow, 300)
     saveTimer.unref?.()
+  }
+  function saveSoon() {
+    if (saveTimer || stepTimer) return
+    stepTimer = setTimeout(writeNow, stepSaveMs)
+    stepTimer.unref?.()
+  }
+  function flush() {
+    if (saveTimer || stepTimer) writeNow()
   }
 
   function publish(event) {
@@ -716,6 +732,7 @@ ${agentId}`
   function tick() {
     if (species.length === 0) return
     let changed = false
+    let worth = false
     if (dismissHelpers(h => now() - h.lastAt > HELPER_IDLE_MS)) publish(null)
     for (const sessionId of new Set([...pendingSteps.keys(), ...lastActivityAt.keys()])) {
       const session = sessionOf(sessionId)
@@ -723,15 +740,16 @@ ${agentId}`
         lastActivityAt.set(sessionId, now())
         const uid = state.assign[sessionId]
         const grown = workStep(sessionId, uid ? state.mons[uid] : null, null)
-        if (grown) { publish(grown); changed = true }
+        if (grown) { publish(grown); worth = true }
         const prompt = String(session?.main?.lastPrompt ?? '').replace(/\s+/g, ' ').trim()
         queueStep(sessionId, { tool: null, via: { tool: null, label: '#thinking', prompt: prompt ? (prompt.length > 40 ? `${prompt.slice(0, 40)}…` : prompt) : null } })
         changed = true
       }
       const met = drainStep(sessionId)
-      if (met) { publish(met); changed = true }
+      if (met) { publish(met); worth = true }
     }
-    if (changed) save()
+    if (worth) save()
+    else if (changed) saveSoon() // a thinking step only
   }
 
   function pushLog(event) {
@@ -846,7 +864,7 @@ ${agentId}`
       save()
       publish(event)
     } else if (ev.type === 'agent_working') {
-      save() // a step only: no broadcast for every call
+      saveSoon() // a step only: no broadcast for every call, and no write right away
     }
   }
 
@@ -992,5 +1010,5 @@ ${agentId}`
     return true
   }
 
-  return { noteEvent, tick, swap, throwBall, release, exchange, arrangeBox, publicState, exportState, importState, _state: () => state }
+  return { noteEvent, tick, swap, throwBall, release, exchange, arrangeBox, publicState, exportState, importState, flush, _state: () => state }
 }

@@ -843,6 +843,12 @@ app.post('/pokedex/swap', requireToken, (req, res) => {
  * made inside a subagent. Every event may carry sessionId, project, cwd and
  * transcriptPath — the Claude Code session the hook fired in.
  */
+// The app is quitting: write what is waiting to be saved (steps batched for up to 30 s)
+app.post('/flush', requireToken, (_req, res) => {
+  try { pokedex.flush() } catch (err) { console.error('[flush]', err.message) }
+  res.json({ ok: true })
+})
+
 app.post('/event', requireToken, (req, res) => {
   const body = req.body
 

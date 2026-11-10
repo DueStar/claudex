@@ -7,7 +7,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { createPokedex, catchSource, STARTERS, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel, THINK_STEP_MS, SESSION_LIMIT } from '../server/pokedex.js'
 
 const S = (id: number, ko: string, tier: string, evolvesFrom: number | null, types = ['normal'], captureRate = 255) =>
@@ -659,5 +659,52 @@ describe('pokedex', () => {
     expect(st.remembered).toEqual(before.assign)
     expect(st.mons.m99).toMatchObject({ ball: 'poke-ball', metLevel: 5, workMs: 0 })
     expect(dex.importState({ version: 1 })).toBe(false)
+  })
+})
+
+describe('pokedex saves', () => {
+  afterEach(() => { vi.useRealTimers() })
+  const steps = (file: string) => {
+    const s = JSON.parse(readFileSync(file, 'utf8'))
+    return Object.values(s.mons as Record<string, { steps: number }>).reduce((n, m) => n + (m.steps ?? 0), 0)
+  }
+
+  it('a plain step is saved within 30 s, not right away', async () => {
+    vi.useFakeTimers()
+    const { dex, file } = setup()
+    attended(dex)
+    dex.noteEvent(work('s1'))
+    await vi.advanceTimersByTimeAsync(1000)
+    const before = steps(file)
+    dex.noteEvent(work('s1'))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(steps(file)).toBe(before)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(steps(file)).toBeGreaterThan(before)
+  })
+
+  it('a meaningful change after steps saves within 300 ms and includes the steps', async () => {
+    vi.useFakeTimers()
+    const { dex, file } = setup()
+    attended(dex)
+    dex.noteEvent(work('s1'))
+    await vi.advanceTimersByTimeAsync(1000)
+    const before = steps(file)
+    dex.noteEvent(work('s1'))
+    dex.noteEvent(work('s2')) // a second session: a party Pokémon is sent out (a meaningful change)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(steps(file)).toBeGreaterThan(before)
+  })
+
+  it('flush writes pending steps at once', async () => {
+    vi.useFakeTimers()
+    const { dex, file } = setup()
+    attended(dex)
+    dex.noteEvent(work('s1'))
+    await vi.advanceTimersByTimeAsync(1000)
+    const before = steps(file)
+    dex.noteEvent(work('s1'))
+    dex.flush()
+    expect(steps(file)).toBeGreaterThan(before)
   })
 })
