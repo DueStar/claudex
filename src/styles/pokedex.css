@@ -581,6 +581,5 @@ html.qa-mode #root { min-height: 100vh; }
 .today-row + .today-row { border-top: 1px solid rgba(255, 255, 255, 0.045); border-radius: 0; }
 .today-row + .today-row:hover { border-radius: 0; }
 /* A session worked by a box Pokémon (the party was all out): its tag in the accent */
-.w-row-tool.helper { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 /* A plain shell row: a prompt mark where the Pokémon would be */
 .w-row-shell { display: inline-grid; place-items: center; font: 700 11px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); border-radius: 6px; background: rgba(255, 255, 255, 0.05); }

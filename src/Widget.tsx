@@ -27,7 +27,7 @@ import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { useDragOrder } from './useDragOrder'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -710,63 +710,74 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 onClick={rowOrder.click(() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') })}
                 title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
-                <div className="w-row-top">
+                {/* Line 1: the session's name and its status; line 2: Lv first, then folder, AI tool and
+                    branch (the branch gives way first), helpers at the end. The buttons float over
+                    line 2's end on hover instead of holding space the name needs */}
+                <div className="w-row-head">
                   {r.shell ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span> : <img className="w-row-mon" src={r.sprite} alt="" />}
-                  {renaming === r.sessionId ? (
-                    <input
-                      className="w-row-rename"
-                      autoFocus
-                      defaultValue={r.title ?? ''}
-                      placeholder={t('새 세션')}
-                      maxLength={40}
-                      onClick={e => e.stopPropagation()}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) { commitRename(r, e.currentTarget.value); setRenaming(null) }
-                        if (e.key === 'Escape') setRenaming(null)
-                      }}
-                      onBlur={e => { if (renaming === r.sessionId) commitRename(r, e.currentTarget.value); setRenaming(null) }}
-                    />
-                  ) : (
-                    <span
-                      className="w-row-label"
-                      title={r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
-                      onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
-                    >
-                      <span className="w-row-name">{r.title ?? t('새 세션')}</span><span className="w-row-project">{r.name}</span>
-                      {r.branch && <span className="w-row-branch" title={t('git 브랜치')}>{r.branch}</span>}
+                  <div className="w-row-line1">
+                    {renaming === r.sessionId ? (
+                      <input
+                        className="w-row-rename"
+                        autoFocus
+                        defaultValue={r.title ?? ''}
+                        placeholder={t('새 세션')}
+                        maxLength={40}
+                        onClick={e => e.stopPropagation()}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) { commitRename(r, e.currentTarget.value); setRenaming(null) }
+                          if (e.key === 'Escape') setRenaming(null)
+                        }}
+                        onBlur={e => { if (renaming === r.sessionId) commitRename(r, e.currentTarget.value); setRenaming(null) }}
+                      />
+                    ) : (
+                      <span
+                        className="w-row-name"
+                        title={r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
+                        onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
+                      >{r.title ?? t('새 세션')}</span>
+                    )}
+                    {r.shell ? null : r.mood === 'needs-you' && r.terminal ? (
+                      <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}>{t('확인 필요')}</button>
+                    ) : (
+                      <span className={`w-pill mood-${r.mood}`}>{t(MOOD_LABEL[r.mood])}</span>
+                    )}
+                  </div>
+                  <div className="w-row-line2">
+                    {monOf(r.sessionId) && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{levelOf(monOf(r.sessionId))}</span>}
+                    <span className="w-row-meta">
+                      <span className="w-row-project">{r.name}</span>
                       {r.terminal?.tool && r.terminal.tool !== 'claude' && <span className="w-row-tool" title={t('이 세션에서 도는 AI 도구')}>{r.terminal.toolName}</span>}
-                      {isHelperSession(dex, r.sessionId) && <span className="w-row-tool helper" title={t('파티가 모두 일하는 중이라 박스의 포켓몬이 이 세션을 맡았어요')}>{t('조력자')}</span>}
+                      {r.branch && <span className="w-row-branch" title={t('git 브랜치')}>{r.branch}</span>}
                     </span>
-                  )}
-                  {renaming !== r.sessionId && (dex?.helpers?.[r.sessionId] ?? []).length > 0 && (
-                    <span className="w-row-helpers" title={t('서브에이전트를 돕는 조력자 (박스에서 나와요)')}>
-                      {dex!.helpers![r.sessionId].slice(0, 3).map(uid => { const h = dex!.mons[uid]; return h ? <img key={uid} src={iconUrl(h.dex)} alt={nameOf(pokemonById(h.dex))} title={`${t('조력자')} · ${nameOf(pokemonById(h.dex))} Lv.${levelOf(h)}`} /> : null })}
-                      {dex!.helpers![r.sessionId].length > 3 && <small>+{dex!.helpers![r.sessionId].length - 3}</small>}
-                    </span>
-                  )}
-                  {monOf(r.sessionId) && renaming !== r.sessionId && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{levelOf(monOf(r.sessionId))}</span>}
-                  {r.terminal && renaming !== r.sessionId && (
-                    <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
-                  )}
-                  {r.shell ? null : r.mood === 'needs-you' && r.terminal ? (
-                    <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}>{t('확인 필요')}</button>
-                  ) : (
-                    <span className={`w-pill mood-${r.mood}`}>{t(MOOD_LABEL[r.mood])}</span>
-                  )}
-                  {(() => {
-                    const m = monOf(r.sessionId)
-                    return m ? (
-                      <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('교체: 이 세션에서 일할 포켓몬을 바꿔요 (파티나 박스에서)')} aria-label={t('교체')}><SwapIcon size={13} /></button>
-                    ) : null
-                  })()}
-                  {r.terminal && (
-                    <button
-                      className={`w-row-close${closing === r.sessionId ? ' confirm' : ''}`}
-                      onClick={e => { e.stopPropagation(); closeSession(r) }}
-                      onMouseLeave={() => closing === r.sessionId && setClosing(null)}
-                      title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
-                    >{closing === r.sessionId ? t('닫기?') : '×'}</button>
-                  )}
+                    {(dex?.helpers?.[r.sessionId] ?? []).length > 0 && (
+                      <span className="w-row-helpers" title={t('서브에이전트를 돕는 조력자 (박스에서 나와요)')}>
+                        {dex!.helpers![r.sessionId].slice(0, 3).map(uid => { const h = dex!.mons[uid]; return h ? <img key={uid} src={iconUrl(h.dex)} alt={nameOf(pokemonById(h.dex))} title={`${t('조력자')} · ${nameOf(pokemonById(h.dex))} Lv.${levelOf(h)}`} /> : null })}
+                        {dex!.helpers![r.sessionId].length > 3 && <small>+{dex!.helpers![r.sessionId].length - 3}</small>}
+                      </span>
+                    )}
+                    {isHelperSession(dex, r.sessionId) && (
+                      <span className="w-row-helper" role="img" aria-label={t('조력자')} title={`${t('조력자')} · ${t('파티가 모두 일하는 중이라 박스의 포켓몬이 이 세션을 맡았어요')}`}><HelperIcon size={12} /></span>
+                    )}
+                    {(r.terminal || monOf(r.sessionId)) && (
+                      <span className="w-row-tools">
+                        {r.terminal && renaming !== r.sessionId && (
+                          <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
+                        )}
+                        {monOf(r.sessionId) && (
+                          <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('교체: 이 세션에서 일할 포켓몬을 바꿔요 (파티나 박스에서)')} aria-label={t('교체')}><SwapIcon size={13} /></button>
+                        )}
+                        {r.terminal && (
+                          <button
+                            className={`w-row-close${closing === r.sessionId ? ' confirm' : ''}`}
+                            onClick={e => { e.stopPropagation(); closeSession(r) }}
+                            onMouseLeave={() => closing === r.sessionId && setClosing(null)}
+                            title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
+                          >{closing === r.sessionId ? t('닫기?') : '×'}</button>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {!r.shell && <div className="w-row-bottom">
                   {(() => {

@@ -56,7 +56,7 @@
 
 /* ---------- Party extras ---------- */
 .w-row { cursor: pointer; }
-.w-row:hover { background: #1f232d; }
+.w-row:hover { --row-bg: #1f232d; }
 .w-pill.as-button { border: 0; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
 .w-row-close {
   font: inherit;
@@ -355,7 +355,7 @@
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
 .w-row { position: relative; user-select: none; touch-action: none; }
 .w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
-.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; background: #1f232d; }
+.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; --row-bg: #1f232d; }
 .w-row input, .w-row textarea { user-select: text; }
 /* A plain shell tab: a prompt mark where the Pokémon would be */
 .w-sess-shell { flex: none; width: 20px; text-align: center; font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }

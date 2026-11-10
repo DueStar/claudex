@@ -103,12 +103,13 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   gap: 5px;
   padding: 7px 9px;
   border-radius: 10px;
-  background: var(--card-2);
+  /* --row-bg: the row's background, also behind the hover buttons that float over line 2 */
+  --row-bg: var(--card-2);
+  background: var(--row-bg);
   border: 1px solid transparent;
   cursor: pointer;
 }
-.w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
-.w-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); --row-bg: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
 .w-row-name { font-weight: 650; font-size: 13px; }
 .w-row-project { color: var(--ink-3); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .w-pill { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #262a34; color: var(--ink-2); white-space: nowrap; }
@@ -200,20 +201,28 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-update.ready { background: var(--accent); color: var(--accent-ink); }
 .w-update.failed { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 
-/* ---------- Session rows: name and level on the left (a name you can change), status and swap on the right ---------- */
-.w-row-label { flex: 0 1 auto; display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
-.w-row-top > .w-pill { margin-left: auto; }
-.w-row-top > .w-row-close { margin-left: 2px; }
-.w-row-swap, .w-row-top > .w-pill, .w-row-lv { flex: none; white-space: nowrap; }
-.w-row-label .w-row-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.w-row-label .w-row-project { white-space: nowrap; }
-.w-row-edit { opacity: 0; font: inherit; font-size: 11px; color: var(--ink-3); background: transparent; border: 0; padding: 0 2px; cursor: pointer; }
-.w-row:hover .w-row-edit { opacity: 1; }
-/* 교체 and 닫기 too show only on the row under the mouse (the place stays, so nothing shifts);
-   a 닫기? waiting for its second click stays */
-.w-row .w-row-swap, .w-row .w-row-close { opacity: 0; }
-.w-row:hover .w-row-swap, .w-row:hover .w-row-close, .w-row .w-row-close.confirm,
-.w-row .w-row-edit:focus-visible, .w-row .w-row-swap:focus-visible, .w-row .w-row-close:focus-visible { opacity: 1; }
+/* ---------- Session rows: the Pokémon beside two lines.
+   Line 1 is the name (it gets the whole width) and the status; line 2 is Lv, folder, AI tool,
+   branch, then the helpers. The buttons float over line 2's end on hover. ---------- */
+.w-row-head { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 8px; row-gap: 3px; align-items: center; }
+.w-row-head > .w-row-mon { grid-row: 1 / span 2; width: 30px; height: 30px; }
+.w-row-line1, .w-row-line2 { display: flex; align-items: center; gap: 6px; min-width: 0; position: relative; }
+.w-row-line1 .w-row-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-row-line1 > .w-pill { flex: none; }
+.w-row-line2 { gap: 5px; min-height: 18px; font-size: 11px; }
+.w-row-meta { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; }
+.w-row-meta .w-row-project { flex: 0 1 auto; min-width: 44px; }
+.w-row-meta .w-row-tool { margin-left: 0; }
+.w-row-swap, .w-row-lv { flex: none; white-space: nowrap; }
+.w-row-helper { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; color: var(--accent); background: var(--accent-soft); cursor: help; }
+.w-row-tools {
+  position: absolute; right: -2px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; padding-left: 14px;
+  background: linear-gradient(to right, transparent, var(--row-bg) 12px);
+  opacity: 0; pointer-events: none;
+}
+.w-row:hover .w-row-tools, .w-row-tools:focus-within, .w-row-tools:has(.confirm) { opacity: 1; pointer-events: auto; }
+.w-row-edit { font: inherit; font-size: 11px; color: var(--ink-3); background: transparent; border: 0; border-radius: 6px; padding: 2px 5px; cursor: pointer; }
 .w-row-edit:hover { color: var(--ink); }
 .w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: 13px; font-weight: 650; color: var(--ink); background: var(--card); border: 1px solid var(--accent); border-radius: 7px; padding: 2px 7px; outline: none; }
 

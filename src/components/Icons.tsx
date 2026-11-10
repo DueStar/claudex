@@ -74,6 +74,10 @@ export const SidePanelIcon: React.FC<P> = (p) => (
 export const SwapIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13" /></Svg>
 )
+/** An open box: a helper session, worked by a Pokémon out of the box while the party is all out */
+export const HelperIcon: React.FC<P> = (p) => (
+  <Svg {...p}><path d="M2 5.2 8 2.8l6 2.4v6.2L8 13.8l-6-2.4z" /><path d="M2 5.2 8 7.6l6-2.4M8 7.6v6.2" /></Svg>
+)
 /** × : close */
 export const CloseIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M4 4l8 8M12 4l-8 8" /></Svg>
