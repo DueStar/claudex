@@ -6,7 +6,7 @@
  * POST /event needs the token and accepts the event types older hooks send.
  */
 
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -267,6 +267,32 @@ describe('persistence', () => {
     expect(second.server.sessions.get(ALPHA.sessionId)).toMatchObject({ project: 'alpha', model: 'claude-haiku-5-5', main: { state: 'working', lastPrompt: 'fix the dex' } })
   })
 
+  it('a tool call that changes nothing but activity does not rewrite agents.json at once; flushSessions writes it', async () => {
+    const office = await loadServer()
+    offices.push(office)
+    const file = join(office.dir, 'agents.json')
+    office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
+    office.server.processEvent({ type: 'agent_working', ...ALPHA, status: 'Read' }) // idle -> working: saved
+    const working = readFileSync(file, 'utf8')
+    expect(JSON.parse(working).sessions[0].main.state).toBe('working')
+    await new Promise(r => setTimeout(r, 5))
+    office.server.processEvent({ type: 'agent_working', ...ALPHA, status: 'Edit' }) // still working: activity only
+    expect(readFileSync(file, 'utf8')).toBe(working)
+    office.server.flushSessions()
+    expect(readFileSync(file, 'utf8')).not.toBe(working)
+  })
+
+  it('an unhooked (registry-only) session coming and going does not write agents.json', async () => {
+    const office = await loadServer()
+    offices.push(office)
+    const file = join(office.dir, 'agents.json')
+    office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
+    office.server.sessions.get(BETA.sessionId).hooked = false
+    rmSync(file, { force: true })
+    office.server.processEvent({ type: 'session_ended', ...BETA, reason: 'other' })
+    expect(existsSync(file)).toBe(false)
+  })
+
   it('drops sessions quiet for too long on load, and reads an older agents.json (with agents) all the same', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'claudex-test-'))
     const now = Date.now()
@@ -327,5 +353,18 @@ describe('WebSocket snapshot', () => {
       expect.objectContaining({ id: ALPHA.sessionId, project: 'alpha', state: 'active', main: expect.objectContaining({ state: 'working', lastPrompt: 'secret plan' }) }),
     ])
     expect(snapshot.statuses).toEqual({ sessions: [] })
+  })
+})
+
+describe('POST /flush', () => {
+  let office: Office
+  beforeAll(async () => { office = await loadServer() })
+  afterAll(() => removeServer(office))
+
+  it('needs the token, then writes what waits to be saved', async () => {
+    expect((await request(office.server.app).post('/flush')).status).toBe(401)
+    const res = await request(office.server.app).post('/flush').set('Authorization', `Bearer ${office.server.AUTH_TOKEN}`)
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true })
   })
 })

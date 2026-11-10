@@ -551,7 +551,7 @@ function forgetSession(id) {
   const session = sessions.get(id)
   if (!session) return
   sessions.delete(id)
-  saveSessions()
+  if (session.hooked !== false) saveSessions() // a registry-only one was never saved
   console.log(`[session] forgot ${session.project ?? id} (${id})`)
 }
 
@@ -568,7 +568,7 @@ function endSession(session, reason, now = Date.now()) {
   clearNeedsYouTimer(session.id)
   if (session.main?.state !== 'idle') console.log(`[main] ${sessionName(session)}: ${session.main?.state ?? 'idle'} -> idle (session ended)`)
   session.main = newMain(now)
-  saveSessions()
+  if (session.hooked !== false) saveSessions() // a registry-only one was never saved
   clearSessionTimer(session.id)
   const timer = setTimeout(() => forgetSession(session.id), SESSION_FORGET_MS)
   timer.unref?.()
@@ -583,7 +583,21 @@ function endSession(session, reason, now = Date.now()) {
 
 const AGENTS_FILE = join(RUNTIME_DIR, 'agents.json')
 
+let saveSessionsTimer = null
+/** A change only worth keeping eventually (the activity time): written SESSIONS_SAVE_SOON_MS on */
+const SESSIONS_SAVE_SOON_MS = 5000
+function saveSessionsSoon() {
+  if (saveSessionsTimer) return
+  saveSessionsTimer = setTimeout(saveSessions, SESSIONS_SAVE_SOON_MS)
+  saveSessionsTimer.unref?.()
+}
+/** Write now if a soon-save waits (quitting) */
+function flushSessions() {
+  if (saveSessionsTimer) saveSessions()
+}
+
 function saveSessions() {
+  if (saveSessionsTimer) { clearTimeout(saveSessionsTimer); saveSessionsTimer = null }
   try {
     // Ended sessions are on their way out and are not kept, nor are
     // registry-only sessions (the registry rebuilds them on the next start)
@@ -846,6 +860,7 @@ app.post('/pokedex/swap', requireToken, (req, res) => {
 // The app is quitting: write what is waiting to be saved (steps batched for up to 30 s)
 app.post('/flush', requireToken, (_req, res) => {
   try { pokedex.flush() } catch (err) { console.error('[flush]', err.message) }
+  try { flushSessions() } catch (err) { console.error('[flush]', err.message) }
   res.json({ ok: true })
 })
 
@@ -941,8 +956,9 @@ function processEvent(body) {
         if (lowered) saveSessions()
         return lowered
       }
-      mainWorking(session, body.status, now)
-      saveSessions()
+      // Most tool calls change nothing but the activity time: that is saved a few seconds on
+      if (mainWorking(session, body.status, now)) saveSessions()
+      else saveSessionsSoon()
       return {
         type: 'agent_working',
         status: body.status,
@@ -1522,5 +1538,6 @@ export {
   pendingNeedsYou,
   processEvent,
   sweepStale,
+  flushSessions,
   broadcast,
 }
