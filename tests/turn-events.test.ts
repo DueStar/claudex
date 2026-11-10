@@ -419,6 +419,16 @@ describe('session_tool_done (main-thread PostToolUse / PostToolBatch)', () => {
     expect(office.server.processEvent({ type: 'session_tool_done', ...ALPHA, batch: true, count: 2 })).toMatchObject({ type: 'session_main', main: expect.objectContaining({ state: 'working' }) })
   })
 
+  it('a tool result, batch end or tool call that started before the hand went up does not lower it (tool hooks run in the background)', () => {
+    const before = Date.now() - 1000
+    raise(office, { ...ALPHA, kind: 'permission', promptId: 'p-1', toolName: 'Write', summary: 'late.txt' })
+    expect(office.server.processEvent({ type: 'session_tool_done', ...ALPHA, batch: true, count: 1, at: before })).toBeNull()
+    expect(office.server.processEvent({ type: 'session_tool_done', ...ALPHA, toolName: 'Write', at: before })).toBeNull()
+    expect(office.server.processEvent({ type: 'agent_working', ...ALPHA, status: 'Write', at: before })).toBeNull()
+    expect(main(office, ALPHA.sessionId).state).toBe('needs-you')
+    expect(office.server.processEvent({ type: 'session_tool_done', ...ALPHA, batch: true, count: 1, at: Date.now() + 1 })).toMatchObject({ type: 'session_main', main: expect.objectContaining({ state: 'working' }) })
+  })
+
   it('says nothing when no hand is up, for other kinds, or without a session', () => {
     expect(office.server.processEvent({ type: 'session_tool_done', ...ALPHA, toolName: 'Bash' })).toBeNull()
     expect(office.server.processEvent({ type: 'session_tool_done', ...ALPHA, batch: true, count: 3 })).toBeNull()

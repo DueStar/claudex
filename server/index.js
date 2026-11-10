@@ -194,6 +194,10 @@ const NEEDS_YOU_KINDS = new Set(['permission', 'idle', 'quota', 'agent-input'])
 // - PreToolUse fires ~70 ms before the PermissionRequest of the same call and
 //   the hook's POSTs are backgrounded, so the two can arrive in either order:
 //   a working event does not lower a hand raised less than PERMISSION_RACE_MS ago
+// - the tool hooks (PreToolUse, PostToolUse, PostToolBatch) run with async: true
+//   (electron/terminals.cjs ASYNC_HOOKS) and can arrive after a later event; each
+//   carries when its hook started (at): a tool call older than the last state
+//   change, or a tool result older than a wait, does not touch it
 // - a hand nobody answers comes down by itself after NEEDS_YOU_TIMEOUT_MS
 //   (re-armed for what is left of it when a hand is restored from agents.json)
 //
@@ -412,9 +416,12 @@ function lowerPermissionHand(session, answers, what, to) {
 function toolDone(session, done) {
   const answers = (toolName, agentId, callKey) => sameThread(agentId, done.agentId)
     && (done.batch === true || (!!done.toolName && toolName === done.toolName && sameCallKey(callKey, done.callKey)))
+  // A result whose hook started before the wait (tool hooks run in the background, so one
+  // can arrive after the next PermissionRequest) answers an earlier call, not this wait
+  const after = (w) => typeof done.at !== 'number' || !(w.since > done.at)
   const what = done.batch === true ? `tool batch of ${done.count ?? '?'} done` : `${done.toolName ?? 'tool'} ran`
   // The main thread goes back to work; a worker's hand returns to where it was raised from
-  return lowerPermissionHand(session, (w, call) => answers(w.toolName, call.agentId, call.callKey), what, done.agentId ? undefined : 'working')
+  return lowerPermissionHand(session, (w, call) => after(w) && answers(w.toolName, call.agentId, call.callKey), what, done.agentId ? undefined : 'working')
 }
 
 /**
@@ -997,7 +1004,7 @@ function processEvent(body) {
       // mcp__<server>__<tool>) was granted, exactly as for any other tool
       const session = touchSession(body)
       if (!session || !body.tool) return null
-      return toolDone(session, { toolName: `mcp__${body.server}__${body.tool}`, callKey: body.callKey, agentId: body.agentId })
+      return toolDone(session, { toolName: `mcp__${body.server}__${body.tool}`, callKey: body.callKey, agentId: body.agentId, at: body.at })
     }
 
     case 'session_started': {
@@ -1178,7 +1185,7 @@ function processEvent(body) {
       // (toolDone). Another call of the same tool says nothing about it.
       const session = touchSession(body)
       if (!session) return null
-      return toolDone(session, { toolName: body.toolName, callKey: body.callKey, agentId: body.agentId, batch: body.batch, count: body.count })
+      return toolDone(session, { toolName: body.toolName, callKey: body.callKey, agentId: body.agentId, batch: body.batch, count: body.count, at: body.at })
     }
 
     case 'session_cwd': {
