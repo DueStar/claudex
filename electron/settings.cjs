@@ -15,7 +15,7 @@ const { validTool } = require('./adapters.cjs')
 const MODELS = ['', 'opus', 'sonnet', 'haiku']                 // '' = Claude Code's own default
 const PERMISSION_MODES = ['', 'default', 'acceptEdits', 'plan', 'auto'] // Claude Code's names; never bypassPermissions from a menu
 const DURATIONS = { short: 0.6, normal: 1, long: 1.6 }
-const SCROLLBACKS = [1000, 5000, 10000, 50000]                 // lines a terminal keeps above the screen
+const SCROLLBACKS = [1000, 5000, 10000]                        // lines a terminal keeps above the screen (50000 was ~72 MB a terminal)
 const TERMINAL_FONTS = ['default', 'consolas', 'cascadia', 'd2coding'] // the stacks are in src/termFont.ts
 
 const DEFAULTS = Object.freeze({
@@ -57,7 +57,9 @@ function sanitize(input, base = DEFAULTS) {
   for (const [group, fields] of Object.entries(DEFAULTS)) {
     out[group] = {}
     for (const [key, def] of Object.entries(fields)) {
-      const v = input?.[group]?.[key]
+      let v = input?.[group]?.[key]
+      // A choice that was taken away becomes the nearest one left
+      if (group === 'terminal' && key === 'scrollback' && v === 50000) v = 10000
       const check = CHECKS[`${group}.${key}`]
       const ok = v !== undefined && typeof v === typeof def && (!check || check(v))
       // (the one list, session.tools, is kept to its three fields)

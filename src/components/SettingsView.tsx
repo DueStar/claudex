@@ -22,7 +22,7 @@ const PERMISSION_HINT: Record<AppSettings['session']['permissionMode'], string> 
   auto: '별도 모델이 작업을 검토한 뒤 확인 없이 실행해요',
 }
 /** 설정 › 앱 › 스크롤 기록: the lines a terminal keeps (electron/settings.cjs checks the same list) */
-const SCROLLBACKS: AppSettings['terminal']['scrollback'][] = [1000, 5000, 10000, 50000]
+const SCROLLBACKS: AppSettings['terminal']['scrollback'][] = [1000, 5000, 10000]
 // The names go through t() when shown, so a language change re-renders them
 const SECTIONS: [Section, string][] = [['notify', '알림'], ['privacy', '개인정보'], ['session', '세션'], ['tools', 'AI 도구'], ['app', '앱'], ['data', '데이터']]
 
