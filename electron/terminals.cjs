@@ -31,6 +31,19 @@ function loadPty() {
 }
 
 /**
+ * End a session's whole process tree at once (Claude Code and whatever it
+ * started). node-pty's own kill finds the console's processes later, in a
+ * forked helper; quitting while that is still under way left the app's main
+ * process hung in its native teardown.
+ */
+function killTreeNow(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return
+  try {
+    require('child_process').execFile('taskkill', ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, () => {})
+  } catch { /* the process is gone already */ }
+}
+
+/**
  * The Claude Code events the hook forwards (hooks/claudex-hook.cjs). No
  * matchers: every tool call is a step for the session's Pokémon, and the
  * other events either have no matcher support or are wanted every time.
@@ -161,7 +174,7 @@ function linkedConversation(userDataDir, sessionId) {
  * `tools()`: the trainer's other AI tools (설정 › 세션). `emit(event)`: a server
  * event for a session whose tool has no hooks (main posts it to /event).
  */
-function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {} }) {
+function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {}, pty: ptyModule = null, killTree = killTreeNow }) {
   const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
   // The sessions open when the app last closed (open-sessions.json): what the
@@ -224,7 +237,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     let { file: command, args } = adapter.launch({ sessionId, resume: conversation, settingsFile: adapter.id === 'claude' ? settings() : null, extraArgs: adapter.id === 'claude' ? extraArgs() : [] })
     // Debug only: CLAUDEX_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
     if (process.env.CLAUDEX_CLAUDE && adapter.id === 'claude') { command = process.env.CLAUDEX_CLAUDE; args = [] }
-    const pty = loadPty().spawn(command, args, {
+    const pty = (ptyModule ?? loadPty()).spawn(command, args, {
       name: 'xterm-256color',
       cols: 100,
       rows: 30,
@@ -234,6 +247,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       useConpty: true,
     })
     const t = { id: sessionId, sessionId, cwd: dir, pty, buffer: '', status: 'running', createdAt: Date.now(), adapter }
+    t.exited = new Promise((resolve) => { t.markExited = resolve })
     terms.set(t.id, t)
     t.scan = ''
     // A tool without hooks: the server hears of it from here, its output standing in for its events
@@ -253,6 +267,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       t.activity?.stop()
       t.status = 'exited'
       t.exitCode = exitCode
+      t.markExited()
       broadcastList()
       // Claude killed with its terminal never runs SessionEnd: say it ourselves
       if (onExit) { try { onExit(t.sessionId, exitCode) } catch {} }
@@ -333,12 +348,29 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     return true
   }
 
-  function killAll() {
+  /**
+   * Quitting: end every running session's process tree and wait (at most
+   * timeoutMs) until each has reported its exit, so nothing of node-pty is
+   * still running when the app tears down. The sessions stay listed as open
+   * (frozen), for the next start to reopen.
+   */
+  async function shutdown(timeoutMs = 3000) {
     frozen = true
-    for (const t of terms.values()) if (t.status !== 'exited') { try { t.pty.kill() } catch {} }
+    const running = [...terms.values()].filter(t => t.status !== 'exited')
+    if (!running.length) return { exited: 0, stuck: 0 }
+    for (const t of running) {
+      try { killTree(t.pty.pid) } catch {}
+      try { t.pty.kill() } catch {}
+    }
+    let timer
+    const timeout = new Promise((resolve) => { timer = setTimeout(resolve, timeoutMs) })
+    await Promise.race([Promise.all(running.map(t => t.exited)), timeout])
+    clearTimeout(timer)
+    const stuck = running.filter(t => t.status !== 'exited').length
+    return { exited: running.length - stuck, stuck }
   }
 
-  return { create, write, sendInstruction, resize, buffer, list, rename, close, move, killAll, takeRestorable }
+  return { create, write, sendInstruction, resize, buffer, list, rename, close, move, shutdown, takeRestorable }
 }
 
 module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch, HOOK_EVENTS }

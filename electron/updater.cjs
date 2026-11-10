@@ -195,7 +195,8 @@ function createUpdater({ app, send, isPackaged }) {
    * Restart into the new version. The swap happens in the next start, before
    * it loads anything (applyPendingUpdate): a script left behind to do it after
    * the app quits does not survive on Windows (a detached PowerShell never
-   * runs; an attached one dies with the app).
+   * runs; an attached one dies with the app). app.quit() runs main.cjs's quit
+   * sequence (sessions ended and waited for, server stopped), as any quit does.
    */
   function restart() {
     if (state.status !== 'ready' || !manifest?.staged) return false

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch } = require('../electron/terminals.cjs')
+const { writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch, createTerminalManager } = require('../electron/terminals.cjs')
 
 const REPO = fileURLToPath(new URL('..', import.meta.url))
 
@@ -116,5 +116,60 @@ describe('terminals.cjs', () => {
   it('drops the NO_COLOR Claude Code sets, keeps one the user set', () => {
     expect(cleanEnv({ PATH: '/bin', CLAUDECODE: '1', NO_COLOR: '1' })).toEqual({ PATH: '/bin' })
     expect(cleanEnv({ PATH: '/bin', NO_COLOR: '1' })).toEqual({ PATH: '/bin', NO_COLOR: '1' })
+  })
+})
+
+/** A stand-in for node-pty: records what was spawned; `exit(pid)` plays the process ending */
+function fakePty() {
+  let next = 100
+  const procs = new Map<number, { onExit?: (e: { exitCode: number }) => void; onData?: (d: string) => void; killed: boolean }>()
+  return {
+    procs,
+    exit(pid: number) { procs.get(pid)?.onExit?.({ exitCode: 1 }) },
+    data(pid: number, d: string) { procs.get(pid)?.onData?.(d) },
+    spawn() {
+      const pid = next++
+      const p = { killed: false } as { onExit?: (e: { exitCode: number }) => void; onData?: (d: string) => void; killed: boolean }
+      procs.set(pid, p)
+      return {
+        pid,
+        onData(cb: (d: string) => void) { p.onData = cb },
+        onExit(cb: (e: { exitCode: number }) => void) { p.onExit = cb },
+        kill() { p.killed = true },
+        write() {}, resize() {},
+      }
+    },
+  }
+}
+
+function manager(pty: ReturnType<typeof fakePty>, killTree: (pid: number) => void, extra: Record<string, unknown> = {}) {
+  const userDataDir = tempDir()
+  return createTerminalManager({ repoRoot: REPO, userDataDir, defaultCwd: userDataDir, send: () => {}, pty, killTree, ...extra })
+}
+
+describe('terminal manager shutdown', () => {
+  it("shutdown kills each running session's process tree and waits for its exit", async () => {
+    const pty = fakePty()
+    const killed: number[] = []
+    const terms = manager(pty, (pid) => { killed.push(pid); setTimeout(() => pty.exit(pid), 10) })
+    terms.create({ tool: 'shell' })
+    terms.create({ tool: 'shell' })
+    expect(await terms.shutdown(1000)).toEqual({ exited: 2, stuck: 0 })
+    expect(killed.sort()).toEqual([100, 101])
+    expect([...pty.procs.values()].every(p => p.killed)).toBe(true)
+  })
+
+  it('shutdown gives up after the timeout and reports the stuck ones', async () => {
+    const pty = fakePty()
+    const terms = manager(pty, () => {})
+    terms.create({ tool: 'shell' })
+    const t0 = Date.now()
+    expect(await terms.shutdown(50)).toEqual({ exited: 0, stuck: 1 })
+    expect(Date.now() - t0).toBeLessThan(1000)
+  })
+
+  it('shutdown with nothing running resolves at once', async () => {
+    const terms = manager(fakePty(), () => { throw new Error('no tree to kill') })
+    expect(await terms.shutdown(1000)).toEqual({ exited: 0, stuck: 0 })
   })
 })

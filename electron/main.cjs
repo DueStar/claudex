@@ -31,6 +31,7 @@ const { createTerminalManager, gitBranch } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
+const { startQuitWatchdog } = require('./quitWatchdog.cjs')
 const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
 const { t, useLanguage } = require('./i18n.cjs')
@@ -942,7 +943,7 @@ function swapPokemon(sessionId, uid) {
 }
 
 /** POST to the server with the server token; resolves to the JSON reply */
-function serverPost(pathname, body = {}) {
+function serverPost(pathname, body = {}, timeoutMs = 15000) {
   const token = readServerToken(TOKEN_FILE)
   if (!token) return Promise.resolve({ ok: false, reason: 'no-token' })
   const data = JSON.stringify(body)
@@ -950,7 +951,7 @@ function serverPost(pathname, body = {}) {
     const req = http.request(`${SERVER_URL}${pathname}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), Authorization: `Bearer ${token}` },
-      timeout: 15000,
+      timeout: timeoutMs,
     }, (res) => {
       let out = ''
       res.setEncoding('utf8')
@@ -1180,25 +1181,34 @@ if (app.isPackaged && !takeInstanceLock()) {
     app.quit()
   })
 
-  // The server must hear that the open sessions are over before it is stopped: posted
-  // and stopped at once, it was gone before they arrived and kept them working
-  let endingSessions = null
+  // Quitting (and an update restart, which quits too) runs one sequence before the app
+  // goes: the server hears the open sessions are over (posted and stopped at once, it was
+  // gone before they arrived and kept them working), saves what it holds, the sessions'
+  // processes are ended and waited for, then the server stops. Quitting while node-pty
+  // was still killing sessions once left the main process hung in its native teardown,
+  // so a watchdog process ends the main if the quit has not finished 10 s on.
+  let quitSequence = null
   app.on('before-quit', (e) => {
     quitting = true
-    if (endingSessions === null) {
+    if (quitSequence === 'done') return
+    e.preventDefault()
+    if (quitSequence) return
+    if (app.isPackaged) { try { startQuitWatchdog(process.pid) } catch {} }
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+    quitSequence = (async () => {
       const running = terminals ? terminals.list().filter(t => t.status === 'running') : []
-      if (running.length) {
-        e.preventDefault()
-        endingSessions = Promise.all(running.map(t => postSessionEnded(t.sessionId)))
-        // at most 2 s, then quit anyway
-        Promise.race([endingSessions, new Promise(r => setTimeout(r, 2000))]).then(() => app.quit())
-        return
+      if (running.length) await Promise.race([Promise.all(running.map(t => postSessionEnded(t.sessionId))), sleep(2000)])
+      await serverPost('/flush', {}, 1500)
+      if (terminals) {
+        const { stuck } = await terminals.shutdown(3000)
+        if (stuck) console.warn(`[main] quit: ${stuck} session(s) did not exit`)
       }
-      endingSessions = Promise.resolve()
-    }
-    if (terminals) terminals.killAll()
-    if (tray) { tray.dispose(); tray = null }
-    stopServer()
+      if (tray) { tray.dispose(); tray = null }
+      stopServer()
+    })().catch((err) => console.error('[main] quit sequence:', err?.message ?? err)).finally(() => {
+      quitSequence = 'done'
+      app.quit()
+    })
   })
 
   app.on('activate', reopen)
