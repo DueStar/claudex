@@ -997,6 +997,8 @@ function registerTerminalIpc() {
     // 설정 › 세션 › AI 도구: the other tools, whose sessions report through their terminal's output
     tools: () => appSettings().session.tools,
     emit: (event) => { void serverPost('/event', event) },
+    // A Codex tab's context and usage limits (from its session log), as a status line would
+    postStatus: (body) => { void serverPost('/status', body) },
   })
   const guard = (fn) => (event, arg) => (fromOurWindow(event) ? fn(arg, event) : undefined)
   ipcMain.handle('settings:get', guard(() => appSettings()))

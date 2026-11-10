@@ -129,11 +129,14 @@ describe('terminals.cjs', () => {
 function fakePty(log: string[] = []) {
   let next = 100
   const procs = new Map<number, { onExit?: (e: { exitCode: number }) => void; onData?: (d: string) => void; killed: boolean }>()
+  const spawned: { command: string; args: string[] }[] = []
   return {
     procs,
+    spawned,
     exit(pid: number) { procs.get(pid)?.onExit?.({ exitCode: 1 }) },
     data(pid: number, d: string) { procs.get(pid)?.onData?.(d) },
-    spawn() {
+    spawn(command: string, args: string[]) {
+      spawned.push({ command, args })
       const pid = next++
       const p = { killed: false } as { onExit?: (e: { exitCode: number }) => void; onData?: (d: string) => void; killed: boolean }
       procs.set(pid, p)
@@ -247,5 +250,54 @@ describe('terminal output', () => {
     pty.exit(100)
     expect(order[0]).toBe('data bye')
     expect(order).toContain('terminals:list')
+  })
+})
+
+describe('a Codex tab', () => {
+  const TOOLS = [{ id: 'codex', name: 'Codex CLI', command: 'codex' }]
+  function codexManager() {
+    const pty = fakePty()
+    const userDataDir = tempDir()
+    const watches: any[] = []
+    const events: any[] = []
+    const statuses: any[] = []
+    const terms = createTerminalManager({
+      repoRoot: REPO, userDataDir, defaultCwd: userDataDir, send: () => {}, pty, killTree: () => {},
+      tools: () => TOOLS, emit: (e: any) => events.push(e), postStatus: (s: any) => statuses.push(s),
+      codexWatch: (opts: any) => { const w = { opts, stopped: false, stop() { w.stopped = true } }; watches.push(w); return w },
+    })
+    return { pty, userDataDir, watches, events, statuses, terms }
+  }
+
+  it("follows its session log: what it tells goes to the server, its thread is remembered for reopening, and output stops standing in", () => {
+    const { pty, userDataDir, watches, events, statuses, terms } = codexManager()
+    const t = terms.create({ tool: 'codex' })
+    expect(watches).toHaveLength(1)
+    expect(watches[0].opts).toMatchObject({ sessionId: t.id, resumeThread: null })
+    watches[0].opts.onThread('01a1c401-945a-7ca0-8b17-38351a3ade01')
+    expect(linkedConversation(userDataDir, t.id)).toBe('01a1c401-945a-7ca0-8b17-38351a3ade01')
+    watches[0].opts.status({ type: 'session_status', sessionId: t.id })
+    expect(statuses).toEqual([{ type: 'session_status', sessionId: t.id }])
+    events.length = 0
+    pty.data(100, 'lots of output')
+    expect(events.filter(e => e.type === 'agent_working')).toEqual([]) // the log speaks now, not the output
+    watches[0].opts.emit({ type: 'session_prompt', sessionId: t.id, text: 'hi' })
+    expect(events).toContainEqual({ type: 'session_prompt', sessionId: t.id, text: 'hi' })
+    pty.exit(100)
+    expect(watches[0].stopped).toBe(true)
+  })
+
+  it('reopened, it resumes the remembered thread; with none it starts anew under the same tab id', () => {
+    const { pty, userDataDir, watches, terms } = codexManager()
+    const id = '77777777-7777-4777-8777-777777777777'
+    terms.create({ tool: 'codex', resume: id })
+    expect(pty.spawned.at(-1)!.args).not.toContain('resume')
+    expect(watches.at(-1).opts).toMatchObject({ sessionId: id, resumeThread: null })
+    fs.mkdirSync(join(userDataDir, 'session-links'), { recursive: true })
+    fs.writeFileSync(join(userDataDir, 'session-links', id), '01a1bf02-5c65-7463-ac3e-1dc7420b39fc')
+    terms.close(id)
+    terms.create({ tool: 'codex', resume: id })
+    expect(pty.spawned.at(-1)!.args.slice(-2)).toEqual(['resume', '01a1bf02-5c65-7463-ac3e-1dc7420b39fc'])
+    expect(watches.at(-1).opts).toMatchObject({ sessionId: id, resumeThread: '01a1bf02-5c65-7463-ac3e-1dc7420b39fc' })
   })
 })

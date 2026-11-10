@@ -109,7 +109,7 @@ Claudex (Electron)
 
 Claudex는 Claude Code를 `claude --session-id <id> --settings %APPDATA%\Claudex\session-settings.json`으로 띄워요. 이 파일에 Claudex 훅(이벤트 16종)과 상태줄이 들어 있고, 앱을 켤 때마다 새로 써요. `~/.claude/settings.json`이나 프로젝트의 `.claude/` 설정은 건드리지 않아요.
 
-- **내 훅은 그대로 돌아요**: Claude Code는 여러 설정에 있는 훅을 합쳐서 실행해요. Claudex 세션에서는 내 훅과 Claudex 훅이 같이 돌아요. Claudex 훅은 아무것도 출력하지 않고 항상 성공(종료 코드 0)으로 끝나서, 내 훅이 내린 권한 응답이나 프롬프트에 붙이는 내용을 바꾸지 않아요. Claudex 서버가 꺼져 있으면 최대 1초 기다리고 넘어가요.
+- **내 훅은 그대로 돌아요**: Claude Code는 여러 설정에 있는 훅을 합쳐서 실행해요. Claudex 세션에서는 내 훅과 Claudex 훅이 같이 돌아요. Claudex 훅은 아무것도 출력하지 않고 항상 성공(종료 코드 0)으로 끝나서, 내 훅이 내린 권한 응답이나 프롬프트에 붙이는 내용을 바꾸지 않아요. 도구 호출 훅 세 가지(PreToolUse·PostToolUse·PostToolBatch)는 `async`로 걸려 있어서 Claude가 기다리지 않아요. 나머지는 Claudex 서버가 꺼져 있으면 최대 1초 기다리고 넘어가요.
 - **상태줄은 Claudex 것이 보여요**: 상태줄은 하나만 쓸 수 있어요. Claude Code 설정 우선순위에서 `--settings`가 사용자·프로젝트 설정보다 앞서기 때문에, Claudex 세션에서는 내 상태줄 대신 Claudex 상태줄(`모델 · ctx 42% · $1.23`)이 보여요. Claudex는 이 상태줄로 컨텍스트 사용량과 5시간·주간 한도를 받아요. Claudex 밖의 세션에서는 내 상태줄이 그대로 나와요.
 - **Claudex가 넣는 환경 변수**: Claudex 터미널의 Claude Code 세션에만 들어가요. 내 훅에서 `CLAUDEX_SESSION_ID`가 있으면 Claudex 안에서 도는 세션이에요.
 
@@ -120,7 +120,8 @@ Claudex는 Claude Code를 `claude --session-id <id> --settings %APPDATA%\Claudex
 
 - **빠지는 환경 변수**: 세션 환경에서 `CLAUDECODE`, `CLAUDE_PID`, `CLAUDE_CODE_`로 시작하는 변수는 빼요. Claude Code 안에서 Claudex를 켰을 때 새 세션이 그 세션의 하위 세션으로 잡히지 않게 하려는 거예요. 그래서 `CLAUDE_CODE_…` 변수를 시스템 환경 변수로 두었다면 Claudex 세션에는 전달되지 않아요.
 - **Claudex 밖의 세션은 세지 않아요**: 걸음·포획·한도는 Claudex 터미널에서 연 세션에서만 들어와요. 다른 터미널이나 IDE에서 연 Claude Code 세션에는 Claudex 훅이 없어서 포켓몬이 걷지 않아요.
-- **다른 AI 도구**: 설정 › AI 도구에 넣은 도구(Codex CLI 등)에는 훅도 위 환경 변수도 넣지 않아요. 터미널 출력으로만 걸음을 세요.
+- **Codex CLI**: 설정 › AI 도구에 Codex(`codex` 명령)를 넣으면, Claudex는 Codex가 스스로 남기는 세션 기록(`~/.codex/sessions/…jsonl`)을 따라 읽어요. 요청·도구 호출(걸음)·턴 끝·모델·컨텍스트(HP)·Codex 사용량 한도(요금제에 따라 5시간·주간·월간)를 Claude 세션처럼 보여 주고, 앱을 다시 켜면 같은 대화로 `codex resume`해요. Codex 설정이나 로그인은 건드리지 않아요.
+- **다른 AI 도구**: 그 밖의 도구(Gemini CLI 등)에는 훅도 위 환경 변수도 넣지 않아요. 터미널 출력으로만 걸음을 세요.
 
 ## 저장하는 것과 보내는 것
 
@@ -139,19 +140,19 @@ Claudex는 Claude Code를 `claude --session-id <id> --settings %APPDATA%\Claudex
 | `%APPDATA%\Claudex\settings.json` | 설정 |
 | `%APPDATA%\Claudex\window-state.json` | 창 위치·크기·모드, 세션 이름 |
 | `%APPDATA%\Claudex\open-sessions.json` | 다음에 켤 때 다시 열 세션(세션 id, 폴더, 도구) |
-| `%APPDATA%\Claudex\session-links\` | 터미널마다 지금 이어지는 대화 id |
+| `%APPDATA%\Claudex\session-links\` | 터미널마다 지금 이어지는 대화 id(Codex 탭은 Codex 스레드 id) |
 | `%APPDATA%\Claudex\session-settings.json` | Claudex 세션에 주는 훅·상태줄 설정 |
 | `%APPDATA%\Claudex\logs\claudex.log` | 앱과 로컬 서버의 로그 |
 
-- 이어하기 목록을 만들려고 `~/.claude/projects`(대화 기록)와 `~/.claude/sessions`(실행 중인 세션)를 읽기만 해요.
+- 이어하기 목록을 만들려고 `~/.claude/projects`(대화 기록)와 `~/.claude/sessions`(실행 중인 세션)를 읽기만 해요. Codex 탭이 열려 있으면 그 탭의 `~/.codex/sessions` 기록을 읽기만 해요.
 - 로컬 서버는 `127.0.0.1`에서만 열리고, 훅과 화면의 요청은 `auth-token`으로 서명하거나 확인해요.
-- 설정의 "요청 내용 숨기기"는 화면에서만 가려요. 저장되는 기록에는 요청 앞 40자가 그대로 남아요.
+- 설정의 "프롬프트 숨기기"를 켜면 화면에서 가리고, 클라우드에 올리는 게임 사본에서도 요청 내용과 도구 인자를 빼요(도구 이름만 남아요). 이 PC의 `pokedex.json`에는 그대로 남아요.
 
 ### PC 밖으로 나가는 것
 
 | 언제 | 어디로 | 무엇을 |
 |---|---|---|
-| 구글 로그인을 했을 때, 잡기·진화 같은 기록이 바뀌면(최대 30초에 한 번) | Supabase | 사용자 id, 표시 이름(구글 이름, 없으면 이메일), 잡은 종 수·본 종 수, 게임 사본. 사본에서 이 PC만 쓰는 값(세션 배정, 프로젝트 목록, 오늘 포획 수, 세션 시작 시각)은 빼고 기록은 최근 200건만 올려요. 포획 기록 안의 프로젝트 폴더 이름, 도구 인자 앞부분, 요청 앞 40자는 사본에 남아요. 행 수준 보안(RLS)으로 본인만 읽고 써요 |
+| 구글 로그인을 했을 때, 잡기·진화 같은 기록이 바뀌면(최대 30초에 한 번) | Supabase | 사용자 id, 표시 이름(구글 이름, 없으면 이메일), 잡은 종 수·본 종 수, 게임 사본. 사본에서 이 PC만 쓰는 값(세션 배정, 프로젝트 목록, 오늘 포획 수, 세션 시작 시각)은 빼고 기록은 최근 200건만 올려요. 포획 기록 안의 프로젝트 폴더 이름은 사본에 남아요. 도구 인자 앞부분과 요청 앞 40자도 남는데, "프롬프트 숨기기"를 켜면 빼고 올려요. 행 수준 보안(RLS)으로 본인만 읽고 써요 |
 | 랭킹을 볼 때 | Supabase | 어느 순위표인지만 보내요. 로그인 전에도 볼 수 있고, 로그인했으면 내 순위를 찾으려고 로그인 정보가 같이 가요. 받는 건 공개한 참여자의 닉네임, 대표 포켓몬, 숫자뿐이에요 |
 | 랭킹에 참여하거나 바꿀 때 | Supabase | 닉네임, 공개 여부, 대표 포켓몬 번호. 순위 숫자(도감 수, 색이 다른 포켓몬 수, 전설·환상 수, 이번 주 포획)는 앱이 보내지 않고 Supabase가 올라온 게임 사본에서 계산해요. 구글 이름과 이메일은 랭킹에 나오지 않아요 |
 | 포켓몬 그림을 처음 볼 때 | `raw.githubusercontent.com`(PokeAPI 그림), `img.pokemondb.net`(박스 아이콘) | 그림 주소 요청만 |

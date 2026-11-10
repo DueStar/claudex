@@ -23,6 +23,7 @@
 const path = require('path')
 const os = require('os')
 const fs = require('fs')
+const { codexTool } = require('./codexWatch.cjs')
 
 /** Claude Code asking something it cannot go on without (folder trust, a permission, a numbered choice) */
 const CLAUDE_ASKING = /Do you trust|trust (the files in )?this folder|Do you want to (proceed|make this edit|create|allow|run)|Yes, (proceed|I trust)|[❯>]\s*1\.\s+Yes/i
@@ -113,17 +114,23 @@ function validTool(t) {
     && typeof t.command === 'string' && splitCommand(t.command).length > 0 && t.command.length <= 300
 }
 
-/** An adapter for a listed terminal tool: its own output is the only event source */
+/**
+ * An adapter for a listed terminal tool: its own output is the only event
+ * source. Codex CLI is told from its session log as well (codexWatch.cjs:
+ * kind 'codex'), which also gives it a thread to resume (`codex resume <id>`).
+ */
 function terminalAdapter(tool) {
+  const codex = codexTool(tool)
   return Object.freeze({
     id: tool.id,
     name: tool.name.trim(),
+    kind: codex ? 'codex' : 'tool',
     events: 'pty',
-    canResume: false,
+    canResume: codex,
     asking: GENERIC_ASKING,
-    launch() {
+    launch({ resume } = {}) {
       const [program, ...args] = splitCommand(tool.command)
-      return spawnable(program, args)
+      return spawnable(program, codex && resume ? [...args, 'resume', resume] : args)
     },
   })
 }
@@ -156,7 +163,10 @@ function createActivity({ sessionId, tool, cwd, emit, now = () => Date.now(), se
   let lastStep = -Infinity
   let working = false
   let quietTimer = null
+  // A better source took over (Codex's session log): output no longer stands in for events
+  let muted = false
   function output(chunk) {
+    if (muted) return
     const t = now()
     if (t - lastKey < ECHO_MS && String(chunk).length < 64) return
     if (!working || t - lastStep >= STEP_MS) {
@@ -174,7 +184,8 @@ function createActivity({ sessionId, tool, cwd, emit, now = () => Date.now(), se
   }
   function input() { lastKey = now() }
   function stop() { if (quietTimer) clearTimer(quietTimer); quietTimer = null; stopEvery(heartbeat) }
-  return { output, input, stop }
+  function mute() { muted = true; working = false; if (quietTimer) clearTimer(quietTimer); quietTimer = null }
+  return { output, input, stop, mute }
 }
 
 module.exports = { CLAUDE, adapterFor, validTool, terminalAdapter, splitCommand, spawnable, createActivity, STEP_MS, QUIET_MS, CLAUDE_ASKING, GENERIC_ASKING }

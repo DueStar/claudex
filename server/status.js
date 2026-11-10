@@ -58,6 +58,23 @@ function sanitiseRateLimits(raw) {
   return Object.keys(out).length ? out : undefined
 }
 
+/**
+ * Codex CLI's usage limits (from its session log, electron/codexWatch.cjs):
+ * a primary and a secondary window (5 hours and a week on today's plans),
+ * each { usedPercent 0-100, windowMinutes, resetsAt (epoch seconds) }.
+ */
+function sanitiseCodexLimits(raw) {
+  if (!raw || typeof raw !== 'object') return undefined
+  const one = (w) => {
+    const usedPercent = w && typeof w === 'object' ? clampNumber(w.usedPercent, 0, 100) : null
+    if (usedPercent === null || usedPercent !== w.usedPercent) return null
+    return { usedPercent, windowMinutes: clampNumber(w.windowMinutes, 1, 1_000_000), resetsAt: clampNumber(w.resetsAt) }
+  }
+  const primary = one(raw.primary)
+  const secondary = one(raw.secondary)
+  return primary || secondary ? { primary, secondary } : undefined
+}
+
 /** Two records alike but for their times (firstSeenAt, updatedAt) */
 function sameStatus(a, b) {
   const strip = ({ firstSeenAt, updatedAt, ...rest }) => rest
@@ -70,6 +87,8 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
   const statuses = new Map()
   /** The last usage limits any session reported, with `at` (when) */
   let limits
+  /** The last Codex usage limits a Codex session reported, with `at` */
+  let codexLimits
   if (limitsFile) {
     try {
       const saved = JSON.parse(readFileSync(limitsFile, 'utf8'))
@@ -100,6 +119,7 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
         output: clampNumber(ctx.output) ?? 0,
       },
       rateLimits: sanitiseRateLimits(body.rateLimits),
+      codexLimits: sanitiseCodexLimits(body.codexLimits),
       firstSeenAt: prev?.firstSeenAt ?? t,
       updatedAt: t,
     }
@@ -113,6 +133,10 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
         try { writeFileSync(limitsFile, JSON.stringify(limits)) } catch (e) { console.warn(`[status] could not save the usage limits: ${e.message}`) }
       }
     }
+    if (rec.codexLimits) {
+      limitsChanged ||= JSON.stringify(rec.codexLimits) !== JSON.stringify(codexLimits && { ...codexLimits, at: undefined })
+      codexLimits = { ...rec.codexLimits, at: t }
+    }
     if (prev && !limitsChanged && sameStatus(prev, rec)) return null
     const used = rec.context.used
     console.log(
@@ -121,7 +145,7 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
       (rec.rateLimits?.fiveHour !== undefined ? ` · 5h ${rec.rateLimits.fiveHour}%` : '') +
       (rec.rateLimits?.sevenDay !== undefined ? ` · 7d ${rec.rateLimits.sevenDay}%` : ''),
     )
-    return { type: 'session_status', sessionId: id, session: { ...rec }, rateLimits: limits, timestamp: t }
+    return { type: 'session_status', sessionId: id, session: { ...rec }, rateLimits: limits, ...(codexLimits ? { codexLimits } : {}), timestamp: t }
   }
 
   /** Drop sessions quiet for staleMs; returns the removal events to broadcast. */
@@ -140,7 +164,7 @@ export function createStatusStore({ staleMs = 120 * 60_000, now = () => Date.now
     const list = Array.from(statuses.values())
       .map(rec => ({ ...rec }))
       .sort((a, b) => b.updatedAt - a.updatedAt)
-    return limits ? { sessions: list, rateLimits: { ...limits } } : { sessions: list }
+    return { sessions: list, ...(limits ? { rateLimits: { ...limits } } : {}), ...(codexLimits ? { codexLimits: { ...codexLimits } } : {}) }
   }
 
   return {

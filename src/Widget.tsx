@@ -14,7 +14,7 @@ import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
-import { dispatchMeters, useMeters, formatClockTime, contextTone, limitNow, type SessionStatus } from './meters'
+import { dispatchMeters, useMeters, formatClockTime, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
@@ -115,6 +115,12 @@ function modelLabel(display?: string, id?: string): string {
   const m = /claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?!\d)/i.exec(id ?? '')
   if (m) return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`
   return (id ?? '').slice(0, 16)
+}
+
+/** A reset a day or more away: M/D HH:MM */
+function resetText(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000)
+  return `${d.getMonth() + 1}/${d.getDate()} ${formatClockTime(epochSeconds)}`
 }
 
 /** A token count, short: 124K, 1.2M */
@@ -427,6 +433,20 @@ const Widget: React.FC = () => {
   // A window that has reset starts again at the next use: no reset time to show yet
   const fiveReset = fiveHour === 0 ? undefined : lim?.fiveHourResetsAt
   const sevenReset = sevenDay === 0 ? undefined : lim?.sevenDayResetsAt
+  const claudeOpen = rows.some(r => r.terminal?.status === 'running' && (r.terminal.tool ?? 'claude') === 'claude')
+  const showClaudeLimits = typeof fiveHour === 'number' || typeof sevenDay === 'number' || claudeOpen
+  // Codex CLI's windows, labelled by their length (5 hours, a week on today's plans)
+  const codexRows = ([['primary', meters.codexLimits?.primary], ['secondary', meters.codexLimits?.secondary]] as const)
+    .filter((e): e is readonly ['primary' | 'secondary', CodexWindow] => !!e[1])
+    .map(([key, w]) => {
+      const value = limitNow(w.usedPercent, w.resetsAt ?? undefined)
+      const m = w.windowMinutes ?? 0
+      const day = 24 * 60
+      const label = m === 300 ? t('Codex 5시간') : m === 7 * day ? t('Codex 주간') : m >= 28 * day && m <= 31 * day ? t('Codex 월간')
+        : m >= day ? t('Codex {d}일', { d: Math.round(m / day) }) : t('Codex {h}시간', { h: Math.max(1, Math.round(m / 60)) })
+      const reset = value !== 0 && w.resetsAt ? (m > 24 * 60 ? resetText(w.resetsAt) : formatClockTime(w.resetsAt)) : null
+      return { key, label, value, reset }
+    })
 
   /** Where the next throw goes: a new session (optionally in a picked folder) or a resumed one */
   const [throwing, setThrowing] = useState<{ cwd?: string; resume?: PastSession } | null>(null)
@@ -453,7 +473,7 @@ const Widget: React.FC = () => {
     const sessionId = where.resume?.id ?? crypto.randomUUID()
     const mon = dex?.mons?.[uid]
     if (mon) castSession(sessionId, mon.dex, mon.shiny)
-    const r = await bridge.terminals.create(where.resume ? { cwd: where.resume.cwd, resume: where.resume.id } : { sessionId, ...(where.cwd ? { cwd: where.cwd } : {}), ...(where.tool ? { tool: where.tool } : {}) })
+    const r = await bridge.terminals.create(where.resume ? { cwd: where.resume.cwd, resume: where.resume.id, ...(where.tool ? { tool: where.tool } : {}) } : { sessionId, ...(where.cwd ? { cwd: where.cwd } : {}), ...(where.tool ? { tool: where.tool } : {}) })
     if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return }
     const thrown = await bridge.game.throw(r.sessionId, uid)
     if (!thrown.ok) setNote(thrown.reason === 'busy' ? t('세션은 열렸어요. 고른 파트너가 다른 세션에서 일하고 있어서 다른 파트너가 함께해요.') : thrown.reason === 'no-token' ? t('세션은 열렸어요. 서버와 연결되는 중이라 파트너는 잠시 뒤에 배정돼요.') : t('세션은 열렸지만 파트너를 배정하지 못했어요 ({reason})', { reason: thrown.reason ?? t('알 수 없는 이유') }))
@@ -508,9 +528,9 @@ const Widget: React.FC = () => {
         const uid = remembered && free.includes(remembered) ? remembered : free[0]
         if (!uid) break
         used.add(uid)
-        // Claude Code resumes; another tool cannot, and opens anew in the same folder
-        if (s.tool && s.tool !== 'claude') await throwBall(uid, { cwd: s.cwd, tool: s.tool }, true)
-        else await throwBall(uid, { resume: { id: s.sessionId, cwd: s.cwd } as PastSession }, true)
+        // Every tab comes back under its own id (so with its Pokémon): Claude Code and Codex CLI
+        // resume their conversation, another tool opens anew in the same folder
+        await throwBall(uid, { resume: { id: s.sessionId, cwd: s.cwd } as PastSession, ...(s.tool && s.tool !== 'claude' ? { tool: s.tool } : {}) }, true)
       }
     })()
   }, [dex]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -641,16 +661,20 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
           {/* The subscription's two limits: the only numbers that decide whether work can go on */}
           {/* Limits arrive with a session's status line: before any session there is nothing to wait for */}
-          {typeof fiveHour !== 'number' && typeof sevenDay !== 'number' && !sendable.length ? (
+          {/* Codex CLI's own limits (from its session log) get rows of their own; Claude's rows show
+              once Claude has reported, or while a Claude session is open (they are on their way) */}
+          {!showClaudeLimits && !codexRows.length ? (
             <section className="w-card w-limits idle">
               <span className="w-label">{t('사용량')}</span>
               <span className="w-limits-hint">{t('세션을 열면 5시간·주간 사용량을 볼 수 있어요')}</span>
             </section>
           ) : (
             <section className="w-card w-limits">
-              <Limit label={t('5시간')} value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
-              <Limit label={t('주간')} value={sevenDay}
-                reset={sevenReset ? `${new Date(sevenReset * 1000).getMonth() + 1}/${new Date(sevenReset * 1000).getDate()} ${formatClockTime(sevenReset)}` : null} />
+              {showClaudeLimits && <>
+                <Limit label={t('5시간')} value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
+                <Limit label={t('주간')} value={sevenDay} reset={sevenReset ? resetText(sevenReset) : null} />
+              </>}
+              {codexRows.map(r => <Limit key={r.key} label={r.label} value={r.value} reset={r.reset} />)}
             </section>
           )}
 

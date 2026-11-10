@@ -48,7 +48,7 @@ const en: Record<string, string> = {
   // 개인정보
   '화면을 공유하거나 녹화할 때 보이지 않았으면 하는 내용을 숨겨요.': "Hide what you don't want seen while sharing or recording your screen.",
   '프롬프트 숨기기': 'Hide prompts',
-  '알림·도감·박스·기록에서 프롬프트 내용 대신 사용한 도구만 표시해요': 'Notifications, Pokédex, Box and history show only the tools used, not your prompts',
+  '알림·도감·박스·기록에서 프롬프트 내용 대신 사용한 도구만 표시하고, 클라우드 백업에도 프롬프트를 올리지 않아요': 'Notifications, Pokédex, Box and history show only the tools used, not your prompts, and prompts stay out of the cloud backup',
 
   // 세션
   '새로 여는 Claude Code 세션부터 적용돼요. 이미 열린 세션은 바뀌지 않아요.': 'Applies to new Claude Code sessions. Sessions already open stay as they are.',
@@ -152,7 +152,7 @@ const ja: Record<string, string> = {
   // 개인정보
   '화면을 공유하거나 녹화할 때 보이지 않았으면 하는 내용을 숨겨요.': '画面共有や録画のときに見せたくない内容を隠します。',
   '프롬프트 숨기기': 'プロンプトを隠す',
-  '알림·도감·박스·기록에서 프롬프트 내용 대신 사용한 도구만 표시해요': '通知・図鑑・ボックス・履歴でプロンプトの内容の代わりに使ったツールだけを表示します',
+  '알림·도감·박스·기록에서 프롬프트 내용 대신 사용한 도구만 표시하고, 클라우드 백업에도 프롬프트를 올리지 않아요': '通知・図鑑・ボックス・履歴でプロンプトの内容の代わりに使ったツールだけを表示し、クラウドのバックアップにもプロンプトを上げません',
 
   // 세션
   '새로 여는 Claude Code 세션부터 적용돼요. 이미 열린 세션은 바뀌지 않아요.': '新しく開く Claude Code セッションから適用されます。開いているセッションは変わりません。',

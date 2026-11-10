@@ -42,6 +42,17 @@ describe('reduceMeters', () => {
     expect(moved).not.toBe(one)
   })
 
+  it("keeps Codex's usage limits apart, from events and from the snapshot", () => {
+    const cx = { primary: { usedPercent: 12, windowMinutes: 300, resetsAt: 1 }, secondary: null, at: 5 }
+    const one = reduceMeters(EMPTY, { type: 'session_status', sessionId: 'cx', session: session({ sessionId: 'cx' }), rateLimits: { fiveHour: 3 }, codexLimits: cx } as any)
+    expect(one.codexLimits).toEqual(cx)
+    expect(one.limits).toEqual({ fiveHour: 3 })
+    const next = reduceMeters(one, { type: 'session_status', sessionId: 'sess-1', session: session() } as any)
+    expect(next.codexLimits).toEqual(cx)
+    const snap = reduceMeters(EMPTY, { type: 'session_status', statuses: [], rateLimits: undefined, codexLimits: cx } as any)
+    expect(snap.codexLimits).toEqual(cx)
+  })
+
   it('the snapshot form replaces everything', () => {
     const prev = reduceMeters(EMPTY, { type: 'session_status', sessionId: 'gone', session: session({ sessionId: 'gone' }) })
     const next = reduceMeters(prev, { type: 'session_status', statuses: [session({ sessionId: 'a', updatedAt: 1 }), session({ sessionId: 'b', updatedAt: 2 })] })

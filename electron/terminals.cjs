@@ -22,6 +22,7 @@ const fs = require('fs')
 const os = require('os')
 const crypto = require('crypto')
 const { adapterFor, createActivity } = require('./adapters.cjs')
+const { createCodexWatch } = require('./codexWatch.cjs')
 
 const MAX_BUFFER = 200_000 // characters of scrollback kept for a tab opened later
 const OUTPUT_BATCH_MS = 16 // a session's output goes to the window at most once a frame
@@ -185,7 +186,7 @@ function linkedConversation(userDataDir, sessionId) {
  * `tools()`: the trainer's other AI tools (설정 › 세션). `emit(event)`: a server
  * event for a session whose tool has no hooks (main posts it to /event).
  */
-function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {}, pty: ptyModule = null, killTree = killTreeNow }) {
+function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {}, postStatus = () => {}, pty: ptyModule = null, killTree = killTreeNow, codexWatch = createCodexWatch }) {
   const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
   // The sessions open when the app last closed (open-sessions.json): what the
@@ -236,15 +237,18 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
 
   function create({ cwd, resume, sessionId: wanted, tool } = {}) {
     const adapter = adapterFor(tool, tools())
+    // A tab reopened keeps its id (and so its Pokémon) even when its tool cannot resume
+    const reopened = typeof resume === 'string' && resume ? resume : undefined
     if (!adapter.canResume) resume = undefined
     // No folder picked: the default one (설정, else Documents), else home
     const def = typeof defaultCwd === 'function' ? defaultCwd() : defaultCwd
     const fallback = def && fs.existsSync(def) ? def : os.homedir()
     const dir = cwd && fs.existsSync(cwd) ? cwd : fallback
     // The widget may pick the id itself, so it can dress the session in its Pokémon before the tab shows
-    const sessionId = resume || (typeof wanted === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(wanted) ? wanted : crypto.randomUUID())
+    const sessionId = reopened || (typeof wanted === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(wanted) ? wanted : crypto.randomUUID())
     // A terminal reopened resumes the conversation it last had (after a /clear, not the one it began with)
-    const conversation = resume ? linkedConversation(userDataDir, resume) || resume : undefined
+    // (Codex resumes only a thread its log named; with none it starts anew)
+    const conversation = resume ? linkedConversation(userDataDir, resume) || (adapter.kind === 'codex' ? undefined : resume) : undefined
     let { file: command, args } = adapter.launch({ sessionId, resume: conversation, settingsFile: adapter.id === 'claude' ? settings() : null, extraArgs: adapter.id === 'claude' ? extraArgs() : [] })
     // Debug only: CLAUDEX_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
     if (process.env.CLAUDEX_CLAUDE && adapter.id === 'claude') { command = process.env.CLAUDEX_CLAUDE; args = [] }
@@ -277,8 +281,20 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       if (!t.asking && adapter.asking.test(t.scan)) { t.asking = true; broadcastList() }
       t.activity?.output(data)
     })
+    // Codex CLI: its session log tells what it does (codexWatch.cjs), better than its output
+    if (adapter.kind === 'codex') {
+      t.codex = codexWatch({
+        sessionId, cwd: dir, startedAt: t.createdAt, resumeThread: conversation ?? null,
+        emit, status: postStatus,
+        onThread: (thread) => {
+          t.activity?.mute()
+          try { fs.writeFileSync(linkFile(userDataDir, sessionId), String(thread)) } catch { /* reopening starts anew */ }
+        },
+      })
+    }
     pty.onExit(({ exitCode }) => {
       flushOutput(t)
+      t.codex?.stop()
       t.activity?.stop()
       t.status = 'exited'
       t.exitCode = exitCode
@@ -371,6 +387,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const t = terms.get(id)
     if (!t) return
     if (t.flushTimer) { clearTimeout(t.flushTimer); t.flushTimer = null }
+    t.codex?.stop()
     // An ended session's pty is closed too: node-pty leaves its pseudo-console and output
     // worker open after a plain exit, and once the tab is gone shutdown() cannot reach it
     try { t.pty.kill() } catch {}

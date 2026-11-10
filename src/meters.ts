@@ -48,10 +48,16 @@ export type MeterTotals = Record<string, number>
 /** The last usage limits heard, kept when their session is gone (`at`: when) */
 export type SavedLimits = RateLimitStatus & { at?: number }
 
+/** One of Codex CLI's usage windows: used %, its length, when it resets (epoch seconds) */
+export interface CodexWindow { usedPercent: number; windowMinutes: number | null; resetsAt: number | null }
+/** Codex CLI's usage limits (a 5-hour and a weekly window on today's plans) */
+export interface CodexLimits { primary: CodexWindow | null; secondary: CodexWindow | null; at?: number }
+
 export interface MetersState {
   /** Most recently updated first */
   sessions: SessionStatus[]
   limits?: SavedLimits
+  codexLimits?: CodexLimits
 }
 
 export type Tone = 'ok' | 'warn' | 'danger'
@@ -115,7 +121,7 @@ export function reduceMeters(prev: MetersState, event: ServerEvent): MetersState
   // Snapshot form: the server's whole store replaces ours (a reconnect
   // after a server restart must not keep rows the server forgot)
   if (event.statuses) {
-    return { sessions: event.statuses.filter(s => s?.sessionId).slice().sort(byRecency), limits: event.rateLimits }
+    return { sessions: event.statuses.filter(s => s?.sessionId).slice().sort(byRecency), limits: event.rateLimits, codexLimits: event.codexLimits }
   }
   if (!event.sessionId) return prev
   if (event.removed) {
@@ -126,9 +132,10 @@ export function reduceMeters(prev: MetersState, event: ServerEvent): MetersState
   const next: SessionStatus = { ...event.session, sessionId: event.sessionId }
   // Only its time moved: the same state, so nothing re-renders
   const limits = event.rateLimits ?? prev.limits
+  const codexLimits = event.codexLimits ?? prev.codexLimits
   const old = prev.sessions.find(s => s.sessionId === event.sessionId)
-  if (old && sameExceptTime(old, next) && sameExceptTime(prev.limits, limits)) return prev
-  return { sessions: [...prev.sessions.filter(s => s.sessionId !== event.sessionId), next].sort(byRecency), limits: event.rateLimits ?? prev.limits }
+  if (old && sameExceptTime(old, next) && sameExceptTime(prev.limits, limits) && sameExceptTime(prev.codexLimits, codexLimits)) return prev
+  return { sessions: [...prev.sessions.filter(s => s.sessionId !== event.sessionId), next].sort(byRecency), limits, codexLimits }
 }
 
 // ---------------------------------------------------------------------------

@@ -74,6 +74,11 @@ const en: Record<string, string> = {
   '세션을 열면 5시간·주간 사용량을 볼 수 있어요': 'Open a session to see your 5-hour and weekly usage',
   '5시간': '5-hour',
   '주간': 'Weekly',
+  'Codex 5시간': 'Codex 5-hour',
+  'Codex 주간': 'Codex weekly',
+  'Codex {h}시간': 'Codex {h}-hour',
+  'Codex 월간': 'Codex monthly',
+  'Codex {d}일': 'Codex {d}-day',
 
   // launcher
   '파티의 포켓몬이 모두 일하는 중': 'Every Pokémon in your party is busy',
@@ -295,6 +300,11 @@ const ja: Record<string, string> = {
   '세션을 열면 5시간·주간 사용량을 볼 수 있어요': 'セッションを開くと5時間・週間の使用量が表示されます',
   '5시간': '5時間',
   '주간': '週間',
+  'Codex 5시간': 'Codex 5時間',
+  'Codex 주간': 'Codex 週間',
+  'Codex {h}시간': 'Codex {h}時間',
+  'Codex 월간': 'Codex 月間',
+  'Codex {d}일': 'Codex {d}日',
 
   // launcher
   '파티의 포켓몬이 모두 일하는 중': '手持ちのポケモンが全員作業中',

@@ -166,7 +166,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onC
           {section === 'privacy' && <>
             <h3>{t('개인정보')}</h3>
             <p className="set-lead">{t('화면을 공유하거나 녹화할 때 보이지 않았으면 하는 내용을 숨겨요.')}</p>
-            <Toggle label={t('프롬프트 숨기기')} hint={t('알림·도감·박스·기록에서 프롬프트 내용 대신 사용한 도구만 표시해요')} on={s.privacy.hidePrompts} onChange={v => set('privacy', { hidePrompts: v })} />
+            <Toggle label={t('프롬프트 숨기기')} hint={t('알림·도감·박스·기록에서 프롬프트 내용 대신 사용한 도구만 표시하고, 클라우드 백업에도 프롬프트를 올리지 않아요')} on={s.privacy.hidePrompts} onChange={v => set('privacy', { hidePrompts: v })} />
           </>}
 
           {section === 'session' && <>

@@ -22,9 +22,17 @@ describe('adapters.cjs', () => {
   })
 
   it('a listed tool runs its own command, reports through its output, and cannot resume', () => {
+    const tools = [{ id: 'gem', name: 'Gemini CLI', command: 'gemini --model "pro 3"' }]
+    const g = adapterFor('gem', tools)
+    expect(g).toMatchObject({ id: 'gem', name: 'Gemini CLI', kind: 'tool', events: 'pty', canResume: false })
+    expect(g.launch({ resume: 'x' }).args.slice(-3)).toEqual(['gemini', '--model', 'pro 3'])
+  })
+
+  it('Codex CLI is a listed tool that resumes its thread (codex … resume <id>)', () => {
     const tools = [{ id: 'codex', name: 'Codex CLI', command: 'codex --model "gpt 5"' }]
     const a = adapterFor('codex', tools)
-    expect(a).toMatchObject({ id: 'codex', name: 'Codex CLI', events: 'pty', canResume: false })
+    expect(a).toMatchObject({ id: 'codex', name: 'Codex CLI', kind: 'codex', events: 'pty', canResume: true })
+    expect(a.launch({ resume: 'thread-1' }).args.slice(-5)).toEqual(['codex', '--model', 'gpt 5', 'resume', 'thread-1'])
     const run = a.launch({})
     // on Windows a bare name goes through cmd.exe (npm shims are .cmd files)
     expect(run.args.slice(-3)).toEqual(['codex', '--model', 'gpt 5'].slice(-3))

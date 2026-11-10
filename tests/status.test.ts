@@ -174,6 +174,28 @@ describe('unchanged status lines', () => {
   })
 })
 
+describe('Codex usage limits', () => {
+  it("a Codex session's limits are kept apart from Claude's, sent along, and in the summary", () => {
+    let t = 1_000
+    const s = createStatusStore({ staleMs: 60_000, now: () => t })
+    s.ingest(status({ rateLimits: { fiveHour: 10 } }))
+    const codex = { primary: { usedPercent: 12.5, windowMinutes: 300, resetsAt: 1794300000 }, secondary: { usedPercent: 40, windowMinutes: 10080, resetsAt: 1794800000 } }
+    const ev = s.ingest({ type: 'session_status', sessionId: 'cx', model: 'gpt-6-luna', context: { used: 25, size: 200000 }, codexLimits: codex })
+    expect(ev).toMatchObject({ type: 'session_status', sessionId: 'cx', codexLimits: { ...codex, at: 1_000 }, rateLimits: { fiveHour: 10 } })
+    expect(s.summary()).toMatchObject({ rateLimits: { fiveHour: 10 }, codexLimits: { primary: { usedPercent: 12.5 } } })
+    t = 2_000
+    expect(s.ingest({ type: 'session_status', sessionId: 'cx', model: 'gpt-6-luna', context: { used: 25, size: 200000 }, codexLimits: codex })).toBeNull()
+    const moved = { ...codex, primary: { ...codex.primary, usedPercent: 13 } }
+    expect(s.ingest({ type: 'session_status', sessionId: 'cx', model: 'gpt-6-luna', context: { used: 25, size: 200000 }, codexLimits: moved })).toMatchObject({ codexLimits: { primary: { usedPercent: 13 } } })
+  })
+
+  it('drops what is not a limit', () => {
+    const s = createStatusStore({ staleMs: 60_000, now: () => 1 })
+    const ev = s.ingest({ type: 'session_status', sessionId: 'cx', context: {}, codexLimits: { primary: { usedPercent: 'x', windowMinutes: 300 }, secondary: { usedPercent: 500 }, extra: 1 } })
+    expect(ev?.codexLimits).toBeUndefined()
+  })
+})
+
 describe('expiry', () => {
   it('drops sessions quiet for staleMs and returns removal events', () => {
     let t = 1_000

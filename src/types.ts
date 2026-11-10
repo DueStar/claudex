@@ -1,4 +1,4 @@
-import type { SessionStatus, MeterTotals, SavedLimits } from './meters'
+import type { SessionStatus, MeterTotals, SavedLimits, CodexLimits } from './meters'
 
 /** What a session's main thread (its Claude) is doing — the server's `main.state` */
 export type MainState = 'working' | 'waiting' | 'idle' | 'needs-you' | 'error' | 'compacting'
@@ -108,6 +108,8 @@ export interface ServerEvent {
   statuses?: SessionStatus[]
   /** session_status: the last usage limits any session reported (server/status.js) */
   rateLimits?: SavedLimits
+  /** session_status: Codex CLI's usage limits, kept apart from Claude's (electron/codexWatch.cjs) */
+  codexLimits?: CodexLimits
   totals?: MeterTotals
   removed?: boolean
   timestamp?: number
