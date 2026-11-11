@@ -79,6 +79,11 @@ contextBridge.exposeInMainWorld('claudex', {
     restart: () => ipcRenderer.invoke('update:restart'),
     onState: (fn) => on('update:state', fn),
   },
+  feedback: {
+    capture: (rect) => ipcRenderer.invoke('feedback:capture', rect),
+    send: (note) => ipcRenderer.invoke('feedback:send', note),
+    copy: (note) => ipcRenderer.invoke('feedback:copy', note),
+  },
   widget: {
     hide: () => ipcRenderer.invoke('widget:hide'),
     getMode: () => ipcRenderer.invoke('widget:get-mode'),

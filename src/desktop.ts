@@ -115,6 +115,14 @@ interface ClaudexBridge {
     restart(): Promise<boolean>
     onState(fn: (s: UpdateState) => void): () => void
   }
+  /** Feedback from a pin on the screen (electron/feedback.cjs) */
+  feedback: {
+    /** A picture of that part of the page (page pixels), for the preview; null if it could not be taken */
+    capture(rect: { x: number; y: number; width: number; height: number }): Promise<string | null>
+    /** Opens a new GitHub issue filled in; with attach, the picture goes on the clipboard first */
+    send(note: FeedbackNote & { attach: boolean }): Promise<{ ok: boolean; attached?: boolean; reason?: string }>
+    copy(note: FeedbackNote): Promise<{ ok: boolean; reason?: string }>
+  }
   widget: {
     hide(): Promise<void>
     getMode(): Promise<WidgetMode>
@@ -126,6 +134,13 @@ interface ClaudexBridge {
     /** A Windows notification and a flashing taskbar button, only while the app is not in front */
     alert(title: string, body: string): void
   }
+}
+
+export type FeedbackKind = 'fix' | 'add' | 'direction' | 'like'
+export interface FeedbackNote {
+  kind: FeedbackKind
+  text: string
+  context: { view: string; element?: string; text?: string; width: number; height: number; lang: string }
 }
 
 export interface UpdateState {

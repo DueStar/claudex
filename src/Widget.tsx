@@ -22,12 +22,13 @@ import { cloudErrorText, dispatchCloud, useCloud } from './cloudStore'
 import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, freeSessionCount, freeBoxUids, isHelperSession, type Mon } from './pokedexStore'
 import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
 import SettingsView from './components/SettingsView'
+import FeedbackPin from './components/FeedbackPin'
 import { useSettings } from './settingsStore'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { useDragOrder } from './useDragOrder'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, FeedbackIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -178,6 +179,8 @@ const Widget: React.FC = () => {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [notesOpen, setNotesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const closeFeedback = useCallback(() => setFeedbackOpen(false), [])
   // Read here so a settings change redraws the whole page (the privacy setting reaches every catch story)
   const settings = useSettings()
   useEffect(() => bridge?.settings?.onOpen(() => setSettingsOpen(true)), [])
@@ -626,6 +629,7 @@ const Widget: React.FC = () => {
               </div>
             )
           })()}
+          <button className="w-rail-btn" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기 · 화면에 핀을 꽂아 남겨요')} aria-label={t('의견 보내기')}><FeedbackIcon size={15} /></button>
           <button className="w-rail-btn" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={15} /></button>
         </nav>
       )}
@@ -663,6 +667,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   : update.error ? t('업데이트 실패 · 다시 시도') : t('업데이트')}
               </button>
             )}
+            <button className="w-icon" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기 · 화면에 핀을 꽂아 남겨요')} aria-label={t('의견 보내기')}><FeedbackIcon size={14} /></button>
             <button className="w-icon" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={14} /></button>
             {!expanded && (
               <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>
@@ -1023,6 +1028,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
       )}
       <PatchNotes />
       {notesOpen && <PatchNotesHistory onClose={() => setNotesOpen(false)} />}
+      {feedbackOpen && <FeedbackPin view={expanded ? view : 'widget'} onClose={closeFeedback} />}
       {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} version={update?.current} />}
       {mode === 'widget' && <ResizeGrip />}
     </div>

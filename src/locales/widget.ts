@@ -224,6 +224,31 @@ const en: Record<string, string> = {
   '이어할 세션이 없어요.': 'No sessions to resume.',
   '앱에서 열림': 'Open in app',
   '실행 중': 'Running',
+  // feedback pin (FeedbackPin.tsx)
+  "복사": "Copy",
+  "복사했어요": "Copied",
+  "의견 보내기": "Send feedback",
+  "의견 보내기 · 화면에 핀을 꽂아 남겨요": "Send feedback · pin it to a spot on the screen",
+  "의견을 남길 곳을 눌러 주세요": "Click the spot you want to comment on",
+  "그냥 쓰기": "Just write",
+  "여기에 한마디": "A note on this spot",
+  "Claudex에 바라는 점": "What should Claudex do next?",
+  "고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.": "Tell me what to fix, what to add, or where you would like it to go.",
+  "고쳐 주세요": "Please fix",
+  "추가해 주세요": "Please add",
+  "이런 방향은 어때요": "A direction",
+  "좋았던 점": "What I liked",
+  "한 줄이어도 좋아요. 편하게 적어 주세요.": "One line is plenty. Write it however you like.",
+  "의견": "Feedback",
+  "이 부분 화면도 같이 보내기": "Send a picture of this part too",
+  "터미널 내용이 보일 수 있어요": "Terminal text may show in it",
+  "GitHub에 올리기": "Post on GitHub",
+  "한 줄만 적어 주세요": "Write a line first",
+  "GitHub 창을 열지 못했어요": "Couldn't open GitHub",
+  "GitHub 창이 열렸어요. 본문에 Ctrl+V 하면 화면이 붙고, 「Create」를 누르면 올라가요": "GitHub is open. Press Ctrl+V in the text to add the picture, then Create to post it",
+  "GitHub 창에서 「Create」를 누르면 올라가요": "Press Create in the GitHub window to post it",
+  "GitHub 로그인이 필요해요. 계정이 없으면 복사해서 보내 주세요. 올린 내용은 누구나 볼 수 있어요.": "Posting needs a GitHub sign-in; no account? Copy it and send it to me. Posts are public.",
+
 }
 
 const ja: Record<string, string> = {
@@ -451,6 +476,31 @@ const ja: Record<string, string> = {
   '이어할 세션이 없어요.': '再開できるセッションはありません。',
   '앱에서 열림': 'アプリで開いています',
   '실행 중': '実行中',
+  // feedback pin (FeedbackPin.tsx)
+  "복사": "コピー",
+  "복사했어요": "コピーしました",
+  "의견 보내기": "意見を送る",
+  "의견 보내기 · 화면에 핀을 꽂아 남겨요": "意見を送る · 画面にピンを立てて残せます",
+  "의견을 남길 곳을 눌러 주세요": "コメントしたい場所をクリックしてください",
+  "그냥 쓰기": "そのまま書く",
+  "여기에 한마디": "ここにひとこと",
+  "Claudex에 바라는 점": "Claudex へのリクエスト",
+  "고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.": "直してほしいこと、追加してほしいこと、こう育ってほしいという方向を教えてください。",
+  "고쳐 주세요": "直してほしい",
+  "추가해 주세요": "追加してほしい",
+  "이런 방향은 어때요": "こんな方向は？",
+  "좋았던 점": "よかったところ",
+  "한 줄이어도 좋아요. 편하게 적어 주세요.": "ひとことで大丈夫です。気軽に書いてください。",
+  "의견": "意見",
+  "이 부분 화면도 같이 보내기": "この部分の画面も一緒に送る",
+  "터미널 내용이 보일 수 있어요": "ターミナルの内容が写ることがあります",
+  "GitHub에 올리기": "GitHub に投稿",
+  "한 줄만 적어 주세요": "ひとことだけ書いてください",
+  "GitHub 창을 열지 못했어요": "GitHub を開けませんでした",
+  "GitHub 창이 열렸어요. 본문에 Ctrl+V 하면 화면이 붙고, 「Create」를 누르면 올라가요": "GitHub が開きました。本文で Ctrl+V を押すと画面が貼られ、「Create」で投稿されます",
+  "GitHub 창에서 「Create」를 누르면 올라가요": "GitHub の画面で「Create」を押すと投稿されます",
+  "GitHub 로그인이 필요해요. 계정이 없으면 복사해서 보내 주세요. 올린 내용은 누구나 볼 수 있어요.": "投稿には GitHub のログインが必要です。アカウントがなければコピーして送ってください。投稿は誰でも見られます。",
+
 }
 
 export default { en, ja }
