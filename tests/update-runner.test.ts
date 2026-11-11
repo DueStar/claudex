@@ -211,7 +211,7 @@ describe('cleanupStaleUpdates', () => {
     mkdirSync(join(tmp, 'spawn-update-new'))
     await expect(cleanupStaleUpdates({ tmpdir: tmp })).resolves.toBe(0)
     expect(readdirSync(tmp)).toEqual(['spawn-update-new'])
-    // the same folder, seen ten minutes later
-    await expect(cleanupStaleUpdates({ tmpdir: tmp, now: () => Date.now() + 10 * 60_000 })).resolves.toBe(1)
+    // the same folder, seen just over ten minutes later (a file time is finer than Date.now's whole ms)
+    await expect(cleanupStaleUpdates({ tmpdir: tmp, now: () => Date.now() + 10 * 60_000 + 1000 })).resolves.toBe(1)
   })
 })
