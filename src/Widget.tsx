@@ -590,7 +590,7 @@ const Widget: React.FC = () => {
       {expanded && sideHidden && (
         <nav className="w-rail" aria-label={t('왼쪽 패널 (접힘)')}>
           <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
-            <SpawnMark size={20} />
+            <SpawnMark size={20} color />
             <span className={`w-rail-conn${connected ? '' : ' off'}`} />
           </button>
           {update && (update.status === 'available' || update.status === 'ready') && (
@@ -638,7 +638,7 @@ const Widget: React.FC = () => {
       <div className="w-side">
         <div className="w-bento">
           <header className="w-card w-head">
-            <SpawnMark size={18} />
+            <SpawnMark size={20} color />
             <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>spawn</button>
             <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? t('연결됨') : t('서버 연결 끊김')} />
             {cloud?.enabled && (cloud.user ? (

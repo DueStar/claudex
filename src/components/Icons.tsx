@@ -99,8 +99,8 @@ export const GearIcon: React.FC<P> = (p) => (
 
 /**
  * spawn's symbol (the 3D knot of three crescents, public/brand/ from the brand set):
- * the logo in the header and the folded rail. The single-colour outline at small
- * sizes, as the brand asks (32px and under); `color` is the 3D render for larger spots.
+ * the logo in the header and the folded rail (`color`: the 3D gradient render), or
+ * the single-colour outline (white).
  */
 export const SpawnMark: React.FC<{ size?: number; color?: boolean }> = ({ size = 18, color = false }) => (
   <img className="spawn-mark" src={color ? '/brand/spawn-symbol.png' : '/brand/spawn-symbol-white.svg'} width={size} height={size} alt="" draggable={false} />
