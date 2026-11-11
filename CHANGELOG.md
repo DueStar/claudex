@@ -2,6 +2,14 @@
 
 ## spawn
 
+### 1.3.37
+- 앱 아이콘, 트레이, 왼쪽 위 로고, "새로운 세션 시작하기" 버튼의 몬스터볼이 하나의 새 몬스터볼 아이콘으로 통일됐어요.
+- 창 크기를 바꿀 때 터미널이 깜빡이지 않아요. 다른 창과 나란히 놓고 크기를 조절할 때 화면이 비어 보이던 것도 줄었어요.
+- 고른 탭(터미널·도감·박스·기록·랭킹)에 옅은 색이 깔리고, 고른 세션이 일하는 동안에는 테두리 색이 천천히 돌아요.
+- 왼쪽 패널 접기·펼치기 버튼이 왼쪽 패널로 옮겨졌어요. 펼쳤을 때는 설정 옆, 접었을 때는 로고 아래에 있어요.
+- 탭, 글자 크기, 화면 모드 버튼에 마우스를 올리면 표시가 나요.
+- 패널을 접어도 펼쳐도 왼쪽 위 로고가 같은 자리에 있어요.
+
 ### 1.3.36
 - 앱 이름이 Claudex에서 **spawn**으로 바뀌었어요. 로고와 앱 아이콘, 트레이 아이콘도 새로 바뀌었어요.
 - 도감·파티·박스·설정·창 위치·열어 둔 세션은 그대로 이어져요. 처음 켤 때 예전 폴더(`~/.claudex`, `%APPDATA%\Claudex`)를 새 폴더(`~/.spawn`, `%APPDATA%\spawn`)로 복사하고, 예전 폴더는 지우지 않고 남겨 둬요.
@@ -270,6 +278,14 @@
 
 ## spawn (English)
 
+### 1.3.37
+- The app icon, the tray, the logo at the top left and the "Start a new session" button now share one new Poké Ball icon.
+- Resizing the window no longer makes the terminal flicker, and resizing it side by side with another window no longer leaves it blank as often.
+- The chosen view tab (Terminal, Pokédex, Box, Log, Ranking) gets a soft tint, and the chosen session's border slowly flows in colour while it works.
+- The button that folds and unfolds the left panel now sits in the panel itself: next to Settings when open, under the logo when folded.
+- The view tabs, the text-size buttons and the screen-mode buttons highlight on hover.
+- The logo at the top left stays in the same place whether the panel is folded or not.
+
 ### 1.3.36
 - Claudex is now called **spawn**, with a new logo, app icon and tray icon.
 - Your Pokédex, party, box, settings, window place and open sessions all carry over. On the first start the old folders (`~/.claudex`, `%APPDATA%\Claudex`) are copied to the new ones (`~/.spawn`, `%APPDATA%\spawn`); the old folders are left as they were.
@@ -401,6 +417,14 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.37
+- アプリアイコン・トレイ・左上のロゴ・「新しいセッションを始める」ボタンのモンスターボールが、新しいひとつのモンスターボールアイコンにそろいました。
+- ウィンドウの大きさを変えてもターミナルがちらつかなくなりました。ほかのウィンドウと並べて大きさを変えたときに画面が空に見えることも減りました。
+- 選んだタブ(ターミナル・図鑑・ボックス・記録・ランキング)に淡い色が付き、選んだセッションが作業中のあいだは枠の色がゆっくり流れます。
+- 左パネルを折りたたむ・広げるボタンが左パネルの中に移りました。広げているときは設定の隣、折りたたんだときはロゴの下にあります。
+- タブ、文字サイズ、画面モードのボタンにマウスを乗せると表示が変わります。
+- パネルを折りたたんでも広げても、左上のロゴは同じ位置にあります。
 
 ### 1.3.36
 - アプリの名前が Claudex から **spawn** に変わりました。ロゴ・アプリアイコン・トレイアイコンも新しくなりました。
