@@ -26,7 +26,7 @@ export const FONT_PRESETS = [
   { label: '중', size: 15 },
   { label: '대', size: 17 },
 ] as const
-const KEY = 'claudex-term-font'
+const KEY = 'spawn-term-font'
 const MIN = 10
 const MAX = 24
 const DEFAULT = 13

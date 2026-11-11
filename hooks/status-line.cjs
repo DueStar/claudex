@@ -24,8 +24,8 @@ const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {})
 /** { event, line }: the /status body (null without a session id) and the line to print */
 function buildStatus(d, env = process.env) {
   d = obj(d)
-  // In an app terminal the numbers belong to the terminal's session, also after /clear (see claudex-hook.cjs)
-  const own = String(env.CLAUDEX_SESSION_ID || '')
+  // In an app terminal the numbers belong to the terminal's session, also after /clear (see spawn-hook.cjs)
+  const own = String(env.SPAWN_SESSION_ID || '')
   const sessionId = text(d.session_id, 200) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(own) ? own : text(d.session_id, 200)
   const model = obj(d.model)
   const cost = obj(d.cost)

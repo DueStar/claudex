@@ -1,9 +1,9 @@
 /**
  * logs.cjs — what the app and its server print, kept in userData/logs so a
- * problem can be looked at after the fact (inside a Claudex terminal, or from
+ * problem can be looked at after the fact (inside a spawn terminal, or from
  * the shortcut, nobody sees the console). The tray's "로그 폴더 열기" opens it.
  *
- * One file, claudex.log; past maxBytes it becomes claudex.old.log and a new
+ * One file, spawn.log; past maxBytes it becomes spawn.old.log and a new
  * one starts, so the folder never holds more than about twice that.
  */
 
@@ -18,8 +18,8 @@ function scrubSecrets(text) {
 }
 
 function createLog(dir, { maxBytes = 1024 * 1024 } = {}) {
-  const file = path.join(dir, 'claudex.log')
-  const old = path.join(dir, 'claudex.old.log')
+  const file = path.join(dir, 'spawn.log')
+  const old = path.join(dir, 'spawn.old.log')
   let size = 0
   try {
     fs.mkdirSync(dir, { recursive: true })

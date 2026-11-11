@@ -1,4 +1,4 @@
--- Claudex — the leaderboard (run once after schema.sql).
+-- spawn — the leaderboard (run once after schema.sql).
 -- Supabase: SQL Editor → New query → paste this whole file → Run. Safe to run again.
 --
 -- What it does

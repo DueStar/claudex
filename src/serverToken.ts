@@ -3,7 +3,7 @@
  *
  * The server's WebSocket hands conversation text, and the UI token that
  * answers a permission dialog, only to a connection that presents the token
- * in ~/.claudex/auth-token — the 0600 file only this OS user can read. The
+ * in ~/.spawn/auth-token — the 0600 file only this OS user can read. The
  * page cannot read files, so it gets the token through a link only its own
  * user sees:
  *
@@ -32,13 +32,13 @@
  * as arguments so tests pass fakes; nothing runs at import time.
  */
 
-export const SERVER_TOKEN_KEY = 'claudex.token'
+export const SERVER_TOKEN_KEY = 'spawn.token'
 /** The server's token: 32 random bytes as 64 lowercase hex digits. */
 export const TOKEN_PATTERN = /^[0-9a-f]{64}$/
 /** The subprotocol the server agrees to (server/index.js WS_PROTOCOL). */
-export const WS_PROTOCOL = 'claudex'
+export const WS_PROTOCOL = 'spawn'
 /** The subprotocol that carries the token (server/index.js WS_TOKEN_PROTOCOL_PREFIX). */
-export const WS_TOKEN_PROTOCOL_PREFIX = 'claudex.token.'
+export const WS_TOKEN_PROTOCOL_PREFIX = 'spawn.token.'
 
 /** The parts of Storage the helpers use. */
 export interface TokenStorage {
@@ -166,7 +166,7 @@ export function captureServerToken(
 
 /**
  * The subprotocols the page's WebSocket offers: the server's own, plus the
- * token when the page has one. The server answers with `claudex` alone.
+ * token when the page has one. The server answers with `spawn` alone.
  */
 export function serverWsProtocols(token: string | null | undefined = getServerToken()): string[] {
   return isServerToken(token) ? [WS_PROTOCOL, `${WS_TOKEN_PROTOCOL_PREFIX}${token}`] : [WS_PROTOCOL]

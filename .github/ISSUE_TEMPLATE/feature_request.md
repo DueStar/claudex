@@ -1,6 +1,6 @@
 ---
 name: 기능 제안
-about: Claudex에 있었으면 하는 것
+about: spawn에 있었으면 하는 것
 title: ''
 labels: enhancement
 assignees: ''

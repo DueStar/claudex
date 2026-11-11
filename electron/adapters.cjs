@@ -1,11 +1,11 @@
 'use strict'
 
 /**
- * adapters.cjs — the AI coding tools a session can run, and how Claudex
+ * adapters.cjs — the AI coding tools a session can run, and how spawn
  * learns what each one is doing.
  *
  *   claude   Claude Code: `claude --session-id <uuid> --settings <hooks>`.
- *            Its hooks (hooks/claudex-hook.cjs) send every event to the
+ *            Its hooks (hooks/spawn-hook.cjs) send every event to the
  *            server; it resumes by id.
  *   shell    A plain shell (PowerShell on Windows), no AI and no Pokémon: the
  *            game never hears of it. It cannot be resumed.

@@ -24,7 +24,7 @@ describe('theme.ts session cast', () => {
 
   it('a session is a Poké Ball until the server sends its Pokémon out, then that Pokémon', async () => {
     const t = await import('../src/theme')
-    expect(t.sessionSprite('aaa')).toBe('/sprites/claudex-ball.png')
+    expect(t.sessionSprite('aaa')).toBe('/sprites/spawn-ball.png')
     // no Pokémon yet: the name is the session's own, never "몬스터볼"
     expect(t.sessionName('aaa', 'Claude')).toBe('Claude')
     t.castSession('aaa', 7)
@@ -44,13 +44,13 @@ describe('theme.ts session cast', () => {
   })
 
   it('ignores an unknown species and a corrupt saved cast', async () => {
-    ;(globalThis as any).localStorage.setItem('claudex-session-cast', '{"x":{"dex":99999},"y":"pikachu","z":{"dex":4}}')
+    ;(globalThis as any).localStorage.setItem('spawn-session-cast', '{"x":{"dex":99999},"y":"pikachu","z":{"dex":4}}')
     const t = await import('../src/theme')
-    expect(t.sessionSprite('x')).toBe('/sprites/claudex-ball.png')
-    expect(t.sessionSprite('y')).toBe('/sprites/claudex-ball.png')
+    expect(t.sessionSprite('x')).toBe('/sprites/spawn-ball.png')
+    expect(t.sessionSprite('y')).toBe('/sprites/spawn-ball.png')
     expect(t.sessionSprite('z')).toBe('/sprites/pokemon/icon/4.png')
     t.castSession('w', 99999)
-    expect(t.sessionSprite('w')).toBe('/sprites/claudex-ball.png')
+    expect(t.sessionSprite('w')).toBe('/sprites/spawn-ball.png')
   })
 
   it('looks up species, with 0 as the ball', async () => {

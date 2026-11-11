@@ -89,8 +89,8 @@ beforeAll(async () => {
     req.on('end', () => {
       captured.push({
         url: req.url ?? '', authorization: req.headers.authorization,
-        ts: req.headers['x-claudex-timestamp'] as string | undefined,
-        sig: req.headers['x-claudex-signature'] as string | undefined,
+        ts: req.headers['x-spawn-timestamp'] as string | undefined,
+        sig: req.headers['x-spawn-signature'] as string | undefined,
         body: JSON.parse(data),
       })
       res.setHeader('Content-Type', 'application/json')
@@ -112,9 +112,9 @@ afterAll(() => new Promise<void>(resolve => server.close(() => resolve())))
 beforeEach(() => { captured.length = 0 })
 afterEach(() => { while (homes.length) rmSync(homes.pop()!, { recursive: true, force: true }) })
 
-/** A fresh CLAUDEX_HOME, optionally with an auth token. */
-function claudexHome({ token }: { token?: string } = {}) {
-  const home = mkdtempSync(join(tmpdir(), 'claudex-status-'))
+/** A fresh SPAWN_HOME, optionally with an auth token. */
+function spawnHome({ token }: { token?: string } = {}) {
+  const home = mkdtempSync(join(tmpdir(), 'spawn-status-'))
   homes.push(home)
   if (token) writeFileSync(join(home, 'auth-token'), token)
   return home
@@ -130,7 +130,7 @@ async function run(payload: unknown, home: string, { args = [], url = serverUrl,
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     timeout: 10_000,
     // not an app terminal's, though the tests may run inside one
-    env: { ...process.env, CLAUDEX_SESSION_ID: '', CLAUDEX_PORT: '', CLAUDEX_STATUS_URL: url, CLAUDEX_HOME: home, ...env },
+    env: { ...process.env, SPAWN_SESSION_ID: '', SPAWN_PORT: '', SPAWN_STATUS_URL: url, SPAWN_HOME: home, ...env },
   })
   return { out, ms: Date.now() - started }
 }
@@ -144,7 +144,7 @@ async function posted(count = 1, ms = 3000): Promise<Captured[]> {
 
 describe('status-line.cjs: statusLine', () => {
   it('prints "<model> · ctx <used>% · $<cost>" and POSTs a session_status SIGNED (no token on the wire)', async () => {
-    const home = claudexHome({ token: 'a'.repeat(64) })
+    const home = spawnHome({ token: 'a'.repeat(64) })
     const { out } = await run(STATUS_JSON, home)
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
 
@@ -160,13 +160,13 @@ describe('status-line.cjs: statusLine', () => {
 
   it("in an app terminal posts under the terminal's id, also after /clear gave the conversation another", async () => {
     const terminal = '11111111-2222-4333-8444-555555555555'
-    await run(STATUS_JSON, claudexHome(), { env: { CLAUDEX_SESSION_ID: terminal } })
+    await run(STATUS_JSON, spawnHome(), { env: { SPAWN_SESSION_ID: terminal } })
     const [req] = await posted()
     expect(req.body).toEqual({ ...EXPECTED_EVENT, sessionId: terminal })
   })
 
   it('posts without an Authorization or signature header when there is no token file', async () => {
-    const { out } = await run(STATUS_JSON, claudexHome())
+    const { out } = await run(STATUS_JSON, spawnHome())
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
     const [req] = await posted()
     expect(req.authorization).toBeUndefined()
@@ -174,9 +174,9 @@ describe('status-line.cjs: statusLine', () => {
     expect(req.body.type).toBe('session_status')
   })
 
-  it('posts to 127.0.0.1:$CLAUDEX_PORT/status when CLAUDEX_STATUS_URL is unset', async () => {
+  it('posts to 127.0.0.1:$SPAWN_PORT/status when SPAWN_STATUS_URL is unset', async () => {
     const port = new URL(serverUrl).port
-    const { out } = await run(STATUS_JSON, claudexHome(), { env: { CLAUDEX_STATUS_URL: '', CLAUDEX_PORT: port } })
+    const { out } = await run(STATUS_JSON, spawnHome(), { env: { SPAWN_STATUS_URL: '', SPAWN_PORT: port } })
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
     const [req] = await posted()
     expect(req).toBeDefined()
@@ -184,9 +184,9 @@ describe('status-line.cjs: statusLine', () => {
     expect(req.body).toEqual(EXPECTED_EVENT)
   })
 
-  it('CLAUDEX_STATUS_URL wins over CLAUDEX_PORT', async () => {
+  it('SPAWN_STATUS_URL wins over SPAWN_PORT', async () => {
     const closedPort = new URL(closedUrl).port
-    await run(STATUS_JSON, claudexHome(), { env: { CLAUDEX_PORT: closedPort } })
+    await run(STATUS_JSON, spawnHome(), { env: { SPAWN_PORT: closedPort } })
     const [req] = await posted()
     expect(req).toBeDefined()
     expect(req.body.type).toBe('session_status')
@@ -211,7 +211,7 @@ describe('status-line.cjs: statusLine', () => {
       context_window: { total_input_tokens: 0, total_output_tokens: 0, context_window_size: 200000, used_percentage: null, remaining_percentage: null, current_usage: null },
       exceeds_200k_tokens: false,
     }
-    const { out } = await run(early, claudexHome())
+    const { out } = await run(early, spawnHome())
     expect(out).toBe('Opus · ctx 0% · $0.00\n')
     const [req] = await posted()
     expect(req.body).toEqual({
@@ -223,14 +223,14 @@ describe('status-line.cjs: statusLine', () => {
 
   it('falls back to cwd for the project when workspace is absent, and forwards spend_limit', async () => {
     const payload = { ...STATUS_JSON, workspace: undefined, cwd: '/srv/apps/billing-api', rate_limits: { spend_limit: { used_percentage: 62.8, resets_at: 1740787200, used_usd: 314.12, limit_usd: 500, period: 'monthly' } } }
-    await run(payload, claudexHome())
+    await run(payload, spawnHome())
     const [req] = await posted()
     expect(req.body.project).toBe('billing-api')
     expect(req.body.rateLimits).toEqual({ spendLimit: 62.8, spendLimitResetsAt: 1740787200 })
   })
 
   it('still prints the line, exits 0 and does not wait when the server is down', async () => {
-    const { out, ms } = await run(STATUS_JSON, claudexHome({ token: 't' }), { url: closedUrl })
+    const { out, ms } = await run(STATUS_JSON, spawnHome({ token: 't' }), { url: closedUrl })
     expect(out).toBe('Haiku 5.5 · ctx 4% · $0.01\n')
     // A refused connection answers at once (the POST's own timeout is 1 s)
     expect(ms).toBeLessThan(1500)
@@ -238,21 +238,21 @@ describe('status-line.cjs: statusLine', () => {
   })
 
   it('exits 0 on garbage stdin and posts nothing', async () => {
-    const { out } = await run('this is not json', claudexHome())
+    const { out } = await run('this is not json', spawnHome())
     expect(out).toBe('Claude · ctx 0% · $0.00\n')
     await new Promise(r => setTimeout(r, 300))
     expect(captured).toHaveLength(0)
   })
 
   it('exits 0 and prints nothing on empty stdin', async () => {
-    expect((await run('', claudexHome())).out).toBe('')
+    expect((await run('', spawnHome())).out).toBe('')
   })
 })
 
 describe('older setups', () => {
-  it('still read CLAUDEX_STATUS_URL and CLAUDEX_HOME when the CLAUDEX_ names are unset', async () => {
-    const home = claudexHome({ token: 'b'.repeat(64) })
-    await run(STATUS_JSON, home, { env: { CLAUDEX_STATUS_URL: serverUrl, CLAUDEX_HOME: home } })
+  it('still read SPAWN_STATUS_URL and SPAWN_HOME when the SPAWN_ names are unset', async () => {
+    const home = spawnHome({ token: 'b'.repeat(64) })
+    await run(STATUS_JSON, home, { env: { SPAWN_STATUS_URL: serverUrl, SPAWN_HOME: home } })
     const [req] = await posted()
     expect(req.sig).toMatch(/^[0-9a-f]{64}$/)
   })

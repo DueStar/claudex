@@ -159,11 +159,11 @@ describe('getServerToken / clearServerToken', () => {
 describe('serverWsProtocols (what useAgentSocket offers on every (re)connect)', () => {
   it('the office protocol, plus the token when the page has a well-formed one', () => {
     expect(serverWsProtocols(TOKEN)).toEqual([WS_PROTOCOL, `${WS_TOKEN_PROTOCOL_PREFIX}${TOKEN}`])
-    expect(serverWsProtocols(TOKEN)).toEqual(['claudex', `claudex.token.${TOKEN}`])
-    expect(serverWsProtocols(null)).toEqual(['claudex'])
-    expect(serverWsProtocols(undefined)).toEqual(['claudex'])
+    expect(serverWsProtocols(TOKEN)).toEqual(['spawn', `spawn.token.${TOKEN}`])
+    expect(serverWsProtocols(null)).toEqual(['spawn'])
+    expect(serverWsProtocols(undefined)).toEqual(['spawn'])
     // Never a value the WebSocket constructor would throw on
-    expect(serverWsProtocols('has space, comma')).toEqual(['claudex'])
+    expect(serverWsProtocols('has space, comma')).toEqual(['spawn'])
   })
 
   it('the token goes in a subprotocol, never in the URL', async () => {

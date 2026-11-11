@@ -17,13 +17,13 @@ import { PokeBall, SearchIcon } from './Icons'
 
 type Sort = 'mine' | 'recent' | 'dex' | 'tier' | 'steps'
 /** The sort is remembered: an arranged box opens in its own order */
-const SORT_KEY = 'claudex-box-sort'
+const SORT_KEY = 'spawn-box-sort'
 const SORTS: Sort[] = ['mine', 'recent', 'dex', 'tier', 'steps']
 function savedSort(): Sort {
   try { const v = localStorage.getItem(SORT_KEY) as Sort | null; return v && SORTS.includes(v) ? v : 'recent' } catch { return 'recent' }
 }
 type Look = 'icon' | 'art'
-const LOOK_KEY = 'claudex.boxLook'
+const LOOK_KEY = 'spawn.boxLook'
 function readLook(): Look {
   try { return localStorage.getItem(LOOK_KEY) === 'art' ? 'art' : 'icon' } catch { return 'icon' }
 }

@@ -90,8 +90,8 @@ const PokedexView: React.FC = () => {
     const carried = freshDexPick()
     if (carried !== null) focus(carried)
     const onPick = (e: Event) => focus((e as CustomEvent<number>).detail)
-    window.addEventListener('claudex:dex-pick', onPick)
-    return () => window.removeEventListener('claudex:dex-pick', onPick)
+    window.addEventListener('spawn:dex-pick', onPick)
+    return () => window.removeEventListener('spawn:dex-pick', onPick)
   }, [state])
   useEffect(() => () => { if (scrollSave.current) clearTimeout(scrollSave.current) }, [])
   const onGridScroll = (e: React.UIEvent<HTMLDivElement>) => {

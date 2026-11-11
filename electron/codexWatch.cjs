@@ -1,10 +1,10 @@
 'use strict'
 
 /**
- * codexWatch.cjs — a Codex CLI session, told to Claudex from Codex's own
+ * codexWatch.cjs — a Codex CLI session, told to spawn from Codex's own
  * session log.
  *
- * Codex has no hooks or status line Claudex can attach to, but it writes
+ * Codex has no hooks or status line spawn can attach to, but it writes
  * every session to ~/.codex/sessions/YYYY/MM/DD/rollout-…-<thread id>.jsonl
  * as it goes: the session's folder, each turn's start and end, the user's
  * prompts, the tool calls, the model, and token counts with the context

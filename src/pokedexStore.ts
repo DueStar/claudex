@@ -210,7 +210,7 @@ export function isHelperSession(s: DexState | null, sessionId: string): boolean 
 // Pokédex entries the trainer has opened: a caught species whose entry was
 // never looked at wears a red "new" dot. Kept per PC (localStorage).
 // ---------------------------------------------------------------------------
-const VIEWED_KEY = 'claudex-dex-viewed'
+const VIEWED_KEY = 'spawn-dex-viewed'
 let viewed: Set<number> = (() => {
   try { return new Set<number>(JSON.parse(localStorage.getItem(VIEWED_KEY) ?? '[]')) } catch { return new Set<number>() }
 })()
@@ -246,7 +246,7 @@ export const BALL_TIER_LABEL = new Proxy({} as Record<string, string>, { get: (_
 export function ballName(id: string | null | undefined): string {
   return nameOf(BALL_BY_ID.get(id ?? 'poke-ball')) || nameOf({ ko: '몬스터볼', en: 'Poké Ball', ja: 'モンスターボール' })
 }
-/** The ball's picture (shipped with the app; Claudex's own ball when it is missing) */
+/** The ball's picture (shipped with the app; spawn's own ball when it is missing) */
 export function ballUrl(id: string | null | undefined): string {
   return `/sprites/balls/${BALL_BY_ID.has(id ?? '') ? id : 'poke-ball'}.png`
 }

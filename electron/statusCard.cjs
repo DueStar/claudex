@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * statusCard.cjs — the small card on screen while Claudex updates or starts.
+ * statusCard.cjs — the small card on screen while spawn updates or starts.
  *
  * An update restart goes through three processes (the old app quitting, a
  * short run that copies the new files, the new app starting), and a cold start
@@ -42,7 +42,7 @@ function openStatusCard({ BrowserWindow, screen, near = null, step = 'starting',
   const { workArea } = near ? screen.getDisplayMatching(near) : screen.getPrimaryDisplay()
   const win = new BrowserWindow({
     ...cardBounds(near, workArea),
-    title: 'Claudex',
+    title: 'spawn',
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',

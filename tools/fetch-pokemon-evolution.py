@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve()
-UA = {"User-Agent": "Mozilla/5.0 (claudex data fetch)"}
+UA = {"User-Agent": "Mozilla/5.0 (spawn data fetch)"}
 FALLBACK = {1: 30, 2: 40}
 
 

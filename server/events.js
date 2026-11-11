@@ -1,5 +1,5 @@
 /**
- * events.js — the events POST /event accepts (hooks/claudex-hook.cjs sends
+ * events.js — the events POST /event accepts (hooks/spawn-hook.cjs sends
  * them) and how their fields are clamped before the server keeps them.
  */
 

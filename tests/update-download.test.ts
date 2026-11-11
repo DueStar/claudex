@@ -9,14 +9,14 @@ import { describe, expect, it } from 'vitest'
 const require = createRequire(import.meta.url)
 const { releaseFile } = require('../electron/updater.cjs')
 
-const api = 'https://api.github.com/repos/DueStar/claudex/releases'
+const api = 'https://api.github.com/repos/DueStar/spawn/releases'
 
 describe('releaseFile', () => {
   it('uses the plain download when it works', async () => {
     const seen: string[] = []
     const out = await releaseFile('v1.2.3', 'a.zip', {}, async (url: string) => { seen.push(url); return Buffer.from('zip') })
     expect(out.toString()).toBe('zip')
-    expect(seen).toEqual(['https://github.com/DueStar/claudex/releases/download/v1.2.3/a.zip'])
+    expect(seen).toEqual(['https://github.com/DueStar/spawn/releases/download/v1.2.3/a.zip'])
   })
 
   it('falls back to the API asset when the plain download fails', async () => {
@@ -30,7 +30,7 @@ describe('releaseFile', () => {
     }
     const out = await releaseFile('latest', 'latest.json', { maxBytes: 10 }, fetch)
     expect(out.toString()).toBe('{"version":"1"}')
-    expect(seen.map(s => s[0])).toEqual(['https://github.com/DueStar/claudex/releases/latest/download/latest.json', `${api}/latest`, `${api}/assets/42`])
+    expect(seen.map(s => s[0])).toEqual(['https://github.com/DueStar/spawn/releases/latest/download/latest.json', `${api}/latest`, `${api}/assets/42`])
     expect(seen[2][1]).toBe('application/octet-stream')
   })
 

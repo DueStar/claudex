@@ -23,7 +23,7 @@ export function isHardNeedsYou(needsYou: NeedsYou | undefined): boolean {
   return !!needsYou && HARD_NEEDS_YOU.has(needsYou.kind)
 }
 
-/** Last path segment of a cwd ("/Users/me/src/claudex/" → "claudex") */
+/** Last path segment of a cwd ("/Users/me/src/spawn/" → "spawn") */
 export function projectFromCwd(cwd: string | undefined): string | undefined {
   if (!cwd) return undefined
   const trimmed = cwd.replace(/[\\/]+$/, '')

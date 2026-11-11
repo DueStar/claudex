@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve()
-UA = {"User-Agent": "Mozilla/5.0 (claudex data fetch)"}
+UA = {"User-Agent": "Mozilla/5.0 (spawn data fetch)"}
 STAT_KO = {"attack": "공격", "defense": "방어", "special-attack": "특수공격", "special-defense": "특수방어", "speed": "스피드"}
 
 

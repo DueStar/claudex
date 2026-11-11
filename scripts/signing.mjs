@@ -12,7 +12,9 @@ import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-export const signingKeyPath = () => process.env.CLAUDEX_SIGNING_KEY || join(homedir(), '.claudex-release', 'signing-key.pem')
+// The key stays where it was made (~/.claudex-release, from when the app was Claudex):
+// every installed copy trusts it, so it is never moved or made again
+export const signingKeyPath = () => process.env.SPAWN_SIGNING_KEY || process.env.CLAUDEX_SIGNING_KEY || join(homedir(), '.claudex-release', 'signing-key.pem')
 
 /** The manifest with a base64 Ed25519 `signature` added */
 export function signManifest(manifest, pem = readFileSync(signingKeyPath(), 'utf8')) {

@@ -1,5 +1,5 @@
 /**
- * Icons — small line icons (16px grid, currentColor) and Claudex's Poké Ball
+ * Icons — small line icons (16px grid, currentColor) and spawn's Poké Ball
  * (an original drawing, tools/build-icons.py: the same ball as the app icon).
  */
 
@@ -97,13 +97,22 @@ export const GearIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M6.32 3.40L6.63 1.54L9.37 1.54L9.68 3.40L11.15 4.25L12.90 3.58L14.28 5.96L12.83 7.15L12.83 8.85L14.28 10.04L12.90 12.42L11.15 11.75L9.68 12.60L9.37 14.46L6.63 14.46L6.32 12.60L4.85 11.75L3.10 12.42L1.72 10.04L3.17 8.85L3.17 7.15L1.72 5.96L3.10 3.58L4.85 4.25Z" /><circle cx="8" cy="8" r="2.1" /></Svg>
 )
 
-/** A Poké Ball picture: the games' artwork shipped with the app, Claudex's own drawing if it is missing */
+/**
+ * spawn's symbol (three crescents, public/brand/ from the brand set): the logo in
+ * the header and the folded rail. White at small sizes, as the brand asks (the
+ * three colours blur below 24px); `color` for larger spots.
+ */
+export const SpawnMark: React.FC<{ size?: number; color?: boolean }> = ({ size = 18, color = false }) => (
+  <img className="spawn-mark" src={color ? '/brand/spawn-symbol-color.svg' : '/brand/spawn-symbol-white.svg'} width={size} height={size} alt="" draggable={false} />
+)
+
+/** A Poké Ball picture: the games' artwork shipped with the app, spawn's own drawing if it is missing */
 export const PokeBall: React.FC<{ size?: number; className?: string; ball?: string | null; title?: string }> = ({ size = 16, className, ball, title }) => {
   const [failed, setFailed] = useState(false)
   return (
     <img
       className={`pokeball${className ? ` ${className}` : ''}`}
-      src={failed ? '/sprites/claudex-ball.png' : ballUrl(ball ?? 'poke-ball')}
+      src={failed ? '/sprites/spawn-ball.png' : ballUrl(ball ?? 'poke-ball')}
       width={size}
       height={size}
       alt={title ?? ''}

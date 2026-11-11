@@ -10,11 +10,11 @@ import { placeCode, catchSource } from '../server/pokedex.js'
 
 describe('place names', () => {
   it('reads the codes the server saves', () => {
-    const cave = placeCode.wild('claudex', { code: 'cave' }, 12, true)
-    expect(cave).toBe('@wild|claudex|cave||1')
-    expect(placeIn(cave, 'ko')).toBe('claudex 동굴 (밤)')
-    expect(placeIn(cave, 'en')).toBe('claudex Cave (night)')
-    expect(placeIn(cave, 'ja')).toBe('claudex どうくつ（夜）')
+    const cave = placeCode.wild('spawn', { code: 'cave' }, 12, true)
+    expect(cave).toBe('@wild|spawn|cave||1')
+    expect(placeIn(cave, 'ko')).toBe('spawn 동굴 (밤)')
+    expect(placeIn(cave, 'en')).toBe('spawn Cave (night)')
+    expect(placeIn(cave, 'ja')).toBe('spawn どうくつ（夜）')
     const route = placeCode.wild('', { code: 'route' }, 17, false)
     expect(placeIn(route, 'ko')).toBe('이름 없는 마을 17번도로')
     expect(placeIn(route, 'en')).toBe('Nameless Town Route 17')
@@ -27,12 +27,12 @@ describe('place names', () => {
   })
 
   it('reads the Korean names older saves hold, and shows them as they were in Korean', () => {
-    for (const old of ['claudex 동굴 (밤)', 'system32 17번도로', '이름 없는 마을 하늘길', 'web (오늘의 출석)', '어딘가 (진화)', '여행의 시작']) {
+    for (const old of ['spawn 동굴 (밤)', 'system32 17번도로', '이름 없는 마을 하늘길', 'web (오늘의 출석)', '어딘가 (진화)', '여행의 시작']) {
       expect(placeIn(old, 'ko')).toBe(old)
     }
     expect(placeIn('system32 17번도로 (밤)', 'en')).toBe('system32 Route 17 (night)')
     expect(placeIn('이름 없는 마을 사파리존', 'ja')).toBe('名もなき町 サファリゾーン')
-    expect(placeIn('claudex (오늘의 출석)', 'en')).toBe('claudex (daily encounter)')
+    expect(placeIn('spawn (오늘의 출석)', 'en')).toBe('spawn (daily encounter)')
     expect(placeIn('something else', 'en')).toBe('something else')
   })
 })

@@ -5,7 +5,7 @@
  * missing. Each tool is probed by running it (a path alone proves nothing).
  *
  *   claude  Claude Code itself: the sessions run it
- *   git     Git for Windows: Claude Code runs its shell, and so Claudex's hooks,
+ *   git     Git for Windows: Claude Code runs its shell, and so spawn's hooks,
  *           in its Git Bash (the hooks themselves run on the app: no Python)
  */
 
@@ -43,8 +43,8 @@ async function gitVersion() {
 /** { claude, git } -> { ok, version, link } */
 async function checkPrereqs() {
   const [claude, git] = await Promise.all([claudeVersion(), gitVersion()])
-  // Debug: CLAUDEX_FAKE_MISSING=claude,git pretends those are not installed
-  const fake = new Set(String(process.env.CLAUDEX_FAKE_MISSING || '').split(',').filter(Boolean))
+  // Debug: SPAWN_FAKE_MISSING=claude,git pretends those are not installed
+  const fake = new Set(String(process.env.SPAWN_FAKE_MISSING || '').split(',').filter(Boolean))
   const item = (version, key) => (fake.has(key) ? { ok: false, version: null, link: LINKS[key] } : { ok: !!version, version, link: LINKS[key] })
   return { claude: item(claude, 'claude'), git: item(git, 'git') }
 }

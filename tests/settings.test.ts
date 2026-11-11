@@ -75,7 +75,7 @@ describe('settings', () => {
   })
 
   it('reads and writes its file; a broken file means the defaults', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'claudex-settings-'))
+    const dir = mkdtempSync(join(tmpdir(), 'spawn-settings-'))
     const file = join(dir, 'settings.json')
     const store = createSettingsStore(file)
     expect(store.get()).toEqual(DEFAULTS)

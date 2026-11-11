@@ -22,10 +22,10 @@ const tempDir = () => { const d = mkdtempSync(join(tmpdir(), 'poke-settings-'));
 
 describe('terminals.cjs', () => {
   it('writes session settings whose hooks and status line run this checkout\'s scripts with the app in Node mode', () => {
-    const file = writeSessionSettings(REPO, tempDir(), 'C:\\Program Files\\Claudex\\Claudex.exe')
+    const file = writeSessionSettings(REPO, tempDir(), 'C:\\Program Files\\spawn\\spawn.exe')
     const settings = JSON.parse(readFileSync(file, 'utf8'))
     const command: string = settings.hooks.SessionStart[0].hooks[0].command
-    expect(command).toMatch(/^ELECTRON_RUN_AS_NODE=1 ".+Claudex\.exe" "[^"\\]+\/hooks\/claudex-hook\.cjs"$/)
+    expect(command).toMatch(/^ELECTRON_RUN_AS_NODE=1 ".+spawn\.exe" "[^"\\]+\/hooks\/spawn-hook\.cjs"$/)
     expect(command).not.toMatch(/python|bash|curl/)
     expect(Object.keys(settings.hooks)).toEqual(expect.arrayContaining(['PreToolUse', 'Stop', 'SessionEnd', 'UserPromptSubmit', 'PermissionRequest']))
     expect(settings.statusLine.command).toMatch(/^ELECTRON_RUN_AS_NODE=1 ".+" ".+\/hooks\/status-line\.cjs"$/)
@@ -44,7 +44,7 @@ describe('terminals.cjs', () => {
     const res = spawnSync('bash', ['-c', command], {
       input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: {}, session_id: 's' }),
       encoding: 'utf8',
-      env: { ...process.env, CLAUDEX_PORT: '9', CLAUDEX_HOME: tempDir() },
+      env: { ...process.env, SPAWN_PORT: '9', SPAWN_HOME: tempDir() },
     })
     expect(res.status).toBe(0)
     expect(res.stdout).toBe('')
@@ -60,7 +60,7 @@ describe('terminals.cjs', () => {
   })
 
   it('reads back the sessions open at the last close: real ids, folders that exist, no repeats', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-open-'))
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-open-'))
     const file = path.join(dir, 'open-sessions.json')
     const a = '11111111-1111-4111-8111-111111111111'
     fs.writeFileSync(file, JSON.stringify([
@@ -80,17 +80,17 @@ describe('terminals.cjs', () => {
     const fresh = '99999999-8888-4777-8666-555555555555'
     fs.mkdirSync(join(userData, 'session-links'))
     expect(linkedConversation(userData, terminal)).toBe('')
-    const res = spawnSync(process.execPath, [join(REPO, 'hooks', 'claudex-hook.cjs')], {
+    const res = spawnSync(process.execPath, [join(REPO, 'hooks', 'spawn-hook.cjs')], {
       input: JSON.stringify({ hook_event_name: 'SessionStart', source: 'clear', session_id: fresh, cwd: REPO }),
       encoding: 'utf8',
-      env: { ...process.env, CLAUDEX_EVENT_URL: 'http://127.0.0.1:9/event', CLAUDEX_SESSION_ID: terminal, CLAUDEX_LINK_FILE: join(userData, 'session-links', terminal) },
+      env: { ...process.env, SPAWN_EVENT_URL: 'http://127.0.0.1:9/event', SPAWN_SESSION_ID: terminal, SPAWN_LINK_FILE: join(userData, 'session-links', terminal) },
     })
     expect(res.status).toBe(0)
     expect(linkedConversation(userData, terminal)).toBe(fresh)
   })
 
   it("does not pass another app terminal's identity on", () => {
-    const env = cleanEnv({ PATH: '/bin', CLAUDEX_SESSION_ID: 'x', CLAUDEX_LINK_FILE: 'y' })
+    const env = cleanEnv({ PATH: '/bin', SPAWN_SESSION_ID: 'x', SPAWN_LINK_FILE: 'y' })
     expect(env).toEqual({ PATH: '/bin' })
   })
 
@@ -111,7 +111,7 @@ describe('terminals.cjs', () => {
   })
 
   it('reopens only sessions that have a transcript', () => {
-    const claude = fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-claude-'))
+    const claude = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-claude-'))
     const id = '33333333-3333-4333-8333-333333333333'
     fs.mkdirSync(path.join(claude, 'projects', 'C--work'), { recursive: true })
     fs.writeFileSync(path.join(claude, 'projects', 'C--work', `${id}.jsonl`), '{}\n')

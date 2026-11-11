@@ -1,6 +1,6 @@
-"""Draw Claudex's Poke Ball (an original drawing, smooth and shaded) at every
+"""Draw spawn's Poke Ball (an original drawing, smooth and shaded) at every
 size the app uses: the app/installer icon, the tray, and the in-app ball
-(public/sprites/claudex-ball.png, used by New session and the header).
+(public/sprites/spawn-ball.png, used by New session and the header).
 
 Usage:  python -I tools/build-icons.py <project-root>
 
@@ -102,5 +102,5 @@ make(16).save(ROOT / 'electron' / 'assets' / 'tray-16.png')
 make(32).save(ROOT / 'electron' / 'assets' / 'tray-32.png')
 make(48).save(ROOT / 'electron' / 'assets' / 'tray-48.png')
 if which == 'drawn':
-    draw_ball(128).save(ROOT / 'public' / 'sprites' / 'claudex-ball.png')
+    draw_ball(128).save(ROOT / 'public' / 'sprites' / 'spawn-ball.png')
 print(f'ok ({which})')

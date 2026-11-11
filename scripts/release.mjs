@@ -1,13 +1,15 @@
 /**
- * release.mjs — build Claudex for Windows and lay out a GitHub release.
+ * release.mjs — build spawn for Windows and lay out a GitHub release.
  *
  *   node scripts/release.mjs [--publish]          notes from CHANGELOG.md "### <version>"
  *   node scripts/release.mjs "notes…"            build into release/, publish nothing
  *   node scripts/release.mjs "notes…" --publish  also create the GitHub release v<version>
  *
  * Files (release/):
- *   claudex-app-<v>.zip          resources/app only: what the in-app update downloads
- *   Claudex-<v>-win-x64.zip      the whole app, for a first install
+ *   claudex-app-<v>.zip        resources/app only: what the in-app update downloads
+ *                              (still the old name: 1.3.35 and older accept only claudex-app-*.zip;
+ *                              newer clients accept spawn-app-*.zip too, for a later switch)
+ *   spawn-<v>-win-x64.zip      the whole app, for a first install
  *   latest.json                  read by electron/updater.cjs
  *
  * The version comes from package.json; bump it first. Pokémon artwork is never
@@ -42,8 +44,8 @@ const given = process.argv.slice(2).filter(a => !a.startsWith('--')).join(' ').t
 // shell can arrive in the console code page and show as mojibake)
 const notes = given || changelogNotes(version)
 // The update button's tooltip shows the notes in the app's language
-const notesEn = given ? '' : changelogNotes(version, 'Claudex (English)')
-const notesJa = given ? '' : changelogNotes(version, 'Claudex (日本語)')
+const notesEn = given ? '' : changelogNotes(version, 'spawn (English)')
+const notesJa = given ? '' : changelogNotes(version, 'spawn (日本語)')
 /** The "### <v>" notes in the "## <section>" part of CHANGELOG.md (by default the first, Korean, one) */
 function changelogNotes(v, section = null) {
   let md = readFileSync(join(root, 'CHANGELOG.md'), 'utf8').replace(/\r\n?/g, '\n')
@@ -71,7 +73,7 @@ const unpacked = join(out, 'win-unpacked')
 const TAR = join(process.env.SystemRoot || 'C:/Windows', 'System32', 'tar.exe')
 const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32', ...opts })
 
-console.log(`\n== Claudex ${version}`)
+console.log(`\n== spawn ${version}`)
 const ballDir = join(root, 'public', 'sprites', 'balls')
 const ballIds = JSON.parse(readFileSync(join(root, 'server', 'balls.json'), 'utf8')).balls.map(b => b.id)
 const missingBalls = ballIds.filter(id => !existsSync(join(ballDir, `${id}.png`)))
@@ -116,16 +118,11 @@ ${bar}
 ${bar}
 `)
 }
-// The games' Poké Ball as the app icon when its art was imported; the drawn icons come back after
-const ICONS = ['build/icon.png', 'electron/assets/icon.png', 'electron/assets/tray-16.png', 'electron/assets/tray-32.png', 'electron/assets/tray-48.png']
-run('python', ['-I', join(root, 'tools', 'build-icons.py'), root, '--official'], { shell: false })
-try {
-  run('npx', ['vite', 'build'])
-  checkDist(join(root, 'dist')) // every page loads its own CSS (scripts/dist-check.mjs)
-  run('npx', ['electron-builder', '--win', 'dir', '--x64'])
-} finally {
-  execFileSync('git', ['checkout', '--', ...ICONS], { cwd: root, stdio: 'inherit' })
-}
+// The app and tray icons are spawn's own (build/icon.png, electron/assets/), from the brand set;
+// until 1.3.35 they were the games' Poké Ball, drawn by tools/build-icons.py at build time
+run('npx', ['vite', 'build'])
+checkDist(join(root, 'dist')) // every page loads its own CSS (scripts/dist-check.mjs)
+run('npx', ['electron-builder', '--win', 'dir', '--x64'])
 
 // Nothing of Nintendo's may ride along
 const appDir = join(unpacked, 'resources', 'app')
@@ -137,8 +134,8 @@ for (const banned of [join(appDir, 'dist', 'sprites', 'pokemon'), join(appDir, '
 const builtAt = new Date().toISOString()
 writeFileSync(join(appDir, 'build-info.json'), JSON.stringify({ version, date: builtAt }))
 
-const appZip = `claudex-app-${version}.zip`
-const fullZip = `Claudex-${version}-win-x64.zip`
+const appZip = `claudex-app-${version}.zip` // see the note at the top: old clients need this name
+const fullZip = `spawn-${version}-win-x64.zip`
 for (const f of [appZip, fullZip]) rmSync(join(out, f), { force: true })
 // bsdtar (Windows 10+) writes zip when the name ends in .zip and -a is given
 run(TAR, ['-a', '-c', '-f', join(out, appZip), '-C', appDir, '.'], { shell: false })
@@ -166,7 +163,7 @@ console.log(`\napp update ${appZip} ${mb(manifest.app.size)} · full ${fullZip} 
 
 if (publish) {
   // DueStar's login was checked in preflight (the gh CLI's active login, never its token)
-  run('gh', ['release', 'create', `v${version}`, '--repo', 'DueStar/claudex', '--title', `Claudex ${version}`, '--notes', notes || `Claudex ${version}`,
+  run('gh', ['release', 'create', `v${version}`, '--repo', 'DueStar/spawn', '--title', `spawn ${version}`, '--notes', notes || `spawn ${version}`,
     join(out, 'latest.json'), join(out, appZip), join(out, fullZip)], { shell: false })
 } else {
   console.log('Not published. Add --publish to create the GitHub release.')

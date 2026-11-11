@@ -227,9 +227,9 @@ describe('stale sessions', () => {
     office = undefined
   })
 
-  it('a session with no events for CLAUDEX_STALE_MINUTES ends on the sweep', async () => {
+  it('a session with no events for SPAWN_STALE_MINUTES ends on the sweep', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
-    office = await loadServer({ env: { CLAUDEX_STALE_MINUTES: '1' } })
+    office = await loadServer({ env: { SPAWN_STALE_MINUTES: '1' } })
     office.server.processEvent({ type: 'session_started', ...ALPHA, source: 'startup' })
     office.server.processEvent({ type: 'session_started', ...BETA, source: 'startup' })
     office.server.sessions.get(ALPHA.sessionId).lastActivityAt = Date.now() - 2 * 60_000
@@ -294,7 +294,7 @@ describe('persistence', () => {
   })
 
   it('drops sessions quiet for too long on load, and reads an older agents.json (with agents) all the same', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'claudex-test-'))
+    const dir = mkdtempSync(join(tmpdir(), 'spawn-test-'))
     const now = Date.now()
     const minutes = 60_000
     writeFileSync(join(dir, 'agents.json'), JSON.stringify({
@@ -307,7 +307,7 @@ describe('persistence', () => {
         { project: 'no-id', state: 'active', startedAt: now, lastActivityAt: now },
       ],
     }))
-    const office = await loadServer({ dir, env: { CLAUDEX_STALE_MINUTES: '60' } })
+    const office = await loadServer({ dir, env: { SPAWN_STALE_MINUTES: '60' } })
     offices.push(office)
     expect(Array.from(office.server.sessions.keys())).toEqual(['fresh'])
     // The office worker list of an older file is left behind
@@ -315,7 +315,7 @@ describe('persistence', () => {
   })
 
   it('ignores a corrupt agents.json', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'claudex-test-'))
+    const dir = mkdtempSync(join(tmpdir(), 'spawn-test-'))
     writeFileSync(join(dir, 'agents.json'), '{ not json')
     const office = await loadServer({ dir })
     offices.push(office)

@@ -2,12 +2,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { pokedexData } from './vite.pokedex'
 
-// The server's port, the same CLAUDEX_PORT the server, the hook
+// The server's port, the same SPAWN_PORT the server, the hook
 // and the app read (default 3334). A value that is not a port falls back
 // to 3334 like server/config.js readPort does, so a typo cannot split the
 // dev page from its server.
 function serverPort(): number {
-  const raw = process.env.CLAUDEX_PORT || ''
+  const raw = process.env.SPAWN_PORT || ''
   const port = /^\d{1,5}$/.test(raw.trim()) ? Number(raw.trim()) : NaN
   return port >= 1 && port <= 65535 ? port : 3334
 }
@@ -26,7 +26,7 @@ export default defineConfig({
   // (src/serverUrl.ts). A production build is served by the server itself and
   // uses its own origin, so this only matters under `vite` / `vite --port`.
   define: {
-    'import.meta.env.VITE_CLAUDEX_PORT': JSON.stringify(String(SERVER_PORT)),
+    'import.meta.env.VITE_SPAWN_PORT': JSON.stringify(String(SERVER_PORT)),
   },
   server: {
     port: 3333,

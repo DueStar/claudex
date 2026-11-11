@@ -7,7 +7,7 @@
  * tool's adapter (adapters.cjs). Claude Code runs as
  * `claude --session-id <uuid>`, so the session id is known before Claude even
  * starts and the server can tie the terminal, the session and its Pokémon
- * together. Claudex's hooks are attached to these sessions only, through
+ * together. spawn's hooks are attached to these sessions only, through
  * `--settings` (a generated file) — ~/.claude/settings.json is never touched.
  * Another tool (설정 › 세션 › AI 도구) reports nothing itself: its output is
  * turned into the same server events here (adapters.createActivity).
@@ -47,7 +47,7 @@ function killTreeNow(pid) {
 }
 
 /**
- * The Claude Code events the hook forwards (hooks/claudex-hook.cjs). No
+ * The Claude Code events the hook forwards (hooks/spawn-hook.cjs). No
  * matchers: every tool call is a step for the session's Pokémon, and the
  * other events either have no matcher support or are wanted every time.
  */
@@ -79,7 +79,7 @@ function nodeCommand(runtime, script) {
 
 /** The hooks + status line for app sessions, written to userData once per start. */
 function writeSessionSettings(repoRoot, dir, runtime = process.execPath) {
-  const hook = nodeCommand(runtime, path.join(repoRoot, 'hooks', 'claudex-hook.cjs'))
+  const hook = nodeCommand(runtime, path.join(repoRoot, 'hooks', 'spawn-hook.cjs'))
   const settings = {
     hooks: Object.fromEntries(HOOK_EVENTS.map(e => [e, [{ hooks: [{ type: 'command', command: hook, ...(ASYNC_HOOKS.has(e) ? { async: true } : {}) }] }]])),
     statusLine: { type: 'command', command: nodeCommand(runtime, path.join(repoRoot, 'hooks', 'status-line.cjs')) },
@@ -105,7 +105,7 @@ function cleanEnv(env) {
   for (const [k, v] of Object.entries(env)) {
     if (k === 'CLAUDECODE' || k === 'CLAUDE_PID' || k.startsWith('CLAUDE_CODE_')) continue
     // another app terminal's identity (the app started from inside one of its own sessions)
-    if (k === 'CLAUDEX_SESSION_ID' || k === 'CLAUDEX_LINK_FILE') continue
+    if (k === 'SPAWN_SESSION_ID' || k === 'SPAWN_LINK_FILE' || k === 'CLAUDEX_SESSION_ID' || k === 'CLAUDEX_LINK_FILE') continue
     if (fromClaude && k === 'NO_COLOR') continue
     out[k] = v
   }
@@ -253,15 +253,16 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     // (Codex resumes only a thread its log named; with none it starts anew)
     const conversation = resume ? linkedConversation(userDataDir, resume) || (adapter.kind === 'codex' ? undefined : resume) : undefined
     let { file: command, args } = adapter.launch({ sessionId, resume: conversation, settingsFile: adapter.id === 'claude' ? settings() : null, extraArgs: adapter.id === 'claude' ? extraArgs() : [] })
-    // Debug only: CLAUDEX_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
-    if (process.env.CLAUDEX_CLAUDE && adapter.id === 'claude') { command = process.env.CLAUDEX_CLAUDE; args = [] }
+    // Debug only: SPAWN_CLAUDE runs another program in place of claude (tests the terminal plumbing for free)
+    if (process.env.SPAWN_CLAUDE && adapter.id === 'claude') { command = process.env.SPAWN_CLAUDE; args = [] }
     const pty = (ptyModule ?? loadPty()).spawn(command, args, {
       name: 'xterm-256color',
       cols: 100,
       rows: 30,
       cwd: dir,
       // Claude Code's hooks report under the terminal's id, whatever conversation runs in it
-      env: adapter.id === 'claude' ? { ...cleanEnv(process.env), CLAUDEX_SESSION_ID: sessionId, CLAUDEX_LINK_FILE: linkFile(userDataDir, sessionId) } : cleanEnv(process.env),
+      // CLAUDEX_SESSION_ID too: the name until 1.3.35, which users' own hooks may test (README)
+      env: adapter.id === 'claude' ? { ...cleanEnv(process.env), SPAWN_SESSION_ID: sessionId, CLAUDEX_SESSION_ID: sessionId, SPAWN_LINK_FILE: linkFile(userDataDir, sessionId) } : cleanEnv(process.env),
       useConpty: true,
     })
     // Output reaches the window in batches (pending, sent every OUTPUT_BATCH_MS) and is kept
@@ -358,7 +359,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     const c = Math.max(20, Math.min(400, cols | 0))
     const r = Math.max(5, Math.min(200, rows | 0))
     try { t.pty.resize(c, r) } catch {}
-    if (process.env.CLAUDEX_DEBUG_RESIZE) console.log(`[terminals] resize ${id.slice(0, 8)} ${c}x${r}`)
+    if (process.env.SPAWN_DEBUG_RESIZE) console.log(`[terminals] resize ${id.slice(0, 8)} ${c}x${r}`)
   }
 
   /** Send what a session printed since the last batch, and keep it for a tab opened later */

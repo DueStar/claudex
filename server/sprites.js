@@ -112,7 +112,7 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
         const url = kind === 'icon'
           ? `${ICON_SOURCE}/${ICON_SLUGS[id]}.png`
           : `${SOURCE}/${kind === 'art-shiny' ? 'shiny/' : ''}${id}.png`
-        const res = await fetchImpl(url, { headers: { 'User-Agent': 'Claudex' } })
+        const res = await fetchImpl(url, { headers: { 'User-Agent': 'spawn' } })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const png = fitPng(Buffer.from(await res.arrayBuffer()))
         mkdirSync(join(cacheDir, kind), { recursive: true })
@@ -142,7 +142,7 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
     } catch (err) {
       console.warn(`[sprites] ${kind}/${id}: ${err.message}`)
       // No icon: the HOME artwork of the same Pokémon; no artwork: the Poké Ball stand-in
-      res.set('Cache-Control', 'no-store').redirect(302, kind === 'icon' ? `/sprites/pokemon/art/${id}.png` : '/sprites/claudex-ball.png')
+      res.set('Cache-Control', 'no-store').redirect(302, kind === 'icon' ? `/sprites/pokemon/art/${id}.png` : '/sprites/spawn-ball.png')
     }
   })
 
@@ -168,7 +168,7 @@ export function mountSprites(app, { runtimeDir, uiDir, fetchImpl = fetch }) {
       res.type('png').send(readFileSync(await obtainBall(m[1])))
     } catch (err) {
       console.warn(`[sprites] ball ${m[1]}: ${err.message}`)
-      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/claudex-ball.png')
+      res.set('Cache-Control', 'no-store').redirect(302, '/sprites/spawn-ball.png')
     }
   })
 

@@ -1,6 +1,6 @@
 /**
  * electron/logs.cjs: lines are stamped, and the file rolls over to
- * claudex.old.log past its size limit so the folder stays small.
+ * spawn.old.log past its size limit so the folder stays small.
  */
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -14,7 +14,7 @@ const { createLog, scrubSecrets } = require('../electron/logs.cjs')
 
 const dirs: string[] = []
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })
-const tempDir = () => { const d = mkdtempSync(join(tmpdir(), 'claudex-logs-')); dirs.push(d); return join(d, 'logs') }
+const tempDir = () => { const d = mkdtempSync(join(tmpdir(), 'spawn-logs-')); dirs.push(d); return join(d, 'logs') }
 
 describe('the app log', () => {
   it('stamps every line, including each line of a multi-line chunk', () => {
@@ -30,7 +30,7 @@ describe('the app log', () => {
     const dir = tempDir()
     const log = createLog(dir, { maxBytes: 200 })
     for (let i = 0; i < 20; i++) log.write(`line ${i} ${'x'.repeat(20)}`)
-    expect(existsSync(join(dir, 'claudex.old.log'))).toBe(true)
+    expect(existsSync(join(dir, 'spawn.old.log'))).toBe(true)
     expect(statSync(log.file).size).toBeLessThanOrEqual(200)
     expect(readFileSync(log.file, 'utf8')).toContain('line 19')
   })
@@ -39,8 +39,8 @@ describe('the app log', () => {
     const dir = tempDir()
     createLog(dir, { maxBytes: 120 }).write('a'.repeat(80))
     createLog(dir, { maxBytes: 120 }).write('b'.repeat(80))
-    expect(readFileSync(join(dir, 'claudex.old.log'), 'utf8')).toContain('aaa')
-    expect(readFileSync(join(dir, 'claudex.log'), 'utf8')).not.toContain('aaa')
+    expect(readFileSync(join(dir, 'spawn.old.log'), 'utf8')).toContain('aaa')
+    expect(readFileSync(join(dir, 'spawn.log'), 'utf8')).not.toContain('aaa')
   })
 })
 
@@ -56,10 +56,10 @@ describe('secrets in the log', () => {
   it('scrubs a token that logs from an older version still hold', () => {
     const dir = tempDir()
     mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'claudex.log'), 'x Page: http://127.0.0.1:3334/#token=oldtoken1\n')
-    writeFileSync(join(dir, 'claudex.old.log'), 'y Page: http://127.0.0.1:3334/#token=oldtoken2\n')
+    writeFileSync(join(dir, 'spawn.log'), 'x Page: http://127.0.0.1:3334/#token=oldtoken1\n')
+    writeFileSync(join(dir, 'spawn.old.log'), 'y Page: http://127.0.0.1:3334/#token=oldtoken2\n')
     createLog(dir)
-    expect(readFileSync(join(dir, 'claudex.log'), 'utf8')).toBe('x Page: http://127.0.0.1:3334/#token=…\n')
-    expect(readFileSync(join(dir, 'claudex.old.log'), 'utf8')).not.toContain('oldtoken2')
+    expect(readFileSync(join(dir, 'spawn.log'), 'utf8')).toBe('x Page: http://127.0.0.1:3334/#token=…\n')
+    expect(readFileSync(join(dir, 'spawn.old.log'), 'utf8')).not.toContain('oldtoken2')
   })
 })

@@ -11,7 +11,7 @@ import {
 
 function session(overrides: Partial<SessionStatus> = {}): SessionStatus {
   return {
-    sessionId: 'sess-1', project: 'claudex', model: 'Haiku 5.5', modelId: 'claude-haiku-5-5',
+    sessionId: 'sess-1', project: 'spawn', model: 'Haiku 5.5', modelId: 'claude-haiku-5-5',
     context: { used: 4.4, size: 1000000, input: 44051, output: 358 },
     rateLimits: { fiveHour: 12, sevenDay: 40 },
     updatedAt: 1000,

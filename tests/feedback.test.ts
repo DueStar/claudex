@@ -44,7 +44,7 @@ describe('composeIssue', () => {
 describe('issueUrl', () => {
   it('is always a new issue on our repo', () => {
     const url = issueUrl(composeIssue({ text: 'hello & bye' }, app))
-    expect(url.startsWith('https://github.com/DueStar/claudex/issues/new?labels=feedback&title=')).toBe(true)
+    expect(url.startsWith('https://github.com/DueStar/spawn/issues/new?labels=feedback&title=')).toBe(true)
     expect(new URL(url).searchParams.get('body')).toContain('hello & bye')
   })
 })
@@ -76,7 +76,7 @@ describe('registerFeedbackIpc', () => {
     expect(sender.capturePage).toHaveBeenCalledWith({ x: 700, y: 10, width: 100, height: 100 })
     expect(handlers['feedback:send']({ sender }, { kind: 'fix', text: 'tab closes', attach: true })).toEqual({ ok: true, attached: true })
     expect(clipboard.writeImage).toHaveBeenCalledWith(image)
-    expect(shell.openExternal.mock.calls[0][0]).toMatch(/^https:\/\/github\.com\/DueStar\/claudex\/issues\/new\?/)
+    expect(shell.openExternal.mock.calls[0][0]).toMatch(/^https:\/\/github\.com\/DueStar\/spawn\/issues\/new\?/)
   })
 
   it('without the picture ticked, the clipboard is left alone', () => {

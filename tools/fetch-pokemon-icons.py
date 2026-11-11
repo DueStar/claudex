@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve()
 PAGE = "https://pokemondb.net/pokedex/all"
-UA = {"User-Agent": "Mozilla/5.0 (Claudex icon list)"}
+UA = {"User-Agent": "Mozilla/5.0 (spawn icon list)"}
 
 html = urllib.request.urlopen(urllib.request.Request(PAGE, headers=UA), timeout=60).read().decode("utf-8")
 slugs: dict[int, str] = {}

@@ -1,6 +1,14 @@
 # Changelog
 
-## Claudex
+## spawn
+
+### 1.3.36
+- 앱 이름이 Claudex에서 **spawn**으로 바뀌었어요. 로고와 앱 아이콘, 트레이 아이콘도 새로 바뀌었어요.
+- 도감·파티·박스·설정·창 위치·열어 둔 세션은 그대로 이어져요. 처음 켤 때 예전 폴더(`~/.claudex`, `%APPDATA%\Claudex`)를 새 폴더(`~/.spawn`, `%APPDATA%\spawn`)로 복사하고, 예전 폴더는 지우지 않고 남겨 둬요.
+- 야생 포켓몬을 덜 자주 만나요(걸음마다 3% → 1%). 아직 못 잡은 종이 나올 확률도 조금 낮아져서, 도감은 천천히 오래 채워 가요.
+- 150번·300번 만남마다 나오는 보장 전설·환상은 이제 아직 못 잡은 종으로 나와요.
+- 의견 보내기는 설정 › 앱으로 옮겼어요.
+- 왼쪽 패널을 접었을 때 사용량 막대 아래에 "사용량"이라고 보이고, 막대의 빈 부분이 밝아져서 눈에 잘 띄어요. 세션 사이 간격도 조금 넓어졌어요.
 
 ### 1.3.35
 - 위 헤더(설정 옆)와 접힌 왼쪽 패널에 말풍선 버튼이 생겼어요. 누르면 Claudex에 바라는 점(고쳐 주세요·추가해 주세요·이런 방향은 어때요·좋았던 점)을 적어 GitHub 이슈로 올릴 수 있어요. 원하면 화면에서 위치를 찍고 그 부분 화면도 함께 보낼 수 있어요(화면은 클립보드에 담겨서 이슈 본문에 Ctrl+V로 붙여요). 터미널 화면에서는 화면 첨부가 꺼진 채로 시작하고, 터미널 글자는 이슈에 적지 않아요. GitHub 계정이 없으면 복사해서 보내면 돼요.
@@ -260,7 +268,15 @@
 ### 1.2.0
 - 첫 공개 릴리스.
 
-## Claudex (English)
+## spawn (English)
+
+### 1.3.36
+- Claudex is now called **spawn**, with a new logo, app icon and tray icon.
+- Your Pokédex, party, box, settings, window place and open sessions all carry over. On the first start the old folders (`~/.claudex`, `%APPDATA%\Claudex`) are copied to the new ones (`~/.spawn`, `%APPDATA%\spawn`); the old folders are left as they were.
+- Wild Pokémon show up less often (1% per step instead of 3%), and species you have not caught yet are a little less favoured, so the Pokédex fills slowly over a long time.
+- The sure legendary and mythical (every 150 and 300 encounters) is now always one you have not caught yet.
+- Send feedback has moved to Settings › App.
+- With the left panel folded, the usage bars are labelled "Usage" and their empty part is lighter, so they are easy to read. The open sessions there are spaced a little more.
 
 ### 1.3.35
 - A speech-bubble button in the header (next to settings) and in the folded left panel lets you say what to fix, what to add, a direction you would like, or what you liked, and post it as a GitHub issue. If you want, pin a spot on the screen and send a picture of that part too (it goes on the clipboard, so press Ctrl+V in the issue). On the terminal screen the picture starts unticked and terminal text is never written into the issue. No GitHub account? Copy it and send it instead.
@@ -384,7 +400,15 @@
 - App: launch at Windows startup, start minimized to the tray, and keep the widget on top.
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
-## Claudex (日本語)
+## spawn (日本語)
+
+### 1.3.36
+- アプリの名前が Claudex から **spawn** に変わりました。ロゴ・アプリアイコン・トレイアイコンも新しくなりました。
+- 図鑑・パーティー・ボックス・設定・ウィンドウの位置・開いていたセッションはそのまま引き継がれます。初回起動時に以前のフォルダー(`~/.claudex`、`%APPDATA%\Claudex`)を新しいフォルダー(`~/.spawn`、`%APPDATA%\spawn`)へコピーし、以前のフォルダーは消さずに残します。
+- 野生のポケモンに出会う頻度が下がりました(1歩ごとに 3% → 1%)。まだ捕まえていない種が出やすくなる補正も少し弱まり、図鑑はゆっくり長く埋めていく形になります。
+- 150回・300回の出会いごとに確定で出る伝説・幻は、まだ捕まえていない種になりました。
+- 意見を送るは 設定 › アプリ に移りました。
+- 左パネルを折りたたんだとき、使用量バーの下に「使用量」と表示され、バーの空いた部分が明るくなって見やすくなりました。セッションの間隔も少し広がりました。
 
 ### 1.3.35
 - 上のヘッダー(設定の隣)と折りたたんだ左パネルに吹き出しボタンが付きました。直してほしいこと・追加してほしいこと・こんな方向は？・よかったところを書いて GitHub の Issue として投稿できます。必要なら画面で場所を指定して、その部分の画面も一緒に送れます(画面はクリップボードに入るので Issue の本文で Ctrl+V)。ターミナル画面では画面の添付はオフで始まり、ターミナルの文字は Issue に書きません。GitHub アカウントがなければコピーして送れます。

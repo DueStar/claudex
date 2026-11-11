@@ -1,4 +1,4 @@
-# Claudex
+# spawn
 
 [한국어](README.md) · **English** · [日本語](README.ja.md)
 
@@ -71,80 +71,80 @@ A Windows desktop app for running Claude Code sessions with Pokémon. Each sessi
 
 ## Install
 
-1. Download `Claudex-<version>-win-x64.zip` from [Releases](https://github.com/DueStar/claudex/releases/latest) and unzip it anywhere.
-2. Run `win-unpacked\Claudex.exe`.
+1. Download `spawn-<version>-win-x64.zip` from [Releases](https://github.com/DueStar/spawn/releases/latest) and unzip it anywhere.
+2. Run `win-unpacked\spawn.exe`.
 
 If something it needs is missing, the app shows where to install it.
 - [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) (signed in)
 - [Git for Windows](https://git-scm.com/downloads/win): Claude Code uses Git Bash.
 
-Nothing else, like Python, is needed. Claudex runs the session hooks itself.
+Nothing else, like Python, is needed. spawn runs the session hooks itself.
 
 > The app is not code-signed yet. If SmartScreen warns you, click **More info → Run anyway**. With Windows 11's Smart App Control on, it will not run.
 
-Pokémon artwork is not in the app. The first time a picture is shown it is downloaded from the [PokeAPI sprites repository](https://github.com/PokeAPI/sprites) into `%USERPROFILE%\.claudex\sprites`, and the saved file is used after that.
+Pokémon artwork is not in the app. The first time a picture is shown it is downloaded from the [PokeAPI sprites repository](https://github.com/PokeAPI/sprites) into `%USERPROFILE%\.spawn\sprites`, and the saved file is used after that.
 
 ## How it works
 
 ```
-Claudex (Electron)
- ├─ Terminal (node-pty + xterm.js) ── claude --session-id … --settings <Claudex's own hooks>
+spawn (Electron)
+ ├─ Terminal (node-pty + xterm.js) ── claude --session-id … --settings <spawn's own hooks>
  │                                        │ hooks · status line
  ├─ Local server 127.0.0.1:3334 <─────────┘
  │    ├─ Session state, limits
- │    ├─ Game (server/pokedex.js → ~/.claudex/pokedex.json)
+ │    ├─ Game (server/pokedex.js → ~/.spawn/pokedex.json)
  │    ├─ Pokémon art (server/sprites.js, downloaded on first use)
  │    └─ Cloud sync (server/cloud.js, Supabase)
  └─ Widget / Pokédex / Box / notice windows (React)
 ```
 
-- **Hooks only apply to sessions Claudex starts**: Claude Code's global settings (`~/.claude/settings.json`) are left alone.
-- **The server is local only**: it listens on `127.0.0.1` only, and requests that change anything need `~/.claudex/auth-token`.
+- **Hooks only apply to sessions spawn starts**: Claude Code's global settings (`~/.claude/settings.json`) are left alone.
+- **The server is local only**: it listens on `127.0.0.1` only, and requests that change anything need `~/.spawn/auth-token`.
 - **Updates are signature-checked**: the app only accepts a `latest.json` signed with the release key.
-- **Data folder**: `~/.agent-office`, used up to 1.3.7, is copied to `~/.claudex` on the first run of 1.3.8. The old folder is left in place; delete it once everything works.
-- **Logs**: the tray menu's "Open logs folder" shows `claudex.log`.
+- **Data folder**: up to 1.3.35 this app was called Claudex. Its `~/.claudex` (`~/.agent-office` up to 1.3.7) and its settings folder `%APPDATA%Claudex` are copied to `~/.spawn` and `%APPDATA%spawn` on spawn's first run. The old folders are left in place; delete them once everything works. The old environment variable names (`CLAUDEX_PORT`, `CLAUDEX_HOME`, …) are still read.
+- **Logs**: the tray menu's "Open logs folder" shows `spawn.log`.
 - **The sign-in token stays in the server**: the cloud sign-in token is never passed to the screens.
 
 ## Using it with your own Claude Code hooks
 
-Claudex starts Claude Code as `claude --session-id <id> --settings %APPDATA%\Claudex\session-settings.json`. That file holds the Claudex hooks (16 events) and status line, and is rewritten each time the app starts. Claudex never touches `~/.claude/settings.json` or a project's `.claude/` settings.
+spawn starts Claude Code as `claude --session-id <id> --settings %APPDATA%\spawn\session-settings.json`. That file holds the spawn hooks (16 events) and status line, and is rewritten each time the app starts. spawn never touches `~/.claude/settings.json` or a project's `.claude/` settings.
 
-- **Your hooks keep running**: Claude Code merges the hooks from every settings source, so in a Claudex session your hooks and the Claudex hooks both run. The Claudex hooks print nothing and always succeed (exit code 0), so they never change a permission decision or the context your hooks add. The three tool-call hooks (PreToolUse, PostToolUse, PostToolBatch) are set to `async`, so Claude does not wait for them; the others wait at most 1 second when the Claudex server is down.
-- **The status line is Claudex's**: there is only one status line, and `--settings` comes before user and project settings, so a Claudex session shows the Claudex status line (`model · ctx 42% · $1.23`) instead of yours. Claudex reads the context in use and the 5-hour and weekly limits from it. Sessions outside Claudex keep your status line.
-- **Environment variables Claudex adds**: only to the Claude Code sessions in Claudex terminals. If `CLAUDEX_SESSION_ID` is set in your hook, the session runs inside Claudex.
+- **Your hooks keep running**: Claude Code merges the hooks from every settings source, so in a spawn session your hooks and the spawn hooks both run. The spawn hooks print nothing and always succeed (exit code 0), so they never change a permission decision or the context your hooks add. The three tool-call hooks (PreToolUse, PostToolUse, PostToolBatch) are set to `async`, so Claude does not wait for them; the others wait at most 1 second when the spawn server is down.
+- **The status line is spawn's**: there is only one status line, and `--settings` comes before user and project settings, so a spawn session shows the spawn status line (`model · ctx 42% · $1.23`) instead of yours. spawn reads the context in use and the 5-hour and weekly limits from it. Sessions outside spawn keep your status line.
+- **Environment variables spawn adds**: only to the Claude Code sessions in spawn terminals. If `SPAWN_SESSION_ID` is set in your hook, the session runs inside spawn.
 
 | Variable | Value |
 |---|---|
-| `CLAUDEX_SESSION_ID` | The terminal's session id. It stays the same when `/clear` starts a new conversation |
-| `CLAUDEX_LINK_FILE` | `%APPDATA%\Claudex\session-links\<session id>`. The Claudex hook writes the current conversation id here at every SessionStart, and reopening the session continues that conversation |
+| `SPAWN_SESSION_ID` | The terminal's session id. It stays the same when `/clear` starts a new conversation |
+| `SPAWN_LINK_FILE` | `%APPDATA%\spawn\session-links\<session id>`. The spawn hook writes the current conversation id here at every SessionStart, and reopening the session continues that conversation |
 
-- **Environment variables left out**: `CLAUDECODE`, `CLAUDE_PID` and anything starting with `CLAUDE_CODE_` are removed from the session environment, so a Claudex started from inside Claude Code does not open its sessions as child sessions. A `CLAUDE_CODE_…` variable you set system-wide therefore does not reach Claudex sessions.
-- **Sessions outside Claudex don't count**: steps, catches and limits come only from sessions opened in a Claudex terminal. A Claude Code session in another terminal or an IDE has no Claudex hooks, so no Pokémon walks with it.
-- **Codex CLI**: add Codex (the `codex` command) under Settings › AI tools, and Claudex follows the session log Codex writes itself (`~/.codex/sessions/…jsonl`): prompts, tool calls (steps), turn ends, the model, the context (HP) and Codex's usage limits (5-hour, weekly or monthly, depending on the plan) show as they do for Claude, and reopening the app resumes the same conversation with `codex resume`. Claudex never touches Codex's settings or sign-in. Starting a new conversation with `/new` inside Codex leaves the tab following the first one.
+- **Environment variables left out**: `CLAUDECODE`, `CLAUDE_PID` and anything starting with `CLAUDE_CODE_` are removed from the session environment, so a spawn started from inside Claude Code does not open its sessions as child sessions. A `CLAUDE_CODE_…` variable you set system-wide therefore does not reach spawn sessions.
+- **Sessions outside spawn don't count**: steps, catches and limits come only from sessions opened in a spawn terminal. A Claude Code session in another terminal or an IDE has no spawn hooks, so no Pokémon walks with it.
+- **Codex CLI**: add Codex (the `codex` command) under Settings › AI tools, and spawn follows the session log Codex writes itself (`~/.codex/sessions/…jsonl`): prompts, tool calls (steps), turn ends, the model, the context (HP) and Codex's usage limits (5-hour, weekly or monthly, depending on the plan) show as they do for Claude, and reopening the app resumes the same conversation with `codex resume`. spawn never touches Codex's settings or sign-in. Starting a new conversation with `/new` inside Codex leaves the tab following the first one.
 - **Other AI tools**: other tools (Gemini CLI and so on) get no hooks and none of the variables above. Their steps are counted from the terminal output alone.
 
 ## What is stored and what is sent
 
 ### Stored on this PC
 
-`~/.claudex` is `%USERPROFILE%\.claudex` (change it with `CLAUDEX_HOME`).
+`~/.spawn` is `%USERPROFILE%\.spawn` (change it with `SPAWN_HOME`).
 
 | Where | What |
 |---|---|
-| `~/.claudex/pokedex.json` | The whole game: party, box, Pokédex, log. A catch record holds the project folder name, the tool in use and the start of its argument (e.g. the first 32 characters of a Bash command), and the first 40 characters of the request at the time |
-| `~/.claudex/agents.json` | The open sessions (folder, model, the first 200 characters of the last request and reply, …), so a restarted server can carry on |
-| `~/.claudex/usage-limits.json` | The last 5-hour and weekly usage heard, with reset times |
-| `~/.claudex/auth-token` | The local server's token (a random value), used by the hooks and the app to talk to the server |
-| `~/.claudex/cloud-session.json` | The Google sign-in session, only when signed in |
-| `~/.claudex/sprites/` | Downloaded Pokémon pictures |
-| `%APPDATA%\Claudex\settings.json` | Settings |
-| `%APPDATA%\Claudex\window-state.json` | Window position, size and mode; session names |
-| `%APPDATA%\Claudex\open-sessions.json` | The sessions to reopen next time (session id, folder, tool) |
-| `%APPDATA%\Claudex\session-links\` | Each terminal's current conversation id (a Codex tab: its Codex thread id) |
-| `%APPDATA%\Claudex\session-settings.json` | The hook and status-line settings given to Claudex sessions |
-| `%APPDATA%\Claudex\logs\claudex.log` | The app's and the local server's log |
+| `~/.spawn/pokedex.json` | The whole game: party, box, Pokédex, log. A catch record holds the project folder name, the tool in use and the start of its argument (e.g. the first 32 characters of a Bash command), and the first 40 characters of the request at the time |
+| `~/.spawn/agents.json` | The open sessions (folder, model, the first 200 characters of the last request and reply, …), so a restarted server can carry on |
+| `~/.spawn/usage-limits.json` | The last 5-hour and weekly usage heard, with reset times |
+| `~/.spawn/auth-token` | The local server's token (a random value), used by the hooks and the app to talk to the server |
+| `~/.spawn/cloud-session.json` | The Google sign-in session, only when signed in |
+| `~/.spawn/sprites/` | Downloaded Pokémon pictures |
+| `%APPDATA%\spawn\settings.json` | Settings |
+| `%APPDATA%\spawn\window-state.json` | Window position, size and mode; session names |
+| `%APPDATA%\spawn\open-sessions.json` | The sessions to reopen next time (session id, folder, tool) |
+| `%APPDATA%\spawn\session-links\` | Each terminal's current conversation id (a Codex tab: its Codex thread id) |
+| `%APPDATA%\spawn\session-settings.json` | The hook and status-line settings given to spawn sessions |
+| `%APPDATA%\spawn\logs\spawn.log` | The app's and the local server's log |
 
-- To list sessions to resume, Claudex only reads `~/.claude/projects` (transcripts) and `~/.claude/sessions` (running sessions). While a Codex tab is open, finding its log reads the first line (the session header: id, time, folder) of that day's and the previous day's Codex logs; after that it reads only the tab's own log.
+- To list sessions to resume, spawn only reads `~/.claude/projects` (transcripts) and `~/.claude/sessions` (running sessions). While a Codex tab is open, finding its log reads the first line (the session header: id, time, folder) of that day's and the previous day's Codex logs; after that it reads only the tab's own log.
 - The local server listens on `127.0.0.1` only; requests from the hooks and the app are signed or checked with `auth-token`.
 - With "Hide prompts" on in Settings, prompts are hidden on screen, and the game copy uploaded to the cloud leaves out request text and tool arguments (only tool names remain). This PC's `pokedex.json` keeps them.
 
@@ -173,10 +173,10 @@ node scripts/release.mjs --publish   # checks, then the GitHub release too (need
 
 - **Art fetched at build time**: `tools/fetch-balls.mjs` downloads the ball art. `tools/build-icons.py` makes the app icons.
 - **Not in the repository**: Pokémon and ball art is never committed (`.gitignore`).
-- **Test runs**: to leave your real data alone, run with `CLAUDEX_HOME=<temp folder> CLAUDEX_PORT=3344`.
+- **Test runs**: to leave your real data alone, run with `SPAWN_HOME=<temp folder> SPAWN_PORT=3344`.
 
 ```
-claudex/
+spawn/
 ├── electron/      # app: windows, terminals, updates, tray
 ├── server/        # local server: game, art, cloud, sessions
 ├── src/           # screens: Widget, Pokédex, Box, notices

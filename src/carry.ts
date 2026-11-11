@@ -13,7 +13,7 @@ export function freshDexPick(): number | null {
   return p && typeof p.id === 'number' && Date.now() - p.at < 5000 ? p.id : null
 }
 
-const KEY = 'claudex-carry'
+const KEY = 'spawn-carry'
 
 export function readCarry(): Carried {
   try {

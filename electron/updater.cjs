@@ -1,12 +1,13 @@
 /**
  * updater.cjs — "업데이트" in the widget: checks GitHub Releases for a newer
- * Claudex, downloads only the app part (resources/app, a few MB to tens of
+ * spawn, downloads only the app part (resources/app, a few MB to tens of
  * MB; the Electron runtime rarely changes), verifies it, and swaps it in
  * after the app quits.
  *
  * A release carries two files (scripts/release.mjs makes them):
  *   latest.json              { version, electron, notes, app: { file, sha256, size }, full }
- *   claudex-app-<v>.zip      the resources/app folder
+ *   claudex-app-<v>.zip    the resources/app folder (the old name, which 1.3.35 and older
+ *                          require; spawn-app-<v>.zip is accepted too, for a later switch)
  * They are read from https://github.com/<repo>/releases/latest/download/, a
  * plain download (no API rate limit, no token: the repository is public).
  * When that path fails (it answered 504 for every repository on 2026-11-08
@@ -25,7 +26,7 @@ const { spawn } = require('child_process')
 const { t } = require('./i18n.cjs')
 const { pendingFile: runnerPendingFile } = require('./updateRunner.cjs')
 
-const REPO = 'DueStar/claudex'
+const REPO = 'DueStar/spawn'
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
 
 /** a > b for dotted versions ("0.10.0" > "0.9.3") */
@@ -75,7 +76,7 @@ function verifyManifest(manifest, publicKey = require('./update-key.cjs')) {
 /** GET with redirects (GitHub release downloads redirect to their CDN) */
 function get(url, { onProgress, maxBytes = 300 * 1024 * 1024, headers = {} } = {}, hops = 0) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'Claudex-updater', ...headers }, timeout: 30000 }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'spawn-updater', ...headers }, timeout: 30000 }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 5) {
         res.resume()
         resolve(get(new URL(res.headers.location, url).toString(), { onProgress, maxBytes, headers }, hops + 1))
@@ -100,14 +101,14 @@ function get(url, { onProgress, maxBytes = 300 * 1024 * 1024, headers = {} } = {
 }
 
 /**
- * A local channel for whoever builds Claudex on this PC: when
- * ~/.claudex/update-dir (or CLAUDEX_UPDATE_DIR) names a folder, the update
+ * A local channel for whoever builds spawn on this PC: when
+ * ~/.spawn/update-dir (or SPAWN_UPDATE_DIR) names a folder, the update
  * comes from that folder's latest.json and zip (what scripts/release.mjs leaves
  * in release/), checked every minute, and a build counts as newer by its date
  * even when the version number is the same. No GitHub release is needed.
  */
 function localUpdateDir() {
-  if (process.env.CLAUDEX_UPDATE_DIR) return process.env.CLAUDEX_UPDATE_DIR
+  if (process.env.SPAWN_UPDATE_DIR) return process.env.SPAWN_UPDATE_DIR
   try {
     const home = require('../server/runtime-dir.cjs').runtimeDir()
     const dir = fs.readFileSync(path.join(home, 'update-dir'), 'utf8').trim()
@@ -163,7 +164,7 @@ function createUpdater({ app, send, isPackaged }) {
     if (state.needsFull) return state
     if (!isPackaged) { publish({ error: t('개발 실행에서는 업데이트하지 않아요') }); return state }
     const appFile = String(manifest.app?.file ?? '')
-    if (!/^claudex-app-[\w.-]+\.zip$/.test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
+    if (!/^(spawn|claudex)-app-[\w.-]+\.zip$/.test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
     publish({ status: 'downloading', progress: 0, error: null })
     try {
       const zip = manifest.localDir
@@ -172,7 +173,7 @@ function createUpdater({ app, send, isPackaged }) {
       const sha = crypto.createHash('sha256').update(zip).digest('hex')
       if (sha !== String(manifest.app?.sha256 ?? '').toLowerCase()) throw new Error('checksum mismatch')
 
-      const work = fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-update-'))
+      const work = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-update-'))
       workFolder = work // known from now, so the stale-folder cleanup leaves it alone while it fills
       const zipPath = path.join(work, appFile)
       fs.writeFileSync(zipPath, zip)
@@ -209,7 +210,7 @@ function createUpdater({ app, send, isPackaged }) {
     return true
   }
 
-  // workDir: the claudex-update-* folder this run is downloading or unpacking into, or has staged (kept by the stale-folder cleanup)
+  // workDir: the spawn-update-* folder this run is downloading or unpacking into, or has staged (kept by the stale-folder cleanup)
   return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir(), workDir: () => workFolder }
 }
 

@@ -1,4 +1,4 @@
-# Claudex
+# spawn
 
 [한국어](README.md) · [English](README.en.md) · **日本語**
 
@@ -71,78 +71,78 @@ Claude Code のセッションをポケモンと一緒に使う Windows デス�
 
 ## インストール
 
-1. [Releases](https://github.com/DueStar/claudex/releases/latest) から `Claudex-<バージョン>-win-x64.zip` をダウンロードし、好きな場所に展開します。
-2. `win-unpacked\Claudex.exe` を実行します。
+1. [Releases](https://github.com/DueStar/spawn/releases/latest) から `spawn-<バージョン>-win-x64.zip` をダウンロードし、好きな場所に展開します。
+2. `win-unpacked\spawn.exe` を実行します。
 
 必要なプログラムがないときは、アプリがインストール先を案内します。
 - [Claude Code](https://docs.claude.com/en/docs/claude-code/setup)(ログイン済み)
 - [Git for Windows](https://git-scm.com/downloads/win): Claude Code が Git Bash を使います。
 
-Python など、ほかのプログラムは必要ありません。セッションの記録(フック)は Claudex が自分で動かします。
+Python など、ほかのプログラムは必要ありません。セッションの記録(フック)は spawn が自分で動かします。
 
 > まだコード署名がありません。SmartScreen の警告が出たら **詳細情報 → 実行** を押してください。Windows 11 のスマート アプリ コントロールがオンだと実行がブロックされます。
 
-ポケモンのイラストはアプリに含まれていません。初めて表示するときに [PokeAPI の画像リポジトリ](https://github.com/PokeAPI/sprites)からダウンロードして `%USERPROFILE%\.claudex\sprites` に保存し、それ以降は保存したファイルを使います。
+ポケモンのイラストはアプリに含まれていません。初めて表示するときに [PokeAPI の画像リポジトリ](https://github.com/PokeAPI/sprites)からダウンロードして `%USERPROFILE%\.spawn\sprites` に保存し、それ以降は保存したファイルを使います。
 
 ## しくみ
 
 ```
-Claudex (Electron)
- ├─ ターミナル (node-pty + xterm.js) ── claude --session-id … --settings <Claudex 専用のフック>
+spawn (Electron)
+ ├─ ターミナル (node-pty + xterm.js) ── claude --session-id … --settings <spawn 専用のフック>
  │                                          │ フック・ステータスライン
  ├─ ローカルサーバー 127.0.0.1:3334 <────────┘
  │    ├─ セッションの状態、上限
- │    ├─ ゲーム (server/pokedex.js → ~/.claudex/pokedex.json)
+ │    ├─ ゲーム (server/pokedex.js → ~/.spawn/pokedex.json)
  │    ├─ ポケモンのイラスト (server/sprites.js、初めて使うときにダウンロードして保存)
  │    └─ クラウド同期 (server/cloud.js、Supabase)
  └─ ウィジェット / 図鑑 / ボックス / 通知ウィンドウ (React)
 ```
 
-- **フックは Claudex が起動したセッションにだけかかります**: Claude Code のグローバル設定(`~/.claude/settings.json`)には触れません。
-- **サーバーはローカルだけで開きます**: `127.0.0.1` でのみ待ち受け、変更するリクエストには `~/.claudex/auth-token` が必要です。
+- **フックは spawn が起動したセッションにだけかかります**: Claude Code のグローバル設定(`~/.claude/settings.json`)には触れません。
+- **サーバーはローカルだけで開きます**: `127.0.0.1` でのみ待ち受け、変更するリクエストには `~/.spawn/auth-token` が必要です。
 - **アップデートは署名を確認します**: アプリはリリース鍵で署名された `latest.json` だけを受け入れます。
-- **データフォルダー**: 1.3.7 まで使っていた `~/.agent-office` は、1.3.8 の初回起動時に `~/.claudex` へコピーされます。古いフォルダーはそのまま残るので、問題なく動くのを確認してから削除してかまいません。
-- **ログ**: トレイメニューの「ログフォルダを開く」で `claudex.log` を見られます。
+- **データフォルダー**: このアプリは 1.3.35 まで Claudex という名前でした。そのころの `~/.claudex`(1.3.7 までは `~/.agent-office`)と設定フォルダー `%APPDATA%Claudex` は、spawn の初回起動時に `~/.spawn`・`%APPDATA%spawn` へコピーされます。古いフォルダーはそのまま残るので、問題なく動くのを確認してから削除してかまいません。古い環境変数名(`CLAUDEX_PORT`、`CLAUDEX_HOME` など)も引き続き読みます。
+- **ログ**: トレイメニューの「ログフォルダを開く」で `spawn.log` を見られます。
 - **ログイントークンはサーバーにだけあります**: クラウドのログイントークンは画面側には渡りません。
 
 ## 自分のClaude Codeフックと一緒に使う
 
-ClaudexはClaude Codeを`claude --session-id <id> --settings %APPDATA%\Claudex\session-settings.json`で起動します。このファイルにはClaudexのフック(イベント16種)とステータスラインが入っていて、アプリを起動するたびに書き直されます。`~/.claude/settings.json`やプロジェクトの`.claude/`の設定には触れません。
+spawnはClaude Codeを`claude --session-id <id> --settings %APPDATA%\spawn\session-settings.json`で起動します。このファイルにはspawnのフック(イベント16種)とステータスラインが入っていて、アプリを起動するたびに書き直されます。`~/.claude/settings.json`やプロジェクトの`.claude/`の設定には触れません。
 
-- **自分のフックはそのまま動きます**: Claude Codeは各設定にあるフックをまとめて実行するので、Claudexのセッションでは自分のフックとClaudexのフックが両方動きます。Claudexのフックは何も出力せず、いつも成功(終了コード0)で終わるので、自分のフックが返す許可の判断やプロンプトに足す内容は変わりません。ツール呼び出しのフック3つ(PreToolUse・PostToolUse・PostToolBatch)は`async`にしてあるので、Claudeは待ちません。そのほかはClaudexのサーバーが止まっていると最大1秒待って先に進みます。
-- **ステータスラインはClaudexのものになります**: ステータスラインは1つしか使えず、Claude Codeの設定の優先順位では`--settings`がユーザー・プロジェクトの設定より先に来るため、Claudexのセッションでは自分のステータスラインの代わりにClaudexのもの(`モデル · ctx 42% · $1.23`)が表示されます。Claudexはこのステータスラインからコンテキストの使用量と5時間・週間の上限を受け取ります。Claudexの外のセッションでは自分のステータスラインがそのまま出ます。
-- **Claudexが加える環境変数**: ClaudexのターミナルのClaude Codeセッションにだけ入ります。自分のフックで`CLAUDEX_SESSION_ID`があれば、Claudexの中で動いているセッションです。
+- **自分のフックはそのまま動きます**: Claude Codeは各設定にあるフックをまとめて実行するので、spawnのセッションでは自分のフックとspawnのフックが両方動きます。spawnのフックは何も出力せず、いつも成功(終了コード0)で終わるので、自分のフックが返す許可の判断やプロンプトに足す内容は変わりません。ツール呼び出しのフック3つ(PreToolUse・PostToolUse・PostToolBatch)は`async`にしてあるので、Claudeは待ちません。そのほかはspawnのサーバーが止まっていると最大1秒待って先に進みます。
+- **ステータスラインはspawnのものになります**: ステータスラインは1つしか使えず、Claude Codeの設定の優先順位では`--settings`がユーザー・プロジェクトの設定より先に来るため、spawnのセッションでは自分のステータスラインの代わりにspawnのもの(`モデル · ctx 42% · $1.23`)が表示されます。spawnはこのステータスラインからコンテキストの使用量と5時間・週間の上限を受け取ります。spawnの外のセッションでは自分のステータスラインがそのまま出ます。
+- **spawnが加える環境変数**: spawnのターミナルのClaude Codeセッションにだけ入ります。自分のフックで`SPAWN_SESSION_ID`があれば、spawnの中で動いているセッションです。
 
 | 変数 | 値 |
 |---|---|
-| `CLAUDEX_SESSION_ID` | そのターミナルのセッションid。`/clear`で会話が変わっても同じです |
-| `CLAUDEX_LINK_FILE` | `%APPDATA%\Claudex\session-links\<セッションid>`。ClaudexのフックがSessionStartのたびに今の会話idをここに書き、セッションを開き直すとその会話を続けます |
+| `SPAWN_SESSION_ID` | そのターミナルのセッションid。`/clear`で会話が変わっても同じです |
+| `SPAWN_LINK_FILE` | `%APPDATA%\spawn\session-links\<セッションid>`。spawnのフックがSessionStartのたびに今の会話idをここに書き、セッションを開き直すとその会話を続けます |
 
-- **外す環境変数**: セッションの環境から`CLAUDECODE`、`CLAUDE_PID`、`CLAUDE_CODE_`で始まる変数を外します。Claude Codeの中からClaudexを起動したとき、新しいセッションがそのセッションの子セッションにならないようにするためです。そのため`CLAUDE_CODE_…`をシステムの環境変数にしていても、Claudexのセッションには渡りません。
-- **Claudexの外のセッションは数えません**: 歩数・捕獲・上限はClaudexのターミナルで開いたセッションからだけ入ります。ほかのターミナルやIDEで開いたClaude CodeのセッションにはClaudexのフックがないので、ポケモンは歩きません。
-- **Codex CLI**: 設定 › AIツールにCodex(`codex`コマンド)を入れると、ClaudexはCodexが自分で書くセッション記録(`~/.codex/sessions/…jsonl`)を読んでいきます。リクエスト・ツール呼び出し(歩数)・ターンの終わり・モデル・コンテキスト(HP)・Codexの使用量の上限(プランによって5時間・週間・月間)がClaudeのセッションと同じように表示され、アプリを開き直すと同じ会話を`codex resume`で続けます。Codexの設定やログインには触れません。Codexの中で`/new`で新しい会話を始めると、そのタブは最初の会話を追い続けます。
+- **外す環境変数**: セッションの環境から`CLAUDECODE`、`CLAUDE_PID`、`CLAUDE_CODE_`で始まる変数を外します。Claude Codeの中からspawnを起動したとき、新しいセッションがそのセッションの子セッションにならないようにするためです。そのため`CLAUDE_CODE_…`をシステムの環境変数にしていても、spawnのセッションには渡りません。
+- **spawnの外のセッションは数えません**: 歩数・捕獲・上限はspawnのターミナルで開いたセッションからだけ入ります。ほかのターミナルやIDEで開いたClaude Codeのセッションにはspawnのフックがないので、ポケモンは歩きません。
+- **Codex CLI**: 設定 › AIツールにCodex(`codex`コマンド)を入れると、spawnはCodexが自分で書くセッション記録(`~/.codex/sessions/…jsonl`)を読んでいきます。リクエスト・ツール呼び出し(歩数)・ターンの終わり・モデル・コンテキスト(HP)・Codexの使用量の上限(プランによって5時間・週間・月間)がClaudeのセッションと同じように表示され、アプリを開き直すと同じ会話を`codex resume`で続けます。Codexの設定やログインには触れません。Codexの中で`/new`で新しい会話を始めると、そのタブは最初の会話を追い続けます。
 - **ほかのAIツール**: それ以外のツール(Gemini CLIなど)にはフックも上の環境変数も入れません。ターミナルの出力だけで歩数を数えます。
 
 ## 保存するものと送るもの
 
 ### このPCに保存するもの
 
-`~/.claudex`は`%USERPROFILE%\.claudex`です(`CLAUDEX_HOME`で変えられます)。
+`~/.spawn`は`%USERPROFILE%\.spawn`です(`SPAWN_HOME`で変えられます)。
 
 | 場所 | 内容 |
 |---|---|
-| `~/.claudex/pokedex.json` | ゲーム全体: 手持ち、ボックス、図鑑、記録。捕獲の記録には、捕まえたプロジェクトのフォルダ名、使っていたツールと引数の先頭(例: Bashコマンドの先頭32文字)、そのときのリクエストの先頭40文字が入っています |
-| `~/.claudex/agents.json` | 今開いているセッションの状態(フォルダ、モデル、最後のリクエスト・返答の先頭200文字など)。サーバーが起動し直しても続けられるように置いています |
-| `~/.claudex/usage-limits.json` | 最後に受け取った5時間・週間の使用量とリセット時刻 |
-| `~/.claudex/auth-token` | ローカルサーバーのトークン(ランダムな値)。フックと画面がサーバーに頼むときに使います |
-| `~/.claudex/cloud-session.json` | Googleログインのセッション。ログインしたときだけあります |
-| `~/.claudex/sprites/` | ダウンロードしたポケモンの絵 |
-| `%APPDATA%\Claudex\settings.json` | 設定 |
-| `%APPDATA%\Claudex\window-state.json` | ウィンドウの位置・大きさ・モード、セッション名 |
-| `%APPDATA%\Claudex\open-sessions.json` | 次に起動したとき開き直すセッション(セッションid、フォルダ、ツール) |
-| `%APPDATA%\Claudex\session-links\` | ターミナルごとに今続いている会話id(CodexのタブはCodexのスレッドid) |
-| `%APPDATA%\Claudex\session-settings.json` | Claudexのセッションに渡すフック・ステータスラインの設定 |
-| `%APPDATA%\Claudex\logs\claudex.log` | アプリとローカルサーバーのログ |
+| `~/.spawn/pokedex.json` | ゲーム全体: 手持ち、ボックス、図鑑、記録。捕獲の記録には、捕まえたプロジェクトのフォルダ名、使っていたツールと引数の先頭(例: Bashコマンドの先頭32文字)、そのときのリクエストの先頭40文字が入っています |
+| `~/.spawn/agents.json` | 今開いているセッションの状態(フォルダ、モデル、最後のリクエスト・返答の先頭200文字など)。サーバーが起動し直しても続けられるように置いています |
+| `~/.spawn/usage-limits.json` | 最後に受け取った5時間・週間の使用量とリセット時刻 |
+| `~/.spawn/auth-token` | ローカルサーバーのトークン(ランダムな値)。フックと画面がサーバーに頼むときに使います |
+| `~/.spawn/cloud-session.json` | Googleログインのセッション。ログインしたときだけあります |
+| `~/.spawn/sprites/` | ダウンロードしたポケモンの絵 |
+| `%APPDATA%\spawn\settings.json` | 設定 |
+| `%APPDATA%\spawn\window-state.json` | ウィンドウの位置・大きさ・モード、セッション名 |
+| `%APPDATA%\spawn\open-sessions.json` | 次に起動したとき開き直すセッション(セッションid、フォルダ、ツール) |
+| `%APPDATA%\spawn\session-links\` | ターミナルごとに今続いている会話id(CodexのタブはCodexのスレッドid) |
+| `%APPDATA%\spawn\session-settings.json` | spawnのセッションに渡すフック・ステータスラインの設定 |
+| `%APPDATA%\spawn\logs\spawn.log` | アプリとローカルサーバーのログ |
 
 - 続きから開くセッションの一覧を作るために、`~/.claude/projects`(会話の記録)と`~/.claude/sessions`(実行中のセッション)を読むだけです。Codexのタブが開いているときは、そのタブの記録を見つけるためにその日と前日のCodexの記録の1行目(セッション情報: id・時刻・フォルダ)を読み、見つけた後はそのタブの記録だけを読みます。
 - ローカルサーバーは`127.0.0.1`でだけ開き、フックと画面からの要求は`auth-token`で署名または確認します。
@@ -173,10 +173,10 @@ node scripts/release.mjs --publish   # チェックのあと GitHub リリース
 
 - **ビルド時に取得する画像**: `tools/fetch-balls.mjs` がボールの画像をダウンロードします。`tools/build-icons.py` はアプリのアイコンを作ります。
 - **リポジトリにないもの**: ポケモンとボールの画像はリポジトリに入れません(`.gitignore`)。
-- **試験実行**: 実際のデータに触れないようにするには、`CLAUDEX_HOME=<一時フォルダー> CLAUDEX_PORT=3344` で起動してください。
+- **試験実行**: 実際のデータに触れないようにするには、`SPAWN_HOME=<一時フォルダー> SPAWN_PORT=3344` で起動してください。
 
 ```
-claudex/
+spawn/
 ├── electron/      # アプリ: ウィンドウ、ターミナル、アップデート、トレイ
 ├── server/        # ローカルサーバー: ゲーム、画像、クラウド、セッション
 ├── src/           # 画面: ウィジェット、図鑑、ボックス、通知

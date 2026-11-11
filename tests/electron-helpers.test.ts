@@ -67,7 +67,7 @@ describe('clampBounds', () => {
 
 describe('window-state.json', () => {
   let dir: string
-  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'claudex-window-state-')) })
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'spawn-window-state-')) })
   afterEach(() => { rmSync(dir, { recursive: true, force: true }) })
 
   const SID = '0f8fad5b-d9cb-469f-a165-70867728950e'
@@ -150,7 +150,7 @@ describe('the tray', () => {
     const actions = { toggleWidget: vi.fn(), openQa: vi.fn(), checkUpdate: vi.fn(), quit: vi.fn() }
     const labels = (t: any[]) => t.filter(i => i.type !== 'separator').map(i => i.label)
     const shown = h.trayMenuTemplate({ visible: true, status: '세션 1개' }, actions)
-    expect(labels(shown)).toEqual(['Claudex — 세션 1개', '숨기기', '업데이트 확인', '디자인 QA 페이지', 'Claudex 끝내기'])
+    expect(labels(shown)).toEqual(['spawn — 세션 1개', '숨기기', '업데이트 확인', '디자인 QA 페이지', 'spawn 끝내기'])
     expect(shown[0].enabled).toBe(false)
     expect(labels(h.trayMenuTemplate({ visible: false, status: '' }, actions))).toContain('보이기')
     for (const item of shown.filter((i: any) => i.click)) item.click()
@@ -169,29 +169,29 @@ describe('the tray', () => {
     expect(status).toBe('Sessions: 3 · Working: 1 · Needs you: 1')
     const menu = h.trayMenuTemplate({ visible: true, status }, { toggleWidget() {}, openSettings() {}, checkUpdate() {}, openLogs() {}, quit() {} }, en)
     expect(menu.filter((i: any) => i.type !== 'separator').map((i: any) => i.label))
-      .toEqual(['Claudex — Sessions: 3 · Working: 1 · Needs you: 1', 'Hide', 'Settings', 'Check for updates', 'Open logs folder', 'Quit Claudex'])
+      .toEqual(['spawn — Sessions: 3 · Working: 1 · Needs you: 1', 'Hide', 'Settings', 'Check for updates', 'Open logs folder', 'Quit spawn'])
     expect([resolveLang('auto', 'ko-KR'), resolveLang('auto', 'ja'), resolveLang('auto', 'fr-FR'), resolveLang('ja', 'ko-KR')]).toEqual(['ko', 'ja', 'en', 'ja'])
   })
 })
 
-describe('the server port (CLAUDEX_PORT)', () => {
+describe('the server port (SPAWN_PORT)', () => {
   it('serverPortFromEnv is 3334 when unset or empty', () => {
     expect(h.serverPortFromEnv({})).toBe(3334)
-    expect(h.serverPortFromEnv({ CLAUDEX_PORT: '' })).toBe(3334)
+    expect(h.serverPortFromEnv({ SPAWN_PORT: '' })).toBe(3334)
     expect(h.DEFAULT_SERVER_PORT).toBe(3334)
   })
 
   it('parses a port, tolerating whitespace', () => {
-    expect(h.serverPortFromEnv({ CLAUDEX_PORT: '4000' })).toBe(4000)
-    expect(h.serverPortFromEnv({ CLAUDEX_PORT: ' 4123 ' })).toBe(4123)
-    expect(h.serverPortFromEnv({ CLAUDEX_PORT: '65535' })).toBe(65535)
+    expect(h.serverPortFromEnv({ SPAWN_PORT: '4000' })).toBe(4000)
+    expect(h.serverPortFromEnv({ SPAWN_PORT: ' 4123 ' })).toBe(4123)
+    expect(h.serverPortFromEnv({ SPAWN_PORT: '65535' })).toBe(65535)
   })
 
   it('falls back to 3334 for anything that is not a port, exactly as server/config.js readPort does', async () => {
     const { readPort } = await import('../server/config.js')
     const quiet = { warn: () => {} }
     for (const raw of ['abc', '0', '70000', '-1', '33.34', '3334abc', '0x3334', '4000', ' 4001 ', '']) {
-      const env = { CLAUDEX_PORT: raw }
+      const env = { SPAWN_PORT: raw }
       expect(h.serverPortFromEnv(env), raw).toBe(readPort(env, quiet))
     }
   })
@@ -210,7 +210,7 @@ describe('the server port (CLAUDEX_PORT)', () => {
   it('main.cjs takes the port from the env, passes it to the server child and the tray, and hard-codes no port', () => {
     const main = readFileSync(join(ROOT, 'electron/main.cjs'), 'utf8')
     expect(main).toContain('serverPortFromEnv(process.env)')
-    expect(main).toContain('CLAUDEX_PORT: String(SERVER_PORT)')
+    expect(main).toContain('SPAWN_PORT: String(SERVER_PORT)')
     expect(main).toContain('serverUrl: SERVER_URL')
     const code = main.split('\n').filter(line => !/^\s*(\/\/|\*|\/\*)/.test(line)).join('\n')
     expect(code).not.toMatch(/\b3334\b/)
@@ -254,15 +254,15 @@ describe('reusing a server already on the port', () => {
     const text = h.serverConflictMessage(4000)
     expect(text).toContain('port 4000')
     expect(text).toContain('npm run build')
-    expect(text).toContain('CLAUDEX_PORT')
+    expect(text).toContain('SPAWN_PORT')
   })
 
   it('against the real server: a checkout without a build is a conflict for the packaged app, a built one is reused', async () => {
-    const empty = mkdtempSync(join(tmpdir(), 'claudex-no-ui-'))
-    const built = mkdtempSync(join(tmpdir(), 'claudex-ui-'))
-    writeFileSync(join(built, 'index.html'), '<!doctype html><title>Claudex</title>')
+    const empty = mkdtempSync(join(tmpdir(), 'spawn-no-ui-'))
+    const built = mkdtempSync(join(tmpdir(), 'spawn-ui-'))
+    writeFileSync(join(built, 'index.html'), '<!doctype html><title>spawn</title>')
     try {
-      const bare = await loadServer({ env: { CLAUDEX_UI_DIR: empty } })
+      const bare = await loadServer({ env: { SPAWN_UI_DIR: empty } })
       try {
         const res = await request(bare.server.app).get('/health')
         expect(h.classifyHealth(res.status, res.text)).toBe('no-ui')
@@ -273,7 +273,7 @@ describe('reusing a server already on the port', () => {
       } finally {
         removeServer(bare)
       }
-      const office = await loadServer({ env: { CLAUDEX_UI_DIR: built } })
+      const office = await loadServer({ env: { SPAWN_UI_DIR: built } })
       try {
         const res = await request(office.server.app).get('/health')
         expect(h.classifyHealth(res.status, res.text)).toBe('usable')
@@ -370,5 +370,19 @@ describe('app lifecycle', () => {
     // Fullscreen is the maximized window, kept in step with Windows' own maximize
     expect(main).toContain("win.on('maximize', () => { if (win === widgetWin) setModeQuietly('fullscreen') })")
     expect(main).toContain("win.on('unmaximize', () => { if (win === widgetWin) setModeQuietly('window') })")
+  })
+})
+
+describe('serverProofMatches after the rename', () => {
+  const { createHmac } = require('node:crypto')
+  const { serverProofMatches } = require('../electron/helpers.cjs')
+  const token = 'a'.repeat(64)
+  const challenge = 'c0ffee'
+  const proof = (prefix: string) => createHmac('sha256', token).update(`${prefix}${challenge}`).digest('hex')
+  it('accepts a server of this version and one of 1.3.35 or older, nothing else', () => {
+    expect(serverProofMatches(token, challenge, proof('spawn-health:'))).toBe(true)
+    expect(serverProofMatches(token, challenge, proof('claudex-health:'))).toBe(true)
+    expect(serverProofMatches(token, challenge, proof('other-health:'))).toBe(false)
+    expect(serverProofMatches('b'.repeat(64), challenge, proof('spawn-health:'))).toBe(false)
   })
 })

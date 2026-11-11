@@ -1,4 +1,4 @@
-# Claudex
+# spawn
 
 **한국어** · [English](README.en.md) · [日本語](README.ja.md)
 
@@ -71,78 +71,78 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows 데스크톱 앱이에�
 
 ## 설치
 
-1. [Releases](https://github.com/DueStar/claudex/releases/latest)에서 `Claudex-<버전>-win-x64.zip`을 받아 원하는 곳에 풀어요.
-2. `win-unpacked\Claudex.exe`를 실행해요.
+1. [Releases](https://github.com/DueStar/spawn/releases/latest)에서 `spawn-<버전>-win-x64.zip`을 받아 원하는 곳에 풀어요.
+2. `win-unpacked\spawn.exe`를 실행해요.
 
 필요한 프로그램이 없으면 앱이 설치 링크를 보여줘요.
 - [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) (로그인된 상태)
 - [Git for Windows](https://git-scm.com/downloads/win): Claude Code가 Git Bash를 써요.
 
-Python 같은 다른 프로그램은 필요 없어요. 세션 기록(훅)은 Claudex가 직접 돌려요.
+Python 같은 다른 프로그램은 필요 없어요. 세션 기록(훅)은 spawn이 직접 돌려요.
 
 > 코드 서명이 아직 없어요. SmartScreen 경고가 뜨면 **추가 정보 → 실행**을 눌러 주세요. Windows 11의 스마트 앱 컨트롤이 켜져 있으면 실행이 막혀요.
 
-포켓몬 그림은 앱에 들어 있지 않아요. 처음 볼 때 [PokeAPI 이미지 저장소](https://github.com/PokeAPI/sprites)에서 받아 `%USERPROFILE%\.claudex\sprites`에 저장하고, 그다음부터는 저장된 파일을 써요.
+포켓몬 그림은 앱에 들어 있지 않아요. 처음 볼 때 [PokeAPI 이미지 저장소](https://github.com/PokeAPI/sprites)에서 받아 `%USERPROFILE%\.spawn\sprites`에 저장하고, 그다음부터는 저장된 파일을 써요.
 
 ## 어떻게 동작하나요
 
 ```
-Claudex (Electron)
- ├─ 터미널 (node-pty + xterm.js) ── claude --session-id … --settings <Claudex 전용 훅>
+spawn (Electron)
+ ├─ 터미널 (node-pty + xterm.js) ── claude --session-id … --settings <spawn 전용 훅>
  │                                        │ 훅·상태줄
  ├─ 로컬 서버 127.0.0.1:3334 <────────────┘
  │    ├─ 세션 상태, 한도
- │    ├─ 게임 (server/pokedex.js → ~/.claudex/pokedex.json)
+ │    ├─ 게임 (server/pokedex.js → ~/.spawn/pokedex.json)
  │    ├─ 포켓몬 그림 (server/sprites.js, 처음 쓸 때 받아서 저장)
  │    └─ 클라우드 동기화 (server/cloud.js, Supabase)
  └─ 위젯 / 도감 / 박스 / 알림 창 (React)
 ```
 
-- **훅은 Claudex가 띄운 세션에만 걸려요**: Claude Code의 전역 설정(`~/.claude/settings.json`)은 건드리지 않아요.
-- **서버는 로컬에서만 열려요**: 서버는 `127.0.0.1`에서만 열리고, 바꾸는 요청에는 `~/.claudex/auth-token`이 필요해요.
+- **훅은 spawn이 띄운 세션에만 걸려요**: Claude Code의 전역 설정(`~/.claude/settings.json`)은 건드리지 않아요.
+- **서버는 로컬에서만 열려요**: 서버는 `127.0.0.1`에서만 열리고, 바꾸는 요청에는 `~/.spawn/auth-token`이 필요해요.
 - **업데이트는 서명을 확인해요**: 앱은 릴리스 키로 서명된 `latest.json`만 받아들여요.
-- **데이터 폴더**: 1.3.7까지 쓰던 `~/.agent-office`는 1.3.8 첫 실행 때 `~/.claudex`로 복사돼요. 옛 폴더는 그대로 남아 있으니, 잘 돌아가는 걸 확인한 뒤 지워도 돼요.
-- **로그**: 트레이 메뉴 "로그 폴더 열기"에서 `claudex.log`를 볼 수 있어요.
+- **데이터 폴더**: 이 앱은 1.3.35까지 Claudex라는 이름이었어요. 그때 쓰던 `~/.claudex`(1.3.7까지는 `~/.agent-office`)와 설정 폴더 `%APPDATA%Claudex`는 spawn 첫 실행 때 `~/.spawn`, `%APPDATA%spawn`으로 복사돼요. 옛 폴더는 그대로 남아 있으니, 잘 돌아가는 걸 확인한 뒤 지워도 돼요. 예전 환경 변수 이름(`CLAUDEX_PORT`, `CLAUDEX_HOME` 등)도 계속 읽어요.
+- **로그**: 트레이 메뉴 "로그 폴더 열기"에서 `spawn.log`를 볼 수 있어요.
 - **로그인 토큰은 서버에만 있어요**: 클라우드 로그인 토큰은 화면 쪽으로 넘어가지 않아요.
 
 ## 내 Claude Code 훅과 같이 쓰기
 
-Claudex는 Claude Code를 `claude --session-id <id> --settings %APPDATA%\Claudex\session-settings.json`으로 띄워요. 이 파일에 Claudex 훅(이벤트 16종)과 상태줄이 들어 있고, 앱을 켤 때마다 새로 써요. `~/.claude/settings.json`이나 프로젝트의 `.claude/` 설정은 건드리지 않아요.
+spawn은 Claude Code를 `claude --session-id <id> --settings %APPDATA%\spawn\session-settings.json`으로 띄워요. 이 파일에 spawn 훅(이벤트 16종)과 상태줄이 들어 있고, 앱을 켤 때마다 새로 써요. `~/.claude/settings.json`이나 프로젝트의 `.claude/` 설정은 건드리지 않아요.
 
-- **내 훅은 그대로 돌아요**: Claude Code는 여러 설정에 있는 훅을 합쳐서 실행해요. Claudex 세션에서는 내 훅과 Claudex 훅이 같이 돌아요. Claudex 훅은 아무것도 출력하지 않고 항상 성공(종료 코드 0)으로 끝나서, 내 훅이 내린 권한 응답이나 프롬프트에 붙이는 내용을 바꾸지 않아요. 도구 호출 훅 세 가지(PreToolUse·PostToolUse·PostToolBatch)는 `async`로 걸려 있어서 Claude가 기다리지 않아요. 나머지는 Claudex 서버가 꺼져 있으면 최대 1초 기다리고 넘어가요.
-- **상태줄은 Claudex 것이 보여요**: 상태줄은 하나만 쓸 수 있어요. Claude Code 설정 우선순위에서 `--settings`가 사용자·프로젝트 설정보다 앞서기 때문에, Claudex 세션에서는 내 상태줄 대신 Claudex 상태줄(`모델 · ctx 42% · $1.23`)이 보여요. Claudex는 이 상태줄로 컨텍스트 사용량과 5시간·주간 한도를 받아요. Claudex 밖의 세션에서는 내 상태줄이 그대로 나와요.
-- **Claudex가 넣는 환경 변수**: Claudex 터미널의 Claude Code 세션에만 들어가요. 내 훅에서 `CLAUDEX_SESSION_ID`가 있으면 Claudex 안에서 도는 세션이에요.
+- **내 훅은 그대로 돌아요**: Claude Code는 여러 설정에 있는 훅을 합쳐서 실행해요. spawn 세션에서는 내 훅과 spawn 훅이 같이 돌아요. spawn 훅은 아무것도 출력하지 않고 항상 성공(종료 코드 0)으로 끝나서, 내 훅이 내린 권한 응답이나 프롬프트에 붙이는 내용을 바꾸지 않아요. 도구 호출 훅 세 가지(PreToolUse·PostToolUse·PostToolBatch)는 `async`로 걸려 있어서 Claude가 기다리지 않아요. 나머지는 spawn 서버가 꺼져 있으면 최대 1초 기다리고 넘어가요.
+- **상태줄은 spawn 것이 보여요**: 상태줄은 하나만 쓸 수 있어요. Claude Code 설정 우선순위에서 `--settings`가 사용자·프로젝트 설정보다 앞서기 때문에, spawn 세션에서는 내 상태줄 대신 spawn 상태줄(`모델 · ctx 42% · $1.23`)이 보여요. spawn은 이 상태줄로 컨텍스트 사용량과 5시간·주간 한도를 받아요. spawn 밖의 세션에서는 내 상태줄이 그대로 나와요.
+- **spawn이 넣는 환경 변수**: spawn 터미널의 Claude Code 세션에만 들어가요. 내 훅에서 `SPAWN_SESSION_ID`가 있으면 spawn 안에서 도는 세션이에요.
 
 | 변수 | 값 |
 |---|---|
-| `CLAUDEX_SESSION_ID` | 그 터미널의 세션 id. `/clear`로 대화가 바뀌어도 그대로예요 |
-| `CLAUDEX_LINK_FILE` | `%APPDATA%\Claudex\session-links\<세션 id>`. Claudex 훅이 SessionStart마다 지금 대화 id를 여기에 써 두고, 세션을 다시 열 때 그 대화로 이어가요 |
+| `SPAWN_SESSION_ID` | 그 터미널의 세션 id. `/clear`로 대화가 바뀌어도 그대로예요 |
+| `SPAWN_LINK_FILE` | `%APPDATA%\spawn\session-links\<세션 id>`. spawn 훅이 SessionStart마다 지금 대화 id를 여기에 써 두고, 세션을 다시 열 때 그 대화로 이어가요 |
 
-- **빠지는 환경 변수**: 세션 환경에서 `CLAUDECODE`, `CLAUDE_PID`, `CLAUDE_CODE_`로 시작하는 변수는 빼요. Claude Code 안에서 Claudex를 켰을 때 새 세션이 그 세션의 하위 세션으로 잡히지 않게 하려는 거예요. 그래서 `CLAUDE_CODE_…` 변수를 시스템 환경 변수로 두었다면 Claudex 세션에는 전달되지 않아요.
-- **Claudex 밖의 세션은 세지 않아요**: 걸음·포획·한도는 Claudex 터미널에서 연 세션에서만 들어와요. 다른 터미널이나 IDE에서 연 Claude Code 세션에는 Claudex 훅이 없어서 포켓몬이 걷지 않아요.
-- **Codex CLI**: 설정 › AI 도구에 Codex(`codex` 명령)를 넣으면, Claudex는 Codex가 스스로 남기는 세션 기록(`~/.codex/sessions/…jsonl`)을 따라 읽어요. 요청·도구 호출(걸음)·턴 끝·모델·컨텍스트(HP)·Codex 사용량 한도(요금제에 따라 5시간·주간·월간)를 Claude 세션처럼 보여 주고, 앱을 다시 켜면 같은 대화로 `codex resume`해요. Codex 설정이나 로그인은 건드리지 않아요. Codex 안에서 `/new`로 새 대화를 시작하면 그 탭은 처음 대화를 계속 따라가요.
+- **빠지는 환경 변수**: 세션 환경에서 `CLAUDECODE`, `CLAUDE_PID`, `CLAUDE_CODE_`로 시작하는 변수는 빼요. Claude Code 안에서 spawn을 켰을 때 새 세션이 그 세션의 하위 세션으로 잡히지 않게 하려는 거예요. 그래서 `CLAUDE_CODE_…` 변수를 시스템 환경 변수로 두었다면 spawn 세션에는 전달되지 않아요.
+- **spawn 밖의 세션은 세지 않아요**: 걸음·포획·한도는 spawn 터미널에서 연 세션에서만 들어와요. 다른 터미널이나 IDE에서 연 Claude Code 세션에는 spawn 훅이 없어서 포켓몬이 걷지 않아요.
+- **Codex CLI**: 설정 › AI 도구에 Codex(`codex` 명령)를 넣으면, spawn은 Codex가 스스로 남기는 세션 기록(`~/.codex/sessions/…jsonl`)을 따라 읽어요. 요청·도구 호출(걸음)·턴 끝·모델·컨텍스트(HP)·Codex 사용량 한도(요금제에 따라 5시간·주간·월간)를 Claude 세션처럼 보여 주고, 앱을 다시 켜면 같은 대화로 `codex resume`해요. Codex 설정이나 로그인은 건드리지 않아요. Codex 안에서 `/new`로 새 대화를 시작하면 그 탭은 처음 대화를 계속 따라가요.
 - **다른 AI 도구**: 그 밖의 도구(Gemini CLI 등)에는 훅도 위 환경 변수도 넣지 않아요. 터미널 출력으로만 걸음을 세요.
 
 ## 저장하는 것과 보내는 것
 
 ### 이 PC에 저장하는 것
 
-`~/.claudex`는 `%USERPROFILE%\.claudex`예요(`CLAUDEX_HOME`으로 바꿀 수 있어요).
+`~/.spawn`은 `%USERPROFILE%\.spawn`이에요(`SPAWN_HOME`으로 바꿀 수 있어요).
 
 | 위치 | 내용 |
 |---|---|
-| `~/.claudex/pokedex.json` | 게임 전체: 파티, 박스, 도감, 기록. 포획 기록에는 잡은 프로젝트 폴더 이름, 쓰던 도구와 인자 앞부분(예: Bash 명령 앞 32자), 그때 요청의 앞 40자가 들어 있어요 |
-| `~/.claudex/agents.json` | 지금 열려 있는 세션 상태(폴더, 모델, 마지막 요청·답변 앞 200자 등). 서버가 다시 켜져도 이어가려고 둬요 |
-| `~/.claudex/usage-limits.json` | 마지막으로 받은 5시간·주간 사용량과 리셋 시각 |
-| `~/.claudex/auth-token` | 로컬 서버 토큰(무작위 값). 훅과 화면이 서버에 요청할 때 써요 |
-| `~/.claudex/cloud-session.json` | 구글 로그인 세션. 로그인했을 때만 있어요 |
-| `~/.claudex/sprites/` | 받아 둔 포켓몬 그림 |
-| `%APPDATA%\Claudex\settings.json` | 설정 |
-| `%APPDATA%\Claudex\window-state.json` | 창 위치·크기·모드, 세션 이름 |
-| `%APPDATA%\Claudex\open-sessions.json` | 다음에 켤 때 다시 열 세션(세션 id, 폴더, 도구) |
-| `%APPDATA%\Claudex\session-links\` | 터미널마다 지금 이어지는 대화 id(Codex 탭은 Codex 스레드 id) |
-| `%APPDATA%\Claudex\session-settings.json` | Claudex 세션에 주는 훅·상태줄 설정 |
-| `%APPDATA%\Claudex\logs\claudex.log` | 앱과 로컬 서버의 로그 |
+| `~/.spawn/pokedex.json` | 게임 전체: 파티, 박스, 도감, 기록. 포획 기록에는 잡은 프로젝트 폴더 이름, 쓰던 도구와 인자 앞부분(예: Bash 명령 앞 32자), 그때 요청의 앞 40자가 들어 있어요 |
+| `~/.spawn/agents.json` | 지금 열려 있는 세션 상태(폴더, 모델, 마지막 요청·답변 앞 200자 등). 서버가 다시 켜져도 이어가려고 둬요 |
+| `~/.spawn/usage-limits.json` | 마지막으로 받은 5시간·주간 사용량과 리셋 시각 |
+| `~/.spawn/auth-token` | 로컬 서버 토큰(무작위 값). 훅과 화면이 서버에 요청할 때 써요 |
+| `~/.spawn/cloud-session.json` | 구글 로그인 세션. 로그인했을 때만 있어요 |
+| `~/.spawn/sprites/` | 받아 둔 포켓몬 그림 |
+| `%APPDATA%\spawn\settings.json` | 설정 |
+| `%APPDATA%\spawn\window-state.json` | 창 위치·크기·모드, 세션 이름 |
+| `%APPDATA%\spawn\open-sessions.json` | 다음에 켤 때 다시 열 세션(세션 id, 폴더, 도구) |
+| `%APPDATA%\spawn\session-links\` | 터미널마다 지금 이어지는 대화 id(Codex 탭은 Codex 스레드 id) |
+| `%APPDATA%\spawn\session-settings.json` | spawn 세션에 주는 훅·상태줄 설정 |
+| `%APPDATA%\spawn\logs\spawn.log` | 앱과 로컬 서버의 로그 |
 
 - 이어하기 목록을 만들려고 `~/.claude/projects`(대화 기록)와 `~/.claude/sessions`(실행 중인 세션)를 읽기만 해요. Codex 탭이 열려 있으면 그 탭의 기록을 찾으려고 그날·전날 Codex 기록의 첫 줄(세션 정보: id·시각·폴더)을 읽고, 찾은 뒤에는 그 탭의 기록만 따라 읽어요.
 - 로컬 서버는 `127.0.0.1`에서만 열리고, 훅과 화면의 요청은 `auth-token`으로 서명하거나 확인해요.
@@ -173,10 +173,10 @@ node scripts/release.mjs --publish   # 점검 후 GitHub 릴리스까지 (서명
 
 - **빌드할 때 받는 그림**: `tools/fetch-balls.mjs`가 볼 그림을 받아요. `tools/build-icons.py`는 앱 아이콘을 만들어요.
 - **저장소에 없는 것**: 포켓몬·볼 그림은 저장소에 넣지 않아요(`.gitignore`).
-- **시험 실행**: 실제 데이터를 건드리지 않으려면 `CLAUDEX_HOME=<임시 폴더> CLAUDEX_PORT=3344`로 실행하세요.
+- **시험 실행**: 실제 데이터를 건드리지 않으려면 `SPAWN_HOME=<임시 폴더> SPAWN_PORT=3344`로 실행하세요.
 
 ```
-claudex/
+spawn/
 ├── electron/      # 앱: 창, 터미널, 업데이트, 트레이
 ├── server/        # 로컬 서버: 게임, 그림, 클라우드, 세션
 ├── src/           # 화면: Widget, 도감, 박스, 알림

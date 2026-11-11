@@ -4,8 +4,8 @@
  *   node scripts/signing-key.mjs
  *
  * Writes the private key to ~/.claudex-release/signing-key.pem (or the path in
- * CLAUDEX_SIGNING_KEY) and prints the public key for electron/update-key.cjs.
- * Refuses to overwrite an existing key: every installed Claudex trusts the
+ * SPAWN_SIGNING_KEY) and prints the public key for electron/update-key.cjs.
+ * Refuses to overwrite an existing key: every installed spawn trusts the
  * public key it shipped with, so a new key means in-app updates stop working
  * for everyone until they reinstall from the full zip. Back the key up.
  */

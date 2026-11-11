@@ -1,3 +1,5 @@
+// First: the page's saved choices under the old name (claudex-…) carry over before anything reads them
+import './storageMigration'
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { captureServerToken } from './serverToken'

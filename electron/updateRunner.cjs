@@ -8,7 +8,7 @@
  * sees the marker first thing (main.cjs, before anything else loads), shows the
  * "updating" card, mirrors the staged update over resources/app with robocopy
  * (it retries while the old run's processes let go of their files), and starts
- * the app once more on the new code, flagged --claudex-updated so that run
+ * the app once more on the new code, flagged --spawn-updated so that run
  * times its start in update.log.
  *
  * The marker is removed before trying, so a bad update can never loop: a
@@ -22,7 +22,11 @@ const path = require('path')
 const childProcess = require('child_process')
 const { createStepTimer } = require('./updateTiming.cjs')
 
-const UPDATED_FLAG = '--claudex-updated'
+const UPDATED_FLAG = '--spawn-updated'
+/** The same flag from when the app was Claudex (1.3.35 and older run the copy step of the update into spawn) */
+const LEGACY_UPDATED_FLAG = '--claudex-updated'
+/** True when this run follows an update restart, flagged by this version or an older one */
+const isUpdatedRun = (argv = process.argv) => argv.includes(UPDATED_FLAG) || argv.includes(LEGACY_UPDATED_FLAG)
 const pendingFile = (userData) => path.join(userData, 'pending-update.json')
 
 function hasPendingUpdate(userData) {
@@ -98,13 +102,13 @@ async function runPendingUpdate({
   }
 
   timer.mark('relaunch', result.ok ? '' : `reason=${result.reason}`)
-  app.relaunch({ args: [...argv.slice(1).filter(a => a !== UPDATED_FLAG), UPDATED_FLAG] })
+  app.relaunch({ args: [...argv.slice(1).filter(a => a !== UPDATED_FLAG && a !== LEGACY_UPDATED_FLAG), UPDATED_FLAG] })
   app.exit(0)
   return result
 }
 
 /**
- * Remove the claudex-update-* folders a past update left in the temp folder
+ * Remove the spawn-update-* (and older claudex-update-*) folders a past update left in the temp folder
  * (all but `keep`, the one this run may be downloading into). Returns how many went.
  */
 async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm, minAgeMs = 10 * 60_000, now = Date.now }) {
@@ -113,11 +117,12 @@ async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm, m
   const keepPath = keep ? path.resolve(keep) : null
   let removed = 0
   for (const name of names) {
-    if (!name.startsWith('claudex-update-')) continue
+    // claudex-update-*: made by 1.3.35 and older (the update into spawn among them)
+    if (!name.startsWith('spawn-update-') && !name.startsWith('claudex-update-')) continue
     const full = path.resolve(tmpdir, name)
     if (keepPath && (full === keepPath || keepPath.startsWith(full + path.sep))) continue
     // A folder made in the last minutes may be an update being unpacked right now
-    // (this run's, before it is known, or another Claudex run's): left for next time
+    // (this run's, before it is known, or another spawn run's): left for next time
     try {
       const st = await fs.promises.stat(full)
       const made = st.birthtimeMs || st.ctimeMs
@@ -128,4 +133,4 @@ async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm, m
   return removed
 }
 
-module.exports = { UPDATED_FLAG, pendingFile, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates }
+module.exports = { UPDATED_FLAG, LEGACY_UPDATED_FLAG, isUpdatedRun, pendingFile, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates }

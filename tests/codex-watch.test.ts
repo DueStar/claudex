@@ -1,5 +1,5 @@
 /**
- * electron/codexWatch.cjs — a Codex CLI session told to Claudex from Codex's
+ * electron/codexWatch.cjs — a Codex CLI session told to spawn from Codex's
  * own session log (~/.codex/sessions/YYYY/MM/DD/rollout-…-<thread id>.jsonl):
  * prompts, tool calls (steps), turn ends, the model, the context and Codex's
  * usage limits, and the thread id a reopened tab resumes.

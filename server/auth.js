@@ -7,7 +7,7 @@
  *
  *   bearer      Authorization: Bearer <token> — the app sends it from its own
  *               memory, never from a command line
- *   signature   X-Claudex-Timestamp + X-Claudex-Signature =
+ *   signature   X-spawn-Timestamp + X-spawn-Signature =
  *               HMAC-SHA256(token, method\npath\ntimestamp\nbody) — the hook
  *               and the status line run as short-lived processes whose argv
  *               every local user can read, so they never send the token at
@@ -65,12 +65,12 @@ export function writePrivate(path, data) {
 
 /**
  * The server's answer to an opener's /health challenge: HMAC-SHA256 of the
- * token over 'claudex-health:' + challenge. Only a holder of the token can
+ * token over 'spawn-health:' + challenge. Only a holder of the token can
  * make it, so an opener knows it is about to hand the token to this server
  * and not to a process that took the port while the server was down.
  */
 export function serverProof(token, challenge) {
-  return createHmac('sha256', token).update(`claudex-health:${challenge}`).digest('hex')
+  return createHmac('sha256', token).update(`spawn-health:${challenge}`).digest('hex')
 }
 
 export function bearerToken(req) {
@@ -79,7 +79,7 @@ export function bearerToken(req) {
 }
 
 export function unauthorized(res, body) {
-  res.setHeader('WWW-Authenticate', 'Bearer realm="claudex"')
+  res.setHeader('WWW-Authenticate', 'Bearer realm="spawn"')
   return res.status(401).json(body)
 }
 
@@ -131,8 +131,8 @@ export function createAuth({ tokenFile }) {
    * signed); it is empty for a GET, which signs an empty body.
    */
   function signatureValid(req) {
-    const ts = req.headers['x-claudex-timestamp']
-    const sig = req.headers['x-claudex-signature']
+    const ts = req.headers['x-spawn-timestamp']
+    const sig = req.headers['x-spawn-signature']
     if (typeof ts !== 'string' || typeof sig !== 'string' || !/^[0-9a-f]+$/.test(sig)) return false
     const tnum = Number(ts)
     if (!Number.isFinite(tnum) || Math.abs(Date.now() - tnum) > SIGNATURE_WINDOW_MS) return false

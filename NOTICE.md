@@ -1,6 +1,6 @@
 # Notice
 
-Claudex is a non-commercial fan project built on
+spawn is a non-commercial fan project built on
 [W17ant/Claude-Office](https://github.com/W17ant/Claude-Office) (MIT, see [LICENSE](LICENSE)).
 It is not affiliated with or endorsed by Nintendo, Creatures Inc., GAME FREAK inc.,
 The Pokémon Company or Anthropic.
@@ -27,5 +27,5 @@ The code inherited from Claude-Office and the code added in this repository.
 
 ## Original art
 
-- `public/sprites/claudex-ball.png` and the default icons in `build/` and `electron/assets/`
+- `public/sprites/spawn-ball.png` and the default icons in `build/` and `electron/assets/`
   are original drawings made by `tools/build-icons.py` (MIT).

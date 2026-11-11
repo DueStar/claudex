@@ -37,7 +37,7 @@ const en: Record<string, string> = {
   // header
   '리셋 시각': 'Resets at',
   '크기 조절': 'Resize',
-  'Claudex {version} · 눌러서 패치노트 보기': 'Claudex {version} · Click for patch notes',
+  'spawn {version} · 눌러서 패치노트 보기': 'spawn {version} · Click for patch notes',
   '연결됨': 'Connected',
   '서버 연결 끊김': 'Disconnected from server',
   '{time} 동기화': 'Synced {time}',
@@ -206,7 +206,7 @@ const en: Record<string, string> = {
   '이 세션의 포켓몬이 다른 세션에서 일하고 있어서, 대신 보낼 포켓몬을 골라주세요.': "This session's Pokémon is busy in another session. Pick one to send instead.",
 
   // patch notes
-  'Claudex {version} 새 소식': "What's new in Claudex {version}",
+  'spawn {version} 새 소식': "What's new in spawn {version}",
   '패치노트': 'Patch notes',
   '확인': 'OK',
 
@@ -235,7 +235,7 @@ const en: Record<string, string> = {
   "복사했어요": "Copied",
   "의견 보내기": "Send feedback",
   "의견을 남길 곳을 눌러 주세요": "Click the spot you want to comment on",
-  "Claudex에 바라는 점": "What should Claudex do next?",
+  "spawn에 바라는 점": "What should spawn do next?",
   "고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.": "Tell me what to fix, what to add, or where you would like it to go.",
   "고쳐 주세요": "Please fix",
   "추가해 주세요": "Please add",
@@ -292,7 +292,7 @@ const ja: Record<string, string> = {
   // header
   '리셋 시각': 'リセット時刻',
   '크기 조절': 'サイズ変更',
-  'Claudex {version} · 눌러서 패치노트 보기': 'Claudex {version} · クリックでパッチノート',
+  'spawn {version} · 눌러서 패치노트 보기': 'spawn {version} · クリックでパッチノート',
   '연결됨': '接続中',
   '서버 연결 끊김': 'サーバーとの接続が切れました',
   '{time} 동기화': '{time}に同期',
@@ -461,7 +461,7 @@ const ja: Record<string, string> = {
   '이 세션의 포켓몬이 다른 세션에서 일하고 있어서, 대신 보낼 포켓몬을 골라주세요.': 'このセッションのポケモンは別のセッションで作業中です。代わりに出すポケモンを選んでください。',
 
   // patch notes
-  'Claudex {version} 새 소식': 'Claudex {version} の新機能',
+  'spawn {version} 새 소식': 'spawn {version} の新機能',
   '패치노트': 'パッチノート',
   '확인': 'OK',
 
@@ -490,7 +490,7 @@ const ja: Record<string, string> = {
   "복사했어요": "コピーしました",
   "의견 보내기": "意見を送る",
   "의견을 남길 곳을 눌러 주세요": "コメントしたい場所をクリックしてください",
-  "Claudex에 바라는 점": "Claudex へのリクエスト",
+  "spawn에 바라는 점": "spawn へのリクエスト",
   "고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.": "直してほしいこと、追加してほしいこと、こう育ってほしいという方向を教えてください。",
   "고쳐 주세요": "直してほしい",
   "추가해 주세요": "追加してほしい",

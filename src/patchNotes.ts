@@ -1,6 +1,6 @@
 /**
  * patchNotes — what changed since the version this PC last ran, shown once
- * after an update (PatchNotes.tsx). The notes are the Claudex part of
+ * after an update (PatchNotes.tsx). The notes are the spawn part of
  * CHANGELOG.md, bundled into the app; the last version seen is kept in
  * localStorage.
  */
@@ -18,8 +18,8 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
-/** The section heading per language: "## Claudex" (Korean), "## Claudex (English)", "## Claudex (日本語)" */
-const SECTION = { ko: 'Claudex', en: 'Claudex (English)', ja: 'Claudex (日本語)' } as const
+/** The section heading per language: "## spawn" (Korean), "## spawn (English)", "## spawn (日本語)" */
+const SECTION = { ko: 'spawn', en: 'spawn (English)', ja: 'spawn (日本語)' } as const
 
 /** The releases under a "## <section>" heading (each "### x.y.z" and its bullets), newest first as written. */
 export function parseChangelog(md: string, section: string = SECTION.ko): Release[] {
@@ -73,7 +73,7 @@ export function notesToShow(releases: Release[], current: string, seen: string |
     && (seen ? compareVersions(r.version, seen) > 0 : r.version === current))
 }
 
-const SEEN_KEY = 'claudex-seen-version'
+const SEEN_KEY = 'spawn-seen-version'
 export function readSeenVersion(): string | null {
   try { return localStorage.getItem(SEEN_KEY) } catch { return null }
 }

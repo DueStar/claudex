@@ -83,7 +83,7 @@ describe('sprites', () => {
       return res
     }
     expect(await call('icon', '25.png')).toMatchObject({ code: 302, location: '/sprites/pokemon/art/25.png' })
-    expect(await call('art', '25.png')).toMatchObject({ code: 302, location: '/sprites/claudex-ball.png' })
+    expect(await call('art', '25.png')).toMatchObject({ code: 302, location: '/sprites/spawn-ball.png' })
     expect((await call('icon', '0.png')).code).toBe(404)
     expect((await call('icons', '25.png')).code).toBe(404)
   })

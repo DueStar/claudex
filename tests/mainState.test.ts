@@ -18,7 +18,7 @@ describe('mainState helpers', () => {
   })
 
   it('derives a project from a cwd on either platform', () => {
-    expect(projectFromCwd('/home/me/claudex/')).toBe('claudex')
+    expect(projectFromCwd('/home/me/spawn/')).toBe('spawn')
     expect(projectFromCwd('C:\\src\\api')).toBe('api')
     expect(projectFromCwd('C:\\src\\api\\')).toBe('api')
     expect(projectFromCwd(undefined)).toBeUndefined()

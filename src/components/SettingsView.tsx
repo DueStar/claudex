@@ -27,7 +27,7 @@ const SCROLLBACKS: AppSettings['terminal']['scrollback'][] = [1000, 5000, 10000]
 const SECTIONS: [Section, string][] = [['notify', '알림'], ['privacy', '개인정보'], ['session', '세션'], ['tools', 'AI 도구'], ['app', '앱'], ['data', '데이터']]
 
 /**
- * The tools Claudex supports by name: one click fills the form (the trainer
+ * The tools spawn supports by name: one click fills the form (the trainer
  * installs them). Claude Code is the default; Codex CLI is the other one
  * people use most. Gemini CLI is left out on purpose: individual accounts
  * moved to Antigravity CLI in 2026-06 and it behaves differently.
@@ -136,7 +136,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback
         <nav className="set-nav">
           <div className="set-title">{t('설정')}</div>
           {SECTIONS.map(([k, label]) => <button key={k} className={section === k ? 'on' : ''} onClick={() => { setSection(k); setNote(null) }}>{t(label)}</button>)}
-          {version && <div className="set-version">Claudex {version}</div>}
+          {version && <div className="set-version">spawn {version}</div>}
         </nav>
         <div className="set-body">
           <button className="set-close w-icon" onClick={onClose} aria-label={t('닫기')} title={t('닫기')}><CloseIcon size={14} /></button>

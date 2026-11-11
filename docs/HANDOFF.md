@@ -1,9 +1,9 @@
-# Claudex 인수인계 (2026-11-11, v1.3.35)
+# spawn(옛 이름 Claudex) 인수인계 (2026-11-11, v1.3.36)
 
 Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17ant/Claude-Office(MIT)를 포크했다.
 
-> **새 세션은 여기부터**: 최신 릴리스 1.3.35(2026-11-11): 앱 안 피드백(말풍선 버튼 → GitHub 이슈, 위치 찍기·화면 첨부는 선택), 도감 등급 다중 선택(7-26). 그 전 1.3.34: 탭 닫기·셸 버튼·랭킹 1~3위, 왼쪽 패널 접기, 업데이트 안내·시간 기록(7-25). 다음은 업데이트 재시작 수치 읽기(8번).
-> 최근 변경은 아래 7-23(1.3.32 최적화·멈춘 종료 수정), 7-24(1.3.33 Codex 연동), 7-25, 7-26(1.3.35 피드백·등급 다중 선택), 할 일은 8번. 이름이 Spawn으로 바뀔 수 있음(아직 결정 아님, 바꾸지 말 것).
+> **새 세션은 여기부터**: 최신 릴리스 1.3.36(2026-11-11): **이름이 Claudex → spawn**(저장소 `DueStar/spawn`, 데이터 `~/.spawn`·`%APPDATA%\spawn`, 환경 변수 `SPAWN_*`, 7-28) + 조우 줄이기(7-27). 그 전 1.3.35: 앱 안 피드백, 도감 등급 다중 선택(7-26). 그 전 1.3.34: 탭 닫기·셸 버튼·랭킹 1~3위, 왼쪽 패널 접기, 업데이트 안내·시간 기록(7-25). 다음은 업데이트 재시작 수치 읽기(8번).
+> 최근 변경은 아래 7-23(1.3.32 최적화·멈춘 종료 수정), 7-24(1.3.33 Codex 연동), 7-25, 7-26(1.3.35 피드백·등급 다중 선택), 7-27·7-28(1.3.36 조우·spawn 이름), 할 일은 8번. 이름이 Spawn으로 바뀔 수 있음(아직 결정 아님, 바꾸지 말 것).
 > 작업 방식(사용자 요청): 무엇이든 superpowers로 계획부터 보여 주고 승인 뒤 실행, 작업마다 테스트 먼저, 리뷰 에이전트로 검토.
 - 경로: `Documents\pokemon-office`
 - 저장소: https://github.com/DueStar/claudex (공개, main)
@@ -551,11 +551,21 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 소개 사이트(`Documents\claudex-site\`)의 "의견 보내기"도 같은 형식(`[feedback]`, From website). 사용자 뜻: 사이트가 아니라 **서비스에 대한 의견·방향·고칠 것·추가할 것**을 받는 곳. 나중에 `gh issue list --search "[feedback]"`로 읽고 고친 뒤 닫는 흐름.
    - **도감 등급**: 하나만 → 여러 개 함께(`tiers: Tier[]`, 아무것도 안 고르면 전체, `aria-pressed`).
 
-7-27. **2026-11-11 — 조우 줄이기(완성 약 2년 3개월), 피드백은 설정으로, 접힌 패널 다듬기(branch `tune/encounters`, 아직 릴리스 안 함)**
+7-27. **2026-11-11 — 조우 줄이기(완성 약 2년 3개월), 피드백은 설정으로, 접힌 패널 다듬기(branch `tune/encounters`, 1.3.36에 포함)**
    - **조우(사용자 요청: "조우가 너무 잦다", 900종은 조금 늦게·완성은 조금 빨리, 전설·환상은 끝에 남되 그 구간이 너무 비지 않게, 보장 수치는 원래대로)**: 실제 기록(5일, 야생 만남 하루 약 34번, 148종)으로 게임 규칙을 그대로 돌린 시뮬레이션(100~200회). 바꾼 것: `ENCOUNTER_PER_STEP` 0.03→**0.01**(하루 약 11번), `NEW_SPECIES_BOOST` 8→**3**, **보장(전설 150·환상 300, 그대로)으로 나오는 건 아직 못 잡은 종**(남은 게 없으면 예전처럼 그 등급 아무거나). 중앙값: 900종 약 166일, 전설·환상 빼고 전부 약 246일, 전설 다 약 584일, **완성 약 822일(2년 3개월)**, 끝에 남는 건 환상. 끝판이 길던 원인은 이미 잡은 전설·환상이 다시 나오는 것(환상 1종 남았을 때 보장이 새 종일 확률 약 29%). 같이 본 안: 도망간 전설·환상이 배회하다 다시 나오게(완성 약 663일) — 사용자가 고르지 않음. README 세 언어 "걸음마다 3%"→1%.
    - 피드백 버튼은 헤더·레일에서 빼고 **설정 › 앱 › 의견 보내기**로(사용자 요청). 누르면 설정이 닫히고 같은 글쓰기 창.
    - 접힌 레일: 초록 막대(사용량 5시간·주간)가 뭔지 모르겠다고 해서 아래에 "사용량" 글자. 열린 세션(포켓몬) 사이 간격 4px→9px.
 
+7-28. **2026-11-11 — 이름 Claudex → spawn (branch `rename/spawn`, 계획 `docs/superpowers/plans/2026-11-11-rename-spawn.md`). 1.3.36으로 릴리스**
+   - 사용자 결정: 표기는 어디서나 소문자 `spawn`, 내부 이름·데이터·GitHub 저장소까지 전부, 앱 아이콘은 `spawn-app-icon-white-gradient`(바뀔 수 있음). 브랜드 원본은 `%USERPROFILE%\Downloads\spawn-brand\`(색: Crescent #F2C94C, Aurora Pink #F49AC1, Dream Sky #7FC2E8, Ink #111111, 워드마크 Uncut Sans 570 -3%).
+   - **데이터 이사(복사만, 지우지 않음)**: `server/runtime-dir.cjs` — `~/.spawn`, 없으면 `~/.claudex` → `~/.agent-office` 순으로 가장 새 것을 한 번 복사(임시 폴더 → rename, 옛 폴더에 `MOVED-TO-SPAWN.txt`). `SPAWN_HOME`, 없으면 `CLAUDEX_HOME`. `electron/userDataMigration.cjs` — `%APPDATA%\Claudex`(dev는 `Claudex-dev`) → `%APPDATA%\spawn`을 main.cjs 맨 처음(업데이트 표시 확인보다 먼저) 한 번 복사, 캐시·`pending-update.json`은 뺌. 페이지 저장값 `claudex-…`/`claudex.…` → `spawn-…`은 `src/storageMigration.ts`(main.tsx 첫 import)가 한 번 복사.
+   - **옛 이름도 계속 읽음**: 환경 변수 `CLAUDEX_*` → `adoptLegacyEnv`(main 시작 때 `SPAWN_*`로 복사) + `envVar` 폴백. 세션에는 `SPAWN_SESSION_ID`와 `CLAUDEX_SESSION_ID` 둘 다(사용자 훅용). 서버 확인 `spawn-health:`·`claudex-health:` 둘 다. 업데이트 재시작 플래그 `--spawn-updated`·`--claudex-updated` 둘 다(p3 시간 기록), 임시 폴더 정리 `spawn-update-*`·`claudex-update-*` 둘 다. 로그인 항목은 시작 때 옛 `electron.app.Claudex` Run 값을 지우고 설정대로 새 이름으로.
+   - **업데이트 호환(중요)**: 1.3.35 이하는 `app.file`이 `claudex-app-`으로 시작해야만 받음 → **앱 zip 이름은 계속 `claudex-app-<v>.zip`**(release.mjs), 새 버전은 `(spawn|claudex)-app-` 둘 다 받음(나중에 바꿀 때를 위해). 전체 zip은 `spawn-<v>-win-x64.zip`. 옛 앱은 `DueStar/claudex` 주소를 GitHub의 이름 변경 리다이렉트로 따라감 → **`DueStar/claudex`라는 저장소를 새로 만들면 안 됨.** 서명 키는 그대로 `~/.claudex-release/signing-key.pem`(`SPAWN_SIGNING_KEY`/`CLAUDEX_SIGNING_KEY`).
+   - 실행 파일: 업데이트로 받은 설치는 계속 `%LOCALAPPDATA%\Claudex\Claudex.exe`(앱 업데이트는 resources/app만 바꿈), 새로 받은 전체 zip은 `spawn.exe`. `install-local.cmd`는 둘 다 닫음.
+   - 로고: `public/brand/spawn-symbol-white.svg`·`-color.svg`, `SpawnMark`(Icons.tsx)를 헤더·접힌 레일에(24px 이하 단색 규칙). 앱 아이콘 `build/icon.png`·`electron/assets/icon.png` = white-gradient 512, 트레이 16/32/48 = 컬러 심볼, macOS 템플릿 = 검정 심볼. release.mjs는 더 이상 build-icons.py로 몬스터볼 아이콘을 그리지 않음. 게임 안 몬스터볼 그림(`public/sprites/spawn-ball.png`, 옛 claudex-ball.png)은 그대로.
+   - 바깥에 남은 것: Google/Supabase 로그인 동의 화면 앱 이름, 로컬 폴더 이름(`Documents\pokemon-office`, `Documents\claudex-site`).
+
+8. **다음에 할 일 (2026-11-11 기준)**
    - **확인 대기**
      - (확인됨 2026-11-11 10:39) 1.3.33 업데이트 재시작 뒤 재시작 시각보다 오래된 Claudex.exe 없음.
      - **1.3.35로 올리는 재시작이 첫 p1/p2/p3 전체 기록**(1.3.34의 p1·p2가 돎) → update.log 읽기. 1.3.34로 올리는 재시작은 옛 p1·p2가 돌아서 update.log 시간 기록이 없음(새 앱 시작 단계만 claudex.log `[main] startup:`). **다음 업데이트(로컬 테스트 빌드도 됨) 재시작부터 p1/p2/p3 전부 기록됨** → update.log 수치 읽기 → 9.3초 원인 → 3단계 계획.

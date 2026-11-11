@@ -1,4 +1,4 @@
--- Claudex — cloud copy of each trainer's game.
+-- spawn — cloud copy of each trainer's game.
 -- Run once in Supabase: SQL Editor → New query → paste → Run.
 --
 -- One row per signed-in user. Row-level security: everyone reads and writes

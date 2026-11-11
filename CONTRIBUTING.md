@@ -2,7 +2,7 @@
 
 Thanks for helping. A few ground rules so a pull request lands quickly.
 
-## What Claudex is
+## What spawn is
 
 A Windows desktop app that runs Claude Code sessions with Pokémon partners:
 the sessions are real terminals, and the game (encounters, the Pokédex, the
@@ -10,8 +10,8 @@ box) follows what Claude Code really does, through the app's own hooks.
 
 ## Before you open a PR
 
-- Run `npm test`. It runs the Vitest suite against a temp `CLAUDEX_HOME`, so
-  it never touches your real `~/.claudex`. It must pass on Windows: a check
+- Run `npm test`. It runs the Vitest suite against a temp `SPAWN_HOME`, so
+  it never touches your real `~/.spawn`. It must pass on Windows: a check
   that only makes sense on Unix (file modes, symlinks, uids) skips there with
   its reason. CI (`.github/workflows/ci.yml`) runs `tsc --noEmit`, `npm test`
   and `vite build` on Windows and Linux.

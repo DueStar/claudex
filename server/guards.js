@@ -13,7 +13,7 @@
 // — the Origin header spells it whichever way the page was opened, so match
 // the loopback host rather than a fixed string. Anything else (other ports,
 // `null`, `file://`) is refused. 3333 stays allowed next to a configured
-// CLAUDEX_UI_PORT: `npm run dev` ignores that variable and still opens
+// SPAWN_UI_PORT: `npm run dev` ignores that variable and still opens
 // Vite on 3333 (vite.config.ts).
 // ---------------------------------------------------------------------------
 

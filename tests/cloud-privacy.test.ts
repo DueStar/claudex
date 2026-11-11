@@ -16,7 +16,7 @@ afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true 
 const via = { tool: 'Bash', label: 'Bash(npm test -- --secret-flag)', prompt: '고객사 계약서 정리해줘' }
 const game = {
   version: 2,
-  caught: { 25: { count: 1, via, place: 'claudex 숲' } },
+  caught: { 25: { count: 1, via, place: 'spawn 숲' } },
   mons: { u1: { uid: 'u1', dex: 25, via } },
   log: [{ kind: 'catch', id: 25, via, at: 1 }, { kind: 'levelup', id: 25, at: 2 }],
 }
@@ -40,7 +40,7 @@ describe('cloud copy and 프롬프트 숨기기', () => {
   })
 
   it('reads the setting from the app settings file (missing or broken: off)', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'claudex-privacy-'))
+    const dir = mkdtempSync(join(tmpdir(), 'spawn-privacy-'))
     dirs.push(dir)
     const file = join(dir, 'settings.json')
     expect(readHidePrompts(file)).toBe(false)

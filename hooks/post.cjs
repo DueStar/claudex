@@ -2,7 +2,7 @@
  * post.cjs — what the hook and the status line share: where the server is,
  * the token, the request signature and the POST itself.
  *
- * Both run as `ELECTRON_RUN_AS_NODE=1 "<Claudex.exe>" hooks/<script>.cjs`
+ * Both run as `ELECTRON_RUN_AS_NODE=1 "<spawn.exe>" hooks/<script>.cjs`
  * (electron/terminals.cjs writes the commands), so they need nothing but the
  * app: no Python, no curl.
  */
@@ -11,11 +11,11 @@ const fs = require('fs')
 const http = require('http')
 const path = require('path')
 const { createHmac } = require('crypto')
-// The env names (CLAUDEX_*, or AGENT_OFFICE_*) and the data folder, as the server reads them
+// The env names (SPAWN_*, or AGENT_OFFICE_*) and the data folder, as the server reads them
 const { envVar, runtimeDir } = require('../server/runtime-dir.cjs')
 
 /**
- * Where to POST: <KIND>_URL when set, else 127.0.0.1 on CLAUDEX_PORT (3334).
+ * Where to POST: <KIND>_URL when set, else 127.0.0.1 on SPAWN_PORT (3334).
  * 127.0.0.1, not 'localhost': that can resolve to ::1 first, where a squatter
  * could listen while the real server runs on 127.0.0.1.
  */
@@ -44,7 +44,7 @@ function signatureHeaders(token, url, body, now = Date.now()) {
   if (!token) return {}
   const ts = String(now)
   const sig = createHmac('sha256', token).update(`POST\n${urlPath(url)}\n${ts}\n`).update(body).digest('hex')
-  return { 'X-Claudex-Timestamp': ts, 'X-Claudex-Signature': sig }
+  return { 'X-spawn-Timestamp': ts, 'X-spawn-Signature': sig }
 }
 
 /**

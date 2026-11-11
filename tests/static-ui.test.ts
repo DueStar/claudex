@@ -28,7 +28,7 @@ describe('built UI served from the server root', () => {
     mkdirSync(join(uiDir, 'sprites', 'effects'), { recursive: true })
     writeFileSync(join(uiDir, 'index.html'), INDEX_HTML)
     writeFileSync(join(uiDir, 'sprites', 'effects', 'typing.png'), SPRITE)
-    office = await loadServer({ env: { CLAUDEX_UI_DIR: uiDir } })
+    office = await loadServer({ env: { SPAWN_UI_DIR: uiDir } })
   })
 
   afterAll(() => {
@@ -73,7 +73,7 @@ describe('without a build', () => {
   beforeAll(async () => {
     // A dist dir that does not exist
     const missing = join(mkdtempSync(join(tmpdir(), 'agent-office-noui-')), 'dist')
-    office = await loadServer({ env: { CLAUDEX_UI_DIR: missing } })
+    office = await loadServer({ env: { SPAWN_UI_DIR: missing } })
   })
   afterAll(() => removeServer(office))
 

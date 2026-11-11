@@ -13,7 +13,7 @@ const os = require('os')
 const path = require('path')
 const ko = require('./i18n.cjs').translator('ko')
 
-const APP_NAME = 'Claudex'
+const APP_NAME = 'spawn'
 
 // ---------------------------------------------------------------------------
 // The server's port
@@ -23,13 +23,13 @@ const DEFAULT_SERVER_PORT = 3334
 const VITE_DEV_PORT = 3333
 
 /**
- * The server's port from CLAUDEX_PORT: the same parse as
+ * The server's port from SPAWN_PORT: the same parse as
  * server/config.js readPort (which this file cannot import: the server is
  * ESM and the Electron main process is CommonJS), so the app, the server it
  * spawns and the hooks always agree. Anything that is not a port is 3334.
  */
 function serverPortFromEnv(env = process.env) {
-  const raw = env && env.CLAUDEX_PORT
+  const raw = env && env.SPAWN_PORT
   if (typeof raw !== 'string' || raw === '') return DEFAULT_SERVER_PORT
   const text = raw.trim()
   if (!/^\d{1,5}$/.test(text)) return DEFAULT_SERVER_PORT
@@ -100,9 +100,9 @@ function serverPlan(found, packaged) {
 
 /** The dialog for a 'conflict': what is on the port and the ways out. */
 function serverConflictMessage(port) {
-  return `Another Claudex server is already running on port ${port}, but it has no built page to show ` +
+  return `Another spawn server is already running on port ${port}, but it has no built page to show ` +
     '(a checkout started with `npm run server` before `npm run build`, say).\n\n' +
-    `Stop that server, or run \`npm run build\` in its checkout, or launch ${APP_NAME} with CLAUDEX_PORT set to a free port.`
+    `Stop that server, or run \`npm run build\` in its checkout, or launch ${APP_NAME} with SPAWN_PORT set to a free port.`
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ function childSlot() {
 // What the server writes: 32 random bytes as 64 lowercase hex digits
 const SERVER_TOKEN_PATTERN = /^[0-9a-f]{64}$/
 
-/** The runtime dir, as the server resolves it (server/runtime-dir.cjs): CLAUDEX_HOME, else ~/.claudex. */
+/** The runtime dir, as the server resolves it (server/runtime-dir.cjs): SPAWN_HOME, else ~/.spawn. */
 function runtimeDirFromEnv(env = process.env, home = os.homedir()) {
   return require('../server/runtime-dir.cjs').runtimeDir(env, home)
 }
@@ -186,7 +186,7 @@ function readServerToken(file) {
 
 /**
  * Whether a /health answer proves it comes from the server holding `token`:
- * `proof` must be HMAC-SHA256(token, 'claudex-health:' + challenge), the
+ * `proof` must be HMAC-SHA256(token, 'spawn-health:' + challenge), the
  * challenge being fresh random hex the caller sent (server/index.js
  * serverProof). Compared in constant time. The app checks it before it hands
  * the token to whatever answers on the port.
@@ -194,8 +194,10 @@ function readServerToken(file) {
 function serverProofMatches(token, challenge, proof) {
   if (typeof token !== 'string' || !token || typeof proof !== 'string' || !/^[0-9a-f]{64}$/.test(proof)) return false
   const { createHmac, timingSafeEqual } = require('crypto')
-  const expected = createHmac('sha256', token).update(`claudex-health:${challenge}`).digest()
-  return timingSafeEqual(expected, Buffer.from(proof, 'hex'))
+  const got = Buffer.from(proof, 'hex')
+  // 'claudex-health:' is the same proof from a server of 1.3.35 or older (still on the port during an update)
+  return ['spawn-health:', 'claudex-health:'].some(prefix =>
+    timingSafeEqual(createHmac('sha256', token).update(`${prefix}${challenge}`).digest(), got))
 }
 
 /** A fresh /health challenge: 16 random bytes as hex. */

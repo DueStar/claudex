@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
-<title>Claudex</title>
+<title>spawn</title>
 <style>
   /* Just the words, on a see-through window; a soft shadow keeps them readable on any background */
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
@@ -21,8 +21,8 @@
 <script>
   // The words for each step in Korean, English and Japanese
   const WORDS = {
-    updating: { ko: 'Claudex 업데이트하는 중이에요…', en: 'Updating Claudex…', ja: 'Claudex をアップデート中です…' },
-    starting: { ko: 'Claudex 준비하고 있어요…', en: 'Starting Claudex…', ja: 'Claudex を準備しています…' },
+    updating: { ko: 'spawn 업데이트하는 중이에요…', en: 'Updating spawn…', ja: 'spawn をアップデート中です…' },
+    starting: { ko: 'spawn 준비하고 있어요…', en: 'Starting spawn…', ja: 'spawn を準備しています…' },
   }
   const q = new URLSearchParams(location.search)
   const step = WORDS[q.get('step')] ? q.get('step') : 'updating'

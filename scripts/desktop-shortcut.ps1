@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Create or remove the Claudex shortcut on the Desktop.
+  Create or remove the spawn shortcut on the Desktop.
 
 .DESCRIPTION
   The Desktop is read from the shell folder rather than "$env:USERPROFILE\Desktop":
@@ -13,8 +13,8 @@
 #>
 [CmdletBinding()]
 param(
-  # Where Claudex is installed. Defaults to the install-local.cmd target.
-  [string] $InstallDir = (Join-Path $env:LOCALAPPDATA 'Claudex'),
+  # Where spawn is installed. Defaults to the install-local.cmd target.
+  [string] $InstallDir = (Join-Path $env:LOCALAPPDATA 'spawn'),
   # Delete the shortcut instead of creating it.
   [switch] $Remove
 )
@@ -26,7 +26,7 @@ if (-not $desktop -or -not (Test-Path $desktop)) {
   Write-Error "Could not find the Desktop folder."
   exit 1
 }
-$link = Join-Path $desktop 'Claudex.lnk'
+$link = Join-Path $desktop 'spawn.lnk'
 
 if ($Remove) {
   if (Test-Path $link) {
@@ -38,9 +38,9 @@ if ($Remove) {
   exit 0
 }
 
-$exe = Join-Path $InstallDir 'Claudex.exe'
+$exe = Join-Path $InstallDir 'spawn.exe'
 if (-not (Test-Path $exe)) {
-  Write-Error "Claudex.exe not found at $exe - install it first."
+  Write-Error "spawn.exe not found at $exe - install it first."
   exit 1
 }
 
@@ -49,7 +49,7 @@ $shortcut = $shell.CreateShortcut($link)
 $shortcut.TargetPath = $exe
 $shortcut.WorkingDirectory = $InstallDir
 $shortcut.IconLocation = "$exe,0"
-$shortcut.Description = 'Claudex'
+$shortcut.Description = 'spawn'
 $shortcut.Save()
 
 Write-Output "Created $link"

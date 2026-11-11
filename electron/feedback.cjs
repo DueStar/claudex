@@ -6,7 +6,7 @@
 // page can never make the app open any other address. A picture of the spot
 // goes on the clipboard (a new-issue link cannot carry one) for a Ctrl+V.
 
-const REPO = 'DueStar/claudex'
+const REPO = 'DueStar/spawn'
 const KINDS = { fix: 'Please fix', add: 'Please add', direction: 'A direction', like: 'What I liked' }
 const VIEWS = ['terminal', 'dex', 'box', 'today', 'rank', 'widget']
 const MAX_TEXT = 2000

@@ -2,12 +2,12 @@
  * config.js — the server's runtime configuration: the port and host it binds,
  * from the environment.
  *
- *   CLAUDEX_PORT     the port, default 3334. The hook, the status line, the
+ *   SPAWN_PORT     the port, default 3334. The hook, the status line, the
  *                    Vite dev server and the desktop app all read the same
  *                    variable, so one export in a shell moves everything.
- *   CLAUDEX_UI_PORT  the Vite dev server's port, default 3333 — only the
+ *   SPAWN_UI_PORT  the Vite dev server's port, default 3333 — only the
  *                    origin allowlist needs it.
- *   CLAUDEX_HOST     the bind address: IPv4 loopback only (see readHost).
+ *   SPAWN_HOST     the bind address: IPv4 loopback only (see readHost).
  *
  * Everything here is pure (the environment comes in as an argument) so
  * tests/config.test.ts covers it without starting a server.
@@ -18,7 +18,7 @@ export const DEFAULT_UI_PORT = 3333
 export const DEFAULT_HOST = '127.0.0.1'
 
 /**
- * The spellings of CLAUDEX_HOST the server accepts; both bind 127.0.0.1.
+ * The spellings of SPAWN_HOST the server accepts; both bind 127.0.0.1.
  * `localhost` is mapped rather than passed to listen(): the resolver may
  * answer ::1 first (macOS does), and an IPv6-only socket refuses the
  * 127.0.0.1 every client dials.
@@ -38,7 +38,7 @@ function parsePort(raw) {
 }
 
 /**
- * The port to bind: CLAUDEX_PORT, or 3334 when it is unset. A value
+ * The port to bind: SPAWN_PORT, or 3334 when it is unset. A value
  * that is not a port (letters, 0, 70000) falls back to 3334 with a warning
  * rather than failing: the hook and the scripts parse the same variable
  * with the same fallback, so everything still meets on one port.
@@ -47,14 +47,14 @@ export function readPort(env = process.env, log = console) {
   return readPortVar(env, 'PORT', DEFAULT_PORT, log)
 }
 
-/** The Vite dev server's port, CLAUDEX_UI_PORT, default 3333. */
+/** The Vite dev server's port, SPAWN_UI_PORT, default 3333. */
 export function readUiPort(env = process.env, log = console) {
   return readPortVar(env, 'UI_PORT', DEFAULT_UI_PORT, log)
 }
 
-/** CLAUDEX_<name>: the value (undefined when unset or empty) and the name, for warnings */
+/** SPAWN_<name>: the value (undefined when unset or empty) and the name, for warnings */
 function readVar(env, name) {
-  const full = `CLAUDEX_${name}`
+  const full = `SPAWN_${name}`
   const raw = env?.[full]
   return { raw: raw === '' ? undefined : raw, name: full }
 }
@@ -71,7 +71,7 @@ function readPortVar(env, key, fallback, log) {
 }
 
 /**
- * The address to bind: always 127.0.0.1. CLAUDEX_HOST may say
+ * The address to bind: always 127.0.0.1. SPAWN_HOST may say
  * 127.0.0.1 or localhost; anything else is logged as refused, with the
  * reason, and 127.0.0.1 is bound.
  *

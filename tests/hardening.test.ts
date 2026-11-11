@@ -163,7 +163,7 @@ describe('signed requests authenticate the hook without the token on the wire', 
     const ts = String(opts.ts ?? Date.now())
     const key = opts.token ?? office.server.AUTH_TOKEN
     const sig = createHmac('sha256', key).update(`${method.toUpperCase()}\n${path}\n${ts}\n`).update(body).digest('hex')
-    let req = request(office.server.app)[method](path).set('X-Claudex-Timestamp', ts).set('X-Claudex-Signature', sig)
+    let req = request(office.server.app)[method](path).set('X-spawn-Timestamp', ts).set('X-spawn-Signature', sig)
     if (bodyObj !== undefined) req = req.set('Content-Type', 'application/json').send(body)
     return req
   }
@@ -183,7 +183,7 @@ describe('signed requests authenticate the hook without the token on the wire', 
 
   it('a bad signature, or one over a different body, is 401', async () => {
     const ts = String(Date.now())
-    const bad = request(office.server.app).post('/event').set('X-Claudex-Timestamp', ts).set('X-Claudex-Signature', 'f'.repeat(64)).set('Content-Type', 'application/json').send(JSON.stringify(event()))
+    const bad = request(office.server.app).post('/event').set('X-spawn-Timestamp', ts).set('X-spawn-Signature', 'f'.repeat(64)).set('Content-Type', 'application/json').send(JSON.stringify(event()))
     expect((await bad).status).toBe(401)
     // A signature wrong only because a different token was used
     expect((await signed('post', '/event', event(), { token: 'not-the-token' })).status).toBe(401)

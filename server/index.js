@@ -1,9 +1,9 @@
 /**
- * Claudex server — the local HTTP + WebSocket server behind the app.
+ * spawn server — the local HTTP + WebSocket server behind the app.
  *
- * Runs on 127.0.0.1:3334, or CLAUDEX_PORT (server/config.js).
+ * Runs on 127.0.0.1:3334, or SPAWN_PORT (server/config.js).
  * - The app's page connects via ws://127.0.0.1:<port>/ws
- * - The Claude Code hook (hooks/claudex-hook.cjs) POSTs to /event, the status
+ * - The Claude Code hook (hooks/spawn-hook.cjs) POSTs to /event, the status
  *   line (hooks/status-line.cjs) to /status
  * - GET /sessions lists the Claude Code sessions, hooked ones and the ones only
  *   Claude Code's session registry knows about (server/sessions.js)
@@ -35,7 +35,7 @@ import { createAuth, readTokenFile as readTokenFileAt, writePrivate, serverProof
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// The port and the Vite dev port come from CLAUDEX_PORT / CLAUDEX_UI_PORT
+// The port and the Vite dev port come from SPAWN_PORT / SPAWN_UI_PORT
 // (server/config.js); the bind host is read in start().
 const PORT = readPort()
 const UI_DEV_PORT = readUiPort()
@@ -44,7 +44,7 @@ const UI_DEV_PORT = readUiPort()
 // Runtime dir + auth token
 //
 // Everything the server writes (auth token, agents.json, pokedex.json, the
-// cloud session) lives in ~/.claudex, or CLAUDEX_HOME when set (tests point
+// cloud session) lives in ~/.spawn, or SPAWN_HOME when set (tests point
 // it at a temp dir; server/runtime-dir.cjs, which also copies the folder
 // older versions used, ~/.agent-office, the first time). The token is read
 // or generated here but only written to disk by start(), once the port is
@@ -53,7 +53,7 @@ const UI_DEV_PORT = readUiPort()
 // instance's token.
 //
 // Threat model. The server only listens on loopback (127.0.0.1;
-// CLAUDEX_HOST may spell it 127.0.0.1 or localhost, anything else is
+// SPAWN_HOST may spell it 127.0.0.1 or localhost, anything else is
 // refused by readHost, with the reason, and 127.0.0.1 is bound). Browsers on other
 // origins are kept out by the origin allowlist below (every other origin
 // gets 403 / a 1008 close) and by the JSON content type, which makes
@@ -61,7 +61,7 @@ const UI_DEV_PORT = readUiPort()
 // machine — another local user's included — which can reach the port freely
 // and send any Origin it likes (Origin only binds browsers). So the one
 // secret that separates this user from the rest is the bearer token in
-// ~/.claudex/auth-token, the 0600 file only this user can read: the
+// ~/.spawn/auth-token, the 0600 file only this user can read: the
 // hook, the status line and the desktop app send it (the hook signs with it,
 // see "Request signing"), and the app's page gets it in its URL fragment and
 // presents it when it opens the WebSocket. Everything that reports a session,
@@ -110,7 +110,7 @@ const { isAllowedOrigin, isAllowedHost } = createGuards({ port: PORT, uiDevPort:
 // http://127.0.0.1:<PORT>/ is the whole app on one port: the packaged
 // Electron app loads this URL, and `npm run build && npm run server` works in
 // a plain browser. `npm run dev` keeps using Vite on 3333 instead. Tests point
-// CLAUDEX_UI_DIR at a temp dir.
+// SPAWN_UI_DIR at a temp dir.
 // ---------------------------------------------------------------------------
 
 const UI_DIR = envVar('UI_DIR') || join(__dirname, '..', 'dist')
@@ -146,7 +146,7 @@ const STALE_SESSION_MS = (Number(envVar('STALE_MINUTES')) || 120) * 60_000
 const sessions = new Map()
 
 // Claude Code's config dir (CLAUDE_CONFIG_DIR moves it) holds the registry;
-// tests point CLAUDEX_REGISTRY_DIR at a temp dir
+// tests point SPAWN_REGISTRY_DIR at a temp dir
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 const REGISTRY_DIR = envVar('REGISTRY_DIR') || join(CLAUDE_DIR, 'sessions')
 
@@ -719,7 +719,7 @@ const health = mountHealth(app, { broadcast, uiAvailable: UI_AVAILABLE, prove: c
 // The registry roster (server/sessions.js): Claude Code's own session registry
 // adds the sessions nothing has hooks for, and ends them when their process
 // goes. Nothing is read until start() — importing the module stays side-effect
-// free and the tests point CLAUDEX_REGISTRY_DIR at a temp dir.
+// free and the tests point SPAWN_REGISTRY_DIR at a temp dir.
 const registry = mountRegistry(app, {
   sessions,
   broadcast,
@@ -775,7 +775,7 @@ const cloud = createCloud({
   getGame: () => pokedex.exportState(),
   replaceGame: (game) => pokedex.importState(game),
   // 설정 › 프롬프트 숨기기 (the app passes its settings file; read at each upload)
-  hidePrompts: () => readHidePrompts(process.env.CLAUDEX_SETTINGS_FILE || undefined),
+  hidePrompts: () => readHidePrompts(process.env.SPAWN_SETTINGS_FILE || undefined),
 })
 app.get('/cloud', (_req, res) => res.json(cloud.publicState()))
 // The desktop app asks for a sign-in URL and opens it in the browser
@@ -792,11 +792,11 @@ app.get('/auth/callback', async (req, res) => {
   const al = String(req.headers['accept-language'] ?? '').trim().toLowerCase()
   const lang = al.startsWith('ko') ? 'ko' : al.startsWith('ja') ? 'ja' : 'en'
   const [title, line] = {
-    ko: ok ? ['로그인됐어요', '이 탭을 닫고 Claudex로 돌아가세요.'] : ['로그인하지 못했어요', '앱에서 다시 시도해주세요.'],
-    en: ok ? ["You're signed in", 'You can close this tab and go back to Claudex.'] : ["Couldn't sign in", 'Please try again from the app.'],
-    ja: ok ? ['ログインしました', 'このタブを閉じて Claudex に戻ってください。'] : ['ログインできませんでした', 'アプリからもう一度お試しください。'],
+    ko: ok ? ['로그인됐어요', '이 탭을 닫고 spawn으로 돌아가세요.'] : ['로그인하지 못했어요', '앱에서 다시 시도해주세요.'],
+    en: ok ? ["You're signed in", 'You can close this tab and go back to spawn.'] : ["Couldn't sign in", 'Please try again from the app.'],
+    ja: ok ? ['ログインしました', 'このタブを閉じて spawn に戻ってください。'] : ['ログインできませんでした', 'アプリからもう一度お試しください。'],
   }[lang]
-  res.type('html').send(`<!doctype html><html lang="${lang}"><meta charset="utf-8"><title>Claudex</title>
+  res.type('html').send(`<!doctype html><html lang="${lang}"><meta charset="utf-8"><title>spawn</title>
 <body style="font-family:system-ui,'Malgun Gothic','Yu Gothic UI';background:#14161c;color:#f1f2f5;display:grid;place-items:center;height:100vh;margin:0">
 <div style="text-align:center"><div style="font-size:42px">${ok ? '✅' : '⚠️'}</div>
 <h2>${title}</h2>
@@ -842,7 +842,7 @@ app.post('/pokedex/swap', requireToken, (req, res) => {
 })
 
 /**
- * POST /event — receives hook events from hooks/claudex-hook.cjs
+ * POST /event — receives hook events from hooks/spawn-hook.cjs
  *
  * Requires the token (a bearer token, or the hook's request signature).
  * Answers { ok: true }.
@@ -1359,10 +1359,10 @@ app.use(jsonErrorHandler)
 // authenticated at the handshake with the file token. Browsers cannot set
 // headers on a WebSocket, so the page sends it as a subprotocol value:
 //
-//   Sec-WebSocket-Protocol: claudex, claudex.token.<token>
+//   Sec-WebSocket-Protocol: spawn, spawn.token.<token>
 //
 // (a header, never part of a URL, so it stays out of history and access
-// logs). The server answers with plain `claudex`, so the token is not
+// logs). The server answers with plain `spawn`, so the token is not
 // echoed back. src/serverToken.ts builds the same list.
 //
 // A connection that presents the token is trusted: the full snapshot and
@@ -1470,7 +1470,7 @@ function broadcast(payload) {
  * used to overwrite the file with its own token and then die on EADDRINUSE,
  * so every hook event to the surviving server was a 401 until it was
  * restarted. Now the loser exits without touching the file.
- * The host comes from CLAUDEX_HOST here, at start, so a refused value
+ * The host comes from SPAWN_HOST here, at start, so a refused value
  * is logged next to the banner: whatever it says, 127.0.0.1 is bound
  * (readHost in server/config.js has the reasons).
  * @param {{ port?: number, host?: string }} [opts] — tests bind an ephemeral port
@@ -1503,7 +1503,7 @@ export function start({ port = PORT, host = readHost() } = {}) {
     registry.start()
     httpServer.once('close', () => registry.stop())
     const bound = httpServer.address()?.port ?? port
-    console.log(`[server] Claudex ${VERSION} on http://127.0.0.1:${bound} (WebSocket /ws, hooks POST /event)`)
+    console.log(`[server] spawn ${VERSION} on http://127.0.0.1:${bound} (WebSocket /ws, hooks POST /event)`)
     console.log(`  Auth token ${REUSED_TOKEN ? 'reused from' : 'written to'}: ${TOKEN_FILE}`)
     console.log(`  Session registry read from: ${REGISTRY_DIR}`)
     if (UI_AVAILABLE) {

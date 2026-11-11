@@ -129,7 +129,7 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
 
   it('the file token as a subprotocol: trusted, the full snapshot with the text; the token is not echoed', async () => {
     const client = await open(serverProtocols(office.server), { Origin: 'http://localhost:3333' })
-    expect(client.ws.protocol).toBe('claudex')
+    expect(client.ws.protocol).toBe('spawn')
     expect(await client.next()).toEqual({ type: 'auth', trusted: true })
     const snapshot = await client.next()
     expect(snapshot.sessions.find((s: Message) => s.id === ALPHA.sessionId).main).toMatchObject({ lastPrompt: 'deploy the hotfix to prod', lastReply: 'Pushed the hotfix; prod is green.' })
@@ -141,7 +141,7 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
     const client = await open(serverWsProtocols(office.server.AUTH_TOKEN))
     expect(await client.next()).toEqual({ type: 'auth', trusted: true })
     const tokenless = await open(serverWsProtocols(null))
-    expect(tokenless.ws.protocol).toBe('claudex')
+    expect(tokenless.ws.protocol).toBe('spawn')
     expect(await tokenless.next()).toEqual({ type: 'auth', trusted: false })
   })
 
@@ -191,7 +191,7 @@ describe('the WebSocket handshake: trusted with the file token, read-only withou
 const TOKEN = 'c0ffee'.repeat(10) + 'beef'
 
 function freshDir() {
-  return mkdtempSync(join(tmpdir(), 'claudex-token-'))
+  return mkdtempSync(join(tmpdir(), 'spawn-token-'))
 }
 
 function mode(path: string) {
@@ -359,8 +359,8 @@ describe('the page link at startup', () => {
   it('prints http://127.0.0.1:<port>/#token=<token> when the server serves the UI', async () => {
     const uiDir = freshDir()
     dirs.push(uiDir)
-    writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>Claudex</title>')
-    const office = await loadServer({ env: { CLAUDEX_UI_DIR: uiDir } })
+    writeFileSync(join(uiDir, 'index.html'), '<!doctype html><title>spawn</title>')
+    const office = await loadServer({ env: { SPAWN_UI_DIR: uiDir } })
     offices.push(office)
     const lines = await started(office)
     const port = (office.server.httpServer.address() as AddressInfo).port
@@ -369,7 +369,7 @@ describe('the page link at startup', () => {
   })
 
   it('points at the Vite dev server when the UI is not built', async () => {
-    const office = await loadServer({ env: { CLAUDEX_UI_DIR: join(freshDir(), 'nothing-here') } })
+    const office = await loadServer({ env: { SPAWN_UI_DIR: join(freshDir(), 'nothing-here') } })
     offices.push(office)
     const lines = await started(office)
     expect(lines.find(l => l.includes('Page: '))).toBe(`  Page: http://127.0.0.1:${office.server.UI_DEV_PORT}/#token=${office.server.AUTH_TOKEN}  (the Vite dev server)`)

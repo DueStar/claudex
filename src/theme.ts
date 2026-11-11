@@ -34,7 +34,7 @@ export function pokemonById(id: number): PokemonEntry | undefined { return id ==
 
 /** The Pokémon HOME artwork of a species (trimmed, fits 128 px); 0 is the Poké Ball */
 export function spriteUrl(id: number, shiny = false): string {
-  if (!id) return '/sprites/claudex-ball.png'
+  if (!id) return '/sprites/spawn-ball.png'
   return `/sprites/pokemon/${shiny ? 'art-shiny' : 'art'}/${id}.png`
 }
 
@@ -45,7 +45,7 @@ export function spriteUrl(id: number, shiny = false): string {
  * name (sessionName) instead. 0 is the Poké Ball.
  */
 export function iconUrl(id: number): string {
-  if (!id) return '/sprites/claudex-ball.png'
+  if (!id) return '/sprites/spawn-ball.png'
   return `/sprites/pokemon/icon/${id}.png`
 }
 
@@ -55,7 +55,7 @@ export function iconUrl(id: number): string {
 
 interface Cast { dex: number; shiny: boolean }
 
-const CAST_KEY = 'claudex-session-cast'
+const CAST_KEY = 'spawn-session-cast'
 let cast: Record<string, Cast> = loadCast()
 let version = 0
 const listeners = new Set<() => void>()

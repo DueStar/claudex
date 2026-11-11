@@ -5,6 +5,7 @@
  */
 
 import { generateKeyPairSync } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error plain ESM script without types
@@ -24,7 +25,7 @@ const manifest = {
   notes: '- 한글 노트도 그대로',
   date: '2026-11-07T00:00:00.000Z',
   app: { file: 'claudex-app-9.9.9.zip', sha256: 'ab'.repeat(32), size: 123 },
-  full: { file: 'Claudex-9.9.9-win-x64.zip', size: 456 },
+  full: { file: 'spawn-9.9.9-win-x64.zip', size: 456 },
 }
 
 describe('latest.json signature', () => {
@@ -55,5 +56,19 @@ describe('latest.json signature', () => {
   it('ships a real Ed25519 public key', () => {
     expect(shippedKey).toMatch(/^-----BEGIN PUBLIC KEY-----\n[A-Za-z0-9+/=]+\n-----END PUBLIC KEY-----\n$/)
     expect(verifyManifest(signManifest(manifest, pem), shippedKey)).toBe(false)
+  })
+})
+
+describe('the rename to spawn keeps old installs updating', () => {
+  it("the release's app zip still has the name 1.3.35 and older require", () => {
+    const release = readFileSync(new URL('../scripts/release.mjs', import.meta.url), 'utf8')
+    const name = /const appZip = `([^`]+)`/.exec(release)?.[1]?.replace('${version}', '1.3.36')
+    // the check in 1.3.35's electron/updater.cjs, copied as it was
+    expect(/^claudex-app-[\w.-]+\.zip$/.test(name ?? '')).toBe(true)
+  })
+
+  it('this version accepts both names, for a later switch', () => {
+    const updater = readFileSync(new URL('../electron/updater.cjs', import.meta.url), 'utf8')
+    expect(updater.includes('/^(spawn|claudex)-app-[\\w.-]+\\.zip$/')).toBe(true)
   })
 })

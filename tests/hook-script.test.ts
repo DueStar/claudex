@@ -1,5 +1,5 @@
 /**
- * hooks/claudex-hook.cjs — turns a Claude Code hook payload into a server
+ * hooks/spawn-hook.cjs — turns a Claude Code hook payload into a server
  * event (buildEvent), run against real 2.1.x payload shapes. The last group
  * runs the whole script the way a session does (stdin in, a signed POST out,
  * nothing on stdout) against a capture server.
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const HOOK = fileURLToPath(new URL('../hooks/claudex-hook.cjs', import.meta.url))
+const HOOK = fileURLToPath(new URL('../hooks/spawn-hook.cjs', import.meta.url))
 const { buildEvent } = require(HOOK)
 
 /**
@@ -53,7 +53,7 @@ function runHook(payload: unknown): Record<string, any> | null {
   return lines.length ? JSON.parse(lines[0]) : null
 }
 
-describe('claudex-hook: /clear in an app terminal', () => {
+describe('spawn-hook: /clear in an app terminal', () => {
   const TERMINAL = '11111111-2222-4333-8444-555555555555'
   const FRESH = '99999999-8888-4777-8666-555555555555'
   it("reports the new conversation under the terminal's id and does not end the session", () => {
@@ -68,7 +68,7 @@ describe('claudex-hook: /clear in an app terminal', () => {
   })
 })
 
-describe('claudex-hook: Agent tool', () => {
+describe('spawn-hook: Agent tool', () => {
   it('PreToolUse Agent -> agent_working with tool Agent (a step in the Safari Zone), the task in the status (Task alias too)', () => {
     expect(runHook({
       hook_event_name: 'PreToolUse',
@@ -93,7 +93,7 @@ describe('claudex-hook: Agent tool', () => {
   })
 })
 
-describe('claudex-hook: inside a subagent', () => {
+describe('spawn-hook: inside a subagent', () => {
   it('PreToolUse Bash with agent_id -> agent_working tagged with the subagent', () => {
     expect(runHook({
       hook_event_name: 'PreToolUse',
@@ -167,7 +167,7 @@ describe('claudex-hook: inside a subagent', () => {
  * Payloads captured verbatim from Claude Code 2.1.300 (scratchpad/hookcap,
  * 2026-10-14). Only the capture's own bookkeeping keys were dropped.
  */
-describe('claudex-hook: captured 2.1.300 payloads', () => {
+describe('spawn-hook: captured 2.1.300 payloads', () => {
   const common = {
     session_id: '8cf68f64-5433-40f7-a130-557fc7f67e42',
     transcript_path: '/root/.claude/projects/-tmp-claude-0--home-user-Claude-Office-c25c5511-f321-521a-825b-f189ac4d57e8-scratchpad-hookcap/8cf68f64-5433-40f7-a130-557fc7f67e42.jsonl',
@@ -374,7 +374,7 @@ describe('claudex-hook: captured 2.1.300 payloads', () => {
  * Code 2.1.300 (scratchpad/hookcap/events.jsonl, 2026-10-14): session_id,
  * transcript_path and cwd are in the base schema of every hook event.
  */
-describe('claudex-hook: sessions', () => {
+describe('spawn-hook: sessions', () => {
   const base = {
     session_id: 'c25c5511-f321-521a-825b-f189ac4d57e8',
     transcript_path: '/root/.claude/projects/-tmp-claude-0--home-user-Claude-Office-c25c5511-f321-521a-825b-f189ac4d57e8-scratchpad-hookcap/c25c5511-f321-521a-825b-f189ac4d57e8.jsonl',
@@ -501,7 +501,7 @@ describe('claudex-hook: sessions', () => {
   })
 })
 
-describe('claudex-hook: MCP tools', () => {
+describe('spawn-hook: MCP tools', () => {
   it('PreToolUse mcp__github__get_me -> mcp_call', () => {
     expect(runHook({ hook_event_name: 'PreToolUse', tool_name: 'mcp__github__get_me', tool_input: {} }))
       .toEqual({ type: 'mcp_call', server: 'github', tool: 'get_me' })
@@ -521,7 +521,7 @@ describe('claudex-hook: MCP tools', () => {
   })
 })
 
-describe('claudex-hook: every tool call is activity', () => {
+describe('spawn-hook: every tool call is activity', () => {
   it('PreToolUse of a tool without a specific status line -> a generic "using <tool>" working status, main thread or worker', () => {
     expect(runHook({ hook_event_name: 'PreToolUse', tool_name: 'WebFetch', tool_input: { url: 'https://example.com' } }))
       .toEqual({ type: 'agent_working', status: 'using WebFetch', tool: 'WebFetch' })
@@ -560,7 +560,7 @@ describe('claudex-hook: every tool call is activity', () => {
 
 })
 
-describe('claudex-hook: ignored payloads', () => {
+describe('spawn-hook: ignored payloads', () => {
   it('prints nothing for an empty payload or one with neither a tool_name nor a session', () => {
     expect(runHook({ hook_event_name: 'UserPromptSubmit', prompt: 'hello' })).toBeNull()
     expect(runHook({ hook_event_name: 'Stop', last_assistant_message: 'x' })).toBeNull()
@@ -582,7 +582,7 @@ describe('claudex-hook: ignored payloads', () => {
  * capture's own bookkeeping keys were dropped. None of these carries a
  * tool_name except PermissionRequest.
  */
-describe('claudex-hook: the main thread (session_* events)', () => {
+describe('spawn-hook: the main thread (session_* events)', () => {
   const HOOKCAP = '/tmp/claude-0/-home-user-Claude-Office/c25c5511-f321-521a-825b-f189ac4d57e8/scratchpad/hookcap'
   const PROJECTS = '/root/.claude/projects/-tmp-claude-0--home-user-Claude-Office-c25c5511-f321-521a-825b-f189ac4d57e8-scratchpad-hookcap'
   /** Common keys of a captured session: session_id, transcript_path, cwd, scratchpad_dir */
@@ -861,8 +861,8 @@ describe('claudex-hook: the main thread (session_* events)', () => {
  * sent), nothing on stdout (on UserPromptSubmit it would be injected into
  * Claude's context) and exit code 0.
  */
-describe('claudex-hook: the script', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'claudex-hook-'))
+describe('spawn-hook: the script', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'spawn-hook-'))
   interface Hit { url: string; headers: Record<string, string | string[] | undefined>; raw: string }
   const hits: Hit[] = []
   let server: Server
@@ -885,7 +885,7 @@ describe('claudex-hook: the script', () => {
     return new Promise<{ status: number | null; stdout: string; stderr: string; hits: Hit[]; body: any }>((resolve) => {
       const child = spawn(process.execPath, [HOOK], {
         // not an app terminal's, though the tests may run inside one
-        env: { ...process.env, CLAUDEX_SESSION_ID: '', CLAUDEX_LINK_FILE: '', CLAUDEX_EVENT_URL: '', CLAUDEX_HOME: dir, CLAUDEX_PORT: String(port), ...env },
+        env: { ...process.env, SPAWN_SESSION_ID: '', SPAWN_LINK_FILE: '', SPAWN_EVENT_URL: '', SPAWN_HOME: dir, SPAWN_PORT: String(port), ...env },
       })
       let stdout = ''
       let stderr = ''
@@ -908,7 +908,7 @@ describe('claudex-hook: the script', () => {
     expect(run.body).toEqual({ type: 'session_prompt', text: 'fix the bug', isWakeup: false, promptId: 'p1', sessionId: 's-wrap', project: 'proj', cwd: '/home/me/proj', transcriptPath: '/t/s-wrap.jsonl', at: expect.any(Number) })
     // No token file: nothing to sign with, and never an Authorization header
     expect(run.hits[0].headers.authorization).toBeUndefined()
-    expect(run.hits[0].headers['x-claudex-signature']).toBeUndefined()
+    expect(run.hits[0].headers['x-spawn-signature']).toBeUndefined()
   })
 
   it('every event carries when the hook started (at), so the server can tell a late one', async () => {
@@ -944,10 +944,10 @@ describe('claudex-hook: the script', () => {
       const h = run.hits[0].headers
       expect(h.authorization).toBeUndefined()
       expect(JSON.stringify(h)).not.toContain(token)
-      const ts = String(h['x-claudex-timestamp'])
+      const ts = String(h['x-spawn-timestamp'])
       expect(ts).toMatch(/^\d+$/)
       const expected = createHmac('sha256', token).update(`POST\n/event\n${ts}\n`).update(run.hits[0].raw).digest('hex')
-      expect(h['x-claudex-signature']).toBe(expected)
+      expect(h['x-spawn-signature']).toBe(expected)
       expect(run.body).toMatchObject({ type: 'agent_working', status: 'reading y.js' })
 
       const quiet = await runScript({ ...session, hook_event_name: 'Setup', trigger: 'init' })
@@ -959,15 +959,15 @@ describe('claudex-hook: the script', () => {
     }
   })
 
-  it('posts to CLAUDEX_EVENT_URL when set, else to 127.0.0.1:$CLAUDEX_PORT/event; CLAUDEX_* still read', async () => {
+  it('posts to SPAWN_EVENT_URL when set, else to 127.0.0.1:$SPAWN_PORT/event; SPAWN_* still read', async () => {
     const read = { ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: '/x/y.js' } }
-    expect((await runScript(read, { CLAUDEX_EVENT_URL: `http://127.0.0.1:${port}/event?via=url` })).hits[0].url).toBe('/event?via=url')
-    expect((await runScript(read, { CLAUDEX_PORT: String(port) })).hits).toHaveLength(1)
+    expect((await runScript(read, { SPAWN_EVENT_URL: `http://127.0.0.1:${port}/event?via=url` })).hits[0].url).toBe('/event?via=url')
+    expect((await runScript(read, { SPAWN_PORT: String(port) })).hits).toHaveLength(1)
   })
 
   it('exits 0 at once, silently, when the server is down or stdin is not JSON', async () => {
     const started = Date.now()
-    const down = await runScript({ ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: {} }, { CLAUDEX_PORT: '9' })
+    const down = await runScript({ ...session, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: {} }, { SPAWN_PORT: '9' })
     expect(down.status).toBe(0)
     expect(down.stdout + down.stderr).toBe('')
     expect(Date.now() - started).toBeLessThan(1500)

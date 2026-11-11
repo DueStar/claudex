@@ -15,7 +15,7 @@ afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, f
 
 describe('writePrivate', () => {
   it('never leaves a half-written file: a write that fails keeps the old content', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'claudex-private-'))
+    const dir = mkdtempSync(join(tmpdir(), 'spawn-private-'))
     dirs.push(dir)
     const file = join(dir, 'agents.json')
     writePrivate(file, 'a')

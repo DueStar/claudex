@@ -26,7 +26,7 @@ function status(overrides: Record<string, unknown> = {}) {
   return {
     type: 'session_status',
     sessionId: SID,
-    project: 'claudex',
+    project: 'spawn',
     model: 'Haiku 5.5',
     modelId: 'claude-haiku-5-5',
     context: { used: 4.4, size: 1000000, input: 44051, output: 358 },
@@ -72,7 +72,7 @@ describe('POST /status', () => {
     expect(summary.body).toEqual({
       sessions: [{
         sessionId: SID,
-        project: 'claudex',
+        project: 'spawn',
         model: 'Haiku 5.5',
         modelId: 'claude-haiku-5-5',
         context: { used: 4.4, size: 1000000, input: 44051, output: 358 },
@@ -124,7 +124,7 @@ describe('POST /status token comparison', () => {
       expect(res.status, JSON.stringify(bad)).toBe(401)
       expect(res.body).toEqual({ error: 'Unauthorized' })
       // The shared requireToken middleware answers, not a status.js copy of the check
-      expect(res.headers['www-authenticate']).toBe('Bearer realm="claudex"')
+      expect(res.headers['www-authenticate']).toBe('Bearer realm="spawn"')
     }
     expect(store(office).has(SID)).toBe(false)
 
@@ -210,7 +210,7 @@ describe('expiry', () => {
   })
 
   it('keeps the last usage limits after their session is gone, and across a restart (limitsFile)', () => {
-    const file = join(mkdtempSync(join(tmpdir(), 'claudex-limits-')), 'usage-limits.json')
+    const file = join(mkdtempSync(join(tmpdir(), 'spawn-limits-')), 'usage-limits.json')
     let t = 1_000
     const s = createStatusStore({ staleMs: 60_000, now: () => t, limitsFile: file })
     s.ingest(status())
@@ -225,8 +225,8 @@ describe('expiry', () => {
     expect(restarted.summary()).toEqual({ sessions: [], rateLimits: expect.objectContaining({ fiveHour: 23.5, sevenDayResetsAt: 1738857600, at: 1_000 }) })
   })
 
-  it('the mounted store uses CLAUDEX_STALE_MINUTES', async () => {
-    const office = await loadServer({ env: { CLAUDEX_STALE_MINUTES: '1' } })
+  it('the mounted store uses SPAWN_STALE_MINUTES', async () => {
+    const office = await loadServer({ env: { SPAWN_STALE_MINUTES: '1' } })
     try {
       await postStatus(office.server, status())
       expect(store(office).expireStale(Date.now() + 59_000)).toEqual([])
@@ -285,7 +285,7 @@ describe('WebSocket', () => {
     const client = await connect()
     const snapshot = await client.next(m => m.type === 'snapshot')
     expect(snapshot.statuses).toEqual({
-      sessions: [expect.objectContaining({ sessionId: SID, project: 'claudex', rateLimits: expect.objectContaining({ fiveHour: 23.5 }) })],
+      sessions: [expect.objectContaining({ sessionId: SID, project: 'spawn', rateLimits: expect.objectContaining({ fiveHour: 23.5 }) })],
       rateLimits: expect.objectContaining({ fiveHour: 23.5 }),
     })
   })
@@ -300,7 +300,7 @@ describe('WebSocket', () => {
     for (const client of [a, b]) {
       const ev = await client.next(m => m.type === 'session_status')
       expect(ev.sessionId).toBe(SID)
-      expect(ev.session).toMatchObject({ project: 'claudex', context: { used: 88, size: 200000 }, model: 'Haiku 5.5' })
+      expect(ev.session).toMatchObject({ project: 'spawn', context: { used: 88, size: 200000 }, model: 'Haiku 5.5' })
       expect(ev.timestamp).toBeTypeOf('number')
     }
   })

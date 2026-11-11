@@ -145,7 +145,7 @@ export function mountHealth(app, opts = {}) {
   app.locals.health = health
 
   // GET /health?challenge=<hex> also answers `proof`: HMAC-SHA256 of the
-  // server token over 'claudex-health:' + the challenge (opts.prove). The
+  // server token over 'spawn-health:' + the challenge (opts.prove). The
   // desktop app checks it before it hands the token to whatever answers on
   // the port: a process that squats the port while the server is down
   // cannot produce it

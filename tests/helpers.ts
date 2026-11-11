@@ -2,7 +2,7 @@
  * Shared helpers for the server tests.
  *
  * server/index.js keeps its state at module level (the sessions, the game,
- * ...). `loadServer()` re-evaluates the module with CLAUDEX_HOME pointed
+ * ...). `loadServer()` re-evaluates the module with SPAWN_HOME pointed
  * at a fresh temp dir, so every call is a brand-new server that never touches
  * the real ~/.agent-office. Importing
  * the module does not bind port 3334 or write the auth token — only
@@ -21,7 +21,7 @@ import { vi } from 'vitest'
 export type ServerModule = typeof import('../server/index.js')
 
 export interface Office {
-  /** Runtime dir this instance writes to (its CLAUDEX_HOME). */
+  /** Runtime dir this instance writes to (its SPAWN_HOME). */
   dir: string
   server: ServerModule
 }
@@ -35,14 +35,14 @@ export interface LoadOptions {
 
 /** Import a fresh copy of server/index.js against a temp runtime dir. */
 export async function loadServer(opts: LoadOptions = {}): Promise<Office> {
-  const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'claudex-test-'))
-  process.env.CLAUDEX_HOME = dir
+  const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'spawn-test-'))
+  process.env.SPAWN_HOME = dir
   // The registry roster (server/sessions.js) reads Claude Code's own
   // ~/.claude/sessions when started; a test office reads a (normally absent)
   // directory under its runtime dir instead, so the sessions of whoever runs
   // the suite never turn up in it. A test that wants a registry passes its own.
   const extra = Object.entries({
-    CLAUDEX_REGISTRY_DIR: join(dir, 'registry'),
+    SPAWN_REGISTRY_DIR: join(dir, 'registry'),
     ...(opts.env ?? {}),
   })
   for (const [key, value] of extra) process.env[key] = value

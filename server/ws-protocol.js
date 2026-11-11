@@ -1,12 +1,12 @@
 /**
  * ws-protocol.js — the WebSocket handshake's subprotocols (the page offers
- * `claudex` and `claudex.token.<token>`, src/serverToken.ts) and what a
+ * `spawn` and `spawn.token.<token>`, src/serverToken.ts) and what a
  * connection without the token may see of a broadcast. See "The WebSocket"
  * in server/index.js.
  */
 
-export const WS_PROTOCOL = 'claudex'
-export const WS_TOKEN_PROTOCOL_PREFIX = 'claudex.token.'
+export const WS_PROTOCOL = 'spawn'
+export const WS_TOKEN_PROTOCOL_PREFIX = 'spawn.token.'
 
 /** The token a WebSocket handshake offered as a subprotocol, or ''. */
 export function wsTokenFrom(req) {
@@ -19,7 +19,7 @@ export function wsTokenFrom(req) {
   return ''
 }
 
-/** The subprotocol the server agrees to: `claudex` when offered, never the token. */
+/** The subprotocol the server agrees to: `spawn` when offered, never the token. */
 export function handleProtocols(protocols) {
   return protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false
 }

@@ -23,7 +23,7 @@ async function get(path) {
   const file = join(CACHE, path.replace(/[/?]/g, '_') + '.json')
   if (existsSync(file)) return JSON.parse(readFileSync(file, 'utf8'))
   for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(`https://pokeapi.co/api/v2/${path}`, { headers: { 'User-Agent': 'claudex-i18n-fetch' } })
+    const res = await fetch(`https://pokeapi.co/api/v2/${path}`, { headers: { 'User-Agent': 'spawn-i18n-fetch' } })
     if (res.ok) { const json = await res.json(); writeFileSync(file, JSON.stringify(json)); return json }
     if (res.status === 404) return null
     await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))

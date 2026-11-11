@@ -1,5 +1,5 @@
 /**
- * FeedbackPin — feedback about Claudex, with a pin on the screen if wanted.
+ * FeedbackPin — feedback about spawn, with a pin on the screen if wanted.
  *
  * Mounted while it is open. It opens on the note: what kind and a line of text.
  * Pinning a spot is optional: the trainer picks one (the page under it does not
@@ -192,12 +192,12 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
           ref={popRef}
           className="fb-ui fb-pop"
           role="dialog"
-          aria-label={t('Claudex에 바라는 점')}
+          aria-label={t('spawn에 바라는 점')}
           style={popAt ? { left: popAt.left, top: popAt.top } : { visibility: 'hidden' }}
           onKeyDown={e => e.stopPropagation()}
         >
           <div className="fb-pop-head">
-            <strong>{t('Claudex에 바라는 점')}</strong>
+            <strong>{t('spawn에 바라는 점')}</strong>
             <button type="button" className="fb-x" onClick={onClose} aria-label={t('닫기')}>×</button>
           </div>
           <p className="fb-lead">{t('고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.')}</p>

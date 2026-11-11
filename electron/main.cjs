@@ -32,7 +32,7 @@ const { createTerminalManager, gitBranch } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { createUpdater } = require('./updater.cjs')
-const { UPDATED_FLAG, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates } = require('./updateRunner.cjs')
+const { isUpdatedRun, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates } = require('./updateRunner.cjs')
 const { openStatusCard, cardLang } = require('./statusCard.cjs')
 const { createStepTimer } = require('./updateTiming.cjs')
 const { registerFeedbackIpc } = require('./feedback.cjs')
@@ -40,10 +40,16 @@ const { startQuitWatchdog } = require('./quitWatchdog.cjs')
 const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
 const { t, useLanguage } = require('./i18n.cjs')
-const { envVar, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
+const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
+const { migrateUserData } = require('./userDataMigration.cjs')
+// Settings made under the old name (CLAUDEX_PORT=…) keep working; the server and terminals inherit them
+adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
-if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'Claudex-dev'))
+if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'spawn-dev'))
+// The app was called Claudex until 1.3.35: its folder (%APPDATA%/Claudex, or Claudex-dev)
+// is copied to the new name once, before anything reads it (userDataMigration.cjs)
+migrateUserData({ from: path.join(app.getPath('appData'), app.isPackaged ? 'Claudex' : 'Claudex-dev'), to: app.getPath('userData') })
 // An update staged by the last run goes in before anything else loads, behind the
 // "updating" card; then the app starts again on the new code (updateRunner.cjs).
 // Nothing else of the app runs in this process: the top-level return below.
@@ -69,20 +75,20 @@ if (app.isPackaged && hasPendingUpdate(app.getPath('userData'))) {
   return
 }
 
-// userData/logs/claudex.log: the console of this process and of the server
+// userData/logs/spawn.log: the console of this process and of the server
 const log = createLog(path.join(app.getPath('userData'), 'logs'))
 teeConsole(log)
-console.log(`[main] Claudex ${app.getVersion()} starting (electron ${process.versions.electron}${app.isPackaged ? '' : ', dev'})`)
-// How long the start takes, step by step: in claudex.log always, and in update.log
+console.log(`[main] spawn ${app.getVersion()} starting (electron ${process.versions.electron}${app.isPackaged ? '' : ', dev'})`)
+// How long the start takes, step by step: in spawn.log always, and in update.log
 // with the restart's other steps when this run follows an update (updateTiming.cjs)
 const startupT0 = Date.now()
-const startupTimer = process.argv.includes(UPDATED_FLAG) ? createStepTimer({ file: path.join(app.getPath('userData'), 'update.log'), label: 'p3' }) : null
+const startupTimer = isUpdatedRun(process.argv) ? createStepTimer({ file: path.join(app.getPath('userData'), 'update.log'), label: 'p3' }) : null
 function startupMark(step, extra = '') {
   startupTimer?.mark(step, extra)
   console.log(`[main] startup: ${step} +${Date.now() - startupT0}ms${extra ? ` ${extra}` : ''}`)
 }
 startupMark('start')
-// ~/.agent-office (versions up to 1.3.7) -> ~/.claudex, once, before anything
+// ~/.agent-office (versions up to 1.3.7) -> ~/.spawn, once, before anything
 // reads the token or starts the server (server/runtime-dir.cjs)
 migrateRuntimeDir()
 process.on('uncaughtException', (err) => { console.error('[main] uncaught:', err?.stack || err) })
@@ -92,10 +98,10 @@ let updater = null
 const PRELOAD = path.join(__dirname, 'preload.cjs')
 const REPO_ROOT = path.join(__dirname, '..')
 
-// The server's port: CLAUDEX_PORT, default 3334 (helpers.cjs mirrors
+// The server's port: SPAWN_PORT, default 3334 (helpers.cjs mirrors
 // server/config.js). The same number goes to the server child's environment,
 // the window's load URL, the navigation allowlist and the tray's poller, so
-// `CLAUDEX_PORT=4000 electron .` — or the variable in the environment a
+// `SPAWN_PORT=4000 electron .` — or the variable in the environment a
 // packaged app is launched with — moves the whole desktop app at once.
 const SERVER_PORT = serverPortFromEnv(process.env)
 const { serverUrl: SERVER_URL, healthUrl: HEALTH_URL, viteUrl: VITE_URL, allowedOrigins } = serverUrls(SERVER_PORT)
@@ -241,9 +247,9 @@ function startServer() {
   const packaged = app.isPackaged
   const command = packaged ? process.execPath : (process.env.npm_node_execpath || 'node')
   // The child binds the port this process resolved, so an unparsable
-  // CLAUDEX_PORT falls back to 3334 on both sides alike.
+  // SPAWN_PORT falls back to 3334 on both sides alike.
   // The settings file: the server reads 설정 › 프롬프트 숨기기 from it before a cloud upload
-  const env = { ...process.env, CLAUDEX_PORT: String(SERVER_PORT), CLAUDEX_SETTINGS_FILE: settingsFile() }
+  const env = { ...process.env, SPAWN_PORT: String(SERVER_PORT), SPAWN_SETTINGS_FILE: settingsFile() }
   if (packaged) env.ELECTRON_RUN_AS_NODE = '1'
 
   console.log(`[main] Spawning server: ${command} ${SERVER_ENTRY} (port ${SERVER_PORT})`)
@@ -288,8 +294,8 @@ function stopServer() {
 }
 
 // ---------------------------------------------------------------------------
-// Debug aid: CLAUDEX_SCREENSHOT=<file.png> captures the app a moment
-// after its page has loaded (CLAUDEX_SCREENSHOT_DELAY_MS, default 3000),
+// Debug aid: SPAWN_SCREENSHOT=<file.png> captures the app a moment
+// after its page has loaded (SPAWN_SCREENSHOT_DELAY_MS, default 3000),
 // then quits; an open notification goes to <file>-toast.png.
 // ---------------------------------------------------------------------------
 
@@ -297,8 +303,8 @@ function maybeCaptureScreenshot() {
   const file = envVar('SCREENSHOT')
   if (!file) return
   const delay = Number(envVar('SCREENSHOT_DELAY_MS')) || 3000
-  // Debug: CLAUDEX_AUTOTEST="<cwd>|<instruction>" opens a terminal and sends the instruction as the widget would
-  const auto = process.env.CLAUDEX_AUTOTEST
+  // Debug: SPAWN_AUTOTEST="<cwd>|<instruction>" opens a terminal and sends the instruction as the widget would
+  const auto = process.env.SPAWN_AUTOTEST
   if (auto && terminals) {
     const [cwd, instruction] = auto.split('|')
     const t = terminals.create({ cwd })
@@ -316,14 +322,14 @@ function maybeCaptureScreenshot() {
       })
     }).on('error', () => {})
     if (instruction) setTimeout(() => terminals.sendInstruction(t.id, instruction), Math.max(500, delay / 2))
-    // CLAUDEX_AUTOTEST_KEYS: raw keys typed 5 s in; the words DOWN and ENTER stand for those keys
-    const keys = process.env.CLAUDEX_AUTOTEST_KEYS
+    // SPAWN_AUTOTEST_KEYS: raw keys typed 5 s in; the words DOWN and ENTER stand for those keys
+    const keys = process.env.SPAWN_AUTOTEST_KEYS
     if (keys) setTimeout(() => terminals.write(t.id, keys.split('DOWN').join(String.fromCharCode(27) + '[B').split('ENTER').join(String.fromCharCode(13))), 5000)
   }
-  // Debug: CLAUDEX_AUTOTEST_EXPAND=1|0 forces the widget's mode for the capture
-  if (process.env.CLAUDEX_AUTOTEST_EXPAND) setTimeout(() => setWidgetExpanded(process.env.CLAUDEX_AUTOTEST_EXPAND === '1'), 1500)
-  // Debug: CLAUDEX_AUTOTEST_WIDGET_JS runs in the app a second before the capture
-  const wjs = process.env.CLAUDEX_AUTOTEST_WIDGET_JS
+  // Debug: SPAWN_AUTOTEST_EXPAND=1|0 forces the widget's mode for the capture
+  if (process.env.SPAWN_AUTOTEST_EXPAND) setTimeout(() => setWidgetExpanded(process.env.SPAWN_AUTOTEST_EXPAND === '1'), 1500)
+  // Debug: SPAWN_AUTOTEST_WIDGET_JS runs in the app a second before the capture
+  const wjs = process.env.SPAWN_AUTOTEST_WIDGET_JS
   if (wjs) setTimeout(() => { widgetWin?.webContents.executeJavaScript(wjs).catch((e) => console.error('[main] autotest widget js:', e.message)) }, Math.max(0, delay - 1500))
   setTimeout(async () => {
     try {
@@ -409,7 +415,7 @@ async function checkUpdateNow() {
 }
 
 const openLogs = () => { shell.openPath(log.dir).catch(() => {}) }
-// The design QA page is for development: a dev run, or CLAUDEX_QA=1 on a packaged one
+// The design QA page is for development: a dev run, or SPAWN_QA=1 on a packaged one
 const showQa = !app.isPackaged || envVar('QA') === '1'
 /** 설정: the app window comes forward and opens its settings */
 function openSettings() {
@@ -428,7 +434,7 @@ function changeSettings(patch) {
   if (next.app.openAtLogin !== before.app.openAtLogin && app.isPackaged) {
     try { app.setLoginItemSettings({ openAtLogin: next.app.openAtLogin }) } catch (err) { console.error('[main] login item:', err.message) }
   }
-  if (next.app.widgetOnTop !== before.app.widgetOnTop && widgetWin && !widgetWin.isDestroyed() && widgetWin.claudexKind === 'widget') {
+  if (next.app.widgetOnTop !== before.app.widgetOnTop && widgetWin && !widgetWin.isDestroyed() && widgetWin.spawnKind === 'widget') {
     widgetWin.setAlwaysOnTop(next.app.widgetOnTop, 'floating')
   }
   if (next.app.language !== before.app.language) refreshMenus()
@@ -441,7 +447,7 @@ async function exportBackup() {
   const src = path.join(runtimeDirFromEnv(process.env), 'pokedex.json')
   if (!fs.existsSync(src)) return { ok: false, reason: 'no-data' }
   const day = new Date().toISOString().slice(0, 10)
-  const opts = { title: t('도감 백업 저장'), defaultPath: path.join(app.getPath('documents'), `claudex-backup-${day}.json`), filters: [{ name: 'JSON', extensions: ['json'] }] }
+  const opts = { title: t('도감 백업 저장'), defaultPath: path.join(app.getPath('documents'), `spawn-backup-${day}.json`), filters: [{ name: 'JSON', extensions: ['json'] }] }
   const r = widgetWin && !widgetWin.isDestroyed() ? await dialog.showSaveDialog(widgetWin, opts) : await dialog.showSaveDialog(opts)
   if (r.canceled || !r.filePath) return { ok: false, reason: 'canceled' }
   // Steps are saved in batches (up to 30 s): write them first, so the copy has them
@@ -493,6 +499,14 @@ async function startApp() {
   refreshMenus()
   createTrayIcon()
   const startHidden = appSettings().app.startHidden
+  // Until 1.3.35 "open at login" was saved under the old name (Windows' Run entry
+  // electron.app.Claudex): drop that one and keep the setting under the new name
+  if (app.isPackaged && process.platform === 'win32') {
+    try {
+      app.setLoginItemSettings({ openAtLogin: false, name: 'electron.app.Claudex' })
+      if (appSettings().app.openAtLogin) app.setLoginItemSettings({ openAtLogin: true })
+    } catch (err) { console.error('[main] login item:', err.message) }
+  }
 
   // Check if a server is already running (e.g. launched separately during dev)
   const found = await probeServer()
@@ -523,7 +537,7 @@ async function startApp() {
         APP_NAME,
         `The ${APP_NAME} server did not start on port ${SERVER_PORT}.\n\n` +
         `If something else is using that port, stop it and open ${APP_NAME} again, ` +
-        `or launch it with CLAUDEX_PORT set to a free port.`,
+        `or launch it with SPAWN_PORT set to a free port.`,
       )
       quitApp()
       return
@@ -640,7 +654,7 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     ...boundsFor(kind, near),
     minWidth: (isWidget ? WIDGET_MIN : WINDOW_MIN).width,
     minHeight: (isWidget ? WIDGET_MIN : WINDOW_MIN).height,
-    title: 'Claudex',
+    title: 'spawn',
     frame: false,
     transparent: isWidget,
     hasShadow: !isWidget,
@@ -652,7 +666,7 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     show: false,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
   })
-  win.claudexKind = kind
+  win.spawnKind = kind
   if (isWidget && appSettings().app.widgetOnTop) win.setAlwaysOnTop(true, 'floating')
   win.webContents.on('will-navigate', (event) => event.preventDefault())
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -676,7 +690,7 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
   const remember = () => {
     if (win.isDestroyed() || win !== widgetWin || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return
     const b = win.getBounds()
-    if (win.claudexKind === 'window') {
+    if (win.spawnKind === 'window') {
       state.widgetBounds = b
       state.widgetExpandedSize = { width: b.width, height: b.height }
     } else if (b.width <= WIDGET_MAX_WIDTH) {
@@ -700,7 +714,7 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     saveState()
   })
   win.on('closed', () => { if (widgetWin === win) widgetWin = null })
-  win.once('ready-to-show', () => { win.claudexPainted = true; win.emit('claudex-painted') })
+  win.once('ready-to-show', () => { win.spawnPainted = true; win.emit('spawn-painted') })
   if (!hidden) {
     win.once('ready-to-show', () => {
       if (win.isDestroyed() || win !== widgetWin) return
@@ -749,10 +763,10 @@ function fadeWindow(win, from, to, ms) {
 /** Wait for a window's first paint (or give up after `ms`). */
 function painted(win, ms = 4000) {
   return new Promise((resolve) => {
-    if (win.claudexPainted) return resolve()
+    if (win.spawnPainted) return resolve()
     const done = () => { clearTimeout(timer); resolve() }
     const timer = setTimeout(done, ms)
-    win.once('claudex-painted', done)
+    win.once('spawn-painted', done)
     win.once('closed', done)
   })
 }
@@ -766,7 +780,7 @@ function swapAppWindow(mode) {
   swapping = swapping.then(async () => {
     if (quitting) return // queued before the quit: no new window now
     const old = widgetWin && !widgetWin.isDestroyed() ? widgetWin : null
-    if (old && old.claudexKind === kindOf(mode)) { setWidgetMode(mode); return }
+    if (old && old.spawnKind === kindOf(mode)) { setWidgetMode(mode); return }
     const wasVisible = !old || old.isVisible()
     state.widgetMode = mode
     state.widgetExpanded = mode !== 'widget'
@@ -801,7 +815,7 @@ const WIDGET_MODES = new Set(['widget', 'window', 'fullscreen'])
 function setWidgetMode(mode) {
   if (!WIDGET_MODES.has(mode) || quitting) return modeNow()
   const w = widgetWin && !widgetWin.isDestroyed() ? widgetWin : null
-  if (!w || w.claudexKind !== kindOf(mode)) {
+  if (!w || w.spawnKind !== kindOf(mode)) {
     swapAppWindow(mode)
     return mode
   }
@@ -826,7 +840,7 @@ function setWidgetExpanded(expanded) {
 
 /** The widget's own resize grip (a transparent window has no resizable frame on Windows). */
 function resizeWidget(width, height) {
-  if (!widgetWin || widgetWin.isDestroyed() || widgetWin.claudexKind !== 'widget') return
+  if (!widgetWin || widgetWin.isDestroyed() || widgetWin.spawnKind !== 'widget') return
   const b = widgetWin.getBounds()
   const { workArea } = screen.getDisplayMatching(b)
   const w = Math.max(WIDGET_MIN.width, Math.min(Math.round(width), workArea.width, WIDGET_MAX_WIDTH))
@@ -911,7 +925,7 @@ function openQa() {
   const url = pageWith('qa')
   if (!url) return
   qaWin = new BrowserWindow({
-    width: 1100, height: 860, title: t('Claudex 디자인 QA'), backgroundColor: '#0b0c10', autoHideMenuBar: true,
+    width: 1100, height: 860, title: t('spawn 디자인 QA'), backgroundColor: '#0b0c10', autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
   })
   qaWin.webContents.on('will-navigate', (event) => event.preventDefault())
@@ -1130,7 +1144,7 @@ function registerTerminalIpc() {
   // What a session needs on this PC (Claude Code, Git, Python), and their install pages
   ipcMain.handle('env:check', guard(() => checkPrereqs()))
   ipcMain.handle('env:open-link', guard((key) => {
-    const url = key === 'release' ? 'https://github.com/DueStar/claudex/releases/latest' : PREREQ_LINKS[key]
+    const url = key === 'release' ? 'https://github.com/DueStar/spawn/releases/latest' : PREREQ_LINKS[key]
     if (url) shell.openExternal(url) // only the known install pages, never a page-supplied URL
   }))
   ipcMain.handle('cloud:signin', guard(() => cloudSignIn()))

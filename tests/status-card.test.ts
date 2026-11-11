@@ -1,5 +1,5 @@
 /**
- * The small status card shown while Claudex updates or starts
+ * The small status card shown while spawn updates or starts
  * (electron/statusCard.cjs): where it goes, its page link, its window.
  */
 import { createRequire } from 'node:module'

@@ -28,7 +28,7 @@ import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { useDragOrder } from './useDragOrder'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SpawnMark, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -187,7 +187,7 @@ const Widget: React.FC = () => {
   // A clicked notification: the Pokédex at that species (carried, since opening the window may swap pages)
   useEffect(() => bridge?.widget.onOpenDex(id => {
     writeCarry({ dexPick: { id, at: Date.now() }, dexScroll: undefined })
-    window.dispatchEvent(new CustomEvent('claudex:dex-pick', { detail: id }))
+    window.dispatchEvent(new CustomEvent('spawn:dex-pick', { detail: id }))
     setView('dex')
     setExpanded(true)
   }), [])
@@ -408,8 +408,8 @@ const Widget: React.FC = () => {
     return () => ro.disconnect()
   }, [viewsCompact, expanded, view])
   // Window / fullscreen: the left panel folds away (remembered), leaving the terminal the whole width
-  const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('claudex-side-hidden') === '1' } catch { return false } })
-  const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('claudex-side-hidden', next ? '1' : '0') } catch {} ; return next })
+  const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('spawn-side-hidden') === '1' } catch { return false } })
+  const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('spawn-side-hidden', next ? '1' : '0') } catch {} ; return next })
   // Party Pokémon whose session is open but resting (turn over or stopped): they may trade places with a box one
   // The same members give the same Set, so the (memoized) box does not re-render for nothing
   const restingKey = rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u).sort().join(',')
@@ -589,8 +589,8 @@ const Widget: React.FC = () => {
           folder, resume, the open sessions, usage, settings) */}
       {expanded && sideHidden && (
         <nav className="w-rail" aria-label={t('왼쪽 패널 (접힘)')}>
-          <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('Claudex {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
-            <PokeBall size={20} />
+          <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
+            <SpawnMark size={20} />
             <span className={`w-rail-conn${connected ? '' : ' off'}`} />
           </button>
           {update && (update.status === 'available' || update.status === 'ready') && (
@@ -638,8 +638,8 @@ const Widget: React.FC = () => {
       <div className="w-side">
         <div className="w-bento">
           <header className="w-card w-head">
-            <PokeBall size={18} />
-            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('Claudex {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>Claudex</button>
+            <SpawnMark size={18} />
+            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>spawn</button>
             <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? t('연결됨') : t('서버 연결 끊김')} />
             {cloud?.enabled && (cloud.user ? (
               <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${t('{time} 동기화', { time: new Date(cloud.lastSyncAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) })}` : ''}`}>

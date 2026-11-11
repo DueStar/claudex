@@ -1,6 +1,6 @@
 /**
  * desktop.ts — the bridge to the desktop app (electron/preload.cjs). In a
- * plain browser `window.claudex` is absent and every helper is a no-op
+ * plain browser `window.spawn` is absent and every helper is a no-op
  * (no terminals, no game actions).
  */
 
@@ -39,7 +39,7 @@ export interface PastSession {
   running: boolean
 }
 
-interface ClaudexBridge {
+interface spawnBridge {
   isDesktop: true
   terminals: {
     list(): Promise<TerminalInfo[]>
@@ -161,7 +161,7 @@ export interface UpdateState {
 export type WidgetMode = 'widget' | 'window' | 'fullscreen'
 
 declare global {
-  interface Window { claudex?: ClaudexBridge }
+  interface Window { spawn?: spawnBridge }
 }
 
 /** The app's languages (src/i18n.ts) */
@@ -182,7 +182,7 @@ export interface BoardRow { place: number; rn: number; nickname: string; partner
 export interface BoardProfile { nickname: string; isPublic: boolean; partner: number | null; caught: number; shiny: number; legends: number; week: number; flagged: boolean }
 export type SettingsPatch = { [G in keyof AppSettings]?: Partial<AppSettings[G]> }
 
-export const bridge: ClaudexBridge | null = typeof window !== 'undefined' ? window.claudex ?? null : null
+export const bridge: spawnBridge | null = typeof window !== 'undefined' ? window.spawn ?? null : null
 export const isDesktop = !!bridge
 
 let terminals: TerminalInfo[] = []

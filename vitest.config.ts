@@ -10,7 +10,7 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     // One worker per file: each file imports its own copy of server/index.js
-    // with its own CLAUDEX_HOME temp dir (see tests/helpers.ts).
+    // with its own SPAWN_HOME temp dir (see tests/helpers.ts).
     pool: 'forks',
     testTimeout: 15_000,
     hookTimeout: 15_000,

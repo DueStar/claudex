@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Claudex is a Windows app; Linux keeps the Unix-only checks (file
+        # spawn is a Windows app; Linux keeps the Unix-only checks (file
         # modes, symlinks) running, which skip on Windows
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}

@@ -1,7 +1,7 @@
 /**
  * PatchNotes — after an update, the first start shows once what is new
  * (the CHANGELOG entries since the version this PC last ran).
- * PatchNotesHistory — every release, opened from the Claudex name in the header.
+ * PatchNotesHistory — every release, opened from the spawn name in the header.
  */
 
 import React, { useEffect, useState } from 'react'
@@ -28,7 +28,7 @@ export const PatchNotes: React.FC = () => {
   }, [])
 
   if (!show) return null
-  return <NotesModal title={t('Claudex {version} 새 소식', { version: show.current })} releases={show.releases} onClose={() => setShow(null)} />
+  return <NotesModal title={t('spawn {version} 새 소식', { version: show.current })} releases={show.releases} onClose={() => setShow(null)} />
 }
 
 export const PatchNotesHistory: React.FC<{ onClose: () => void }> = ({ onClose }) =>

@@ -18,7 +18,7 @@ const pick = (o: Record<string, unknown>, keys: readonly string[]) => Object.fro
 
 export function pokedexData(): Plugin {
   return {
-    name: 'claudex-pokedex',
+    name: 'spawn-pokedex',
     resolveId(id) {
       return id === 'virtual:pokedex' || id === 'virtual:pokedex-text' ? `\0${id}` : null
     },

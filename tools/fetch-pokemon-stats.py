@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve()
-UA = {"User-Agent": "Mozilla/5.0 (claudex data fetch)"}
+UA = {"User-Agent": "Mozilla/5.0 (spawn data fetch)"}
 
 
 def get(url, tries=5):

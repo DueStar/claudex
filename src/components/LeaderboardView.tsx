@@ -15,7 +15,7 @@ import { npcsFor, npcValue } from '../npcTrainers'
 
 /** A row as shown: a trainer from the database, or an NPC (marked as one) */
 interface Shown { key: string; place: number; nickname: string; partner: number | null; value: number; me: boolean; npc: boolean }
-const NPC_KEY = 'claudex-rank-npc'
+const NPC_KEY = 'spawn-rank-npc'
 
 const BOARDS: { key: BoardKind; label: string; unit: string; note: string }[] = [
   { key: 'week', label: '이번 주 포획', unit: '마리', note: '매주 월요일 0시(한국 시간)에 새로 시작해요' },

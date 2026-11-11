@@ -13,8 +13,8 @@
  *   by the Vite dev server `npm run dev`, the Electron
  *                          dev window. The server is a different process
  *                          on the port Vite was told about: vite.config.ts
- *                          defines import.meta.env.VITE_CLAUDEX_PORT
- *                          from CLAUDEX_PORT (default 3334). Keep the
+ *                          defines import.meta.env.VITE_SPAWN_PORT
+ *                          from SPAWN_PORT (default 3334). Keep the
  *                          page's hostname (localhost or 127.0.0.1, both on
  *                          the server's origin allowlist).
  *
@@ -41,7 +41,7 @@ export interface PageLocation {
 /** What Vite says about the build: dev or not, and the configured server port. */
 export interface BuildEnv {
   dev: boolean
-  /** import.meta.env.VITE_CLAUDEX_PORT as defined in vite.config.ts */
+  /** import.meta.env.VITE_SPAWN_PORT as defined in vite.config.ts */
   port?: string | number
 }
 
@@ -58,7 +58,7 @@ function pageLocation(): PageLocation {
 }
 
 function buildEnv(): BuildEnv {
-  return { dev: !!import.meta.env.DEV, port: import.meta.env.VITE_CLAUDEX_PORT }
+  return { dev: !!import.meta.env.DEV, port: import.meta.env.VITE_SPAWN_PORT }
 }
 
 /** The configured server port as a number, 3334 when unset or not a port. */

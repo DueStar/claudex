@@ -22,23 +22,23 @@ const via = (label: string, prompt = '로그인 화면 버그 고쳐줘') => ({ 
 
 function catchOf(id: number, tier: Tier, extra: Partial<DexEvent> = {}): DexEvent {
   return {
-    kind: 'catch', id, name: name(id), tier, shiny: false, place: 'claudex 동굴', at,
+    kind: 'catch', id, name: name(id), tier, shiny: false, place: 'spawn 동굴', at,
     via: via('Bash(npm test)'), gender: 'male', nature: 3, ball: 'poke-ball', level: 12, uid: 'qa', ...extra,
   } as DexEvent
 }
 
 const SAMPLES: { title: string; note: string; e: DexEvent }[] = [
   { title: '포획 · 일반', note: '가장 흔한 알림', e: catchOf(16, 'common', { level: 7 }) },
-  { title: '포획 · 희귀', note: '포획률 45 이하', e: catchOf(147, 'rare', { ball: 'dusk-ball', level: 15, place: 'claudex 동굴 (밤)' }) },
+  { title: '포획 · 희귀', note: '포획률 45 이하', e: catchOf(147, 'rare', { ball: 'dusk-ball', level: 15, place: 'spawn 동굴 (밤)' }) },
   { title: '포획 · 준전설', note: '보라 테두리', e: catchOf(144, 'sub', { ball: 'timer-ball', level: 50, gender: 'none' }) },
   { title: '포획 · 전설 (마스터볼)', note: '금색 빛, 15초', e: catchOf(150, 'legendary', { ball: 'master-ball', level: 55, gender: 'none' }) },
   { title: '포획 · 환상', note: '분홍 빛, 15초', e: catchOf(151, 'mythical', { ball: 'quick-ball', level: 48, gender: 'none', pity: true }) },
   { title: '포획 · 색이 다른 포켓몬', note: '✦ 빛나는', e: catchOf(25, 'common', { shiny: true, ball: 'luxury-ball', level: 22, gender: 'female', via: via('Edit(Widget.tsx)') }) },
-  { title: '포획 · 출석 조우', note: '하루 첫 세션', e: catchOf(133, 'common', { attendance: true, place: 'claudex (오늘의 출석)', ball: 'great-ball', via: via('세션 시작'), level: 9 }) },
+  { title: '포획 · 출석 조우', note: '하루 첫 세션', e: catchOf(133, 'common', { attendance: true, place: 'spawn (오늘의 출석)', ball: 'great-ball', via: via('세션 시작'), level: 9 }) },
   { title: '포획 · 울트라비스트', note: '울트라볼', e: catchOf(793, 'sub', { ball: 'beast-ball', level: 55, gender: 'none', via: via('Grep 검색') }) },
   { title: '포획 · 박스 가득', note: '박사님께 보냄', e: catchOf(19, 'common', { toProfessor: true, uid: undefined, level: 4 }) },
-  { title: '도망 · 일반', note: '실루엣만', e: { kind: 'flee', id: 52, name: name(52), tier: 'common', shiny: false, place: 'claudex 풀숲', nature: 7, at } as DexEvent },
-  { title: '도망 · 준전설', note: '실루엣만', e: { kind: 'flee', id: 145, name: name(145), tier: 'sub', shiny: false, place: 'claudex 하늘길', at } as DexEvent },
+  { title: '도망 · 일반', note: '실루엣만', e: { kind: 'flee', id: 52, name: name(52), tier: 'common', shiny: false, place: 'spawn 풀숲', nature: 7, at } as DexEvent },
+  { title: '도망 · 준전설', note: '실루엣만', e: { kind: 'flee', id: 145, name: name(145), tier: 'sub', shiny: false, place: 'spawn 하늘길', at } as DexEvent },
   { title: '진화', note: '레벨업 때', e: { kind: 'evolve', id: 5, from: 4, name: name(5), fromName: name(4), tier: undefined, shiny: false, at } as unknown as DexEvent },
   { title: '레벨업', note: '5초', e: { kind: 'levelup', id: 6, name: name(6), level: 36, shiny: false, at } as unknown as DexEvent },
 ]
@@ -53,7 +53,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 const QaPage: React.FC = () => (
   <div className="widget qa">
     <header className="qa-head">
-      <h1>Claudex 디자인 QA</h1>
+      <h1>spawn 디자인 QA</h1>
       <p>특정 상황에서만 보이는 화면을 한곳에 모았어요. <b>띄우기</b>를 누르면 실제 알림 창에 떠요.</p>
     </header>
 

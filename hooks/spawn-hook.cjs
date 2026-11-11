@@ -1,9 +1,9 @@
 /**
- * claudex-hook.cjs — Claude Code hook -> the Claudex server.
+ * spawn-hook.cjs — Claude Code hook -> the spawn server.
  *
  * Claude Code passes the hook event as JSON on stdin. buildEvent turns it into
  * one server event (or nothing), which is POSTed, signed with the server
- * token, to http://127.0.0.1:3334/event (CLAUDEX_PORT / CLAUDEX_EVENT_URL move
+ * token, to http://127.0.0.1:3334/event (SPAWN_PORT / SPAWN_EVENT_URL move
  * it). The app's sessions get this hook through their --settings file
  * (electron/terminals.cjs), run by the app itself in Node mode.
  *
@@ -143,7 +143,7 @@ const STATUS = {
  */
 /** An app session's own id (the terminal's), set in its environment by the app; else '' */
 function terminalSessionId(env = process.env) {
-  const id = String(env.CLAUDEX_SESSION_ID || '')
+  const id = String(env.SPAWN_SESSION_ID || '')
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : ''
 }
 
@@ -359,7 +359,7 @@ async function main() {
   if (d) {
     event = buildEvent(d)
     // The conversation now going on in this app terminal (another one after /clear): what reopening it resumes
-    const link = process.env.CLAUDEX_LINK_FILE
+    const link = process.env.SPAWN_LINK_FILE
     if (link && isObj(d) && d.hook_event_name === 'SessionStart' && terminalSessionId() && /^[0-9a-f-]{36}$/i.test(String(d.session_id))) {
       try { require('fs').writeFileSync(link, String(d.session_id)) } catch { /* not worth failing the hook */ }
     }
