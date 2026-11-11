@@ -118,18 +118,10 @@ ${bar}
 ${bar}
 `)
 }
-// The games' Poké Ball (the Dream World Poké Ball, imported by tools/import-balls.mjs into
-// tools/_cache/, never committed) as the app, window and tray icons; the committed icons
-// (the openly licensed one, NOTICE.md) come back after the build
-const ICONS = ['build/icon.png', 'electron/assets/icon.png', 'electron/assets/tray-16.png', 'electron/assets/tray-32.png', 'electron/assets/tray-48.png']
-run('python', ['-I', join(root, 'tools', 'build-icons.py'), root, '--official'], { shell: false })
-try {
-  run('npx', ['vite', 'build'])
-  checkDist(join(root, 'dist')) // every page loads its own CSS (scripts/dist-check.mjs)
-  run('npx', ['electron-builder', '--win', 'dir', '--x64'])
-} finally {
-  execFileSync('git', ['checkout', '--', ...ICONS], { cwd: root, stdio: 'inherit' })
-}
+// The app, window and tray icons are committed as they ship: the Dream World Poké Ball (NOTICE.md)
+run('npx', ['vite', 'build'])
+checkDist(join(root, 'dist')) // every page loads its own CSS (scripts/dist-check.mjs)
+run('npx', ['electron-builder', '--win', 'dir', '--x64'])
 
 // Nothing of Nintendo's may ride along
 const appDir = join(unpacked, 'resources', 'app')

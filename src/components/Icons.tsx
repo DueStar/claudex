@@ -99,16 +99,15 @@ export const GearIcon: React.FC<P> = (p) => (
 
 /**
  * A Poké Ball picture: the games' ball artwork shipped with the app (without `ball`, the
- * Poké Ball, which is also the app, tray and window icon in a release build). Where that
- * art is missing (a build without it, a dev run), the openly licensed icon in
- * public/brand/pokeball.svg (Wikimedia Commons, CC BY-SA 4.0, NOTICE.md).
+ * Poké Ball). Where that art is missing, public/sprites/spawn-ball.png, the same Dream
+ * World Poké Ball as the app, tray and window icons (NOTICE.md).
  */
 export const PokeBall: React.FC<{ size?: number; className?: string; ball?: string | null; title?: string }> = ({ size = 16, className, ball, title }) => {
   const [failed, setFailed] = useState(false)
   return (
     <img
       className={`pokeball${className ? ` ${className}` : ''}`}
-      src={failed ? '/brand/pokeball.svg' : ballUrl(ball ?? 'poke-ball')}
+      src={failed ? '/sprites/spawn-ball.png' : ballUrl(ball ?? 'poke-ball')}
       width={size}
       height={size}
       alt={title ?? ''}
