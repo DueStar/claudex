@@ -593,6 +593,8 @@ const Widget: React.FC = () => {
             <PokeBall size={20} />
             <span className={`w-rail-conn${connected ? '' : ' off'}`} />
           </button>
+          {/* The panel's own fold button: here to unfold it, in the panel's header to fold it */}
+          <button className="w-rail-btn w-side-toggle" onClick={toggleSide} title={t('왼쪽 패널 펼치기')} aria-label={t('왼쪽 패널 펼치기')} aria-pressed={false}><SidePanelIcon size={15} /></button>
           {update && (update.status === 'available' || update.status === 'ready') && (
             <button className="w-rail-btn w-rail-update" title={update.status === 'ready' ? t('재시작해서 적용') : t('업데이트')}
               onClick={() => { if (update.needsFull) bridge?.env.openLink('release'); else if (update.status === 'available') bridge?.update.install(); else bridge?.update.restart() }}>↑</button>
@@ -671,6 +673,9 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               </button>
             )}
             <button className="w-icon" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={14} /></button>
+            {expanded && (
+              <button className="w-icon w-side-toggle on" onClick={toggleSide} title={t('왼쪽 패널 접기')} aria-label={t('왼쪽 패널 접기')} aria-pressed={true}><SidePanelIcon size={14} /></button>
+            )}
             {!expanded && (
               <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>
             )}
@@ -951,10 +956,6 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
       {expanded && (
         <section className="w-card w-term">
           <div className="w-term-tabs" ref={viewBarRef}>
-            <button className={`w-icon w-side-toggle${sideHidden ? '' : ' on'}`} onClick={toggleSide}
-              title={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-label={sideHidden ? t('왼쪽 패널 펼치기') : t('왼쪽 패널 접기')} aria-pressed={!sideHidden}>
-              <SidePanelIcon size={15} />
-            </button>
             {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
             <div className={`w-view-switch w-view-tabs${viewsCompact ? ' w-view-icons' : ''}`}>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>

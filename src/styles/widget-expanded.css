@@ -416,8 +416,9 @@
 .w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--green); }
 .w-rail-bar.mid i { background: var(--amber); }
 .w-rail-bar.high i { background: var(--danger); }
-.w-side-toggle { flex: none; -webkit-app-region: no-drag; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-right: 4px; }
-.w-side-toggle:hover { background: var(--card-2); color: var(--ink); }
+.w-side-toggle { flex: none; -webkit-app-region: no-drag; }
+.w-head .w-side-toggle { color: var(--ink-3); }
+.w-head .w-side-toggle:hover { color: var(--ink); }
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
 .w-row { position: relative; user-select: none; touch-action: none; }
 .w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
