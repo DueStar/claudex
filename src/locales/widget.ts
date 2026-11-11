@@ -149,7 +149,6 @@ const en: Record<string, string> = {
   '알 수 없음': 'unknown',
   '한 번 더 누르면 세션을 닫아요': 'Click again to close the session',
   '세션 닫기': 'Close session',
-  '닫기?': 'Close?',
   '컨텍스트 사용량': 'Context usage',
 
   // question card ("<b>name</b>의 확인이 필요해요")
@@ -404,7 +403,6 @@ const ja: Record<string, string> = {
   '알 수 없음': '不明',
   '한 번 더 누르면 세션을 닫아요': 'もう一度押すとセッションを閉じます',
   '세션 닫기': 'セッションを閉じる',
-  '닫기?': '閉じる？',
   '컨텍스트 사용량': 'コンテキスト使用量',
 
   // question card ("<b>name</b>의 확인이 필요해요")

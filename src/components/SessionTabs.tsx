@@ -37,7 +37,7 @@ export const SessionTabs: React.FC<{
   onNewShell?: () => void
   /** The × that shows on hover (the same close as the session card's) */
   onClose?: (sessionId: string) => void
-  /** The tab whose × waits for a second click ("닫기?") */
+  /** The tab whose × waits for a second click ("닫기") */
   closing?: string | null
   onCloseCancel?: () => void
 }> = ({ rows, shownId, onSelect, onRename, onMove, onNew, onNewShell, onClose, closing, onCloseCancel }) => {
@@ -91,7 +91,7 @@ export const SessionTabs: React.FC<{
                 onPointerDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); onClose(id) }}
                 onMouseLeave={() => closing === id && onCloseCancel?.()}
-              >{closing === id ? t('닫기?') : '×'}</span>
+              >{closing === id ? t('닫기') : '×'}</span>
             )}
           </button>
         )

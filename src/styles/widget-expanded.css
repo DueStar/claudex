@@ -236,7 +236,9 @@
 .widget.mode-window .w-side, .widget.mode-fullscreen .w-side {
   background: #0e1015;
   border-right: 1px solid var(--line);
-  padding: 0 8px 8px;
+  /* no side padding: the dividers between the sections run the panel's full width;
+     the sections pad their own content (14px) */
+  padding: 0 0 8px;
   box-sizing: border-box;
   height: 100%;
 }
@@ -266,12 +268,12 @@
   border: 0;
   border-radius: 0;
   border-bottom: 1px solid var(--line);
-  padding-left: 6px;
-  padding-right: 6px;
+  padding-left: 14px;
+  padding-right: 14px;
 }
 .widget.mode-window .w-side .w-card:last-child, .widget.mode-fullscreen .w-side .w-card:last-child { border-bottom: 0; }
 .widget.mode-window .w-bento, .widget.mode-fullscreen .w-bento { gap: 0; }
-.widget.mode-window .w-side .w-launch, .widget.mode-fullscreen .w-side .w-launch { padding: 10px 6px; }
+.widget.mode-window .w-side .w-launch, .widget.mode-fullscreen .w-side .w-launch { padding: 10px 14px; }
 .widget.mode-window .w-side .w-compose textarea, .widget.mode-fullscreen .w-side .w-compose textarea { background: var(--card-2); }
 
 /* xterm's own scrollbar: quiet until hovered */
@@ -311,7 +313,7 @@
 }
 /* The logo keeps its place when the left panel folds: the header's symbol is centred
    28px from the window's left edge, as in the 56px rail, at the same height */
-.widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 10px; }
+.widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 18px; padding-right: 16px; }
 
 /* ---------- 설정: categories on the left, items on the right; stacks in the narrow widget ---------- */
 .set-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: 16px; }

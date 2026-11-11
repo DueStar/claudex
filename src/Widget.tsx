@@ -640,9 +640,9 @@ const Widget: React.FC = () => {
       <div className="w-side">
         <div className="w-bento">
           <header className="w-card w-head">
-            {/* the same size and spot as the folded rail's, so the logo stays put when the panel folds */}
-            <PokeBall size={20} />
-            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>spawn</button>
+            {/* Just the ball (no name), the same size and spot as the folded rail's, so the logo
+                stays put when the panel folds; it opens the patch notes */}
+            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })} aria-label={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}><PokeBall size={20} /></button>
             <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? t('연결됨') : t('서버 연결 끊김')} />
             {cloud?.enabled && (cloud.user ? (
               <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${t('{time} 동기화', { time: new Date(cloud.lastSyncAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) })}` : ''}`}>
@@ -858,7 +858,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                             onClick={e => { e.stopPropagation(); closeSession(r) }}
                             onMouseLeave={() => closing === r.sessionId && setClosing(null)}
                             title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
-                          >{closing === r.sessionId ? t('닫기?') : '×'}</button>
+                          >{closing === r.sessionId ? t('닫기') : '×'}</button>
                         )}
                       </span>
                     )}
