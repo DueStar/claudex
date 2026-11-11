@@ -203,27 +203,49 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     // Only a terminal the user can see sets the session's size (the widget's question
     // card and the window's terminal card take turns), or Claude Code draws for the
     // wrong width
-    const doFit = () => {
+    //
+    // While the window is being dragged wider or narrower the box changes size on
+    // every frame. The terminal follows at most once a frame, and the session is told
+    // the new size only once the drag settles: each size Claude Code receives makes it
+    // clear and redraw its whole screen, which flickered the terminal and kept the
+    // window too busy to paint (it went blank while resized side by side with another)
+    let sizeTimer: ReturnType<typeof setTimeout> | null = null
+    let sentSize = ''
+    const sendSize = () => {
+      sizeTimer = null
+      const size = `${xterm.cols}x${xterm.rows}`
+      if (size === sentSize || document.visibilityState !== 'visible') return
+      sentSize = size
+      bridge!.terminals.resize(term.id, xterm.cols, xterm.rows)
+    }
+    const doFit = (settle = false) => {
       if (!hostRef.current || hostRef.current.offsetWidth === 0 || document.visibilityState !== 'visible') return
       try {
         fit.fit()
-        bridge!.terminals.resize(term.id, xterm.cols, xterm.rows)
+        if (sizeTimer) clearTimeout(sizeTimer)
+        if (settle) sizeTimer = setTimeout(sendSize, 150)
+        else { sentSize = ''; sendSize() }
       } catch {}
     }
-    fitNowRef.current = doFit
-    const ro = new ResizeObserver(doFit)
+    fitNowRef.current = () => doFit()
+    let frame = 0
+    const ro = new ResizeObserver(() => {
+      if (frame) return
+      frame = requestAnimationFrame(() => { frame = 0; if (!disposed) doFit(true) })
+    })
     ro.observe(hostRef.current)
     doFit()
     // The cell size is measured with whatever font is ready: once Monaspace has
     // loaded, measure again, or the last rows (Claude Code's status line) fall
     // below the bottom edge
     const refont = () => { if (disposed) return; xterm.options.fontFamily = xterm.options.fontFamily; doFit() }
+    const fitNow = () => doFit()
     document.fonts.load("13px 'Monaspace Neon Var'").then(refont, () => {})
     // The shared text size changed: apply it and fit again
     const offFont = subscribeTermFont(() => { xterm.options.fontSize = getTermFont(); doFit() })
     document.fonts.addEventListener('loadingdone', refont)
-    document.addEventListener('visibilitychange', doFit)
-    window.addEventListener('focus', doFit)
+    document.addEventListener('visibilitychange', fitNow)
+    window.addEventListener('focus', fitNow)
 
     return () => {
       disposed = true
@@ -235,9 +257,11 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       offPaths.dispose()
       offFont()
       document.fonts.removeEventListener('loadingdone', refont)
-      document.removeEventListener('visibilitychange', doFit)
-      window.removeEventListener('focus', doFit)
+      document.removeEventListener('visibilitychange', fitNow)
+      window.removeEventListener('focus', fitNow)
       ro.disconnect()
+      if (frame) cancelAnimationFrame(frame)
+      if (sizeTimer) clearTimeout(sizeTimer)
       offData()
       input.dispose()
       webglRef.current = null // disposed with xterm

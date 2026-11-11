@@ -65,6 +65,8 @@
   cursor: pointer;
 }
 .w-view-switch button.on { background: var(--accent-soft); color: var(--accent); }
+/* the views (terminal · dex · box · log · ranking): the chosen one on a soft wash of the logo's colours */
+.w-view-switch.w-view-tabs button.on { background: var(--brand-soft); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
 .w-dex-body { flex: 1; min-height: 0; display: flex; }
 .w-sess-tab img { object-fit: contain; }
 

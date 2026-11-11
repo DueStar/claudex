@@ -358,6 +358,10 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     if (!t || t.status === 'exited') return
     const c = Math.max(20, Math.min(400, cols | 0))
     const r = Math.max(5, Math.min(200, rows | 0))
+    // The same size again is not passed on: every resize makes Claude Code clear and redraw its screen
+    if (t.cols === c && t.rows === r) return
+    t.cols = c
+    t.rows = r
     try { t.pty.resize(c, r) } catch {}
     if (process.env.SPAWN_DEBUG_RESIZE) console.log(`[terminals] resize ${id.slice(0, 8)} ${c}x${r}`)
   }

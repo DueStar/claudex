@@ -955,7 +955,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <SidePanelIcon size={15} />
             </button>
             {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
-            <div className={`w-view-switch${viewsCompact ? ' w-view-icons' : ''}`}>
+            <div className={`w-view-switch w-view-tabs${viewsCompact ? ' w-view-icons' : ''}`}>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')} aria-label={t('박스')}><BoxIcon size={14} />{!viewsCompact && t('박스')}</button>

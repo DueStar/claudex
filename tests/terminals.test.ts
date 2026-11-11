@@ -145,7 +145,7 @@ function fakePty(log: string[] = []) {
         onData(cb: (d: string) => void) { p.onData = cb },
         onExit(cb: (e: { exitCode: number }) => void) { p.onExit = cb },
         kill() { p.killed = true; log.push(`pty ${pid}`) },
-        write() {}, resize() {},
+        write() {}, resize(c: number, r: number) { log.push(`resize ${pid} ${c}x${r}`) },
       }
     },
   }
@@ -191,6 +191,21 @@ describe('terminal manager shutdown', () => {
   it('shutdown with nothing running resolves at once', async () => {
     const terms = manager(fakePty(), () => { throw new Error('no tree to kill') })
     expect(await terms.shutdown(1000, 0)).toEqual({ exited: 0, stuck: 0 })
+  })
+})
+
+describe('resizing a session', () => {
+  it('passes a new size on to the session once; the same size again is not sent (Claude Code redraws on every resize)', () => {
+    const log: string[] = []
+    const pty = fakePty(log)
+    const terms = manager(pty, () => {})
+    const info = terms.create({ tool: 'shell' })
+    const id = (info as any).id ?? (info as any).terminal?.id
+    terms.resize(id, 100, 30)
+    terms.resize(id, 100, 30)
+    terms.resize(id, 100, 30)
+    terms.resize(id, 101, 30)
+    expect(log.filter(l => l.startsWith('resize'))).toEqual(['resize 100 100x30', 'resize 100 101x30'])
   })
 })
 
