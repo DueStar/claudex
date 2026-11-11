@@ -1,6 +1,10 @@
-# Claudex 인수인계 (2026-11-08, v1.3.11)
+# Claudex 인수인계 (2026-11-11, v1.3.33)
 
 Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17ant/Claude-Office(MIT)를 포크했다.
+
+> **새 세션은 여기부터**: 최신 릴리스 1.3.33(2026-11-10). 그 뒤 커밋은 이 문서 갱신뿐(다음 릴리스 때 같이 푸시).
+> 최근 변경은 아래 7-23(1.3.32 최적화·멈춘 종료 수정)과 7-24(1.3.33 Codex 연동), 할 일은 8번.
+> 작업 방식(사용자 요청): 무엇이든 superpowers로 계획부터 보여 주고 승인 뒤 실행, 작업마다 테스트 먼저, 리뷰 에이전트로 검토.
 - 경로: `Documents\pokemon-office`
 - 저장소: https://github.com/DueStar/claudex (공개, main)
 - 수집이 중심이고 배틀은 없다. 비영리이고, 사용자 5만 명 이내를 목표로 한다.
@@ -9,7 +13,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 - **push**: DueStar 계정으로만 한다. chanho-byte는 이 프로젝트에 쓰지 않는다. 토큰을 직접 꺼내지 말고 gh를 자격 증명 도우미로 쓴다.
   `git -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin main`
 - **커밋 작성자**: DueStar / hoo2031@gmail.com(저장소 로컬 설정). 커밋 끝에 Co-Authored-By 줄을 붙인다.
-- **테스트 판단 기준**: `npm test`가 Windows에서도 전부 통과해야 한다(2026-11-07부터, 395 통과 / 10 건너뜀). 파일 권한·getuid·심링크·pid 1처럼 Windows에 없는 것을 보는 검사만 이유를 적고 건너뛴다(Linux CI에서는 돈다). 실패가 하나라도 있으면 새로 생긴 것이다.
+- **테스트 판단 기준**: `npm test`가 Windows에서도 전부 통과해야 한다(2026-11-10 기준 512 통과 / 10 건너뜀, `npx tsc --noEmit -p .`도 0). 파일 권한·getuid·심링크·pid 1처럼 Windows에 없는 것을 보는 검사만 이유를 적고 건너뛴다(Linux CI에서는 돈다). 실패가 하나라도 있으면 새로 생긴 것이다.
 - **포켓몬·볼 그림은 저장소에 넣지 않는다**(DMCA 대비, .gitignore).
   - 포켓몬: 처음 볼 때 `server/sprites.js`가 PokeAPI HOME 그림을 받아 128px로 맞추고 `~/.claudex/sprites`에 저장한다.
   - 볼: 빌드할 때 넣는다. 원본은 사용자가 손으로 받은 `~/Downloads/pokeball`이고 `node tools/import-balls.mjs <폴더>`로 가져온다. 결과는 `public/sprites/balls/`이며 gitignore 대상이다.
@@ -64,7 +68,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
   - 폰트: Uncut Sans, Pretendard. 터미널은 Monaspace Neon에 한글은 Pretendard.
 
 ## 게임 규칙 (server/pokedex.js)
-- **시작**: 스타팅(1·4·7)과 파티 6마리를 받는다. 세션은 최대 6개이고, New session에서 파티 포켓몬을 골라 던진다.
+- **시작**: 스타팅(1·4·7)과 파티 6마리를 받는다. 세션은 최대 12개(`SESSION_LIMIT`)다. 파티 6마리가 다 나가 있으면 박스 포켓몬이 "조력자"로 맡는다(7-22). 셸 탭(최대 3)은 포켓몬 없이 연다.
 - **조우**: 도구 호출 1번이 1걸음이다. 일하는 중(main.state working)에 1분 동안 도구 호출이 없으면 생각 걸음 1번이다(`tick`, 서버가 2초마다 부른다).
   - 걸음은 세션별 대기열에서 8초(`STEP_SPACING_MS`)마다 하나씩 처리한다. 걸음당 3%이고, 매일 첫 세션에 아직 못 잡은 종이 확정으로 나온다(출석).
   - **출석 조우에는 전설·환상이 나오지 않는다**(1.3.11, 사용자 결정). 등급은 일반·희귀·준전설만 비율대로 굴린다. 그날 천장이 차도 출석에서는 쓰지 않고 다음 야생 조우로 넘긴다. 전설·환상만 남으면 출석 조우는 없다.
@@ -533,15 +537,15 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - README: 영어·일본어에 "Using it with your own Claude Code hooks"/"What is stored and what is sent" 섹션, 세 언어 모두 async 훅·Codex·프롬프트 숨기기 반영.
    - 리뷰: opus 리뷰(중요 6) → 재검토(중요 1 남음: 놀고 있는 탭이 나중 탭의 기록을 가져감) → 재검토(닫은 탭 기록 재사용 불가, 30초 창이 너무 좁음) → 마지막 매칭 규칙(가장 최근 탭, 10초 안 FIFO, 5분 창)은 테스트로만 확인.
 
-8. **다음에 할 일 (2026-11-09 기준, 우선순위 순)**
-   - **Codex 정식 어댑터** (7-18 마지막 항목): 사용자가 Codex 세션에서 샌드박스 설정을 마치면 이어서.
-   - **개발자 관점 개선**: ①②④⑤는 7-19에서 함(사용자: "추천대로 진행"). 남은 것: ③ AI 없는 일반 셸 탭(포켓몬 없이 보이는 방식은 상의 필요) ⑥ 세션 줄·탭에 git 브랜치 ⑦ 스크롤백(5000줄) 설정 ⑧ 터미널 글꼴 설정 ⑨ README에 사용자 훅과의 공존, ⑩ 저장·전송 데이터 표.
-   - **파티 6마리 넘는 세션 (결정 대기, 2026-11-09 서브에이전트 제안)**: 7-13의 "상한 6, 서브에이전트는 박스 조력자" 결정을 다시 여는 일.
-     - 6 상한은 구조가 아니라 검사 몇 곳: `server/pokedex.js` `throwBall`(파티만)·`ensureAssigned`(파티에서만), `src/Widget.tsx` `partyFull`·`freePartyCount`, `electron/terminals.cjs` `readOpenSessions`의 `.slice(0, 6)`. `busyUids`·`swap`·`helperFor`·`BoxView` working 점은 박스 포켓몬이 일하는 경우를 이미 처리.
-     - 공통 한계: 터미널마다 xterm WebGL 컨텍스트(Chromium 페이지당 약 16) → 현실적 상한 12. 걸음 대기열이 세션별이라 세션 수만큼 조우가 늘어 주간 랭킹(1500 flag)·"사용량 낭비 유도 금지"(7-9)에 영향.
-     - 안: ① 박스에서 바로 보내기(ThrowPicker에 박스 그리드, 작음, 파티 의미가 흐려짐) ② **조력자 세션(추천)**: 7번째부터 박스 포켓몬이 "조력자"로, 왼쪽 패널 파티 줄 아래 "조력자" 묶음, 기본 자동 배정 + 직접 고르기, 상한 12, 작음~중간 ③ 배틀팀 두 개(`state.party`→`parties[]`, merge·클라우드·랭킹까지, 큼) ④ 태그 배틀 동행 트레이너(내 포켓몬이 안 자람, 비추천).
-     - 사용자가 정할 것: 진행 여부, 상한(12?), 조력자 세션의 조우 보정 규칙(확률 낮춤 또는 하루 상한).
+8. **다음에 할 일 (2026-11-11 기준)**
+   - **확인 대기(사용자가 1.3.33으로 업데이트한 뒤)**
+     - 업데이트 재시작이 10초 안에 끝나고 이전 Claudex 프로세스가 안 남는지: `Get-CimInstance Win32_Process -Filter "Name='Claudex.exe'"`로 재시작 시각보다 오래된 게 없어야 한다. 1.3.32 이전 빌드에서 두 번 남았다(11-09 16:59, 11-10 14:54 — 둘 다 수정 전 코드, 손으로 종료함). 수정된 종료 코드가 실제로 돈 적은 아직 없다. 남으면 relauncher를 먼저 끄고 본체 트리를 끈다(그 반대면 앱이 다시 뜬다).
+     - Codex 탭: HP·모델·사용량 카드의 "Codex 월간"(이 계정은 30일 창) 줄, 요청·걸음, 앱 재시작 후 `codex resume`으로 같은 대화가 열리는지.
+     - Port Congestion처럼 `pnpm dev`를 띄워 둔 세션이 턴이 끝나면 '쉬는 중'으로 바뀌는지.
+   - **알려진 한계(사용자에게 말함)**: 예전 세션 이어하기 목록은 Claude만, Codex 안 `/new`는 그 탭이 첫 대화를 계속 따라감, Codex 권한 확인은 화면 문구 감지 그대로, Codex 한도는 서버 재시작 뒤 Codex가 다시 보고할 때까지 비어 있음(파일 저장 안 함).
    - **카드뉴스**: 사용자가 캡처를 `Documents\claudex-promo\shots`에 넣으면 세로 4:5 6~8장. 블로그 초안은 `Documents\claudex-promo\blog.md`(한다체, 사용자의 Medium 글 말투), 이전 초안 `blog-draft1.md`.
+   - **랭킹 시상대 재디자인**: 1.3.30에서 시상대를 빼고 1~3위 행 강조로 바꿈. 사용자: "나중에 디벨롭할게".
+   - 최적화에서 미룬 큰 것(7-23): 게임 상태를 바뀐 부분만 방송, 업데이트 재시작 11~26초 단축(비동기 정리·바뀐 파일만), 서버보다 창 먼저 띄우기, `assign`/`projects` 오래된 세션 정리, 스프라이트 맞춤을 워커로, 트레이 메뉴 다시 만들기 줄이기, 로그를 스트림으로.
    - unslop 스킬은 `.claude/skills/unslop`에 로컬만(`.git/info/exclude`).
 
 9. **나중에**
