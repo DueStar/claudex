@@ -28,13 +28,15 @@ The code inherited from Claude-Office and the code added in this repository.
 
 ## The Poké Ball icon
 
-- spawn's own Poké Ball icon — `public/brand/pokeball.svg`, the app, window and tray icons
-  in `build/` and `electron/assets/`, and `public/sprites/spawn-ball.png` — is
+- The committed Poké Ball icon — `public/brand/pokeball.svg`, the default app, window and
+  tray icons in `build/` and `electron/assets/`, and `public/sprites/spawn-ball.png` — is
   **"Poké Ball icon" by Andreuvv**, from Wikimedia Commons
   (https://commons.wikimedia.org/wiki/File:Pok%C3%A9_Ball_icon.svg), licensed under
   **CC BY-SA 4.0** (https://creativecommons.org/licenses/by-sa/4.0/). Changes: the empty
   margin is cropped and the picture is rendered to PNG at icon sizes. These files are
-  shared under the same licence, not under MIT.
+  shared under the same licence, not under MIT. Release builds use the games' Poké Ball art
+  for these icons instead (imported at build time, never committed, see above); this icon is
+  what shows where that art is missing.
 - The Poké Ball design itself may be protected as a trademark of Nintendo / Creatures Inc. /
   GAME FREAK inc.; this is a non-commercial fan project.
 - `tools/build-icons.py` (MIT) can still draw the earlier, original ball icons; they are
