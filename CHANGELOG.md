@@ -2,6 +2,14 @@
 
 ## Claudex
 
+### 1.3.34
+- 위쪽 세션 탭에 마우스를 올리면 ×가 나와서 탭에서 바로 세션을 닫을 수 있어요. 설정에서 '세션 닫기 전 확인'을 켜 두었다면 "닫기?"가 뜨고 한 번 더 누르면 닫혀요.
+- 셸 탭 버튼(>_)이 탭 줄 오른쪽 끝에 버튼으로 고정돼요. 탭이 많아져도 늘 같은 자리에 있어요.
+- 랭킹 1~3위가 다른 순위와 같은 크기로 보이고, 금·은·동 색으로만 은은하게 강조돼요.
+- 창 모드에서 왼쪽 패널을 접으면 완전히 사라지지 않고, 새 세션·폴더·이어하기·열린 세션·사용량·설정만 세로 한 줄로 남아요.
+- 업데이트로 재시작하는 동안 화면에 "업데이트하는 중이에요" 안내가 떠요(이번 버전을 설치한 다음 업데이트부터 보여요). 재시작도 조금 빨라졌어요.
+- 앱을 켜면 트레이 아이콘이 바로 나타나요.
+
 ### 1.3.33
 - Codex CLI 세션도 Claude 세션처럼 보여요. 요청과 답변, 도구를 쓸 때마다 포켓몬의 걸음, 일하는 중·쉬는 중, HP(컨텍스트), 모델, Codex 사용량 한도(위쪽 사용량 카드에 따로)가 나오고, 앱을 다시 켜면 같은 대화로 이어 열어요. Codex가 스스로 남기는 세션 기록을 읽어요(설정 › AI 도구에 `codex` 명령으로 넣은 도구).
 - 개발 서버처럼 끝나지 않는 셸을 백그라운드로 띄워 둬도 세션이 계속 '일하는 중'으로 보이지 않아요.
@@ -250,6 +258,14 @@
 
 ## Claudex (English)
 
+### 1.3.34
+- Hover a session tab at the top and a × appears, so you can close the session right from its tab. With "Confirm before closing a session" on, it turns into "Close?" and closes on the second click.
+- The shell tab button (>_) now sits as a button at the right end of the tab bar, in the same place however many tabs are open.
+- Ranks 1–3 are the same size as the rest, with only a soft gold, silver and bronze accent.
+- In window mode, folding the left panel no longer hides it completely: new session, folder, resume, the open sessions, usage and settings stay in one slim column.
+- While an update restarts the app, an "Updating…" notice stays on screen (it shows from the update after this one). The restart is a little quicker too.
+- The tray icon appears as soon as the app starts.
+
 ### 1.3.33
 - Codex CLI sessions now show like Claude sessions: prompts and replies, a step for the Pokémon on every tool use, working and resting, HP (context), the model and Codex's own usage limits (in their own rows of the usage card), and reopening the app resumes the same conversation. Claudex reads the session log Codex writes itself (a tool added under Settings › AI tools with the `codex` command).
 - A shell left running in the background that never ends (a dev server) no longer keeps the session shown as working.
@@ -361,6 +377,14 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.34
+- 上のセッションタブにマウスを乗せると × が出て、タブからそのままセッションを閉じられます。設定の「セッションを閉じる前に確認」がオンなら「閉じる？」に変わり、もう一度押すと閉じます。
+- シェルタブのボタン(>_)がタブ列の右端にボタンとして固定されます。タブが増えてもいつも同じ場所にあります。
+- ランキングの1〜3位がほかの順位と同じ大きさになり、金・銀・銅の色だけで控えめに目立ちます。
+- ウィンドウモードで左パネルを折りたたんでも完全には消えず、新しいセッション・フォルダー・続きから・開いているセッション・使用量・設定だけが縦一列に残ります。
+- アップデートで再起動している間、画面に「アップデート中です」の案内が出ます(このバージョンを入れた次のアップデートから表示されます)。再起動も少し速くなりました。
+- アプリを起動するとすぐにトレイアイコンが出ます。
 
 ### 1.3.33
 - Codex CLIのセッションもClaudeのセッションと同じように表示されます。リクエストと返答、ツールを使うたびのポケモンの歩み、作業中・休憩中、HP(コンテキスト)、モデル、Codexの使用量の上限(使用量カードに別の行で)が出て、アプリを開き直すと同じ会話を続けます。Codexが自分で書くセッション記録を読みます(設定 › AIツールに`codex`コマンドで入れたツール)。
