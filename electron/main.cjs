@@ -81,9 +81,6 @@ function startupMark(step, extra = '') {
   console.log(`[main] startup: ${step} +${Date.now() - startupT0}ms${extra ? ` ${extra}` : ''}`)
 }
 startupMark('start')
-// The "준비하고 있어요" card from launch until the app window shows (statusCard.cjs)
-let startupCard = null
-function closeStartupCard() { if (startupCard) { startupCard.close(); startupCard = null; startupMark('card-closed') } }
 // ~/.agent-office (versions up to 1.3.7) -> ~/.claudex, once, before anything
 // reads the token or starts the server (server/runtime-dir.cjs)
 migrateRuntimeDir()
@@ -489,22 +486,12 @@ function refreshMenus() {
 // ---------------------------------------------------------------------------
 
 async function startApp() {
-  // Before the server (which can take seconds, ~9 s right after Windows starts):
-  // the tray, and the starting card where the app window will open, so the
-  // launch shows at once. 설정 › 앱 › "start in the tray" shows no card.
+  // The tray before the server (which can take seconds, ~9 s right after Windows
+  // starts), so the launch shows at once in the tray
   state = readWindowState(stateFile())
   refreshMenus()
   createTrayIcon()
   const startHidden = appSettings().app.startHidden
-  if (!startHidden && !startupCard) {
-    try {
-      startupCard = openStatusCard({ BrowserWindow, screen, near: boundsFor(kindOf(modeNow())), step: 'starting', lang: cardLang(appSettings().app.language, app.getLocale()) })
-      startupCard.win.on('closed', () => { startupCard = null })
-    } catch (err) { console.error('[main] starting card:', err.message) }
-  }
-  // Debug (dev runs only): CLAUDEX_DEBUG_START_DELAY_MS holds the start, to look at the card
-  const debugDelay = app.isPackaged ? 0 : Number(envVar('DEBUG_START_DELAY_MS')) || 0
-  if (debugDelay) await new Promise(r => setTimeout(r, debugDelay))
 
   // Check if a server is already running (e.g. launched separately during dev)
   const found = await probeServer()
@@ -515,7 +502,6 @@ async function startApp() {
     // Starting a second server on the same port cannot help (it would fail to
     // bind), so say what is going on instead.
     console.error(`[main] The server on port ${SERVER_PORT} serves no page — not loading it`)
-    closeStartupCard()
     dialog.showErrorBox(APP_NAME, serverConflictMessage(SERVER_PORT))
     quitApp()
     return
@@ -532,7 +518,6 @@ async function startApp() {
       // The packaged app has nothing to show without its server — say so
       // instead of opening a blank window.
       console.error('[main] Server did not become ready in time')
-      closeStartupCard()
       dialog.showErrorBox(
         APP_NAME,
         `The ${APP_NAME} server did not start on port ${SERVER_PORT}.\n\n` +
@@ -562,15 +547,7 @@ async function startApp() {
 
   // 설정 › 앱: start in the tray (the tray's Poké Ball brings the window back)
   if (startHidden) { state.widgetHidden = true; saveState() }
-  const win = createWidgetWindow({ hidden: startHidden })
-  // The card goes when the app window is on screen (a hidden start has no card).
-  // If the page never paints, the card still goes after a while.
-  if (!win || startHidden) closeStartupCard()
-  else {
-    win.once('show', closeStartupCard)
-    win.once('closed', closeStartupCard)
-    setTimeout(closeStartupCard, 30_000).unref?.()
-  }
+  createWidgetWindow({ hidden: startHidden })
 }
 
 /** The first app page loaded: time it, then remove what past updates left in the temp folder. */
@@ -960,8 +937,6 @@ function openDexAt(id) {
 
 function toggleWidget() {
   if (quitting) return // the windows went at the start of the quit; showing one now could close it halfway
-  // Still starting (no page yet): the tray brings the starting card forward
-  if (!pageUrl && startupCard) { startupCard.show(); return }
   const w = createWidgetWindow()
   if (!w) return
   if (w.isVisible()) { w.hide(); state.widgetHidden = true }
@@ -1240,8 +1215,7 @@ if (lockWaits < 0) {
   // takes seconds; one run at a time, so a Dock click or a second launch in
   // the meantime cannot spawn a second server and open a second window
   const startOnce = singleFlight(startApp)
-  // A startup that throws halfway must not leave the starting card up for good
-  const open = () => startOnce().catch((err) => { closeStartupCard(); console.error('[main] Could not start the app:', err) })
+  const open = () => startOnce().catch((err) => console.error('[main] Could not start the app:', err))
 
   // Opened again (a Dock click, a second launch): wait for a startup in
   // progress, else show the window, else make one
@@ -1251,10 +1225,8 @@ if (lockWaits < 0) {
       starting: startOnce.pending(),
       hasWindow: !!widgetWin && !widgetWin.isDestroyed(),
       windowCount: BrowserWindow.getAllWindows().length,
-      hasCard: !!startupCard,
     })
-    if (action === 'card') startupCard?.show()
-    else if (action === 'show') { const w = createWidgetWindow(); if (w) { w.show(); w.focus() } }
+    if (action === 'show') { const w = createWidgetWindow(); if (w) { w.show(); w.focus() } }
     else if (action === 'create') open()
   }
 
@@ -1302,7 +1274,6 @@ if (lockWaits < 0) {
     const timer = updating ? createStepTimer({ file: path.join(app.getPath('userData'), 'update.log'), label: 'p1' }) : { mark() {} }
     timer.mark('quit-start')
     const near = widgetWin && !widgetWin.isDestroyed() ? widgetWin.getBounds() : (state.widgetBounds ?? null)
-    closeStartupCard()
     for (const w of BrowserWindow.getAllWindows()) { try { w.hide() } catch {} }
     if (updating) {
       const lang = cardLang(appSettings().app.language, app.getLocale())

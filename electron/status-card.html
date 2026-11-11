@@ -2,50 +2,30 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <title>Claudex</title>
 <style>
-  /* The app's own fonts and colours (src/styles/widget.css) */
-  @font-face { font-family: 'W Uncut'; src: local('Uncut Sans Variable'), local('UncutSans-Variable'); font-weight: 100 900; }
-  @font-face { font-family: 'W Pretendard'; src: local('Pretendard Variable'), local('PretendardVariable'); font-weight: 45 920; }
+  /* Just the words, on a see-through window; a soft shadow keeps them readable on any background */
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
   body {
     display: flex; align-items: center; justify-content: center;
-    font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', system-ui, sans-serif;
+    font-family: 'Pretendard Variable', 'Malgun Gothic', system-ui, sans-serif;
+    font-size: 14px; font-weight: 600; color: #f1f2f5;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.6);
     -webkit-user-select: none; user-select: none; cursor: default;
   }
-  .card {
-    box-sizing: border-box; width: calc(100% - 12px); height: calc(100% - 12px);
-    display: flex; align-items: center; gap: 14px; padding: 0 20px;
-    background: #14161c; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  }
-  img { width: 36px; height: 36px; flex: none; }
-  .text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .name { font-size: 11px; font-weight: 700; letter-spacing: 0.02em; color: #6e7381; }
-  .msg { font-size: 14px; font-weight: 650; color: #f1f2f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #ffb54a; margin-left: auto; animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 0.35; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
-  @media (prefers-reduced-motion: reduce) { .dot { animation: none; opacity: 0.8; } }
 </style>
 </head>
 <body>
-  <div class="card" role="status" aria-live="polite">
-    <img src="assets/icon.png" alt="">
-    <div class="text">
-      <span class="name">Claudex</span>
-      <span class="msg" id="msg"></span>
-    </div>
-    <span class="dot" aria-hidden="true"></span>
-  </div>
+  <span role="status" aria-live="polite" id="msg"></span>
 <script>
   // The words for each step in Korean, English and Japanese
   const WORDS = {
-    updating: { ko: '업데이트하는 중이에요', en: 'Updating…', ja: 'アップデート中です' },
-    starting: { ko: '준비하고 있어요', en: 'Getting ready…', ja: '準備しています' },
+    updating: { ko: 'Claudex 업데이트하는 중이에요…', en: 'Updating Claudex…', ja: 'Claudex をアップデート中です…' },
+    starting: { ko: 'Claudex 준비하고 있어요…', en: 'Starting Claudex…', ja: 'Claudex を準備しています…' },
   }
   const q = new URLSearchParams(location.search)
-  const step = WORDS[q.get('step')] ? q.get('step') : 'starting'
+  const step = WORDS[q.get('step')] ? q.get('step') : 'updating'
   const lang = ['ko', 'en', 'ja'].includes(q.get('lang')) ? q.get('lang') : 'ko'
   document.documentElement.lang = lang
   document.getElementById('msg').textContent = WORDS[step][lang]
