@@ -555,23 +555,18 @@ html.qa-mode #root { min-height: 100vh; }
 .w-throw-tools button.on { background: var(--card-2); color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
 /* A session running another AI tool than Claude Code: its name, quiet */
 .w-row-tool { flex: none; font-size: 10px; color: var(--ink-3); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }
-/* 랭킹: places 1–3 are bigger rows, tinted in their metal, the place on a medal */
-.rank-row.top { --metal: #e3a76f; grid-template-columns: 40px 48px minmax(0, 1fr) auto; padding: 10px 12px; background: color-mix(in srgb, var(--metal) 9%, transparent); box-shadow: inset 3px 0 0 var(--metal); }
-.rank-row.top1 { --metal: #ffd84a; grid-template-columns: 40px 60px minmax(0, 1fr) auto; padding: 12px; }
+/* 랭킹: places 1–3 keep the same Pokémon and text sizes as the rest; only a
+   slightly taller row, a faint metal tint, a metal line on the left (square
+   left corners so the line isn't clipped by the rounding) and the place on a medal */
+.rank-row.top { --metal: #e3a76f; padding: 10px 12px; border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--metal) 6%, transparent); box-shadow: inset 3px 0 0 var(--metal); }
+.rank-row.top1 { --metal: #ffd84a; }
 .rank-row.top2 { --metal: #c9ced8; }
-.rank-row.top:hover { background: color-mix(in srgb, var(--metal) 14%, transparent); }
+.rank-row.top:hover { background: color-mix(in srgb, var(--metal) 11%, transparent); }
 .rank-row.top + .rank-row:not(.top) { margin-top: 6px; }
 .rank-row.top .rank-place {
-  justify-self: center; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
-  background: var(--metal); color: #15171d; font-size: 14px;
+  justify-self: center; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--metal); color: #15171d; font-size: 13px;
 }
-.rank-row.top1 .rank-place { width: 32px; height: 32px; font-size: 16px; }
-.rank-row.top img, .rank-row.top .rank-noicon { width: 48px; height: 48px; }
-.rank-row.top1 img, .rank-row.top1 .rank-noicon { width: 60px; height: 60px; }
-.rank-row.top .rank-name { font-size: 14px; }
-.rank-row.top1 .rank-name { font-size: 15px; }
-.rank-row.top .rank-value b { font-size: 16px; }
-.rank-row.top1 .rank-value b { font-size: 18px; }
 .rank-row.top.me { box-shadow: inset 3px 0 0 var(--metal), inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .rank-npc-toggle { margin-left: auto; font: inherit; font-size: 11px; padding: 4px 10px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink-3); cursor: pointer; }
 .rank-npc-toggle.on { color: var(--ink); background: var(--card-2); }

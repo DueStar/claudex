@@ -937,6 +937,9 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               onMove={(id, index) => { void bridge?.terminals.move(id, index) }}
               onNew={() => launch(false)}
               onNewShell={openShell}
+              onClose={id => { const r = withTerminal.find(x => x.sessionId === id); if (r) closeSession(r) }}
+              closing={closing}
+              onCloseCancel={() => setClosing(null)}
             />
           )}
           <Suspense fallback={null}>

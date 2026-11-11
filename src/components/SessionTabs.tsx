@@ -35,7 +35,12 @@ export const SessionTabs: React.FC<{
   onNew: () => void
   /** A plain shell tab (PowerShell), no Pokémon */
   onNewShell?: () => void
-}> = ({ rows, shownId, onSelect, onRename, onMove, onNew, onNewShell }) => {
+  /** The × that shows on hover (the same close as the session card's) */
+  onClose?: (sessionId: string) => void
+  /** The tab whose × waits for a second click ("닫기?") */
+  closing?: string | null
+  onCloseCancel?: () => void
+}> = ({ rows, shownId, onSelect, onRename, onMove, onNew, onNewShell, onClose, closing, onCloseCancel }) => {
   const bySession = new Map(rows.map(r => [r.sessionId, r]))
   const order = useDragOrder(rows.map(r => r.sessionId), 'x', (id, to) => {
     const term = bySession.get(id)?.terminal
@@ -49,6 +54,7 @@ export const SessionTabs: React.FC<{
   }, [shownId])
 
   return (
+    <div className="w-sess-bar">
     <div className="w-sess-tabs" role="tablist">
       {order.shown.map((id, i) => {
         const r = bySession.get(id)
@@ -73,11 +79,27 @@ export const SessionTabs: React.FC<{
             {r.shell ? <span className="w-sess-shell" aria-hidden="true">&gt;_</span> : <img src={r.sprite} alt={r.name} title={r.name} draggable={false} />}
             <span className="w-sess-tab-name" onDoubleClick={() => r.terminal && onRename(id)}>{r.title ?? t('새 세션')}</span>
             <span className="w-sess-tab-dot" />
+            {onClose && r.terminal && (
+              // A span, not a button: a button can't sit inside the tab's button.
+              // Its pointerdown stops here so pressing it never starts a drag.
+              <span
+                role="button"
+                tabIndex={-1}
+                className={`w-sess-tab-close${closing === id ? ' confirm' : ''}`}
+                title={closing === id ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
+                aria-label={t('세션 닫기')}
+                onPointerDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onClose(id) }}
+                onMouseLeave={() => closing === id && onCloseCancel?.()}
+              >{closing === id ? t('닫기?') : '×'}</span>
+            )}
           </button>
         )
       })}
       <button className="w-sess-new" onClick={onNew} title={t('새로운 세션 시작하기 (문서 폴더)')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={14} /></button>
-      {onNewShell && <button className="w-sess-new w-sess-new-shell" onClick={onNewShell} title={t('셸 탭 열기 (포켓몬 없이 PowerShell)')} aria-label={t('셸 탭 열기')}>&gt;_</button>}
+      </div>
+      {/* The shell button stays at the right end, outside the scrolling tabs */}
+      {onNewShell && <button className="w-sess-shell-btn" onClick={onNewShell} title={t('셸 탭 열기 (포켓몬 없이 PowerShell)')} aria-label={t('셸 탭 열기')}>&gt;_</button>}
     </div>
   )
 }

@@ -102,11 +102,16 @@
 .w-term-tabs::-webkit-scrollbar { height: 0; }
 
 /* ---------- Session tabs: a row of their own under the view bar, in the old tabs' look ---------- */
-.w-sess-tabs {
-  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+/* The bar holds the scrolling tabs (with + right after the last one) and the
+   shell button pinned at the right end */
+.w-sess-bar {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
   padding: 6px 8px; border-bottom: 1px solid var(--line);
-  background: var(--card); overflow-x: auto; overflow-y: hidden;
-  -webkit-app-region: no-drag;
+  background: var(--card); -webkit-app-region: no-drag;
+}
+.w-sess-tabs {
+  display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; overflow-y: hidden;
 }
 .w-sess-tabs::-webkit-scrollbar { height: 0; }
 .w-sess-tab {
@@ -133,6 +138,25 @@
   width: 26px; height: 26px; border-radius: 8px; border: 0; background: none; color: var(--ink-3); cursor: pointer;
 }
 .w-sess-new:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+/* Hover a tab: its status dot gives way to a × in the same spot (the tab keeps its width) */
+.w-sess-tab-close {
+  display: none; flex: none; min-width: 14px; height: 14px; margin: 0 -4px 0 -4px; padding: 0 3px;
+  place-items: center; border-radius: 4px;
+  font-size: 12px; line-height: 1; color: var(--ink-3); cursor: pointer;
+}
+.w-sess-tab:hover .w-sess-tab-dot, .w-sess-tab:has(.w-sess-tab-close.confirm) .w-sess-tab-dot { display: none; }
+.w-sess-tab:hover .w-sess-tab-close, .w-sess-tab-close.confirm { display: inline-grid; }
+.w-sess-tab.dragging .w-sess-tab-close { display: none; }
+.w-sess-tab.dragging .w-sess-tab-dot, .w-sess-tab.dragging:has(.w-sess-tab-close.confirm) .w-sess-tab-dot { display: inline-block; }
+.w-sess-tab-close:hover { color: var(--danger); background: rgba(255, 100, 100, 0.12); }
+.w-sess-tab-close.confirm { margin: 0 -6px 0 0; padding: 0 5px; color: #fff; background: var(--danger); font-size: 10px; font-weight: 700; }
+/* The shell button: pinned at the bar's right end, drawn as a button */
+.w-sess-shell-btn {
+  flex: none; height: 26px; padding: 0 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--card-2); color: var(--ink-2);
+  font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; cursor: pointer;
+}
+.w-sess-shell-btn:hover { color: var(--ink); background: rgba(255, 255, 255, 0.08); }
 .w-term-spacer { flex: 1; }
 .w-term-tabs .w-icon { -webkit-app-region: no-drag; }
 .w-term-body { position: relative; flex: 1; min-height: 0; }
@@ -359,4 +383,3 @@
 .w-row input, .w-row textarea { user-select: text; }
 /* A plain shell tab: a prompt mark where the Pokémon would be */
 .w-sess-shell { flex: none; width: 20px; text-align: center; font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
-.w-sess-new-shell { font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; }
