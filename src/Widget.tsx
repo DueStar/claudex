@@ -582,6 +582,53 @@ const Widget: React.FC = () => {
 
   return (
     <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}`}>
+      {/* The left panel folded: only the essentials, in one column (logo, new session,
+          folder, resume, the open sessions, usage, settings) */}
+      {expanded && sideHidden && (
+        <nav className="w-rail" aria-label={t('왼쪽 패널 (접힘)')}>
+          <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('Claudex {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
+            <PokeBall size={20} />
+            <span className={`w-rail-conn${connected ? '' : ' off'}`} />
+          </button>
+          {update && (update.status === 'available' || update.status === 'ready') && (
+            <button className="w-rail-btn w-rail-update" title={update.status === 'ready' ? t('재시작해서 적용') : t('업데이트')}
+              onClick={() => { if (update.needsFull) bridge?.env.openLink('release'); else if (update.status === 'available') bridge?.update.install(); else bridge?.update.restart() }}>↑</button>
+          )}
+          <span className="w-rail-sep" />
+          <button className={`w-rail-btn${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('새로운 세션 시작하기')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={16} /></button>
+          <button className="w-rail-btn" onClick={() => launch(true)} title={t('다른 폴더에서 새 세션')} aria-label={t('다른 폴더에서 새 세션')}><FolderIcon /></button>
+          <button className="w-rail-btn" onClick={() => setPicking(true)} title={t('예전 세션 골라서 이어하기')} aria-label={t('예전 세션 이어하기')}><SessionsIcon /></button>
+          <span className="w-rail-sep" />
+          <div className="w-rail-sessions">
+            {withTerminal.map(r => (
+              <button key={r.sessionId}
+                className={`w-rail-btn w-rail-session mood-${r.mood}${shown?.sessionId === r.sessionId && view === 'terminal' ? ' on' : ''}`}
+                onClick={() => { setTarget(r.sessionId); setView('terminal') }}
+                title={`${r.title ?? t('새 세션')} · ${t(MOOD_LABEL[r.mood])}`} aria-label={r.title ?? t('새 세션')}>
+                {r.shell ? <span className="w-rail-shell" aria-hidden="true">&gt;_</span> : <img src={r.sprite} alt="" draggable={false} />}
+                <span className="w-rail-dot" />
+              </button>
+            ))}
+          </div>
+          {(() => {
+            // Usage: two thin bars (Claude's 5 h and weekly, else Codex's first two), the numbers on hover
+            const bars = showClaudeLimits
+              ? [{ key: '5h', label: t('5시간'), value: fiveHour }, { key: '7d', label: t('주간'), value: sevenDay }]
+              : codexRows.slice(0, 2).map(r => ({ key: r.key, label: r.label, value: r.value }))
+            if (!bars.length) return null
+            const title = bars.map(b => `${b.label} ${typeof b.value === 'number' ? `${Math.round(b.value)}%` : '—'}`).join(' · ')
+            return (
+              <div className="w-rail-usage" title={title} aria-label={title}>
+                {bars.map(b => {
+                  const v = typeof b.value === 'number' ? Math.max(0, Math.min(100, b.value)) : 0
+                  return <span key={b.key} className={`w-rail-bar${v >= 90 ? ' high' : v >= 70 ? ' mid' : ''}`}><i style={{ height: `${v}%` }} /></span>
+                })}
+              </div>
+            )
+          })()}
+          <button className="w-rail-btn" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={15} /></button>
+        </nav>
+      )}
       <div className="w-side">
         <div className="w-bento">
           <header className="w-card w-head">

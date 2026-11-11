@@ -372,8 +372,43 @@
 .set-tool-form input:focus { outline: none; border-color: rgba(242, 201, 76, 0.5); }
 .set-btn:disabled { opacity: 0.45; cursor: default; }
 .set-foot { margin-top: 12px; line-height: 1.5; }
-/* The left panel folded away (window / fullscreen): the terminal takes the width */
+/* The left panel folded (window / fullscreen): a slim column of the essentials, the terminal takes the rest */
 .widget.expanded.side-hidden .w-side { display: none; }
+.w-rail {
+  flex: 0 0 56px; width: 56px; box-sizing: border-box; height: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 10px;
+  background: #0e1015; border-right: 1px solid var(--line);
+  -webkit-app-region: no-drag; user-select: none;
+}
+.w-rail-btn {
+  position: relative; flex: none; display: grid; place-items: center;
+  width: 38px; height: 38px; border-radius: 10px; border: 0; background: transparent;
+  color: var(--ink-3); cursor: pointer; font: inherit;
+}
+.w-rail-btn:hover { background: var(--card-2); color: var(--ink); }
+.w-rail-btn.full { opacity: 0.45; }
+.w-rail-brand { margin-bottom: 2px; }
+.w-rail-conn { position: absolute; right: 5px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px #0e1015; }
+.w-rail-conn.off { background: var(--danger); }
+.w-rail-update { width: 30px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; }
+.w-rail-sep { flex: none; width: 24px; height: 1px; margin: 4px 0; background: var(--line); }
+/* Open sessions: the Pokémon with its status dot; many of them scroll inside the column */
+.w-rail-sessions { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; overflow-x: hidden; }
+.w-rail-sessions::-webkit-scrollbar { width: 0; }
+.w-rail-session img { width: 30px; height: 30px; object-fit: contain; }
+.w-rail-session.on { background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line); }
+.w-rail-shell { font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
+.w-rail-dot { position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px #0e1015; }
+.w-rail-session.mood-working .w-rail-dot { background: var(--green); }
+.w-rail-session.mood-needs-you .w-rail-dot { background: var(--amber); }
+.w-rail-session.mood-error .w-rail-dot { background: var(--danger); }
+.w-rail-session.mood-ended { opacity: 0.45; }
+/* Usage: two thin bars filling from the bottom */
+.w-rail-usage { flex: none; display: flex; gap: 5px; align-items: flex-end; height: 34px; padding: 4px 0; cursor: default; }
+.w-rail-bar { position: relative; width: 6px; height: 100%; border-radius: 3px; background: var(--card-2); overflow: hidden; }
+.w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--green); }
+.w-rail-bar.mid i { background: var(--amber); }
+.w-rail-bar.high i { background: var(--danger); }
 .w-side-toggle { flex: none; -webkit-app-region: no-drag; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-right: 4px; }
 .w-side-toggle:hover { background: var(--card-2); color: var(--ink); }
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
