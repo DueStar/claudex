@@ -2,6 +2,13 @@
 
 ## spawn
 
+### 1.3.38
+- 앱 아이콘, 트레이, 왼쪽 위 로고가 몬스터볼 그림으로 바뀌었어요. 실행 파일 아이콘까지 바꾸려면 Releases에서 새로 받아 설치해 주세요(업데이트로는 창과 트레이 아이콘만 바뀌어요).
+- "새로운 세션 시작하기" 버튼에는 몬스터볼 대신 + 가 보여요.
+- 왼쪽 패널 위에는 몬스터볼만 남았어요(누르면 패치노트). 패널 안의 구분선이 끝에서 끝까지 이어져요.
+- 세션을 닫을 때 ×를 한 번 누르면 "닫기"가 떠요.
+- 고른 탭과 일하는 세션의 테두리가 노란색 한 가지로 정리됐어요. 일하는 동안에는 테두리를 따라 노란 빛이 돌아요.
+
 ### 1.3.37
 - 앱 아이콘, 트레이, 왼쪽 위 로고, "새로운 세션 시작하기" 버튼의 몬스터볼이 하나의 새 몬스터볼 아이콘으로 통일됐어요.
 - 창 크기를 바꿀 때 터미널이 깜빡이지 않아요. 다른 창과 나란히 놓고 크기를 조절할 때 화면이 비어 보이던 것도 줄었어요.
@@ -278,6 +285,13 @@
 
 ## spawn (English)
 
+### 1.3.38
+- The app icon, the tray and the logo at the top left are a Poké Ball picture now. For the exe's own icon too, download and install it fresh from Releases (an update changes the window and tray icons only).
+- The "Start a new session" button shows a + instead of a Poké Ball.
+- The top of the left panel shows just the ball (click it for the patch notes), and the panel's dividers run edge to edge.
+- Clicking × on a session once now shows "Close".
+- The chosen tab and a working session's border are back to the one yellow; while a session works, a yellow glint runs round its border.
+
 ### 1.3.37
 - The app icon, the tray, the logo at the top left and the "Start a new session" button now share one new Poké Ball icon.
 - Resizing the window no longer makes the terminal flicker, and resizing it side by side with another window no longer leaves it blank as often.
@@ -417,6 +431,13 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.38
+- アプリアイコン・トレイ・左上のロゴがモンスターボールの絵になりました。実行ファイルのアイコンも変えるには、Releases から新しく入れ直してください(アップデートではウィンドウとトレイのアイコンだけが変わります)。
+- 「新しいセッションを始める」ボタンはモンスターボールの代わりに + になりました。
+- 左パネルの上にはボールだけが残ります(押すとパッチノート)。パネルの区切り線は端から端まで届きます。
+- セッションの × を一度押すと「閉じる」と出ます。
+- 選んだタブと作業中のセッションの枠が黄色ひとつにそろいました。作業中は枠に沿って黄色い光が回ります。
 
 ### 1.3.37
 - アプリアイコン・トレイ・左上のロゴ・「新しいセッションを始める」ボタンのモンスターボールが、新しいひとつのモンスターボールアイコンにそろいました。

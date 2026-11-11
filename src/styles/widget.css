@@ -21,11 +21,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   --ink-2: #a4a9b6;
   --ink-3: #6e7381;
   --accent: #f2c94c;
-  /* the logo's three colours (spawn brand), used sparingly: the chosen tab, a working session */
-  --brand-crescent: #f2c94c;
-  --brand-aurora: #f49ac1;
-  --brand-sky: #7fc2e8;
-  --brand-soft: linear-gradient(135deg, rgba(242, 201, 76, 0.16), rgba(244, 154, 193, 0.14) 50%, rgba(127, 194, 232, 0.16));
   --accent-hover: #f7d76c;
   --accent-ink: #16171b;
   --accent-soft: rgba(242, 201, 76, 0.14);
@@ -117,14 +112,14 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   cursor: pointer;
 }
 .w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); --row-bg: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
-/* The chosen session while it works: its border turns into the logo's three colours,
-   flowing round like the knot; resting, it is the yellow border above again */
+/* The chosen session while it works: a glint of the accent yellow runs round its border;
+   resting, it is the still yellow border above again */
 @property --w-spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 @keyframes w-spin { to { --w-spin: 360deg; } }
 .w-row.chosen.mood-working { border-color: transparent; }
 .w-row.chosen.mood-working::before {
   content: ''; position: absolute; inset: -1px; border-radius: 11px; padding: 1.5px; pointer-events: none;
-  background: conic-gradient(from var(--w-spin), var(--brand-crescent), var(--brand-aurora), var(--brand-sky), var(--brand-crescent));
+  background: conic-gradient(from var(--w-spin), var(--accent), rgba(242, 201, 76, 0.18) 30%, rgba(242, 201, 76, 0.18) 55%, var(--accent) 85%, var(--accent));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
   animation: w-spin 4s linear infinite;
 }
