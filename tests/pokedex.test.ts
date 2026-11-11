@@ -271,7 +271,7 @@ describe('pokedex', () => {
   })
 
   it('pities: a sure mythical after PITY_MYTHICAL, a sure legendary after PITY, both caught', () => {
-    const { dex, sent } = setup([0], 0.01) // every roll low: encounters every step, tiers decided by the pities first
+    const { dex, sent } = setup([0], 0.005) // every roll low: encounters every step, tiers decided by the pities first
     attended(dex)
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'x' })
     const st = (dex as any)._state()

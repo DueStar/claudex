@@ -113,7 +113,7 @@ function Choice<T extends string>({ label, hint, value, options, onChange }: { l
   )
 }
 
-const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onClose, version }) => {
+const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback?: () => void }> = ({ onClose, version, onFeedback }) => {
   const s = useSettings()
   const cloud = useCloud()
   const [section, setSection] = useState<Section>('notify')
@@ -197,6 +197,12 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string }> = ({ onC
               options={[['default', 'Monaspace'], ['consolas', 'Consolas'], ['cascadia', 'Cascadia'], ['d2coding', 'D2Coding']]} onChange={v => set('terminal', { font: v })} />
             <Choice label={t('스크롤 기록')} hint={t('터미널마다 위로 올려 볼 수 있는 줄 수예요. 많을수록 메모리를 더 써요')} value={String(s.terminal.scrollback)}
               options={SCROLLBACKS.map(n => [String(n), t('{n}줄', { n: n.toLocaleString(locale()) })])} onChange={v => set('terminal', { scrollback: Number(v) as AppSettings['terminal']['scrollback'] })} />
+            {onFeedback && (
+              <div className="set-row">
+                <span className="set-text"><b>{t('의견 보내기')}</b><small>{t('고쳤으면 하는 것, 더해졌으면 하는 것을 GitHub 이슈로 보내요. 원하면 화면 위치도 찍을 수 있어요')}</small></span>
+                <button className="set-btn" onClick={onFeedback}>{t('보내기')}</button>
+              </div>
+            )}
           </>}
 
           {section === 'data' && <>

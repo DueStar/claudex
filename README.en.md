@@ -16,7 +16,7 @@ A Windows desktop app for running Claude Code sessions with Pokémon. Each sessi
 - You can swap the working Pokémon for any other one you caught, at any time.
 
 ### Catching
-- Every tool Claude uses is one step. Thinking or writing for over a minute without a tool is also one step. Each step has a 3% chance of a wild encounter, and when steps pile up they are handled in turn (8 seconds apart).
+- Every tool Claude uses is one step. Thinking or writing for over a minute without a tool is also one step. Each step has a 1% chance of a wild encounter, and when steps pile up they are handled in turn (8 seconds apart).
 - The first session of each day always meets one Pokémon you have not caught yet (daily encounter).
 - Where you meet them depends on the tool: Edit is tall grass, Bash is a cave, Read is a forest. At night Ghost, Dark and Psychic types show up more.
 - A catch shows a notice at the top of the screen. It records the request and the tool that were in use, and the ball it was caught in.

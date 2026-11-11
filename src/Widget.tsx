@@ -28,7 +28,7 @@ import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { useDragOrder } from './useDragOrder'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, FeedbackIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -622,14 +622,16 @@ const Widget: React.FC = () => {
             const title = bars.map(b => `${b.label} ${typeof b.value === 'number' ? `${Math.round(b.value)}%` : '—'}`).join(' · ')
             return (
               <div className="w-rail-usage" title={title} aria-label={title}>
-                {bars.map(b => {
-                  const v = typeof b.value === 'number' ? Math.max(0, Math.min(100, b.value)) : 0
-                  return <span key={b.key} className={`w-rail-bar${v >= 90 ? ' high' : v >= 70 ? ' mid' : ''}`}><i style={{ height: `${v}%` }} /></span>
-                })}
+                <div className="w-rail-bars">
+                  {bars.map(b => {
+                    const v = typeof b.value === 'number' ? Math.max(0, Math.min(100, b.value)) : 0
+                    return <span key={b.key} className={`w-rail-bar${v >= 90 ? ' high' : v >= 70 ? ' mid' : ''}`}><i style={{ height: `${v}%` }} /></span>
+                  })}
+                </div>
+                <span className="w-rail-usage-label" aria-hidden="true">{t('사용량')}</span>
               </div>
             )
           })()}
-          <button className="w-rail-btn" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기')} aria-label={t('의견 보내기')}><FeedbackIcon size={15} /></button>
           <button className="w-rail-btn" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={15} /></button>
         </nav>
       )}
@@ -667,7 +669,6 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   : update.error ? t('업데이트 실패 · 다시 시도') : t('업데이트')}
               </button>
             )}
-            <button className="w-icon" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기')} aria-label={t('의견 보내기')}><FeedbackIcon size={14} /></button>
             <button className="w-icon" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={14} /></button>
             {!expanded && (
               <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>
@@ -1029,7 +1030,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
       <PatchNotes />
       {notesOpen && <PatchNotesHistory onClose={() => setNotesOpen(false)} />}
       {feedbackOpen && <FeedbackPin view={expanded ? view : 'widget'} onClose={closeFeedback} />}
-      {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} version={update?.current} />}
+      {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} version={update?.current} onFeedback={() => { setSettingsOpen(false); setFeedbackOpen(true) }} />}
       {mode === 'widget' && <ResizeGrip />}
     </div>
   )

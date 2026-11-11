@@ -39,9 +39,11 @@ export const SESSION_LIMIT = 12
 export const BOX_LIMIT = 1200
 
 /**
- * The rarity table, per encounter (rarest first when rolled). Tuned by
- * simulation so a heavy Max user completes the 1025-species dex in about a
- * year; the top tiers stay painful, with a pity for each.
+ * The rarity table, per encounter (rarest first when rolled). With the
+ * encounter chance and pities below, a heavy user (about 11 wild encounters a
+ * day) completes the 1025-species dex in about three years, and the legendaries
+ * and mythicals are what is left at the end: everything else is in by about
+ * month seven, legendaries by about year two (simulated, 2026-11-11).
  */
 export const RATES = Object.freeze({
   common: 0.74,
@@ -56,18 +58,18 @@ const LEGENDS = new Set(['legendary', 'mythical'])
 /** Chance the Poké Ball holds, by tier (a fled one is still "seen"); pities always hold */
 export const CATCH = Object.freeze({ common: 0.9, rare: 0.75, sub: 0.5, legendary: 0.35, mythical: 0.3 })
 /**
- * Chance a step meets a wild Pokémon. Kept low on purpose: the daily
- * attendance encounter (below) carries a light user, so a heavy Max user still
- * needs about a year while a Pro user needs about two (simulated, 1025 species).
+ * Chance a step meets a wild Pokémon. Kept low on purpose (0.03 until 1.3.35
+ * felt too frequent: about 34 a day for a heavy user); the daily attendance
+ * encounter (below) carries a light user.
  */
-export const ENCOUNTER_PER_STEP = 0.03
+export const ENCOUNTER_PER_STEP = 0.01
 export const SHINY_ODDS = 1 / 4096
 /** Species not caught yet are this many times likelier to show up (a gentle dex assist) */
 export const NEW_SPECIES_BOOST = 8
 /** Encounters without a legendary (or mythical) before the next is a sure legendary */
-export const PITY = 150
+export const PITY = 180
 /** Encounters without a mythical before the next is a sure mythical */
-export const PITY_MYTHICAL = 300
+export const PITY_MYTHICAL = 360
 /**
  * A species already caught comes back less within its tier: its weight × this,
  * once per catch (0.9, 0.81, …), never below RECATCH_FLOOR. The tiers' own

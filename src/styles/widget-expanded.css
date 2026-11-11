@@ -393,7 +393,7 @@
 .w-rail-update { width: 30px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; }
 .w-rail-sep { flex: none; width: 24px; height: 1px; margin: 4px 0; background: var(--line); }
 /* Open sessions: the Pokémon with its status dot; many of them scroll inside the column */
-.w-rail-sessions { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; overflow-x: hidden; }
+.w-rail-sessions { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; overflow-y: auto; overflow-x: hidden; }
 .w-rail-sessions::-webkit-scrollbar { width: 0; }
 .w-rail-session img { width: 30px; height: 30px; object-fit: contain; }
 .w-rail-session.on { background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line); }
@@ -404,7 +404,9 @@
 .w-rail-session.mood-error .w-rail-dot { background: var(--danger); }
 .w-rail-session.mood-ended { opacity: 0.45; }
 /* Usage: two thin bars filling from the bottom */
-.w-rail-usage { flex: none; display: flex; gap: 5px; align-items: flex-end; height: 34px; padding: 4px 0; cursor: default; }
+.w-rail-usage { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; cursor: default; }
+.w-rail-bars { display: flex; gap: 5px; align-items: flex-end; height: 30px; }
+.w-rail-usage-label { font-size: 9px; line-height: 1; color: var(--ink-3); white-space: nowrap; }
 .w-rail-bar { position: relative; width: 6px; height: 100%; border-radius: 3px; background: var(--card-2); overflow: hidden; }
 .w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--green); }
 .w-rail-bar.mid i { background: var(--amber); }

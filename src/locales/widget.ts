@@ -225,6 +225,7 @@ const en: Record<string, string> = {
   '앱에서 열림': 'Open in app',
   '실행 중': 'Running',
   // feedback pin (FeedbackPin.tsx)
+  "고쳤으면 하는 것, 더해졌으면 하는 것을 GitHub 이슈로 보내요. 원하면 화면 위치도 찍을 수 있어요": "Send what to fix or add as a GitHub issue. You can pin a spot on the screen too",
   "화면에서 위치 찍기": "Pin a spot on the screen",
   "선택 · 찍은 부분의 화면도 함께 보낼 수 있어요": "Optional · a picture of that part can go along",
   "위치를 찍었어요": "Spot pinned",
@@ -479,6 +480,7 @@ const ja: Record<string, string> = {
   '앱에서 열림': 'アプリで開いています',
   '실행 중': '実行中',
   // feedback pin (FeedbackPin.tsx)
+  "고쳤으면 하는 것, 더해졌으면 하는 것을 GitHub 이슈로 보내요. 원하면 화면 위치도 찍을 수 있어요": "直してほしいこと、追加してほしいことを GitHub の Issue で送れます。必要なら画面の場所も指定できます",
   "화면에서 위치 찍기": "画面で場所を指定",
   "선택 · 찍은 부분의 화면도 함께 보낼 수 있어요": "任意 · 指定した部分の画面も一緒に送れます",
   "위치를 찍었어요": "場所を指定しました",
