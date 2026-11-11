@@ -98,12 +98,12 @@ export const GearIcon: React.FC<P> = (p) => (
 )
 
 /**
- * spawn's symbol (three crescents, public/brand/ from the brand set): the logo in
- * the header and the folded rail. White at small sizes, as the brand asks (the
- * three colours blur below 24px); `color` for larger spots.
+ * spawn's symbol (the 3D knot of three crescents, public/brand/ from the brand set):
+ * the logo in the header and the folded rail. The single-colour outline at small
+ * sizes, as the brand asks (32px and under); `color` is the 3D render for larger spots.
  */
 export const SpawnMark: React.FC<{ size?: number; color?: boolean }> = ({ size = 18, color = false }) => (
-  <img className="spawn-mark" src={color ? '/brand/spawn-symbol-color.svg' : '/brand/spawn-symbol-white.svg'} width={size} height={size} alt="" draggable={false} />
+  <img className="spawn-mark" src={color ? '/brand/spawn-symbol.png' : '/brand/spawn-symbol-white.svg'} width={size} height={size} alt="" draggable={false} />
 )
 
 /** A Poké Ball picture: the games' artwork shipped with the app, spawn's own drawing if it is missing */

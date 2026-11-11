@@ -39,8 +39,10 @@ if ($Remove) {
 }
 
 $exe = Join-Path $InstallDir 'spawn.exe'
+# An install updated from Claudex (1.3.35 and older) still runs Claudex.exe
+if (-not (Test-Path $exe)) { $exe = Join-Path $InstallDir 'Claudex.exe' }
 if (-not (Test-Path $exe)) {
-  Write-Error "spawn.exe not found at $exe - install it first."
+  Write-Error "spawn.exe not found in $InstallDir - install it first."
   exit 1
 }
 
@@ -48,7 +50,9 @@ $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($link)
 $shortcut.TargetPath = $exe
 $shortcut.WorkingDirectory = $InstallDir
-$shortcut.IconLocation = "$exe,0"
+# An install updated from Claudex keeps Claudex.exe and its old built-in icon: use the app's own icon file
+$ico = Join-Path $InstallDir 'resources\app\electron\assets\icon.ico'
+$shortcut.IconLocation = if (Test-Path $ico) { "$ico,0" } else { "$exe,0" }
 $shortcut.Description = 'spawn'
 $shortcut.Save()
 
