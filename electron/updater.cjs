@@ -123,6 +123,7 @@ function ownBuildDate(app) {
 function createUpdater({ app, send, isPackaged }) {
   let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', notesEn: '', notesJa: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
   let manifest = null
+  let workFolder = null
   const publish = (patch) => { state = { ...state, ...patch }; send('update:state', state) }
 
   const builtAt = ownBuildDate(app)
@@ -172,6 +173,7 @@ function createUpdater({ app, send, isPackaged }) {
       if (sha !== String(manifest.app?.sha256 ?? '').toLowerCase()) throw new Error('checksum mismatch')
 
       const work = fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-update-'))
+      workFolder = work // known from now, so the stale-folder cleanup leaves it alone while it fills
       const zipPath = path.join(work, appFile)
       fs.writeFileSync(zipPath, zip)
       const staged = path.join(work, 'app')
@@ -207,8 +209,8 @@ function createUpdater({ app, send, isPackaged }) {
     return true
   }
 
-  // workDir: the claudex-update-* folder this run downloaded into (kept by the stale-folder cleanup)
-  return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir(), workDir: () => (manifest?.staged ? path.dirname(manifest.staged) : null) }
+  // workDir: the claudex-update-* folder this run is downloading or unpacking into, or has staged (kept by the stale-folder cleanup)
+  return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir(), workDir: () => workFolder }
 }
 
 const pendingFile = (app) => runnerPendingFile(app.getPath('userData'))

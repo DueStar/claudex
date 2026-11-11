@@ -49,15 +49,22 @@ if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), '
 if (app.isPackaged && hasPendingUpdate(app.getPath('userData'))) {
   const userData = app.getPath('userData')
   const readJson = (file) => { try { return JSON.parse(fs.readFileSync(path.join(userData, file), 'utf8')) } catch { return null } }
+  // The card closing must not end this run halfway through the copy
+  app.on('window-all-closed', () => {})
   runPendingUpdate({
     app,
     isPackaged: true,
     resourcesPath: process.resourcesPath,
     userData,
     readNear: () => readJson('window-state.json')?.widgetBounds ?? null,
-    lang: cardLang(readJson('settings.json')?.app?.language, app.getLocale()),
+    // called once Electron is ready (app.getLocale() is empty before)
+    getLang: () => cardLang(readJson('settings.json')?.app?.language, app.getLocale()),
     openCard: (opts) => openStatusCard({ BrowserWindow, screen, ...opts }),
-  }).catch(() => { app.relaunch(); app.exit(0) })
+  }).catch(() => {
+    // Start again only if the marker is gone: with it still there, a start would come back here
+    if (!hasPendingUpdate(userData)) app.relaunch()
+    app.exit(0)
+  })
   return
 }
 
@@ -572,7 +579,9 @@ function onAppWindowLoaded() {
   if (firstWindowLoaded) return
   firstWindowLoaded = true
   startupMark('window-loaded')
-  setTimeout(() => {
+  // Only the installed app cleans: a development run shares %TEMP% and would take
+  // away an update the installed app has downloaded or is unpacking
+  if (app.isPackaged) setTimeout(() => {
     cleanupStaleUpdates({ tmpdir: os.tmpdir(), keep: updater?.workDir?.() ?? null })
       .then((n) => { if (n) console.log(`[main] removed ${n} old update folder(s)`) })
       .catch(() => {})
@@ -951,6 +960,8 @@ function openDexAt(id) {
 
 function toggleWidget() {
   if (quitting) return // the windows went at the start of the quit; showing one now could close it halfway
+  // Still starting (no page yet): the tray brings the starting card forward
+  if (!pageUrl && startupCard) { startupCard.show(); return }
   const w = createWidgetWindow()
   if (!w) return
   if (w.isVisible()) { w.hide(); state.widgetHidden = true }
@@ -1229,7 +1240,8 @@ if (lockWaits < 0) {
   // takes seconds; one run at a time, so a Dock click or a second launch in
   // the meantime cannot spawn a second server and open a second window
   const startOnce = singleFlight(startApp)
-  const open = () => startOnce().catch((err) => console.error('[main] Could not start the app:', err))
+  // A startup that throws halfway must not leave the starting card up for good
+  const open = () => startOnce().catch((err) => { closeStartupCard(); console.error('[main] Could not start the app:', err) })
 
   // Opened again (a Dock click, a second launch): wait for a startup in
   // progress, else show the window, else make one
@@ -1262,6 +1274,9 @@ if (lockWaits < 0) {
   })
 
   app.on('window-all-closed', () => {
+    // Quitting: the quit sequence stops the server itself, after telling it the
+    // sessions ended (the card closing at the start of a quit lands here)
+    if (quitting) return
     stopServer()
     app.quit()
   })
@@ -1290,7 +1305,14 @@ if (lockWaits < 0) {
     closeStartupCard()
     for (const w of BrowserWindow.getAllWindows()) { try { w.hide() } catch {} }
     if (updating) {
-      try { openStatusCard({ BrowserWindow, screen, near, step: 'updating', lang: cardLang(appSettings().app.language, app.getLocale()) }) } catch {}
+      const lang = cardLang(appSettings().app.language, app.getLocale())
+      try { openStatusCard({ BrowserWindow, screen, near, step: 'updating', lang }) } catch {}
+      // The copy run after this shows its card in the same place and language
+      try {
+        const marker = path.join(app.getPath('userData'), 'pending-update.json')
+        const pending = JSON.parse(fs.readFileSync(marker, 'utf8'))
+        fs.writeFileSync(marker, JSON.stringify({ ...pending, card: { near, lang } }))
+      } catch {}
     }
     const sleep = (ms) => new Promise(r => setTimeout(r, ms))
     const running = terminals ? terminals.list().filter(t => t.status === 'running') : []

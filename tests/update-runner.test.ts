@@ -111,11 +111,92 @@ describe('runPendingUpdate', () => {
   })
 })
 
+describe('runPendingUpdate — robustness', () => {
+  it("robocopy's output is not piped (a full pipe would stop it)", async () => {
+    writeMarker()
+    const f = fakes(1)
+    await run(f)
+    const opts = (f.spawn.mock.calls[0] as unknown as [string, string[], any])[2]
+    expect(opts).toMatchObject({ windowsHide: true, stdio: 'ignore' })
+  })
+
+  it('a robocopy that cannot start still starts the app once', async () => {
+    writeMarker()
+    const f = fakes()
+    f.spawn.mockImplementation(() => { throw new Error('no robocopy') })
+    const r = await run(f)
+    expect(r).toEqual({ ok: false, reason: 'robocopy -1' })
+    expect(f.app.relaunch).toHaveBeenCalledTimes(1)
+  })
+
+  it('a marker that cannot be removed ends the run without starting it again (no loop)', async () => {
+    writeMarker()
+    const f = fakes()
+    const r = await runPendingUpdate({
+      app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'],
+      removeMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
+      setAsideMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
+    })
+    expect(r).toEqual({ ok: false, reason: 'marker stuck' })
+    expect(f.spawn).not.toHaveBeenCalled()
+    expect(f.app.relaunch).not.toHaveBeenCalled()
+    expect(f.app.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('a marker that cannot be removed but can be set aside still lets the update go in', async () => {
+    writeMarker()
+    const f = fakes(1)
+    const r = await runPendingUpdate({
+      app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'],
+      removeMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
+    })
+    expect(r).toEqual({ ok: true })
+    expect(hasPendingUpdate(userData)).toBe(false)
+    expect(f.app.relaunch).toHaveBeenCalledTimes(1)
+  })
+
+  it('the card goes where the quitting app left it, in its language', async () => {
+    writeFileSync(marker(), JSON.stringify({ staged, version: '9.9.9', card: { near: { x: 1, y: 2, width: 300, height: 600 }, lang: 'ja' } }))
+    const f = fakes(1)
+    await run(f)
+    expect(f.openCard).toHaveBeenCalledWith(expect.objectContaining({ near: { x: 1, y: 2, width: 300, height: 600 }, lang: 'ja', step: 'updating' }))
+  })
+
+  it('the language fallback is read once Electron is ready', async () => {
+    writeMarker()
+    const f = fakes(1)
+    let ready = false
+    f.app.whenReady = vi.fn(async () => { ready = true })
+    const getLang = vi.fn(() => (ready ? 'ko' : 'en'))
+    await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], getLang })
+    expect(f.openCard).toHaveBeenCalledWith(expect.objectContaining({ lang: 'ko' }))
+  })
+
+  it('Electron never getting ready does not hold the copy up', async () => {
+    writeMarker()
+    const f = fakes(1)
+    f.app.whenReady = vi.fn(() => new Promise<void>(() => {}))
+    const r = await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], readyTimeoutMs: 20 })
+    expect(r.ok).toBe(true)
+    expect(f.openCard).not.toHaveBeenCalled()
+    expect(f.app.relaunch).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('cleanupStaleUpdates', () => {
   it('removes old update folders, never the one to keep or anything else', async () => {
     const tmp = join(root, 'tmp'); mkdirSync(tmp)
     for (const d of ['claudex-update-a', 'claudex-update-b', 'other']) mkdirSync(join(tmp, d))
-    await expect(cleanupStaleUpdates({ tmpdir: tmp, keep: join(tmp, 'claudex-update-b') })).resolves.toBe(1)
+    await expect(cleanupStaleUpdates({ tmpdir: tmp, keep: join(tmp, 'claudex-update-b'), minAgeMs: 0 })).resolves.toBe(1)
     expect(readdirSync(tmp).sort()).toEqual(['claudex-update-b', 'other'])
+  })
+
+  it('leaves a folder made recently alone (an update may be unpacking into it)', async () => {
+    const tmp = join(root, 'tmp'); mkdirSync(tmp)
+    mkdirSync(join(tmp, 'claudex-update-new'))
+    await expect(cleanupStaleUpdates({ tmpdir: tmp })).resolves.toBe(0)
+    expect(readdirSync(tmp)).toEqual(['claudex-update-new'])
+    // the same folder, seen ten minutes later
+    await expect(cleanupStaleUpdates({ tmpdir: tmp, now: () => Date.now() + 10 * 60_000 })).resolves.toBe(1)
   })
 })

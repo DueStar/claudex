@@ -63,7 +63,8 @@ function openStatusCard({ BrowserWindow, screen, near = null, step = 'starting',
   win.loadURL(cardUrl(htmlPath, step, lang)).catch(() => {})
   return {
     win,
-    show() { if (!closed && !win.isDestroyed()) win.showInactive() },
+    // Shown again (a second launch, the tray): also above windows that cover it
+    show() { if (!closed && !win.isDestroyed()) { win.showInactive(); win.moveTop() } },
     setStep(next) {
       if (closed || win.isDestroyed()) return
       win.loadURL(cardUrl(htmlPath, next, lang)).catch(() => {})

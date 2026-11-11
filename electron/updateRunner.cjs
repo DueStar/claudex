@@ -29,12 +29,16 @@ function hasPendingUpdate(userData) {
   return fs.existsSync(pendingFile(userData))
 }
 
-/** robocopy's exit code (0–7 copied or nothing to do, 8+ failed), -1 when it could not run */
+/**
+ * robocopy's exit code (0–7 copied or nothing to do, 8+ failed), -1 when it
+ * could not run. Its output is not piped: nobody reads it, and its retry lines
+ * for locked files could fill a pipe and stop it.
+ */
 function robocopy(spawn, from, to) {
   return new Promise((resolve) => {
     let child
     try {
-      child = spawn('robocopy', [from, to, '/MIR', '/R:20', '/W:1', '/NFL', '/NDL', '/NJH', '/NJS', '/NP'], { windowsHide: true })
+      child = spawn('robocopy', [from, to, '/MIR', '/R:20', '/W:1', '/NFL', '/NDL', '/NJH', '/NJS', '/NP'], { windowsHide: true, stdio: 'ignore' })
     } catch { resolve(-1); return }
     child.on('error', () => resolve(-1))
     child.on('exit', (code) => resolve(typeof code === 'number' ? code : -1))
@@ -47,17 +51,29 @@ async function runPendingUpdate({
   resourcesPath,
   userData,
   readNear = () => null,
-  lang = 'ko',
+  getLang = () => 'ko',
   spawn = childProcess.spawn,
   openCard = null,
   timer = createStepTimer({ file: path.join(userData, 'update.log'), label: 'p2' }),
   argv = process.argv,
+  removeMarker = (file) => fs.rmSync(file, { force: true }),
+  setAsideMarker = (file) => fs.renameSync(file, `${file}.stuck-${Date.now()}`),
+  readyTimeoutMs = 5000,
 }) {
   timer.mark('p2-start')
   const file = pendingFile(userData)
   let pending = null
   try { pending = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
-  fs.rmSync(file, { force: true })
+  // The marker goes before anything is tried, so a bad update can never loop. If it
+  // cannot go (a scanner holding it), set it aside; if that fails too, stop here
+  // without starting again: a start would only come back to this run.
+  try { removeMarker(file) } catch {
+    try { setAsideMarker(file) } catch {
+      timer.mark('marker-stuck')
+      app.exit(0)
+      return { ok: false, reason: 'marker stuck' }
+    }
+  }
   if (!isPackaged) return { ok: false, reason: 'not packaged' }
 
   const staged = pending?.staged
@@ -65,10 +81,14 @@ async function runPendingUpdate({
   if (!staged || !fs.existsSync(path.join(staged, 'package.json'))) {
     result = { ok: false, reason: 'no staged app' }
   } else {
+    // The card: where the quitting app left it and in its language (it wrote them
+    // into the marker), else from window-state/settings once Electron is ready
     let card = null
     try {
-      await app.whenReady()
-      card = openCard ? openCard({ near: readNear(), step: 'updating', lang }) : null
+      const ready = await Promise.race([app.whenReady().then(() => true), new Promise(r => setTimeout(() => r(false), readyTimeoutMs))])
+      if (ready && openCard) {
+        card = openCard({ near: pending.card?.near ?? readNear(), step: 'updating', lang: pending.card?.lang ?? getLang() })
+      }
     } catch { /* no card: the copy still runs */ }
     timer.mark('robocopy-start', `version=${pending.version ?? '?'}`)
     const code = await robocopy(spawn, staged, path.join(resourcesPath, 'app'))
@@ -87,7 +107,7 @@ async function runPendingUpdate({
  * Remove the claudex-update-* folders a past update left in the temp folder
  * (all but `keep`, the one this run may be downloading into). Returns how many went.
  */
-async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm }) {
+async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm, minAgeMs = 10 * 60_000, now = Date.now }) {
   let names = []
   try { names = await fs.promises.readdir(tmpdir) } catch { return 0 }
   const keepPath = keep ? path.resolve(keep) : null
@@ -96,6 +116,13 @@ async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm })
     if (!name.startsWith('claudex-update-')) continue
     const full = path.resolve(tmpdir, name)
     if (keepPath && (full === keepPath || keepPath.startsWith(full + path.sep))) continue
+    // A folder made in the last minutes may be an update being unpacked right now
+    // (this run's, before it is known, or another Claudex run's): left for next time
+    try {
+      const st = await fs.promises.stat(full)
+      const made = st.birthtimeMs || st.ctimeMs
+      if (now() - made < minAgeMs) continue
+    } catch { continue }
     try { await rm(full, { recursive: true, force: true }); removed++ } catch {}
   }
   return removed
