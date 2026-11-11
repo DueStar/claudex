@@ -2,8 +2,8 @@
 
 Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17ant/Claude-Office(MIT)를 포크했다.
 
-> **새 세션은 여기부터**: 최신 릴리스 1.3.33(2026-11-10). 그 뒤 커밋은 이 문서 갱신뿐(다음 릴리스 때 같이 푸시).
-> 최근 변경은 아래 7-23(1.3.32 최적화·멈춘 종료 수정)과 7-24(1.3.33 Codex 연동), 할 일은 8번.
+> **새 세션은 여기부터**: 최신 릴리스 1.3.33(2026-11-10). 그 뒤 브랜치 `ui/rank-tabs` → `perf/restart-startup`(이어서 만든 것)에 탭 닫기·셸 버튼·랭킹, 업데이트/시작 카드와 시간 기록이 있음(7-25, 아직 릴리스 안 함).
+> 최근 변경은 아래 7-23(1.3.32 최적화·멈춘 종료 수정), 7-24(1.3.33 Codex 연동), 7-25, 할 일은 8번. 이름이 Spawn으로 바뀔 수 있음(아직 결정 아님, 바꾸지 말 것).
 > 작업 방식(사용자 요청): 무엇이든 superpowers로 계획부터 보여 주고 승인 뒤 실행, 작업마다 테스트 먼저, 리뷰 에이전트로 검토.
 - 경로: `Documents\pokemon-office`
 - 저장소: https://github.com/DueStar/claudex (공개, main)
@@ -108,9 +108,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 
 ## 남은 일과 결정 대기
 1. **나중에 할 일**
-   - 진화의 돌 아이템: 조우나 출석에서 돌을 얻어 쓰는 방식. 지금은 돌 진화를 Lv.30(두 번째 40) 고정으로 둔다.
    - 님피아(700) 진화 경로: 1.3.26부터 이브이의 무작위 진화 후보(돌 3종 + 님피아)에 들어감(사용자 결정).
-   - 이벤트 볼(컴퍼티션·파크·드림·프레셔스) 지급 방식: 아직 정하지 않았다.
 2. **로컬 업데이트 버튼**: 실제로 눌러서 확인한 적이 아직 없다. 아래 "다음 할 일" 3번에서 확인한다.
 3. 1.3.2에서 넣은 것
    - 레벨업 알림
@@ -123,10 +121,8 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - 격리 서버: `CLAUDEX_HOME=<임시 폴더> CLAUDEX_PORT=3344 node server/index.js` (먼저 `npx vite build`)
      - 캡처 앱: `tools/_cache/shot/`(gitignore, main.cjs + 가짜 브리지 preload.cjs). 토큰 주소는 인자로 넘기면 Git Bash에서 실행이 127로 실패하므로 환경변수로 넘긴다: `SHOT_URL="http://127.0.0.1:3344/?widget#token=<토큰>" SHOT_OUT=<png> npx electron tools/_cache/shot` (SHOT_W·SHOT_H·SHOT_JS, SHOT_VERSION은 가짜 업데이트 상태의 현재 버전)
 4. **코드 서명**: 사용자는 비용을 쓸 수 없다. 무료로 할 수 있는 건 SignPath Foundation(오픈소스 무료 서명, 심사 있음, 포켓몬 IP 때문에 승인 불확실)뿐이다. 그 전까지는 서명 없이 배포하고 README에 SmartScreen 안내를 둔다. NSIS 수정도 남아 있다. macOS는 나중에 한다. 리더보드 계획은 7-9. 클라우드 동기화는 1.3.11에서 줄였다(아래 7-7).
-5. **이벤트 볼 지급 방식**(업적 보상 등)은 아직 미정이다.
-6. **같은 세션을 일반 터미널과 Claudex에서 동시에 이어 열지 않는다**(기록이 섞인다).
-7. **포켓몬 공식 효과음은 보류한다**(사용자 결정, 2026-11-06). 게임 효과음은 저작물이고 스프라이트의 PokeAPI 같은 정당한 자동 취득처가 없어서, 넣으려면 저장소에 직접 담아야 한다(그림을 저장소에 넣지 않는 원칙과 충돌). 소리를 넣게 되면 `src/sounds.ts`처럼 WebAudio로 합성한 오리지널 소리(포획·도감)로 한다.
-8. **주기적인 "띵동" 소리** — 해결(2026-11-06, 462e17e). `electron/main.cjs`의 숨은 office 창(`show: false`)이 옛 office UI(`App.tsx`)를 돌리며 이벤트마다 `playNotification()`(880Hz→1100Hz)을 울렸다. 창과 UI를 통째로 걷어냈고 `/health`의 `clients`가 1이 됐다.
+5. **같은 세션을 일반 터미널과 Claudex에서 동시에 이어 열지 않는다**(기록이 섞인다).
+6. **주기적인 "띵동" 소리** — 해결(2026-11-06, 462e17e). `electron/main.cjs`의 숨은 office 창(`show: false`)이 옛 office UI(`App.tsx`)를 돌리며 이벤트마다 `playNotification()`(880Hz→1100Hz)을 울렸다. 창과 UI를 통째로 걷어냈고 `/health`의 `clients`가 1이 됐다.
 
 ## 다음 할 일 (2026-11-06 집 PC 세션 끝, 순서대로)
 이번 세션에서 한 일: 옛 office UI와 숨은 창 제거(462e17e), 서버·훅의 office 기능 제거와 better-sqlite3 삭제(2c9b529). 권한 대화상자가 15초~10분 늦던 문제, 사파리존이 안 나오던 문제, Windows에서 status-line이 CR만 보내던 문제도 함께 고쳤다. 테스트는 Windows 기준선 대비 새 실패 0(449 통과 / 55 실패, 남은 실패는 원래 있던 파일권한·심볼릭링크·uid 문제). 테스트할 때 `AGENT_OFFICE_PORT`는 바꾸지 않는다: 3344로 두면 `static-ui`의 3334 출처 테스트 3개가 403으로 실패해서 58이 된다. `AGENT_OFFICE_HOME`만 임시 폴더로 둔다.
@@ -468,7 +464,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - Codex CLI: Claude Code와 거의 같은 훅(`SessionStart/End`, `UserPromptSubmit`, `Pre/PostToolUse`(tool_name), `PermissionRequest`, `Stop`, `SubagentStart/Stop` …), stdin JSON, `commandWindows`. hooks.json/`[hooks]`(~/.codex 또는 <repo>/.codex). 비관리 훅은 `/hooks`에서 신뢰 승인 필요(`--dangerously-bypass-hook-trust`). `-c`로 훅 주입 가능한지 미확인. 세션 id를 미리 정할 수 없음(SessionStart에서 받음), `codex resume <id>`. 사용량은 커스텀 상태줄 없음(rollout JSONL `rate_limits` 또는 `codex app-server`의 `account/rateLimits/read`). 승인 문구 "Would you like to run the following command?" 등.
      - Gemini CLI: 2026-06-18부터 개인(무료·AI Pro/Ultra) 계정은 사용 불가, Antigravity CLI(`agy`)로 이전. 훅은 있음(`BeforeTool/AfterTool`, `AfterAgent`=턴 끝, `Notification`(ToolPermission)), stdin JSON. `GEMINI_CLI_SYSTEM_SETTINGS_PATH`로 사용자 파일을 안 건드리고 주입할 수 있어 보임(미검증). `agy`의 훅 형식은 확인 못 함.
      - 결론(사용자 결정): Claude Code가 기본, 정식 지원은 Codex만. Gemini·agy는 하지 않는다(설정의 빠른 추가도 Codex만). 목표: 도구가 바뀌어도 화면은 똑같이(걸음·확인 필요·사용량·이어하기).
-   - **효과음**(`src/sounds.ts`): 파일 없이 Web Audio로 합성(포획: 두 음 올라감 + 희귀 이상 한 음 + 전설·환상 한 음, 도망: 내려가는 글리산도, 레벨 업: 짧은 3음, 진화: 5음, 이로치는 반짝임). 알림 창이 카드를 띄울 때 재생(`settings.notify.sound`, 기본 켬). 알림 창 `autoplayPolicy: 'no-user-gesture-required'`. 공식 효과음은 넣지 않는다.
+   - **효과음**(`src/sounds.ts`): 파일 없이 Web Audio로 합성(포획: 두 음 올라감 + 희귀 이상 한 음 + 전설·환상 한 음, 도망: 내려가는 글리산도, 레벨 업: 짧은 3음, 진화: 5음, 이로치는 반짝임). 알림 창이 카드를 띄울 때 재생(`settings.notify.sound`, 기본 켬). 알림 창 `autoplayPolicy: 'no-user-gesture-required'`.
 
 7-17. **2026-11-09 1.3.27**
    - 왼쪽 패널 접기: 위쪽 줄 맨 왼쪽 `w-side-toggle`(`SidePanelIcon`), `.widget.expanded.side-hidden .w-side { display: none }`, localStorage `claudex-side-hidden`. 단축키는 없음(Ctrl+B는 터미널 안에서 Claude Code가 쓴다).
@@ -537,18 +533,28 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - README: 영어·일본어에 "Using it with your own Claude Code hooks"/"What is stored and what is sent" 섹션, 세 언어 모두 async 훅·Codex·프롬프트 숨기기 반영.
    - 리뷰: opus 리뷰(중요 6) → 재검토(중요 1 남음: 놀고 있는 탭이 나중 탭의 기록을 가져감) → 재검토(닫은 탭 기록 재사용 불가, 30초 창이 너무 좁음) → 마지막 매칭 규칙(가장 최근 탭, 10초 안 FIFO, 5분 창)은 테스트로만 확인.
 
+7-25. **2026-11-11 — 탭 닫기·셸 버튼·랭킹 1~3위(branch `ui/rank-tabs`), 업데이트 재시작·시작 카드(branch `perf/restart-startup`, 계획 `docs/superpowers/plans/2026-11-11-restart-and-startup.md`, 설계 `docs/superpowers/specs/2026-11-11-restart-and-startup-design.md`). 아직 릴리스 안 함**
+   - **UI(사용자 요청)**: 위 세션 탭에 마우스를 올리면 상태 점 자리에 ×(세션 카드 닫기와 같은 동작, '닫기 전에 확인'이면 "닫기?"), ×는 span(버튼 안 버튼 불가)이고 pointerdown을 막아 끌기가 시작되지 않음. 셸(>_) 버튼은 탭 줄 오른쪽 끝에 테두리 버튼으로 고정(`.w-sess-bar` 안에서 탭만 스크롤), +는 마지막 탭 뒤 그대로(사용자: "새 세션은 동일한 위치"). 랭킹 1~3위는 포켓몬·글자 크기를 4위 이하와 같게, 행만 살짝 높게(10px), 금속색 배경 6%, 왼쪽 3px 선은 남기되 왼쪽 모서리를 각지게(사용자: 둥근 모서리에 선이 잘려 보이는 게 별로).
+   - **측정(1.3.33 실제 로그)**: 업데이트 재시작 클릭 → 새 창 약 17초 = 종료 3.5초 + 옛 main 종료·두 번째 실행·robocopy 2.7초 + **설명 안 되는 9.3초**(두 번째 실행의 staged 폴더 삭제 ~1.9초 포함) + 새 앱 1.9초. robocopy는 이미 바뀐 파일만 복사(바뀐 게 없으면 0.4초, zip이 원래 mtime을 지켜서). 부팅 직후 첫 실행은 서버 준비까지 9초 동안 화면에 아무것도 없었음. 나머지 미룬 최적화 5개(바뀐 부분만 방송, 오래된 세션 정리 1.8KB, 스프라이트 워커, 트레이 메뉴, 로그 스트림)는 수치상 효과가 작아 **하지 않기로 함**(사용자 동의).
+   - **세 프로세스**: 업데이트 재시작은 p1(옛 앱 종료) → p2(`updateRunner.cjs`: 표시 후 robocopy) → p3(새 앱). 모두 같은 작은 카드(`statusCard.cjs` + `status-card.html`, 300×96, 앱 창 가운데, 작업표시줄·포커스 없음, 설정 언어)를 띄움: p1·p2 "업데이트하는 중이에요", p3 "준비하고 있어요". **p1·p2는 이미 설치된 옛 코드가 돌리므로, 이 버전을 설치한 다음 업데이트부터 보인다.** p3 카드(= 모든 실행의 시작 카드)는 바로 보임.
+   - p2: `main.cjs` 맨 위 `if (app.isPackaged && hasPendingUpdate(...)) { runPendingUpdate(...); return }`(CJS 최상위 return, 앱의 나머지는 안 돎). 표시 파일을 먼저 지움(반복 방지), Electron 준비 후 카드, robocopy 비동기(인자 그대로), staged 폴더는 지우지 않음, `--claudex-updated`를 붙여 다시 실행. 실패해도 옛 코드로 한 번 실행.
+   - p3/모든 시작: 창 상태 읽기·트레이·시작 카드를 서버보다 먼저. 카드는 앱 창이 보일 때, 실패 대화상자 전, 30초 뒤 중 먼저인 때 닫힘. '트레이에서 시작'이면 카드 없음. 시작 중에 다시 실행하면 카드를 앞으로(`reopenAction` 'card'). 첫 페이지 로드 10초 뒤 `%TEMP%\claudex-update-*` 중 이번 실행 것이 아닌 걸 백그라운드로 지움(`cleanupStaleUpdates`).
+   - **시간 기록**: `%APPDATA%\Claudex\update.log`에 `pid=<pid> p1|p2|p3 <단계> +<직전부터>ms total=<처음부터>ms`. p1: quit-start, sessions-posted, flushed, sessions-ended, server-stopped. p2: p2-start, robocopy-start, robocopy-end(code), relaunch. p3(업데이트 직후만): start, lock(waits), server-spawned, server-ready, window-loaded, card-closed. 보통 시작도 `claudex.log`에 `[main] startup: …`.
+   - **측정 절차**: 이 코드를 담은 테스트 빌드로 한 번 재시작(이때는 옛 p1·p2가 돎) → 두 번째 테스트 빌드로 한 번 더 재시작 → update.log의 p1/p2/p3 줄로 9.3초가 어디서 나오는지 확인 → 그 수치로 3단계(고칠 것)를 작은 계획으로.
+   - 개발 전용: `CLAUDEX_DEBUG_START_DELAY_MS`로 시작을 늦춰 카드를 볼 수 있음.
+   - 리뷰(opus) 반영: 정리는 설치본에서만, updater가 만든 순간부터 그 폴더는 제외, 10분 안에 만든 폴더도 제외(압축 푸는 중인 업데이트를 지우면 반쯤 적용됨). robocopy는 stdio 무시(안 읽는 파이프가 차면 멈춤). 표시 파일을 못 지우면 이름 바꾸기, 그것도 안 되면 다시 실행하지 않음(반복 방지). p1이 카드 위치·언어를 표시 파일에 적어 p2가 같은 자리·언어로. 종료 중 window-all-closed 무시. 시작 중 예외에도 카드 닫힘.
+
 8. **다음에 할 일 (2026-11-11 기준)**
-   - **확인 대기(사용자가 1.3.33으로 업데이트한 뒤)**
-     - 업데이트 재시작이 10초 안에 끝나고 이전 Claudex 프로세스가 안 남는지: `Get-CimInstance Win32_Process -Filter "Name='Claudex.exe'"`로 재시작 시각보다 오래된 게 없어야 한다. 1.3.32 이전 빌드에서 두 번 남았다(11-09 16:59, 11-10 14:54 — 둘 다 수정 전 코드, 손으로 종료함). 수정된 종료 코드가 실제로 돈 적은 아직 없다. 남으면 relauncher를 먼저 끄고 본체 트리를 끈다(그 반대면 앱이 다시 뜬다).
+   - **확인 대기**
+     - (확인됨 2026-11-11 10:39) 1.3.33 업데이트 재시작 뒤 재시작 시각보다 오래된 Claudex.exe 없음.
+     - 7-25 테스트 빌드 두 번 재시작 → update.log 수치 읽기 → 3단계 계획.
      - Codex 탭: HP·모델·사용량 카드의 "Codex 월간"(이 계정은 30일 창) 줄, 요청·걸음, 앱 재시작 후 `codex resume`으로 같은 대화가 열리는지.
      - Port Congestion처럼 `pnpm dev`를 띄워 둔 세션이 턴이 끝나면 '쉬는 중'으로 바뀌는지.
    - **알려진 한계(사용자에게 말함)**: 예전 세션 이어하기 목록은 Claude만, Codex 안 `/new`는 그 탭이 첫 대화를 계속 따라감, Codex 권한 확인은 화면 문구 감지 그대로, Codex 한도는 서버 재시작 뒤 Codex가 다시 보고할 때까지 비어 있음(파일 저장 안 함).
-   - **카드뉴스**: 사용자가 캡처를 `Documents\claudex-promo\shots`에 넣으면 세로 4:5 6~8장. 블로그 초안은 `Documents\claudex-promo\blog.md`(한다체, 사용자의 Medium 글 말투), 이전 초안 `blog-draft1.md`.
-   - **랭킹 시상대 재디자인**: 1.3.30에서 시상대를 빼고 1~3위 행 강조로 바꿈. 사용자: "나중에 디벨롭할게".
-   - 최적화에서 미룬 큰 것(7-23): 게임 상태를 바뀐 부분만 방송, 업데이트 재시작 11~26초 단축(비동기 정리·바뀐 파일만), 서버보다 창 먼저 띄우기, `assign`/`projects` 오래된 세션 정리, 스프라이트 맞춤을 워커로, 트레이 메뉴 다시 만들기 줄이기, 로그를 스트림으로.
+   - **소개·다운로드 웹사이트**: 초안을 `Documents\claudex-site\`에 만드는 중(저장소 밖, 배포 안 함). 이름이 Spawn으로 바뀔 수 있어 제품 이름은 한곳에.
    - unslop 스킬은 `.claude/skills/unslop`에 로컬만(`.git/info/exclude`).
 
 9. **나중에**
-   - 진화의 돌 아이템. 이벤트 볼 지급은 사용자가 필요할 때 말하기로(2026-11-09). 코드 서명은 하지 않기로 함(사용자 결정, 2026-11-09). (설정·리더보드·다른 AI 도구는 7-9로 옮김)
+   - **도감만 쓰는 방식(플러그인화)** (사용자 요청, 2026-11-11): 터미널은 자기가 원하는 곳(Windows Terminal, VS Code 등)에서 쓰고 도감 수집만 하고 싶은 사람을 위한 방식. 아직 검토 전. 출발점: 앱은 이미 세션마다 `--settings`로 훅을 넣고 서버(127.0.0.1:3334)가 훅 이벤트로 게임을 돌리므로, 외부 터미널의 Claude Code에 같은 훅을 넣는 Claude Code 플러그인(옛 `.claude-plugin`은 1.3.7에서 지웠음) + 트레이/위젯만 뜨는 "도감 전용" 모드가 후보. 같은 세션을 양쪽에서 동시에 여는 문제(위 5번)와 훅 서명·토큰 처리도 같이 봐야 함. 계획부터.
+   - 코드 서명은 하지 않기로 함(사용자 결정, 2026-11-09). (설정·리더보드·다른 AI 도구는 7-9로 옮김)
    - Windows 개발자 모드(사용자가 관리자로 켜야 함, 심볼릭링크 테스트용)
-   - 공식 효과음은 보류(7번)
