@@ -64,7 +64,9 @@ const PokedexView: React.FC = () => {
   const { state } = usePokedex()
   const lang = useLang()
   const [gen, setGen] = useState<number | null>(null)
-  const [tier, setTier] = useState<Tier | null>(null)
+  // Tiers to show; none picked shows them all. Several can be on at once
+  const [tiers, setTiers] = useState<Tier[]>([])
+  const toggleTier = (k: Tier) => setTiers(cur => (cur.includes(k) ? cur.filter(x => x !== k) : [...cur, k]))
   const [show, setShow] = useState<'all' | 'caught' | 'missing'>('all')
   const [query, setQuery] = useState('')
   const [pick, setPick] = useState<number | null>(() => freshDexPick())
@@ -81,7 +83,7 @@ const PokedexView: React.FC = () => {
   useEffect(() => {
     // Not cleared after use: it expires on its own (freshDexPick), since the page that asked swaps away
     const focus = (id: number) => {
-      setGen(null); setTier(null); setShow('all'); setQuery(''); setPick(id)
+      setGen(null); setTiers([]); setShow('all'); setQuery(''); setPick(id)
       if (state?.caught?.[id]) markViewed(id)
       requestAnimationFrame(() => gridRef.current?.querySelector<HTMLElement>(`[data-id="${id}"]`)?.scrollIntoView({ block: 'center' }))
     }
@@ -103,11 +105,11 @@ const PokedexView: React.FC = () => {
   const all = POKEMON as Entry[]
   const q = query.trim().toLowerCase()
   const list = useMemo(() => all.filter(p =>
-    (gen === null || p.gen === gen) && (tier === null || p.tier === tier)
+    (gen === null || p.gen === gen) && (tiers.length === 0 || (p.tier != null && tiers.includes(p.tier)))
     && (show === 'all' || (show === 'caught' ? !!caught[p.id] : !caught[p.id]))
     // Names only for what has been met: a search must not give an unseen one away
     && (!q || String(p.id) === q.replace(/^0+/, '') || (!!(caught[p.id] || seen[p.id]) && (p.ko.includes(q) || p.en.toLowerCase().includes(q) || !!p.ja?.includes(q)))),
-  ), [all, gen, tier, show, q, caught, seen])
+  ), [all, gen, tiers, show, q, caught, seen])
   const total = state?.total ?? all.length
   // Caught out of each tier's species
   const byTier = useMemo(() => TIERS.map(t => {
@@ -164,7 +166,7 @@ const PokedexView: React.FC = () => {
             <span className="dex-flabel">{t('등급')}</span>
             <div className="dex-chips">
               {TIERS.map(k => (
-                <button key={k} className={`tier-${k}${tier === k ? ' on' : ''}`} onClick={() => setTier(tier === k ? null : k)} title={t('만날 확률 {rate}', { rate: TIER_RATE[k] })}>
+                <button key={k} className={`tier-${k}${tiers.includes(k) ? ' on' : ''}`} aria-pressed={tiers.includes(k)} onClick={() => toggleTier(k)} title={t('만날 확률 {rate}', { rate: TIER_RATE[k] })}>
                   {TIER_LABEL[k]}
                 </button>
               ))}

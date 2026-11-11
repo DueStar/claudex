@@ -2,6 +2,10 @@
 
 ## Claudex
 
+### 1.3.35
+- 위 헤더(설정 옆)와 접힌 왼쪽 패널에 말풍선 버튼이 생겼어요. 누르면 Claudex에 바라는 점(고쳐 주세요·추가해 주세요·이런 방향은 어때요·좋았던 점)을 적어 GitHub 이슈로 올릴 수 있어요. 원하면 화면에서 위치를 찍고 그 부분 화면도 함께 보낼 수 있어요(화면은 클립보드에 담겨서 이슈 본문에 Ctrl+V로 붙여요). 터미널 화면에서는 화면 첨부가 꺼진 채로 시작하고, 터미널 글자는 이슈에 적지 않아요. GitHub 계정이 없으면 복사해서 보내면 돼요.
+- 도감의 등급 필터를 여러 개 함께 고를 수 있어요. 예를 들어 희귀와 전설을 같이 켜면 둘 다 보여요.
+
 ### 1.3.34
 - 위쪽 세션 탭에 마우스를 올리면 ×가 나와서 탭에서 바로 세션을 닫을 수 있어요. 설정에서 '세션 닫기 전 확인'을 켜 두었다면 "닫기?"가 뜨고 한 번 더 누르면 닫혀요.
 - 셸 탭 버튼(>_)이 탭 줄 오른쪽 끝에 버튼으로 고정돼요. 탭이 많아져도 늘 같은 자리에 있어요.
@@ -258,6 +262,10 @@
 
 ## Claudex (English)
 
+### 1.3.35
+- A speech-bubble button in the header (next to settings) and in the folded left panel lets you say what to fix, what to add, a direction you would like, or what you liked, and post it as a GitHub issue. If you want, pin a spot on the screen and send a picture of that part too (it goes on the clipboard, so press Ctrl+V in the issue). On the terminal screen the picture starts unticked and terminal text is never written into the issue. No GitHub account? Copy it and send it instead.
+- The Pokédex tier filter takes several tiers at once: turn on Rare and Legendary together to see both.
+
 ### 1.3.34
 - Hover a session tab at the top and a × appears, so you can close the session right from its tab. With "Confirm before closing a session" on, it turns into "Close?" and closes on the second click.
 - The shell tab button (>_) now sits as a button at the right end of the tab bar, in the same place however many tabs are open.
@@ -377,6 +385,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## Claudex (日本語)
+
+### 1.3.35
+- 上のヘッダー(設定の隣)と折りたたんだ左パネルに吹き出しボタンが付きました。直してほしいこと・追加してほしいこと・こんな方向は？・よかったところを書いて GitHub の Issue として投稿できます。必要なら画面で場所を指定して、その部分の画面も一緒に送れます(画面はクリップボードに入るので Issue の本文で Ctrl+V)。ターミナル画面では画面の添付はオフで始まり、ターミナルの文字は Issue に書きません。GitHub アカウントがなければコピーして送れます。
+- 図鑑のランクの絞り込みを複数まとめて選べます。たとえばレアと伝説を一緒にオンにすると両方が出ます。
 
 ### 1.3.34
 - 上のセッションタブにマウスを乗せると × が出て、タブからそのままセッションを閉じられます。設定の「セッションを閉じる前に確認」がオンなら「閉じる？」に変わり、もう一度押すと閉じます。

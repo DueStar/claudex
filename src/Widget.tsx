@@ -629,7 +629,7 @@ const Widget: React.FC = () => {
               </div>
             )
           })()}
-          <button className="w-rail-btn" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기 · 화면에 핀을 꽂아 남겨요')} aria-label={t('의견 보내기')}><FeedbackIcon size={15} /></button>
+          <button className="w-rail-btn" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기')} aria-label={t('의견 보내기')}><FeedbackIcon size={15} /></button>
           <button className="w-rail-btn" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={15} /></button>
         </nav>
       )}
@@ -667,7 +667,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   : update.error ? t('업데이트 실패 · 다시 시도') : t('업데이트')}
               </button>
             )}
-            <button className="w-icon" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기 · 화면에 핀을 꽂아 남겨요')} aria-label={t('의견 보내기')}><FeedbackIcon size={14} /></button>
+            <button className="w-icon" onClick={() => setFeedbackOpen(true)} title={t('의견 보내기')} aria-label={t('의견 보내기')}><FeedbackIcon size={14} /></button>
             <button className="w-icon" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={14} /></button>
             {!expanded && (
               <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>

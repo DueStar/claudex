@@ -1,12 +1,12 @@
 /**
- * FeedbackPin — feedback with a pin on the screen.
+ * FeedbackPin — feedback about Claudex, with a pin on the screen if wanted.
  *
- * Mounted while it is open. First the trainer picks a spot (the page under it
- * does not react); a pin goes there and a small picture of that part is taken.
- * Then a note: what kind, a line of text, and whether the picture goes along.
- * Sending opens a new GitHub issue on our repo, filled in by the app
- * (electron/feedback.cjs); the picture goes on the clipboard for a Ctrl+V.
- * "Just write" skips the pin. On the terminal screen the picture starts off and
+ * Mounted while it is open. It opens on the note: what kind and a line of text.
+ * Pinning a spot is optional: the trainer picks one (the page under it does not
+ * react), a pin goes there and a small picture of that part is taken; sending
+ * the picture is a separate tick. Sending opens a new GitHub issue on our repo,
+ * filled in by the app (electron/feedback.cjs); the picture goes on the
+ * clipboard for a Ctrl+V. On the terminal screen the picture starts unticked and
  * no terminal text is written down, so code or paths never land in a public issue.
  */
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -49,12 +49,13 @@ function snippet(el: Element): string {
   return s.length > 80 ? `${s.slice(0, 80)}…` : s
 }
 
-/** The part to picture: the element when it is a sensible size, else a box around the pin */
+/** The part to picture: the nearest element around the pin of a sensible size, else a box around it */
 function areaFor(el: Element, x: number, y: number): Rect {
-  const r = el.getBoundingClientRect()
   const pad = 24
-  if (r.width >= 120 && r.height >= 60 && r.width <= 900 && r.height <= 560) {
-    return { x: r.left - pad, y: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 }
+  for (let n: Element | null = el; n && n !== document.body; n = n.parentElement) {
+    const r = n.getBoundingClientRect()
+    if (r.width > 900 || r.height > 560) break
+    if (r.width >= 80 && r.height >= 48) return { x: r.left - pad, y: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 }
   }
   const w = 520, h = 320
   return { x: x - w / 2, y: y - h / 2, width: w, height: h }
@@ -63,7 +64,7 @@ function areaFor(el: Element, x: number, y: number): Rect {
 const nextFrame = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
 export default function FeedbackPin({ view, onClose }: { view: string; onClose(): void }) {
-  const [phase, setPhase] = useState<'pick' | 'shoot' | 'write'>('pick')
+  const [phase, setPhase] = useState<'pick' | 'shoot' | 'write'>('write')
   const [hover, setHover] = useState<DOMRect | null>(null)
   const [spot, setSpot] = useState<Spot | null>(null)
   const [shot, setShot] = useState<string | null>(null)
@@ -76,15 +77,32 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const [popAt, setPopAt] = useState<{ left: number; top: number } | null>(null)
 
+  // Esc: out of picking back to the note, else closed
+  const phaseRef = useRef(phase)
+  phaseRef.current = phase
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.preventDefault(); e.stopPropagation()
-      onClose()
+      if (phaseRef.current === 'pick') setPhase('write')
+      else if (phaseRef.current === 'write') onClose()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
+
+  function startPick() {
+    setMsg(null)
+    setPopAt(null)
+    setPhase('pick')
+  }
+
+  function clearSpot() {
+    setSpot(null)
+    setShot(null)
+    setAttach(false)
+    setPopAt(null)
+  }
 
   async function pick(e: React.MouseEvent) {
     const el = under(e.clientX, e.clientY)
@@ -103,13 +121,7 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
     const img = await bridge?.feedback?.capture(s.area).catch(() => null)
     setShot(img ?? null)
     setAttach(!!img && !inTerminal)
-    setPhase('write')
-  }
-
-  function justWrite() {
-    setSpot(null)
-    setShot(null)
-    setAttach(false)
+    setPopAt(null)
     setPhase('write')
   }
 
@@ -126,7 +138,7 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
     const top = Math.max(12, Math.min(spot.y - 24, H - h - 12))
     setPopAt({ left, top })
     areaRef.current?.focus({ preventScroll: true })
-  }, [phase, spot, shot])
+  }, [phase, spot, shot, popAt === null])
   useEffect(() => { if (phase === 'write') areaRef.current?.focus({ preventScroll: true }) }, [phase])
 
   const note = () => ({
@@ -162,34 +174,33 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
           onMouseMove={e => { const el = under(e.clientX, e.clientY); setHover(el && !isOurs(el) ? el.getBoundingClientRect() : null) }}
           onMouseLeave={() => setHover(null)}
           onClick={pick}
-          onContextMenu={e => { e.preventDefault(); onClose() }}
+          onContextMenu={e => { e.preventDefault(); setPhase('write') }}
         />
       )}
       {phase === 'pick' && hover && (
-        <div className="fb-hover" style={{ left: hover.left, top: hover.top, width: hover.width, height: hover.height }} />
+        <div className="fb-ui fb-hover" style={{ left: hover.left, top: hover.top, width: hover.width, height: hover.height }} />
       )}
       {phase === 'pick' && (
         <div className="fb-ui fb-bar" role="status">
           <span>{t('의견을 남길 곳을 눌러 주세요')}</span>
-          <button type="button" className="fb-bar-btn" onClick={justWrite}>{t('그냥 쓰기')}</button>
-          <button type="button" className="fb-bar-btn ghost" onClick={onClose}>{t('취소')}</button>
+          <button type="button" className="fb-bar-btn ghost" onClick={() => setPhase('write')}>{t('취소')}</button>
         </div>
       )}
-      {spot && <div className={`fb-ui fb-pin${sent ? ' sent' : ''}`} style={{ left: spot.x, top: spot.y }} aria-hidden="true" />}
+      {spot && phase !== 'pick' && <div className={`fb-ui fb-pin${sent ? ' sent' : ''}`} style={{ left: spot.x, top: spot.y }} aria-hidden="true" />}
       {phase === 'write' && (
         <div
           ref={popRef}
           className="fb-ui fb-pop"
           role="dialog"
-          aria-label={spot ? t('여기에 한마디') : t('Claudex에 바라는 점')}
+          aria-label={t('Claudex에 바라는 점')}
           style={popAt ? { left: popAt.left, top: popAt.top } : { visibility: 'hidden' }}
           onKeyDown={e => e.stopPropagation()}
         >
           <div className="fb-pop-head">
-            <strong>{spot ? t('여기에 한마디') : t('Claudex에 바라는 점')}</strong>
+            <strong>{t('Claudex에 바라는 점')}</strong>
             <button type="button" className="fb-x" onClick={onClose} aria-label={t('닫기')}>×</button>
           </div>
-          {!spot && <p className="fb-lead">{t('고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.')}</p>}
+          <p className="fb-lead">{t('고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.')}</p>
           <div className="fb-kinds" role="group">
             {KINDS.map(k => (
               <button key={k.id} type="button" className={`fb-kind${kind === k.id ? ' on' : ''}`} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>{t(k.label)}</button>
@@ -205,7 +216,23 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
             aria-label={t('의견')}
             onChange={e => { setText(e.target.value); setMsg(null) }}
           />
-          {shot && (
+          {!spot && (
+            <div className="fb-spot">
+              <button type="button" className="fb-spot-btn" onClick={startPick}>
+                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M8 1.5a4.6 4.6 0 0 0-4.6 4.6C3.4 9.6 8 14.5 8 14.5s4.6-4.9 4.6-8.4A4.6 4.6 0 0 0 8 1.5Zm0 6.3a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4Z" /></svg>
+                {t('화면에서 위치 찍기')}
+              </button>
+              <span>{t('선택 · 찍은 부분의 화면도 함께 보낼 수 있어요')}</span>
+            </div>
+          )}
+          {spot && (
+            <div className="fb-spot-acts">
+              <span>{t('위치를 찍었어요')}</span>
+              <button type="button" onClick={startPick}>{t('다시 찍기')}</button>
+              <button type="button" onClick={clearSpot}>{t('위치 빼기')}</button>
+            </div>
+          )}
+          {spot && shot && (
             <label className={`fb-shot${attach ? '' : ' off'}`}>
               <img src={shot} alt="" />
               <span className="fb-shot-row">
