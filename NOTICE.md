@@ -13,7 +13,8 @@ The code inherited from Claude-Office and the code added in this repository.
 
 - **Pokémon names, data and artwork.** Pokémon and all related names and art are
   © Nintendo / Creatures Inc. / GAME FREAK inc.
-  - The repository holds no Pokémon or Poké Ball artwork.
+  - The repository holds no Pokémon artwork and none of the games' Poké Ball artwork
+    (the Poké Ball icon below is a separate, openly licensed drawing).
   - Pokémon pictures are downloaded by the app on first use from PokeAPI's public
     sprites (https://github.com/PokeAPI/sprites) and kept on the user's PC
     (`server/sprites.js`).
@@ -25,7 +26,16 @@ The code inherited from Claude-Office and the code added in this repository.
 
   None of this is licensed by this repository.
 
-## Original art
+## The Poké Ball icon
 
-- `public/sprites/spawn-ball.png` and the default icons in `build/` and `electron/assets/`
-  are original drawings made by `tools/build-icons.py` (MIT).
+- spawn's own Poké Ball icon — `public/brand/pokeball.svg`, the app, window and tray icons
+  in `build/` and `electron/assets/`, and `public/sprites/spawn-ball.png` — is
+  **"Poké Ball icon" by Andreuvv**, from Wikimedia Commons
+  (https://commons.wikimedia.org/wiki/File:Pok%C3%A9_Ball_icon.svg), licensed under
+  **CC BY-SA 4.0** (https://creativecommons.org/licenses/by-sa/4.0/). Changes: the empty
+  margin is cropped and the picture is rendered to PNG at icon sizes. These files are
+  shared under the same licence, not under MIT.
+- The Poké Ball design itself may be protected as a trademark of Nintendo / Creatures Inc. /
+  GAME FREAK inc.; this is a non-commercial fan project.
+- `tools/build-icons.py` (MIT) can still draw the earlier, original ball icons; they are
+  no longer used.
