@@ -99,7 +99,7 @@ process.on('unhandledRejection', (err) => { console.error('[main] unhandled reje
 let updater = null
 
 const PRELOAD = path.join(__dirname, 'preload.cjs')
-const APP_ICON = path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png')
+const APP_ICON = path.join(__dirname, 'assets', 'icon.png')
 const REPO_ROOT = path.join(__dirname, '..')
 
 // The server's port: SPAWN_PORT, default 3334 (helpers.cjs mirrors
@@ -659,8 +659,7 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     minWidth: (isWidget ? WIDGET_MIN : WINDOW_MIN).width,
     minHeight: (isWidget ? WIDGET_MIN : WINDOW_MIN).height,
     title: 'spawn',
-    // The taskbar shows the window's own icon: an install updated from Claudex still runs
-    // Claudex.exe (in-app updates replace only resources/app), whose built-in icon is the old one
+    // The window's own icon (the Poké Ball), so the taskbar shows it whatever exe runs the app
     icon: APP_ICON,
     frame: false,
     transparent: isWidget,

@@ -74,7 +74,7 @@
     ],
     "npmRebuild": false,
     "win": {
-      "icon": "build/icon.ico",
+      "icon": "build/icon.png",
       "target": [
         "dir"
       ]

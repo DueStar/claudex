@@ -50,9 +50,7 @@ $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($link)
 $shortcut.TargetPath = $exe
 $shortcut.WorkingDirectory = $InstallDir
-# An install updated from Claudex keeps Claudex.exe and its old built-in icon: use the app's own icon file
-$ico = Join-Path $InstallDir 'resources\app\electron\assets\icon.ico'
-$shortcut.IconLocation = if (Test-Path $ico) { "$ico,0" } else { "$exe,0" }
+$shortcut.IconLocation = "$exe,0"
 $shortcut.Description = 'spawn'
 $shortcut.Save()
 

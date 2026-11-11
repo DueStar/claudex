@@ -77,9 +77,6 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 }
 .w-brand { -webkit-app-region: no-drag; margin-right: auto; font: inherit; font-weight: 570; font-size: 14px; letter-spacing: -0.03em; /* the wordmark: Uncut Sans 570, -3% */ color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .w-brand:hover { color: var(--accent); }
-.spawn-mark { display: block; flex: none; }
-/* the symbol sits a little closer to the name than the header's other items */
-.w-head > .spawn-mark { margin-right: -3px; }
 .w-conn { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .w-conn.off { background: var(--ink-3); box-shadow: none; }
 .w-icon {

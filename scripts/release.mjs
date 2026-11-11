@@ -118,11 +118,16 @@ ${bar}
 ${bar}
 `)
 }
-// The app and tray icons are spawn's own (build/icon.png, electron/assets/), from the brand set;
-// until 1.3.35 they were the games' Poké Ball, drawn by tools/build-icons.py at build time
-run('npx', ['vite', 'build'])
-checkDist(join(root, 'dist')) // every page loads its own CSS (scripts/dist-check.mjs)
-run('npx', ['electron-builder', '--win', 'dir', '--x64'])
+// The games' Poké Ball as the app icon when its art was imported; the drawn icons come back after
+const ICONS = ['build/icon.png', 'electron/assets/icon.png', 'electron/assets/tray-16.png', 'electron/assets/tray-32.png', 'electron/assets/tray-48.png']
+run('python', ['-I', join(root, 'tools', 'build-icons.py'), root, '--official'], { shell: false })
+try {
+  run('npx', ['vite', 'build'])
+  checkDist(join(root, 'dist')) // every page loads its own CSS (scripts/dist-check.mjs)
+  run('npx', ['electron-builder', '--win', 'dir', '--x64'])
+} finally {
+  execFileSync('git', ['checkout', '--', ...ICONS], { cwd: root, stdio: 'inherit' })
+}
 
 // Nothing of Nintendo's may ride along
 const appDir = join(unpacked, 'resources', 'app')
