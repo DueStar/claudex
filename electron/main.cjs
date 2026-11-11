@@ -49,7 +49,7 @@ adoptLegacyEnv(process.env)
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'spawn-dev'))
 // The app was called Claudex until 1.3.35: its folder (%APPDATA%/Claudex, or Claudex-dev)
 // is copied to the new name once, before anything reads it (userDataMigration.cjs)
-migrateUserData({ from: path.join(app.getPath('appData'), app.isPackaged ? 'Claudex' : 'Claudex-dev'), to: app.getPath('userData') })
+const userDataCopy = migrateUserData({ from: path.join(app.getPath('appData'), app.isPackaged ? 'Claudex' : 'Claudex-dev'), to: app.getPath('userData') })
 // An update staged by the last run goes in before anything else loads, behind the
 // "updating" card; then the app starts again on the new code (updateRunner.cjs).
 // Nothing else of the app runs in this process: the top-level return below.
@@ -78,6 +78,9 @@ if (app.isPackaged && hasPendingUpdate(app.getPath('userData'))) {
 // userData/logs/spawn.log: the console of this process and of the server
 const log = createLog(path.join(app.getPath('userData'), 'logs'))
 teeConsole(log)
+if (userDataCopy.status === 'copied' || userDataCopy.status === 'partial') {
+  console.log(`[main] settings folder copied from the Claudex one: ${userDataCopy.status}, ${userDataCopy.copied.length} copied${userDataCopy.failed.length ? `, left for the next start: ${userDataCopy.failed.join('; ')}` : ''}`)
+}
 console.log(`[main] spawn ${app.getVersion()} starting (electron ${process.versions.electron}${app.isPackaged ? '' : ', dev'})`)
 // How long the start takes, step by step: in spawn.log always, and in update.log
 // with the restart's other steps when this run follows an update (updateTiming.cjs)
