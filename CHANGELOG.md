@@ -2,6 +2,15 @@
 
 ## spawn
 
+### 1.3.39
+- 앱 아이콘, 트레이, 왼쪽 위 로고가 새 몬스터볼 그림(살짝 비스듬히 본 모습)으로 바뀌었어요. 실행 파일 아이콘까지 바꾸려면 Releases에서 전체 zip을 새로 받아 설치해 주세요(업데이트로는 창과 트레이 아이콘만 바뀌어요). 작업 표시줄에 예전 그림이 남아 있으면 Windows 아이콘 캐시 때문이라, 로그아웃했다 들어오거나 PC를 다시 켜면 바뀌어요.
+- 왼쪽 패널 위 몬스터볼 옆에 spawn 글자가 다시 보여요.
+- 기록 화면이 비어 보이던 문제를 고쳤어요. 세션을 많이 열면 최근 포획·레벨업이 목록 밖으로 밀려 안 보였어요(기록은 지워지지 않았어요).
+- 박스 칸에서 레벨과 볼 표시를 뺐어요. 칸을 누르면 오른쪽 카드에서 볼 수 있어요.
+- 도감의 등급별 만날 확률 표와 확률 문구를 없앴어요.
+- 왼쪽 패널을 접었을 때 구분선이 끝에서 끝까지 이어지고, 사용량 막대 아래 글자가 빠지고, 설정 아래에 프로필이 보여요(누르면 패널이 펼쳐지며 계정 카드가 열려요).
+- 설정 버튼과 패널 접기 버튼의 색이 같아졌어요.
+
 ### 1.3.38
 - 앱 아이콘, 트레이, 왼쪽 위 로고가 몬스터볼 그림으로 바뀌었어요. 실행 파일 아이콘까지 바꾸려면 Releases에서 새로 받아 설치해 주세요(업데이트로는 창과 트레이 아이콘만 바뀌어요).
 - "새로운 세션 시작하기" 버튼에는 몬스터볼 대신 + 가 보여요.
@@ -285,6 +294,15 @@
 
 ## spawn (English)
 
+### 1.3.39
+- The app icon, the tray and the logo at the top left are a new Poké Ball picture (seen slightly from the side). For the exe's own icon too, download the full zip from Releases and install it fresh (an update changes the window and tray icons only). If the taskbar still shows the old picture, that is Windows' icon cache: sign out and back in, or restart the PC.
+- The word spawn is back next to the Poké Ball at the top of the left panel.
+- Fixed the log view looking empty: with many sessions opened, the latest catches and level-ups were pushed out of the list (nothing was deleted).
+- Box cells no longer show the level and the ball; click a cell to see them on the card.
+- The Pokédex no longer shows the encounter rate table or the rate hints.
+- With the left panel folded, the dividers run edge to edge, the label under the usage bars is gone, and your profile sits under Settings (click it to unfold the panel onto the account card).
+- The Settings and fold-panel buttons are the same colour.
+
 ### 1.3.38
 - The app icon, the tray and the logo at the top left are a Poké Ball picture now. For the exe's own icon too, download and install it fresh from Releases (an update changes the window and tray icons only).
 - The "Start a new session" button shows a + instead of a Poké Ball.
@@ -431,6 +449,15 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.39
+- アプリアイコン・トレイ・左上のロゴが新しいモンスターボールの絵(少し斜めから見た形)になりました。実行ファイルのアイコンも変えるには、Releases から完全版 zip を入れ直してください(アップデートではウィンドウとトレイのアイコンだけが変わります)。タスクバーに古い絵が残るときは Windows のアイコンキャッシュのせいなので、サインインし直すか PC を再起動すると変わります。
+- 左パネルの上、モンスターボールの横に spawn の文字が戻りました。
+- 記録画面が空に見える問題を直しました。セッションをたくさん開くと最近の捕獲・レベルアップが一覧から押し出されていました(記録は消えていません)。
+- ボックスのマスからレベルとボールの表示を外しました。マスを押すと右のカードで見られます。
+- 図鑑のランク別出現率の表と出現率の表示をなくしました。
+- 左パネルをたたんだとき、区切り線が端から端まで届き、使用量バーの下の文字がなくなり、設定の下にプロフィールが出ます(押すとパネルが開いてアカウントカードが開きます)。
+- 設定ボタンとパネルをたたむボタンの色がそろいました。
 
 ### 1.3.38
 - アプリアイコン・トレイ・左上のロゴがモンスターボールの絵になりました。実行ファイルのアイコンも変えるには、Releases から新しく入れ直してください(アップデートではウィンドウとトレイのアイコンだけが変わります)。

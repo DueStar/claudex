@@ -630,19 +630,26 @@ const Widget: React.FC = () => {
                     return <span key={b.key} className={`w-rail-bar${v >= 90 ? ' high' : v >= 70 ? ' mid' : ''}`}><i style={{ height: `${v}%` }} /></span>
                   })}
                 </div>
-                <span className="w-rail-usage-label" aria-hidden="true">{t('사용량')}</span>
               </div>
             )
           })()}
           <button className="w-rail-btn" onClick={() => setSettingsOpen(true)} title={t('설정')} aria-label={t('설정')}><GearIcon size={15} /></button>
+          {/* The profile, as in the panel's header: it unfolds the panel onto the account card */}
+          {cloud?.enabled && (cloud.user ? (
+            <button className="w-rail-btn w-rail-account" onClick={() => { toggleSide(); setAccountOpen(true) }} title={cloud.user.email ?? ''} aria-label={t('계정')}>
+              <span className="w-account">{cloud.user.avatar ? <img src={cloud.user.avatar} alt="" referrerPolicy="no-referrer" /> : (cloud.user.name ?? cloud.user.email ?? '?').slice(0, 1)}</span>
+            </button>
+          ) : (
+            <button className="w-rail-btn w-rail-signin" onClick={signIn} title={t('Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요')}>{t('로그인')}</button>
+          ))}
         </nav>
       )}
       <div className="w-side">
         <div className="w-bento">
           <header className="w-card w-head">
-            {/* Just the ball (no name), the same size and spot as the folded rail's, so the logo
-                stays put when the panel folds; it opens the patch notes */}
-            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })} aria-label={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}><PokeBall size={20} /></button>
+            {/* The ball, the same size and spot as the folded rail's so the logo stays put when the
+                panel folds, and the wordmark beside it; it opens the patch notes */}
+            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })} aria-label={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}><PokeBall size={20} /><span className="w-brand-name">spawn</span></button>
             <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? t('연결됨') : t('서버 연결 끊김')} />
             {cloud?.enabled && (cloud.user ? (
               <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${t('{time} 동기화', { time: new Date(cloud.lastSyncAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) })}` : ''}`}>

@@ -138,11 +138,6 @@ export interface DexState {
 /** Tier names in the language in use (read like a map, worked out on each read) */
 export const TIER_LABEL = new Proxy({} as Record<Tier, string>, { get: (_t, k) => tierName(String(k)) })
 
-/** The encounter odds the server rolls (server/pokedex.js RATES), for the dex's rate table */
-export const TIER_RATE: Record<Tier, string> = {
-  common: '74%', rare: '21%', sub: '3.6%', legendary: '1.0%', mythical: '0.4%',
-}
-
 /** Official type names in the language in use (the name says Korean; it is the type's display name) */
 export const TYPE_KO = new Proxy({} as Record<string, string>, { get: (_t, k) => typeName(String(k)) })
 

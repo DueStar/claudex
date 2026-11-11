@@ -3,7 +3,7 @@
  * what got away, evolutions and releases, newest first under a heading per
  * day, each with its Pokémon's SV box icon. A day's level-ups fold into one
  * small line (each Pokémon once, at its highest level that day), with today's summary on top. It is the save's log (the
- * newest LOG_LIMIT events, server/pokedex.js), so it reaches back as far as
+ * newest PUBLIC_LOG shown events, server/pokedex.js), so it reaches back as far as
  * that holds.
  */
 

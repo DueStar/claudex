@@ -70,7 +70,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   border-radius: 14px;
   -webkit-app-region: drag;
 }
-.w-brand { -webkit-app-region: no-drag; margin-right: auto; font: inherit; font-weight: 570; font-size: 14px; letter-spacing: -0.03em; /* the wordmark: Uncut Sans 570, -3% */ color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.w-brand { -webkit-app-region: no-drag; margin-right: auto; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; font-size: 17px; line-height: 1; letter-spacing: -0.02em; /* the wordmark: Uncut Sans 600, 17px, -2% */ color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+/* Lowercase sits low in its line box: the x-height's middle is 1.5px under the ball's, lifted 0.75 (by eye) */
+.w-brand-name { display: block; transform: translateY(-0.75px); }
 .w-brand:hover { color: var(--accent); }
 .w-brand .pokeball { display: block; }
 .w-brand:hover .pokeball { filter: brightness(1.1); }

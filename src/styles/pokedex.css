@@ -183,16 +183,6 @@
 .dex-help .dex-fine { margin: 2px 0 0; }
 .dex-box { background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .dex-box h4 { margin: 0 0 2px; font-size: 12px; color: var(--ink-3); font-weight: 650; }
-.dex-rate { display: grid; grid-template-columns: 44px 1fr 52px; align-items: center; gap: 8px; font-size: 11px; }
-/* The rate table: one grid, its label column as wide as the longest label in this language ("Sub-legendary"), never wrapping */
-.dex-rates { display: grid; grid-template-columns: max-content 1fr auto; column-gap: 8px; row-gap: 6px; align-items: center; }
-.dex-rates > h4 { grid-column: 1 / -1; }
-.dex-rates .dex-rate { display: contents; }
-.dex-rates .dex-rate span, .dex-rates .dex-rate em { white-space: nowrap; }
-.dex-rate span { color: var(--tier); font-weight: 650; }
-.dex-rate i { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
-.dex-rate b { display: block; height: 100%; border-radius: 2px; background: var(--tier); }
-.dex-rate em { font-style: normal; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 .dex-card { display: flex; flex-direction: column; gap: 6px; }
 .dex-card-art {
@@ -362,13 +352,11 @@
 .box-grid .box-cell { width: auto; height: auto; aspect-ratio: 1; content-visibility: auto; contain-intrinsic-size: auto 96px; }
 .box-party-row .box-cell { width: 88px; height: 88px; }
 .box-shiny { position: absolute; right: 4px; top: 2px; font-size: 10px; color: #fff3a0; }
-/* bottom-left, clear of the level (top-left) and the shiny mark (top-right) */
+/* bottom-left, clear of the shiny mark (top-right) */
 .box-working { position: absolute; left: 6px; bottom: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
-.box-lv { position: absolute; left: 5px; top: 3px; font-size: 10px; font-weight: 650; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .dex-lv { font-size: 10px; font-weight: 700; color: var(--ink-2); margin-right: 2px; font-variant-numeric: tabular-nums; }
-.box-ball { position: absolute; right: 4px; bottom: 4px; opacity: 0.95; }
 .box-ball-dd { display: inline-flex; align-items: center; gap: 5px; }
-.box-cell img.box-ball, .dex-owned-top img.pokeball { width: 14px; height: 14px; }
+.dex-owned-top img.pokeball { width: 14px; height: 14px; }
 .box-ball-dd img.pokeball { width: 16px; height: 16px; }
 /* SV icons by default (small cells, many to a screen); the HOME pictures on the switch */
 .box.look-icon .box-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 10px; }
@@ -377,8 +365,6 @@
    blown up to the cell went blurry), big ones scaled down into the cell */
 .box.look-icon .box-cell img:not(.pokeball) { width: auto; height: auto; max-width: 48px; max-height: 48px; }
 .box.look-icon .box-party-row .box-cell { width: 76px; height: 76px; padding: 14px; }
-.box.look-icon .box-lv { font-size: 10px; left: 4px; top: 2px; }
-.box.look-icon .box-ball { right: 3px; bottom: 3px; }
 /* The detail card */
 .box .dex-card { position: relative; }
 .box-close {

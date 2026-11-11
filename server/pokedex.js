@@ -92,6 +92,9 @@ export const STEP_SPACING_MS = 8 * 1000
 const MAX_PENDING_STEPS = 300
 /** The saved log keeps this many events */
 export const LOG_LIMIT = 600
+/** The client gets this many of the newest log events it shows (not sendouts, swaps, exchanges) */
+const PUBLIC_LOG = 200
+const LOG_HIDDEN = new Set(['sendout', 'swap', 'exchange'])
 
 // ---------------------------------------------------------------------------
 // Levels: 1 to 100 like the games. A wild Pokémon is met at level 1–55 (by
@@ -451,7 +454,9 @@ ${agentId}`
       pity: PITY,
       pityMythical: PITY_MYTHICAL,
       total: species.length,
-      log: state.log.slice(-30),
+      // The log views skip the bookkeeping kinds; drop them before cutting, or a run of
+      // sendouts (many sessions opened, restarts) pushes every catch out of the window
+      log: state.log.filter(e => !LOG_HIDDEN.has(e.kind)).slice(-PUBLIC_LOG),
       // Today's story (local day): catches, flees, evolutions, level-ups, releases
       today: state.log.filter(e => localDay(e.at) === localDay(now())),
     }

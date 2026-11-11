@@ -398,7 +398,8 @@
 .w-rail-conn { position: absolute; right: 5px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px #0e1015; }
 .w-rail-conn.off { background: var(--danger); }
 .w-rail-update { width: 30px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; }
-.w-rail-sep { flex: none; width: 24px; height: 1px; margin: 4px 0; background: var(--line); }
+/* Full width, like the open panel's dividers */
+.w-rail-sep { flex: none; align-self: stretch; height: 1px; margin: 4px 0; background: var(--line); }
 /* Open sessions: the Pokémon with its status dot; many of them scroll inside the column */
 .w-rail-sessions { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; overflow-y: auto; overflow-x: hidden; }
 .w-rail-sessions::-webkit-scrollbar { width: 0; }
@@ -413,14 +414,13 @@
 /* Usage: two thin bars filling from the bottom */
 .w-rail-usage { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; cursor: default; }
 .w-rail-bars { display: flex; gap: 4px; align-items: flex-end; height: 30px; }
-.w-rail-usage-label { font-size: 9px; line-height: 1; color: var(--ink-3); white-space: nowrap; }
 .w-rail-bar { position: relative; width: 5px; height: 100%; border-radius: 3px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
 .w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--green); }
 .w-rail-bar.mid i { background: var(--amber); }
 .w-rail-bar.high i { background: var(--danger); }
+.w-rail-account .w-account { width: 26px; height: 26px; pointer-events: none; }
+.w-rail-signin { width: 46px; height: 28px; font-size: 11px; font-weight: 600; }
 .w-side-toggle { flex: none; -webkit-app-region: no-drag; }
-.w-head .w-side-toggle { color: var(--ink-3); }
-.w-head .w-side-toggle:hover { color: var(--ink); }
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
 .w-row { position: relative; user-select: none; touch-action: none; }
 .w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }

@@ -150,8 +150,6 @@ const BoxView: React.FC<{ resting?: Set<string> }> = ({ resting }) => {
     >
       <img src={look === 'icon' ? iconUrl(m.dex) : spriteUrl(m.dex, m.shiny)} alt="" loading="lazy" draggable={false} />
       {m.shiny && <span className="box-shiny">✦</span>}
-      <PokeBall ball={m.ball} size={14} className="box-ball" />
-      <span className="box-lv">Lv.{levelOf(m)}</span>
       {working.has(m.uid) && <span className="box-working" />}
     </button>
   )

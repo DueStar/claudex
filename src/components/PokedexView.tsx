@@ -12,7 +12,7 @@ import { POKEMON, spriteUrl, iconUrl, type PokemonEntry } from '../theme'
 import TEXT from 'virtual:pokedex-text'
 import { bridge } from '../desktop'
 import { PokeBall } from './Icons'
-import { ballName, levelOf, usePokedex, useViewed, markViewed, TIER_LABEL, TIER_RATE, TYPE_KO, NATURE_BY_ID, genderMark, sourceText, placeText, type Tier } from '../pokedexStore'
+import { ballName, levelOf, usePokedex, useViewed, markViewed, TIER_LABEL, TYPE_KO, NATURE_BY_ID, genderMark, sourceText, placeText, type Tier } from '../pokedexStore'
 import { t, locale, nameOf, statName, useLang } from '../i18n'
 
 const GENS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -137,7 +137,7 @@ const PokedexView: React.FC = () => {
           <div className="dex-stat dex-stat-tiers">
             <div className="dex-tiers">
               {byTier.map(({ t: k, total: n, caught: c }) => (
-                <div key={k} className={`dex-tiercol tier-${k}`} title={`${TIER_LABEL[k]} ${t('{c} / {n}종', { c, n })} · ${t('만날 확률 {rate}', { rate: TIER_RATE[k] })}`}>
+                <div key={k} className={`dex-tiercol tier-${k}`} title={`${TIER_LABEL[k]} ${t('{c} / {n}종', { c, n })}`}>
                   <span>{TIER_LABEL[k]}</span>
                   <em>{c}<small> / {n}</small></em>
                   <i><b style={{ width: `${n ? (c / n) * 100 : 0}%` }} /></i>
@@ -166,7 +166,7 @@ const PokedexView: React.FC = () => {
             <span className="dex-flabel">{t('등급')}</span>
             <div className="dex-chips">
               {TIERS.map(k => (
-                <button key={k} className={`tier-${k}${tiers.includes(k) ? ' on' : ''}`} aria-pressed={tiers.includes(k)} onClick={() => toggleTier(k)} title={t('만날 확률 {rate}', { rate: TIER_RATE[k] })}>
+                <button key={k} className={`tier-${k}${tiers.includes(k) ? ' on' : ''}`} aria-pressed={tiers.includes(k)} onClick={() => toggleTier(k)}>
                   {TIER_LABEL[k]}
                 </button>
               ))}
@@ -224,20 +224,6 @@ const PokedexView: React.FC = () => {
         </div>
 
         <aside className="dex-detail">
-          {!detail && (
-            <div className="dex-help">
-              <section className="dex-box dex-rates">
-                <h4>{t('등급별 만날 확률')}</h4>
-                {TIERS.map(t => (
-                  <div key={t} className={`dex-rate tier-${t}`}>
-                    <span>{TIER_LABEL[t]}</span>
-                    <i><b style={{ width: `${Math.max(2, parseFloat(TIER_RATE[t]))}%` }} /></i>
-                    <em>{TIER_RATE[t]}</em>
-                  </div>
-                ))}
-              </section>
-            </div>
-          )}
           {detail && (
             <div className={`dex-card tier-${detail.tier}`}>
               <div className="dex-card-art">
