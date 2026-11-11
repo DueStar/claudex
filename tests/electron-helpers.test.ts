@@ -325,6 +325,9 @@ describe('app lifecycle', () => {
     expect(h.reopenAction({ starting: false, hasWindow: true, windowCount: 1 })).toBe('show')
     expect(h.reopenAction({ starting: false, hasWindow: false, windowCount: 0 })).toBe('create')
     expect(h.reopenAction({ starting: false, hasWindow: false, windowCount: 1 })).toBe('none')   // some other window (DevTools)
+    // While the starting card is up, a second launch brings it forward
+    expect(h.reopenAction({ starting: true, hasWindow: false, windowCount: 1, hasCard: true })).toBe('card')
+    expect(h.reopenAction({ quitting: true, starting: true, hasWindow: false, windowCount: 1, hasCard: true })).toBe('none')
     // Quitting (after the error dialog of a failed startup): no second attempt
     expect(h.reopenAction({ quitting: true, starting: false, hasWindow: false, windowCount: 0 })).toBe('none')
   })

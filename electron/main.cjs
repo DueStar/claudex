@@ -3,6 +3,7 @@
 const { app, BrowserWindow, Menu, Notification, dialog, screen, shell, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const os = require('os')
 const { spawn } = require('child_process')
 const http = require('http')
 const {
@@ -64,6 +65,18 @@ if (app.isPackaged && hasPendingUpdate(app.getPath('userData'))) {
 const log = createLog(path.join(app.getPath('userData'), 'logs'))
 teeConsole(log)
 console.log(`[main] Claudex ${app.getVersion()} starting (electron ${process.versions.electron}${app.isPackaged ? '' : ', dev'})`)
+// How long the start takes, step by step: in claudex.log always, and in update.log
+// with the restart's other steps when this run follows an update (updateTiming.cjs)
+const startupT0 = Date.now()
+const startupTimer = process.argv.includes(UPDATED_FLAG) ? createStepTimer({ file: path.join(app.getPath('userData'), 'update.log'), label: 'p3' }) : null
+function startupMark(step, extra = '') {
+  startupTimer?.mark(step, extra)
+  console.log(`[main] startup: ${step} +${Date.now() - startupT0}ms${extra ? ` ${extra}` : ''}`)
+}
+startupMark('start')
+// The "준비하고 있어요" card from launch until the app window shows (statusCard.cjs)
+let startupCard = null
+function closeStartupCard() { if (startupCard) { startupCard.close(); startupCard = null; startupMark('card-closed') } }
 // ~/.agent-office (versions up to 1.3.7) -> ~/.claudex, once, before anything
 // reads the token or starts the server (server/runtime-dir.cjs)
 migrateRuntimeDir()
@@ -469,6 +482,23 @@ function refreshMenus() {
 // ---------------------------------------------------------------------------
 
 async function startApp() {
+  // Before the server (which can take seconds, ~9 s right after Windows starts):
+  // the tray, and the starting card where the app window will open, so the
+  // launch shows at once. 설정 › 앱 › "start in the tray" shows no card.
+  state = readWindowState(stateFile())
+  refreshMenus()
+  createTrayIcon()
+  const startHidden = appSettings().app.startHidden
+  if (!startHidden && !startupCard) {
+    try {
+      startupCard = openStatusCard({ BrowserWindow, screen, near: boundsFor(kindOf(modeNow())), step: 'starting', lang: cardLang(appSettings().app.language, app.getLocale()) })
+      startupCard.win.on('closed', () => { startupCard = null })
+    } catch (err) { console.error('[main] starting card:', err.message) }
+  }
+  // Debug (dev runs only): CLAUDEX_DEBUG_START_DELAY_MS holds the start, to look at the card
+  const debugDelay = app.isPackaged ? 0 : Number(envVar('DEBUG_START_DELAY_MS')) || 0
+  if (debugDelay) await new Promise(r => setTimeout(r, debugDelay))
+
   // Check if a server is already running (e.g. launched separately during dev)
   const found = await probeServer()
   const plan = serverPlan(found, app.isPackaged)
@@ -478,6 +508,7 @@ async function startApp() {
     // Starting a second server on the same port cannot help (it would fail to
     // bind), so say what is going on instead.
     console.error(`[main] The server on port ${SERVER_PORT} serves no page — not loading it`)
+    closeStartupCard()
     dialog.showErrorBox(APP_NAME, serverConflictMessage(SERVER_PORT))
     quitApp()
     return
@@ -485,13 +516,16 @@ async function startApp() {
     console.log(`[main] Server already running on port ${SERVER_PORT} — skipping spawn${found === 'usable' ? '' : ' (it has no built UI; this window loads the Vite dev server)'}`)
   } else {
     startServer()
+    startupMark('server-spawned')
     const ready = await waitForServer()
     if (ready) {
       console.log(`[main] Server is ready on ${SERVER_URL}`)
+      startupMark('server-ready')
     } else if (app.isPackaged) {
       // The packaged app has nothing to show without its server — say so
       // instead of opening a blank window.
       console.error('[main] Server did not become ready in time')
+      closeStartupCard()
       dialog.showErrorBox(
         APP_NAME,
         `The ${APP_NAME} server did not start on port ${SERVER_PORT}.\n\n` +
@@ -504,8 +538,6 @@ async function startApp() {
       console.error('[main] Server did not become ready in time — continuing anyway (start it with `npm run server`)')
     }
   }
-
-  state = readWindowState(stateFile())
 
   // Dev: the Vite dev server. Packaged: the server, which serves the built UI
   // from its root — one port for the page, its assets and the WebSocket.
@@ -521,12 +553,30 @@ async function startApp() {
   pageUrl = appLink(app.isPackaged ? SERVER_URL : VITE_URL, token)
   console.log(`[main] Loading ${redactLink(pageUrl)}`)
 
-  refreshMenus()
-  createTrayIcon()
   // 설정 › 앱: start in the tray (the tray's Poké Ball brings the window back)
-  const startHidden = appSettings().app.startHidden
   if (startHidden) { state.widgetHidden = true; saveState() }
-  createWidgetWindow({ hidden: startHidden })
+  const win = createWidgetWindow({ hidden: startHidden })
+  // The card goes when the app window is on screen (a hidden start has no card).
+  // If the page never paints, the card still goes after a while.
+  if (!win || startHidden) closeStartupCard()
+  else {
+    win.once('show', closeStartupCard)
+    win.once('closed', closeStartupCard)
+    setTimeout(closeStartupCard, 30_000).unref?.()
+  }
+}
+
+/** The first app page loaded: time it, then remove what past updates left in the temp folder. */
+let firstWindowLoaded = false
+function onAppWindowLoaded() {
+  if (firstWindowLoaded) return
+  firstWindowLoaded = true
+  startupMark('window-loaded')
+  setTimeout(() => {
+    cleanupStaleUpdates({ tmpdir: os.tmpdir(), keep: updater?.workDir?.() ?? null })
+      .then((n) => { if (n) console.log(`[main] removed ${n} old update folder(s)`) })
+      .catch(() => {})
+  }, 10_000).unref?.()
 }
 
 // ---------------------------------------------------------------------------
@@ -631,6 +681,7 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
   })
   win.webContents.once('did-finish-load', () => {
     console.log(`[main] App window loaded (${kind})`)
+    onAppWindowLoaded()
     maybeCaptureScreenshot()
   })
   win.on('show', refreshMenus)
@@ -1163,15 +1214,17 @@ function createTrayIcon() {
  */
 function takeInstanceLock() {
   for (let i = 0; i < 20; i++) {
-    if (app.requestSingleInstanceLock()) return true
+    if (app.requestSingleInstanceLock()) return i // how many 250 ms waits it took
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250)
   }
-  return false
+  return -1
 }
 
-if (app.isPackaged && !takeInstanceLock()) {
+const lockWaits = app.isPackaged ? takeInstanceLock() : 0
+if (lockWaits < 0) {
   app.quit()
 } else {
+  startupMark('lock', `waits=${lockWaits}`)
   // Startup (probe the port, start the server, wait for it, open the window)
   // takes seconds; one run at a time, so a Dock click or a second launch in
   // the meantime cannot spawn a second server and open a second window
@@ -1186,8 +1239,10 @@ if (app.isPackaged && !takeInstanceLock()) {
       starting: startOnce.pending(),
       hasWindow: !!widgetWin && !widgetWin.isDestroyed(),
       windowCount: BrowserWindow.getAllWindows().length,
+      hasCard: !!startupCard,
     })
-    if (action === 'show') { const w = createWidgetWindow(); if (w) { w.show(); w.focus() } }
+    if (action === 'card') startupCard?.show()
+    else if (action === 'show') { const w = createWidgetWindow(); if (w) { w.show(); w.focus() } }
     else if (action === 'create') open()
   }
 
@@ -1226,16 +1281,29 @@ if (app.isPackaged && !takeInstanceLock()) {
     e.preventDefault()
     if (quitSequence) return
     if (app.isPackaged) { try { startQuitWatchdog(process.pid) } catch {} }
+    // An update restart (the updater left its marker): the "updating" card stands
+    // where the app window was while this quits, and each step is timed
+    const updating = app.isPackaged && hasPendingUpdate(app.getPath('userData'))
+    const timer = updating ? createStepTimer({ file: path.join(app.getPath('userData'), 'update.log'), label: 'p1' }) : { mark() {} }
+    timer.mark('quit-start')
+    const near = widgetWin && !widgetWin.isDestroyed() ? widgetWin.getBounds() : (state.widgetBounds ?? null)
+    closeStartupCard()
     for (const w of BrowserWindow.getAllWindows()) { try { w.hide() } catch {} }
+    if (updating) {
+      try { openStatusCard({ BrowserWindow, screen, near, step: 'updating', lang: cardLang(appSettings().app.language, app.getLocale()) }) } catch {}
+    }
     const sleep = (ms) => new Promise(r => setTimeout(r, ms))
     const running = terminals ? terminals.list().filter(t => t.status === 'running') : []
     const tellServer = (async () => {
       if (running.length) await Promise.race([Promise.all(running.map(t => postSessionEnded(t.sessionId))), sleep(2000)])
+      timer.mark('sessions-posted', `n=${running.length}`)
       await serverPost('/flush', {}, 1500)
+      timer.mark('flushed')
     })()
     const endSessions = (async () => {
       if (!terminals) return
       const { stuck } = await terminals.shutdown(3000)
+      timer.mark('sessions-ended', `stuck=${stuck ?? 0}`)
       if (stuck) console.warn(`[main] quit: ${stuck} session(s) did not exit`)
     })()
     quitSequence = Promise.all([tellServer, endSessions])
@@ -1243,6 +1311,7 @@ if (app.isPackaged && !takeInstanceLock()) {
       .finally(() => {
         try { if (tray) { tray.dispose(); tray = null } } catch {}
         try { stopServer() } catch {}
+        timer.mark('server-stopped')
         quitSequence = 'done'
         app.quit()
       })

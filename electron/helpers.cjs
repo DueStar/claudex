@@ -134,8 +134,10 @@ function singleFlight(fn) {
  * 'activate'): nothing while it is still starting or on its way out, show the
  * window it has, or create one when there is none.
  */
-function reopenAction({ quitting = false, starting, hasWindow, windowCount }) {
-  if (quitting || starting) return 'none'
+function reopenAction({ quitting = false, starting, hasWindow, windowCount, hasCard = false }) {
+  if (quitting) return 'none'
+  // Starting: the starting card (if shown) comes forward; nothing else is made
+  if (starting) return hasCard ? 'card' : 'none'
   if (hasWindow) return 'show'
   return windowCount === 0 ? 'create' : 'none'
 }
