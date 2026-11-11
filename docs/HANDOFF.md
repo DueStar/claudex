@@ -563,6 +563,8 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **업데이트 호환(중요)**: 1.3.35 이하는 `app.file`이 `claudex-app-`으로 시작해야만 받음 → **앱 zip 이름은 계속 `claudex-app-<v>.zip`**(release.mjs), 새 버전은 `(spawn|claudex)-app-` 둘 다 받음(나중에 바꿀 때를 위해). 전체 zip은 `spawn-<v>-win-x64.zip`. 옛 앱은 `DueStar/claudex` 주소를 GitHub의 이름 변경 리다이렉트로 따라감 → **`DueStar/claudex`라는 저장소를 새로 만들면 안 됨.** 서명 키는 그대로 `~/.claudex-release/signing-key.pem`(`SPAWN_SIGNING_KEY`/`CLAUDEX_SIGNING_KEY`).
    - 실행 파일: 업데이트로 받은 설치는 계속 `%LOCALAPPDATA%\Claudex\Claudex.exe`(앱 업데이트는 resources/app만 바꿈), 새로 받은 전체 zip은 `spawn.exe`. `install-local.cmd`는 둘 다 닫음.
    - 로고: `public/brand/spawn-symbol-white.svg`·`-color.svg`, `SpawnMark`(Icons.tsx)를 헤더·접힌 레일에(24px 이하 단색 규칙). 앱 아이콘 `build/icon.png`·`electron/assets/icon.png` = white-gradient 512, 트레이 16/32/48 = 컬러 심볼, macOS 템플릿 = 검정 심볼. release.mjs는 더 이상 build-icons.py로 몬스터볼 아이콘을 그리지 않음. 게임 안 몬스터볼 그림(`public/sprites/spawn-ball.png`, 옛 claudex-ball.png)은 그대로.
+   - **실제 업데이트에서 잡은 버그(테스트 빌드, 2026-11-11 14:52)**: 첫 1.3.36 시작 때 `%APPDATA%Claudex`가 아직 바빠서(업데이트 복사 단계의 옛 프로세스가 끝나는 중) 설정 폴더 복사가 실패 → 앱이 로그용으로 `%APPDATA%spawn`을 만들고 "폴더가 있으니 끝"으로 판단 → 세션 자동 열기·세션 이름이 빠짐(데이터는 옛 폴더에 그대로). 고침: 끝남은 표시 파일(`.copied-from-claudex.json`)로, 항목마다 따로 복사·3초 안에서 재시도, 실패한 항목은 다음 시작에 다시, 복사 없이 시작한 새 폴더보다 옛 상태가 이김, update.log는 이어 붙임, 결과를 spawn.log에 남김. 이 PC는 다음 테스트 빌드 재시작 때 옛 상태(세션 이름 9개, 다시 열 세션 8개)가 돌아와야 함.
+   - 가끔 실패하던 `cleanupStaleUpdates` 테스트의 원인: 정확히 10분 경계(파일 시각이 ms보다 잘게 기록됨) → 여유 1초.
    - 바깥에 남은 것: Google/Supabase 로그인 동의 화면 앱 이름, 로컬 폴더 이름(`Documents\pokemon-office`, `Documents\claudex-site`).
 
 8. **다음에 할 일 (2026-11-11 기준)**
