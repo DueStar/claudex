@@ -30,7 +30,10 @@ const { createTray } = require('./tray.cjs')
 const { createTerminalManager, gitBranch } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
-const { createUpdater, applyPendingUpdate } = require('./updater.cjs')
+const { createUpdater } = require('./updater.cjs')
+const { UPDATED_FLAG, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates } = require('./updateRunner.cjs')
+const { openStatusCard, cardLang } = require('./statusCard.cjs')
+const { createStepTimer } = require('./updateTiming.cjs')
 const { startQuitWatchdog } = require('./quitWatchdog.cjs')
 const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
@@ -39,8 +42,23 @@ const { envVar, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'Claudex-dev'))
-// An update staged by the last run goes in before anything else loads; then start again on the new code
-if (applyPendingUpdate(app)) { app.relaunch(); app.exit(0) }
+// An update staged by the last run goes in before anything else loads, behind the
+// "updating" card; then the app starts again on the new code (updateRunner.cjs).
+// Nothing else of the app runs in this process: the top-level return below.
+if (app.isPackaged && hasPendingUpdate(app.getPath('userData'))) {
+  const userData = app.getPath('userData')
+  const readJson = (file) => { try { return JSON.parse(fs.readFileSync(path.join(userData, file), 'utf8')) } catch { return null } }
+  runPendingUpdate({
+    app,
+    isPackaged: true,
+    resourcesPath: process.resourcesPath,
+    userData,
+    readNear: () => readJson('window-state.json')?.widgetBounds ?? null,
+    lang: cardLang(readJson('settings.json')?.app?.language, app.getLocale()),
+    openCard: (opts) => openStatusCard({ BrowserWindow, screen, ...opts }),
+  }).catch(() => { app.relaunch(); app.exit(0) })
+  return
+}
 
 // userData/logs/claudex.log: the console of this process and of the server
 const log = createLog(path.join(app.getPath('userData'), 'logs'))

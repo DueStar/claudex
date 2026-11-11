@@ -23,6 +23,7 @@ const crypto = require('crypto')
 const https = require('https')
 const { spawn } = require('child_process')
 const { t } = require('./i18n.cjs')
+const { pendingFile: runnerPendingFile } = require('./updateRunner.cjs')
 
 const REPO = 'DueStar/claudex'
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
@@ -193,7 +194,7 @@ function createUpdater({ app, send, isPackaged }) {
 
   /**
    * Restart into the new version. The swap happens in the next start, before
-   * it loads anything (applyPendingUpdate): a script left behind to do it after
+   * it loads anything (updateRunner.cjs): a script left behind to do it after
    * the app quits does not survive on Windows (a detached PowerShell never
    * runs; an attached one dies with the app). app.quit() runs main.cjs's quit
    * sequence (sessions ended and waited for, server stopped), as any quit does.
@@ -206,34 +207,10 @@ function createUpdater({ app, send, isPackaged }) {
     return true
   }
 
-  return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir() }
+  // workDir: the claudex-update-* folder this run downloaded into (kept by the stale-folder cleanup)
+  return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir(), workDir: () => (manifest?.staged ? path.dirname(manifest.staged) : null) }
 }
 
-const pendingFile = (app) => path.join(app.getPath('userData'), 'pending-update.json')
+const pendingFile = (app) => runnerPendingFile(app.getPath('userData'))
 
-/**
- * Called first thing in main.cjs: when the last run left an update staged,
- * mirror it over resources/app (robocopy retries while the old run's processes
- * let go of their files) and report true, so main restarts into the new code.
- * The marker is removed before trying, so a bad update can never loop.
- */
-function applyPendingUpdate(app) {
-  const file = pendingFile(app)
-  if (!fs.existsSync(file)) return false
-  let pending = null
-  try { pending = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
-  fs.rmSync(file, { force: true })
-  const staged = pending?.staged
-  if (!app.isPackaged || !staged || !fs.existsSync(path.join(staged, 'package.json'))) return false
-  const target = path.join(process.resourcesPath, 'app')
-  const { spawnSync } = require('child_process')
-  const r = spawnSync('robocopy', [staged, target, '/MIR', '/R:20', '/W:1', '/NFL', '/NDL', '/NJH', '/NJS', '/NP'], { windowsHide: true })
-  const ok = typeof r.status === 'number' && r.status < 8 // robocopy: 0–7 copied or nothing to do, 8+ failed
-  const log = path.join(app.getPath('userData'), 'update.log')
-  try { fs.appendFileSync(log, `${new Date().toISOString()} ${pending.version}: robocopy ${r.status}${r.error ? ` ${r.error.message}` : ''}
-`) } catch {}
-  if (ok) { try { fs.rmSync(path.dirname(staged), { recursive: true, force: true }) } catch {} }
-  return ok
-}
-
-module.exports = { createUpdater, applyPendingUpdate, newer, verifyManifest, releaseFile, REPO }
+module.exports = { createUpdater, newer, verifyManifest, releaseFile, REPO }
