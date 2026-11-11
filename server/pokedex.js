@@ -40,10 +40,11 @@ export const BOX_LIMIT = 1200
 
 /**
  * The rarity table, per encounter (rarest first when rolled). With the
- * encounter chance and pities below, a heavy user (about 11 wild encounters a
- * day) completes the 1025-species dex in about three years, and the legendaries
- * and mythicals are what is left at the end: everything else is in by about
- * month seven, legendaries by about year two (simulated, 2026-11-11).
+ * encounter chance, new-species boost and pities below, a heavy user (about 11
+ * wild encounters a day) has 900 species in about five and a half months,
+ * everything but the legendaries and mythicals in about eight, and the whole
+ * 1025 in about two years and three months; the legendaries and mythicals are
+ * what is left at the end (simulated on a real save, 2026-11-11).
  */
 export const RATES = Object.freeze({
   common: 0.74,
@@ -64,12 +65,16 @@ export const CATCH = Object.freeze({ common: 0.9, rare: 0.75, sub: 0.5, legendar
  */
 export const ENCOUNTER_PER_STEP = 0.01
 export const SHINY_ODDS = 1 / 4096
-/** Species not caught yet are this many times likelier to show up (a gentle dex assist) */
-export const NEW_SPECIES_BOOST = 8
-/** Encounters without a legendary (or mythical) before the next is a sure legendary */
-export const PITY = 180
+/** Species not caught yet are this many times likelier to show up (a gentle dex assist; 8 until 1.3.35) */
+export const NEW_SPECIES_BOOST = 3
+/**
+ * Encounters without a legendary (or mythical) before the next is a sure
+ * legendary. A sure one is a species not caught yet while any is left (the
+ * professor's lead), so the end of the dex is not spent on repeats.
+ */
+export const PITY = 150
 /** Encounters without a mythical before the next is a sure mythical */
-export const PITY_MYTHICAL = 360
+export const PITY_MYTHICAL = 300
 /**
  * A species already caught comes back less within its tier: its weight × this,
  * once per catch (0.9, 0.81, …), never below RECATCH_FLOOR. The tiers' own
@@ -638,6 +643,9 @@ ${agentId}`
       if (!pick) return null // only legendaries and mythicals left: those come from the wild
       tier = pick.tier
       sp = pick.sp
+    } else if (pity) {
+      const left = (byTier[tier] ?? []).filter(s => !state.caught[s.id])
+      sp = left.length ? left[Math.floor(random() * left.length)] : pickSpecies(tier, favoured)
     } else {
       sp = pickSpecies(tier, favoured)
     }

@@ -285,6 +285,27 @@ describe('pokedex', () => {
     expect(dex.publicState().box.length).toBe(2)
   })
 
+  it('a sure legendary is one not caught yet while any is left; after that any of the tier', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pokedex-'))
+    dirs.push(dir)
+    const sent: any[] = []
+    const species = [...SPECIES, S(249, '루기아', 'legendary', null, ['psychic'], 3)]
+    // every roll low: a plain pick would take the first of the tier (뮤츠, already caught)
+    const dex = createPokedex({ file: join(dir, 'p.json'), species, broadcast: (m: any) => sent.push(m), random: () => 0.005, now: () => new Date('2026-11-06T14:00:00').getTime() })
+    attended(dex)
+    dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'x' })
+    const st = (dex as any)._state()
+    st.caught[150] = { count: 3 }
+    st.sinceMythical = 0
+    st.sinceLegend = PITY - 1
+    dex.noteEvent(work('s1', 'Read'), { project: 'x' })
+    expect(sent.at(-1).event).toMatchObject({ kind: 'catch', tier: 'legendary', pity: true, id: 249 })
+    st.sinceMythical = 0
+    st.sinceLegend = PITY - 1
+    dex.noteEvent(work('s1', 'Read'), { project: 'x' })
+    expect(sent.at(-1).event).toMatchObject({ kind: 'catch', tier: 'legendary', pity: true })
+  })
+
   it("the day's first session event brings an attendance encounter with an uncaught species, once a day", () => {
     const { dex, sent } = setup([0], 0.01) // low rolls: the attendance Pokémon is caught
     dex.noteEvent({ type: 'session_started', sessionId: 's1' }, { project: 'web' })
