@@ -27,6 +27,9 @@ export default defineConfig({
   // uses its own origin, so this only matters under `vite` / `vite --port`.
   define: {
     'import.meta.env.VITE_SPAWN_PORT': JSON.stringify(String(SERVER_PORT)),
+    // A mark that changes with every build: the ball pictures are cached for a day, so a
+    // build that swaps one (the Poké Ball logo in 1.3.39) asks for it under a new address
+    'import.meta.env.VITE_ASSET_REV': JSON.stringify(Date.now().toString(36)),
   },
   server: {
     port: 3333,

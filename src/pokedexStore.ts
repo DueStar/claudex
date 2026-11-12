@@ -243,7 +243,8 @@ export function ballName(id: string | null | undefined): string {
 }
 /** The ball's picture (shipped with the app; spawn's own ball when it is missing) */
 export function ballUrl(id: string | null | undefined): string {
-  return `/sprites/balls/${BALL_BY_ID.has(id ?? '') ? id : 'poke-ball'}.png`
+  const rev = import.meta.env.VITE_ASSET_REV
+  return `/sprites/balls/${BALL_BY_ID.has(id ?? '') ? id : 'poke-ball'}.png${rev ? `?v=${rev}` : ''}`
 }
 
 /**
