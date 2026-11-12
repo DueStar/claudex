@@ -626,7 +626,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 1.3.42는 테스트 빌드 확인 없이 사용자 "푸시하자"로 릴리스함 → 사용자 확인: 나란히 놓고 경계 끌기(터미널 안 비는지), 도감 빈 칸, 일하는 세션 빛.
    - 1.3.42 뒤 그다음 업데이트 때 update.log로 재시작 1단계 효과 읽기 → 2단계 후보: 서버 파일 묶기(차가운 디스크 server-ready 5~7초), robocopy가 새 앱 직접 띄우기, 바뀐 파일만 복사. asar 묶기는 옛 업데이트 경로와 얽혀 따로 계획.
    - **사용자 결정 대기**: 중복 → 새 종(위 문서, 사용자 2026-11-12: "좀 더 생각해 보자"), 도감 플러그인 모드에서 외부 터미널 포획 알림을 어디에 띄울지.
-   - **소개 사이트 배포**: gh-pages 브랜치(DueStar/spawn, 주소 duestar.github.io/spawn, 무료) 추천. 정리 끝. 올리기 직전에 사용자 확인.
+   - **소개 사이트 배포 끝(2026-11-12)**: https://duestar.github.io/spawn/ — DueStar/spawn의 gh-pages 브랜치(원본은 저장소 밖 Documentsspawn-site, .nojekyll). 다시 올릴 때는 그 폴더를 gh-pages에 push(공개 작업이라 먼저 확인). 저장소 About의 홈페이지 링크는 아직 비어 있음.
    - **사용자가 직접(자동 권한이 삭제를 막음)**: 예전 폴더를 휴지통으로 — %LOCALAPPDATA%\Claudex(옛 설치 307MB), %APPDATA%\Claudex, %APPDATA%\Claudex-dev, ~/.claudex, ~/.agent-office, 바탕화면 옛 Claudex 바로가기.
    - **확인 대기(1.3.40)**: 세션을 열어 둔 채 PC를 껐다 켜면 다시 열리는지(7-32). spawn.log에 "[main] Windows is ending the session: open sessions kept".
    - 확인 대기(예전부터): Codex 탭의 "Codex 월간" 줄·codex resume, pnpm dev 띄운 세션이 턴 끝나면 '쉬는 중'으로 바뀌는지.
