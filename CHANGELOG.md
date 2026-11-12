@@ -2,6 +2,11 @@
 
 ## spawn
 
+### 1.3.48
+- 도감과 박스에서 포켓몬 뒤 칸이 한 단계 더 어두워졌어요. 배경보다 아주 조금만 밝아서 눈이 덜 피로해요.
+- 박스 칸의 테두리가 도감 칸처럼 옅어졌어요.
+- 위쪽 보기 전환 탭과 글자 크기 탭 사이에 작은 간격이 생기고, 왼쪽 여백을 조금 줄여 균형을 맞췄어요.
+
 ### 1.3.47
 - 도감과 박스에서 포켓몬 뒤 칸의 색이 한 단계 더 어두워졌어요.
 - 위쪽 보기 전환 버튼 묶음(터미널·도감·박스·기록·랭킹)의 배경이 원래 색으로 돌아왔어요.
@@ -334,6 +339,11 @@
 
 ## spawn (English)
 
+### 1.3.48
+- The boxes behind Pokémon in the Pokédex and the box are a shade darker again, only just lighter than the background, easier on the eyes.
+- Box cells now have the same faint edge as Pokédex cells.
+- The view tabs and the text size tabs at the top have a little space between them, and a touch less room on their left so they look even.
+
 ### 1.3.47
 - The boxes behind Pokémon in the Pokédex and the box are a shade darker.
 - The view buttons at the top (terminal, Pokédex, box, log, rankings) are back on their own background colour.
@@ -529,6 +539,11 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.48
+- 図鑑とボックスで、ポケモンの後ろのマスがもう一段暗くなりました。背景よりほんの少しだけ明るく、目が疲れにくくなりました。
+- ボックスのマスの枠が図鑑のマスと同じく控えめになりました。
+- 上の表示切り替えタブと文字サイズタブの間に小さな間隔ができ、左の余白を少し減らしてバランスを整えました。
 
 ### 1.3.47
 - 図鑑とボックスで、ポケモンの後ろのマスの色が一段暗くなりました。
