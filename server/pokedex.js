@@ -22,7 +22,15 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'fs'
 
-export const STARTERS = [1, 4, 7]
+/**
+ * The starters a new trainer's first partner is drawn from: the first form of every
+ * generation's three (grass, fire, water), as the games' "starter Pokémon".
+ * Only the ones in the species data count (a test set may hold just Kanto's).
+ */
+export const STARTERS = [
+  1, 4, 7, 152, 155, 158, 252, 255, 258, 387, 390, 393, 495, 498, 501,
+  650, 653, 656, 722, 725, 728, 810, 813, 816, 906, 909, 912,
+]
 export const PARTY_SIZE = 6
 /**
  * Sessions open at once. The party's six go first; past them a resting box
@@ -305,6 +313,11 @@ export function createPokedex({ file, species, natures = [], balls = [], stepSpa
       if (m.ball === undefined) m.ball = 'poke-ball' // caught before balls were kept
       if (m.metLevel === undefined) { m.metLevel = STARTER_LEVEL; m.workMs = 0 } // before levels
     }
+    // The journey's first companions came without a ball in the Pokédex record (kept
+    // before balls were): they set out in a plain Poké Ball. Levels are never touched.
+    for (const c of Object.values(state.caught ?? {})) {
+      if ((c.how === 'starter' || c.how === 'gift') && !c.ball) c.ball = 'poke-ball'
+    }
   }
   upgradeMons()
   let traitsBackfilled = false
@@ -539,13 +552,18 @@ ${agentId}`
     return uid
   }
 
-  /** The very first run: a random starter and five base-form companions */
+  /**
+   * The very first run: one starter (any generation's) and five common base-form
+   * companions, all at Lv.5 in a plain Poké Ball
+   */
   function ensureTrainer() {
     if (state.trainer || species.length === 0) return false
-    const starter = STARTERS[Math.floor(random() * STARTERS.length)]
+    const starters = STARTERS.filter(id => byId.has(id))
+    if (!starters.length) return false
+    const starter = starters[Math.floor(random() * starters.length)]
     state.trainer = { starter, since: now() }
     const place = placeCode.start()
-    state.party = [newMon(starter, { how: 'starter', place })]
+    state.party = [newMon(starter, { how: 'starter', place, ball: 'poke-ball', level: STARTER_LEVEL })]
     // Companions: common base forms that can evolve, so every one has somewhere to grow
     const pool = species.filter(s => s.tier === 'common' && !s.evolvesFrom && nextOf.has(s.id) && !STARTERS.includes(s.id))
     // Draw without replacement (a partial shuffle), so it always ends
@@ -553,7 +571,7 @@ ${agentId}`
     for (let i = 0; i < deck.length && state.party.length < PARTY_SIZE; i++) {
       const j = i + Math.floor(random() * (deck.length - i))
       ;[deck[i], deck[j]] = [deck[j], deck[i]]
-      state.party.push(newMon(deck[i].id, { how: 'gift', place }))
+      state.party.push(newMon(deck[i].id, { how: 'gift', place, ball: 'poke-ball', level: STARTER_LEVEL }))
     }
     return true
   }

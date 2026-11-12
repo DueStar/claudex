@@ -9,7 +9,7 @@ A Windows desktop app for running Claude Code sessions with Pokémon. Each sessi
 ## What it does
 
 ### Sessions are Pokémon
-- On first launch you get a party of six, including a starter (Bulbasaur, Charmander or Squirtle).
+- On first launch you get a party of six: one starter from any of the nine generations and five common Pokémon, all at Lv.5 in a Poké Ball.
 - Press **New session** and pick a Pokémon from the party: it takes on a new Claude Code session. A party holds six; when all six are working, a Box Pokémon takes the next one as a helper, so up to 12 sessions can be open.
 - A session remembers its Pokémon. Resume it and the same Pokémon comes back out.
 - Rename a session by double-clicking it or with ✎.

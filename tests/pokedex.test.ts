@@ -67,12 +67,45 @@ describe('pokedex', () => {
     expect(st.party).toHaveLength(PARTY_SIZE)
     expect(st.mons[st.party[0]].dex).toBe(4)
     expect(st.caught[4].how).toBe('starter')
-    // the companions are base forms that can evolve, never a starter
+    // the companions are common base forms that can evolve, never a starter
     for (const uid of st.party.slice(1)) {
       const d = st.mons[uid].dex
       expect([1, 4, 7]).not.toContain(d)
       expect(SPECIES.find(s => s.id === d)!.evolvesFrom).toBeNull()
+      expect(SPECIES.find(s => s.id === d)!.tier).toBe('common')
     }
+    // all six set out at Lv.5 in a plain Poké Ball, and the Pokédex records say so too
+    for (const uid of st.party) {
+      const m = st.mons[uid]
+      expect(m.ball).toBe('poke-ball')
+      expect(m.metLevel).toBe(5)
+      expect(st.caught[m.dex].ball).toBe('poke-ball')
+    }
+  })
+
+  it('the starter is drawn from every generation in the species data, not only Kanto', () => {
+    // STARTERS lists all nine generations; the test set holds just 1, 4, 7, so those are the pool
+    expect(STARTERS).toEqual(expect.arrayContaining([1, 4, 7, 152, 255, 393, 501, 656, 725, 813, 912]))
+    expect(STARTERS).toHaveLength(27)
+    const { dex } = setup([0.99])
+    expect([1, 4, 7]).toContain(dex.publicState().trainer.starter)
+  })
+
+  it("an older save's first companions get their Poké Ball in the Pokédex record; levels stay as they are", () => {
+    const first = setup([0.5])
+    first.dex.publicState() // the journey starts on the first look
+    const st = first.dex._state()
+    const gift = st.party[1]
+    const giftDex = st.mons[gift].dex
+    delete st.caught[giftDex].ball
+    delete st.caught[4].ball
+    st.mons[gift].metLevel = 12 // a companion that had grown: never lowered
+    writeFileSync(first.file, JSON.stringify(st))
+    const again = createPokedex({ file: first.file, species: SPECIES, broadcast: () => {}, random: () => 0.99, now: () => new Date('2026-11-06T14:00:00').getTime() })
+    const after = again.publicState()
+    expect(after.caught[giftDex].ball).toBe('poke-ball')
+    expect(after.caught[4].ball).toBe('poke-ball')
+    expect(after.mons[gift].metLevel).toBe(12)
   })
 
   it('sends the starter with the first session, the next free one with the next, and none past six', () => {
