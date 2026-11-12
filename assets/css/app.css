@@ -262,6 +262,7 @@
 .set-switch.on { background: var(--accent); }
 .set-switch.on i { transform: translateX(16px); background: var(--accent-ink); }
 .set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Pretendard JP Variable', monospace; }
+.w-widget-toggle { flex: none; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-left: 4px; display: inline-grid; place-items: center; }
 .set-side-toggle, .w-side-toggle { flex: none; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-right: 4px; }
 .w-row { position: relative; user-select: none; }
 
