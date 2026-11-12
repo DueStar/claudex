@@ -91,7 +91,7 @@
 }
 
 /* No gradient anywhere but the hero glow: the art backdrops get a flat tier tint instead of the app's radial one */
-.w-toast-art { background: color-mix(in srgb, var(--tier) 16%, #1b1e26); }
+.w-toast-art { background: var(--mon-bg); }
 .dex-card-art { background: color-mix(in srgb, var(--tier) 12%, var(--card-2)); }
 
 /* Live views shown large on wide screens: the app's 12px UI, scaled up as a whole */
@@ -120,11 +120,12 @@
 
 /* ---------- 도구를 쓰면 한 걸음: tool calls on the left, the walk and the catch card on the right ---------- */
 .widget.panel.step-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); background: var(--term); border-radius: 20px; }
-.step-term { position: relative; height: 400px; border-right: 1px solid var(--line); }
-.step-term .fake-term { position: absolute; inset: 18px 12px 14px 20px; height: auto; font-size: 13px; }
+/* the terminal runs the full height of the panel (the side column sets it), its lines kept to the bottom */
+.step-term { position: relative; min-height: 400px; border-right: 1px solid var(--line); }
+.step-term .fake-term { position: absolute; inset: 18px 12px 14px 20px; height: auto; font-size: 13px; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 56px); mask-image: linear-gradient(to bottom, transparent, #000 56px); }
 .step-side { display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 28px; background: var(--side); min-width: 0; }
 .step-count { display: flex; align-items: baseline; gap: 12px; }
-.step-count .w-label { font-size: 13px; }
+.step-count .w-label { font-size: 18px; color: var(--ink-2); } /* 39 걸음: the number first, then the unit */
 .step-count b { font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; color: var(--ink); }
 .step-trail { height: 64px; }
 .step-toast { min-height: 112px; }

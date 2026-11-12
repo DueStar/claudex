@@ -18,7 +18,7 @@ var SITE_LINKS = {
 };
 
 /* The latest release (shown under the closing download button; update with each release) */
-var LATEST_VERSION = '1.3.37';
+var LATEST_VERSION = '1.3.43'; // the fallback: loading.js asks GitHub for the newest
 
 var STRINGS = {
   ko: {
@@ -50,10 +50,10 @@ var STRINGS = {
     'f1.lede': '새 세션을 열면 파티에서 한 마리가 나와 그 세션을 맡아요.',
     'f2.title': '도구를 쓰면 한 걸음.',
     'f2.lede': '걷다 보면 야생 포켓몬을 만나요. 쓰는 도구마다 만나는 곳이 달라요.',
-    'f3.title': '1025종, 천천히 오래.',
-    'f3.lede': '잡은 포켓몬은 도감에 하나씩 쌓여요. 칸을 눌러 보세요.',
-    'f4.title': 'Claude와 Codex 같이.',
-    'f4.lede': '두 도구의 세션과 사용량을 한 화면에서 봐요.',
+    'f3.title': '잡은 포켓몬은 도감에.',
+    'f3.lede': '1025종을 세대와 등급별로 모아 봐요. 칸을 누르면 잡은 포켓몬의 레벨과 볼, 성격이 보여요.',
+    'f4.title': '사용량과 컨텍스트를 한눈에.',
+    'f4.lede': '5시간·주간 사용량이 얼마나 남았는지, 언제 다시 차는지 바로 보여요.',
     'f4.note': 'Codex는 설정 › AI 도구에서 켜요.',
 
     'privacy.title': '내 PC에서만.',
@@ -236,10 +236,10 @@ var STRINGS = {
     'f1.lede': 'Open a new session and one Pokémon from your party takes it on.',
     'f2.title': 'One tool, one step.',
     'f2.lede': 'Walk far enough and wild Pokémon appear. Each tool leads somewhere different.',
-    'f3.title': '1025 species, slowly.',
-    'f3.lede': 'Every catch lands in your Pokédex, one by one. Try the cells.',
-    'f4.title': 'Claude and Codex, together.',
-    'f4.lede': 'Sessions and usage limits from both, on one screen.',
+    'f3.title': 'Every catch, in your Pokédex.',
+    'f3.lede': 'Browse all 1025 by generation and tier. Click a cell to see the level, ball and nature of the ones you caught.',
+    'f4.title': 'Usage and context, at a glance.',
+    'f4.lede': 'See how much of your 5-hour and weekly limits is left, and when they reset.',
     'f4.note': 'Turn Codex on in Settings › AI tools.',
 
     'privacy.title': 'Only on your PC.',
@@ -269,7 +269,7 @@ var STRINGS = {
     'app.dex': 'Pokédex',
     'app.party': 'Party',
     'app.box': 'Box',
-    'app.steps': 'Steps',
+    'app.steps': 'steps',
     'app.levelup': 'Level up',
     'app.caught': 'Caught',
     'app.fled': 'Fled',
@@ -418,10 +418,10 @@ var STRINGS = {
     'f1.lede': '新しいセッションを開くと、手持ちから1匹が出てそのセッションを担当します。',
     'f2.title': 'ツールを使えば、1歩。',
     'f2.lede': '歩いていると野生のポケモンに出会います。使うツールで出会う場所が変わります。',
-    'f3.title': '1025種、ゆっくり長く。',
-    'f3.lede': '捕まえたポケモンは図鑑にひとつずつ並びます。マスを押してみてください。',
-    'f4.title': 'ClaudeとCodexを一緒に。',
-    'f4.lede': '両方のセッションと使用量を、ひとつの画面で。',
+    'f3.title': '捕まえたポケモンは図鑑に。',
+    'f3.lede': '1025種を世代とランク別に見られます。マスを押すと、捕まえたポケモンのレベル・ボール・性格がわかります。',
+    'f4.title': '使用量とコンテキストをひと目で。',
+    'f4.lede': '5時間・週間の使用量があとどれだけ残っているか、いつ回復するかがすぐわかります。',
     'f4.note': 'Codexは設定 › AIツールでオンにします。',
 
     'privacy.title': 'あなたのPCだけに。',
@@ -451,7 +451,7 @@ var STRINGS = {
     'app.dex': '図鑑',
     'app.party': '手持ち',
     'app.box': 'ボックス',
-    'app.steps': '歩数',
+    'app.steps': '歩',
     'app.levelup': 'レベルアップ',
     'app.caught': 'ゲット',
     'app.fled': '逃げられた',

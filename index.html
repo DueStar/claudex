@@ -8,6 +8,12 @@
   <meta name="description" data-i18n-attr="content:meta.desc" content="">
   <meta name="color-scheme" content="dark">
   <link rel="icon" type="image/png" href="assets/img/poke-ball-dream.png">
+  <!-- Nothing is shown in a stand-in font: the page waits for its fonts (assets/js/loading.js lifts this) -->
+  <script>
+    document.documentElement.classList.add('fonts-wait');
+    // a safety net: whatever happens to loading.js, the page is never left hidden
+    setTimeout(function () { var r = document.documentElement; if (r.classList.contains('fonts-wait')) { r.classList.remove('fonts-wait'); r.classList.add('fonts-in'); } }, 4000);
+  </script>
 
   <!-- The app's fonts: Uncut Sans (Latin), Pretendard (Hangul, Japanese), Monaspace Neon (terminal) -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -21,6 +27,7 @@
   <link rel="stylesheet" href="assets/css/app.css">
   <link rel="stylesheet" href="assets/css/site-app.css">
   <link rel="stylesheet" href="assets/css/feedback.css">
+  <link rel="stylesheet" href="assets/css/motion.css">
 </head>
 <body>
   <a class="skip" href="#main" data-i18n="skip"></a>
@@ -33,7 +40,7 @@
   </noscript>
 
   <!-- ============ Nav: wordmark, a few anchors, language, download ============ -->
-  <header class="nav">
+  <header class="nav no-anim">
     <div class="wrap nav-row">
       <a class="brand" href="#top"><img class="brand-ball" src="assets/img/poke-ball-dream.png" width="24" height="24" alt=""><span class="brand-name" data-name>spawn</span></a>
       <nav class="nav-links" aria-label="sections">
@@ -60,6 +67,7 @@
     <section class="hero" id="top">
       <div class="hero-glow" aria-hidden="true"><i></i></div>
       <div class="wrap hero-head">
+        <div class="hero-copy">
         <h1 class="display" data-i18n="hero.title"></h1>
         <p class="lede" data-i18n="hero.lede"></p>
         <div class="actions">
@@ -70,6 +78,7 @@
           <a class="btn btn-ghost btn-large" data-link="repo" href="https://github.com/DueStar/spawn" data-i18n="cta.github"></a>
         </div>
         <p class="fine" data-i18n="hero.note"></p>
+        </div>
       </div>
 
       <figure class="wrap hero-demo">
@@ -79,9 +88,10 @@
               <div class="w-side">
                 <div class="w-bento">
                   <header class="w-card w-head">
-                    <span class="w-brand" data-name></span>
+                    <span class="w-brand"><img class="pokeball" src="assets/img/poke-ball-dream.png" width="20" height="20" alt=""><span class="w-brand-name" data-name></span></span>
                     <span class="w-conn"></span>
                     <span class="w-icon"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.32 3.40L6.63 1.54L9.37 1.54L9.68 3.40L11.15 4.25L12.90 3.58L14.28 5.96L12.83 7.15L12.83 8.85L14.28 10.04L12.90 12.42L11.15 11.75L9.68 12.60L9.37 14.46L6.63 14.46L6.32 12.60L4.85 11.75L3.10 12.42L1.72 10.04L3.17 8.85L3.17 7.15L1.72 5.96L3.10 3.58L4.85 4.25Z"/><circle cx="8" cy="8" r="2.1"/></svg></span>
+                    <span class="w-icon w-side-toggle on"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="11" height="10" rx="2"/><path d="M6.5 3v10"/></svg></span>
                   </header>
                   <section class="w-card w-limits">
                     <div class="w-limit tone-ok" id="lim5">
@@ -120,7 +130,6 @@
 
               <section class="w-card w-term">
                 <div class="w-term-tabs">
-                  <span class="w-icon w-side-toggle"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="11" height="10" rx="2"/><path d="M6.5 3v10"/></svg></span>
                   <div class="w-view-switch w-view-icons">
                     <button class="icon-only on" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.8"/><path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3"/></svg></button>
                     <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.2C6.6 3.2 4.6 3 2.5 3.3v9.2c2.1-.3 4.1-.1 5.5.9 1.4-1 3.4-1.2 5.5-.9V3.3C11.4 3 9.4 3.2 8 4.2zM8 4.2v9.2"/></svg><span class="w-new-dot" id="viewNew" hidden></span></button>
@@ -159,14 +168,6 @@
       </figure>
     </section>
 
-    <!-- ============ 2. Pillars ============ -->
-    <section class="section pillars">
-      <div class="wrap center">
-        <h2 class="display" data-i18n="pillars.title"></h2>
-        <p class="lede" data-i18n="pillars.lede"></p>
-      </div>
-    </section>
-
     <!-- ============ 3. Features: a short line each, and the app view working ============ -->
     <div id="features">
 
@@ -197,7 +198,7 @@
           <div class="widget panel step-panel" id="stepDemo" aria-hidden="true">
             <div class="step-term"><div class="fake-term" id="stepTerm"></div></div>
             <div class="step-side">
-              <div class="step-count"><span class="w-label" data-i18n="app.steps"></span><b id="stepCount">0</b></div>
+              <div class="step-count"><b id="stepCount">0</b><span class="w-label" data-i18n="app.steps"></span></div>
               <div class="trail-track step-trail" id="stepTrail"></div>
               <div class="step-toast" id="stepToast"></div>
               <div class="today step-log" id="stepLog"></div>
@@ -377,5 +378,7 @@
   <script src="assets/js/pokedata.js"></script>
   <script src="assets/js/main.js"></script>
   <script src="assets/js/feedback.js"></script>
+  <script src="assets/js/loading.js"></script>
+  <script src="assets/js/motion.js"></script>
 </body>
 </html>

@@ -68,6 +68,17 @@
 
   var EXT_ICON = '<svg class="ext-ico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3"/></svg>';
 
+  // The version line and the first-install zip name, from LATEST_VERSION. loading.js asks GitHub for the
+  // newest release and sets it through spawnLatest; until then these stand as skeletons
+  function versionText(el) {
+    return el.id === 'startZip' ? PRODUCT_NAME + '-' + LATEST_VERSION + '-win-x64.zip' : t('cta.version', { v: LATEST_VERSION });
+  }
+  window.spawnVersionText = versionText;
+  window.spawnLatest = function (v) {
+    if (!/^d+.d+.d+$/.test(v)) return;
+    LATEST_VERSION = v;
+  };
+
   function applyStatic() {
     document.documentElement.lang = lang;
     document.title = t('meta.title');
@@ -101,7 +112,7 @@
       a.classList.add('ext-link');
       if (!a.querySelector('.ext-ico')) a.insertAdjacentHTML('beforeend', EXT_ICON);
     });
-    document.querySelectorAll('[data-version]').forEach(function (el) { el.textContent = t('cta.version', { v: LATEST_VERSION }); });
+    document.querySelectorAll('[data-version]').forEach(function (el) { el.textContent = versionText(el); });
     langListeners.forEach(function (fn) { fn(); });
   }
 
@@ -177,6 +188,7 @@
   function makeRow(s) {
     var row = h(
       '<div class="w-row">' +
+        '<span class="w-glint" aria-hidden="true"></span>' +
         '<div class="w-row-head">' +
           '<img class="w-row-mon" alt="">' +
           '<div class="w-row-line1"><span class="w-row-name"></span><span class="w-pill"></span></div>' +
@@ -778,9 +790,9 @@
     return c;
   }
 
-  function miniTerm(box, lines) {
+  function miniTerm(box, lines, max) {
     box.textContent = '';
-    lines.slice(-14).forEach(function (l) { var d = lineEl(l); d.style.animation = 'none'; box.appendChild(d); });
+    lines.slice(-(max || 14)).forEach(function (l) { var d = lineEl(l); d.style.animation = 'none'; box.appendChild(d); });
   }
 
   // ------------------------------------------------------------------ 세션마다 한 마리: sessions open, one Pokémon each
@@ -899,6 +911,14 @@
     ];
     /* Where the day already is when the section first shows */
     var PAST = [
+      ['Read', 'README.md', 'Read 88 lines', 'forest'],
+      ['Glob', 'src/**/*.tsx', 'Found 23 files', 'forest'],
+      ['Bash', 'git status', '2 files changed', 'cave'],
+      ['Read', 'src/App.tsx', 'Read 210 lines', 'forest'],
+      ['Grep', '"PARTY_SIZE"', 'Found 3 files', 'forest'],
+      ['Edit', 'src/config.ts', 'Updated with 1 addition', 'grass'],
+      ['Bash', 'npm test', 'Tests  28 passed (28)', 'cave'],
+      ['WebSearch', '"react useMemo deps"', 'Did 1 search', 'sky'],
       ['Read', 'package.json', 'Read 61 lines', 'forest'],
       ['Grep', '"useParty"', 'Found 4 files', 'forest'],
       ['Edit', 'src/Party.tsx', 'Updated with 2 additions', 'grass'],
@@ -956,12 +976,13 @@
       if (quiet) card.style.animation = 'none';
       toastEl.appendChild(card);
     }
-    function push(l) { lines.push(l); if (lines.length > 30) lines.shift(); miniTerm(termEl, lines); var last = termEl.lastElementChild; if (last && !reduceMotion) last.style.animation = ''; }
+    // the terminal is as tall as the panel: up to 34 lines, what does not fit is cut at the top
+    function push(l) { lines.push(l); if (lines.length > 34) lines.shift(); miniTerm(termEl, lines, 34); var last = termEl.lastElementChild; if (last && !reduceMotion) last.style.animation = ''; }
     function clockText() { minute += 3 + Math.round(Math.random() * 6); var hh = Math.floor(minute / 60) % 24, mm = minute % 60; return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); }
 
     // start mid-day: steps counted, tool calls in the terminal, a walked trail, earlier encounters
     PAST.forEach(function (p) { lines.push({ cls: 't-tool', html: '<b>' + esc(p[0]) + '</b>(' + esc(p[1]) + ')' }); lines.push({ cls: 't-res', text: p[2] }); });
-    miniTerm(termEl, lines);
+    miniTerm(termEl, lines, 34);
     walker();
     PAST_TILES.forEach(function (x, i) { tile(x, !!PAST_HITS[i], true); });
     countEl.textContent = num(steps);
@@ -1066,7 +1087,7 @@
 
   (function () {
     var zip = document.getElementById('startZip');
-    if (zip) onLang(function () { zip.textContent = PRODUCT_NAME + '-' + LATEST_VERSION + '-win-x64.zip'; });
+    if (zip) onLang(function () { zip.textContent = versionText(zip); });
     var exe = document.getElementById('startExe');
     if (exe) exe.textContent = 'win-unpacked\\' + PRODUCT_NAME + '.exe';
     var slot = document.getElementById('startCatch');
@@ -1145,6 +1166,9 @@
     function check() { set(window.scrollY > 80); }
     window.addEventListener('scroll', check, { passive: true });
     check();
+    // A reload keeps its scroll: the header starts in the right shape, and only moves once the page has settled
+    function settle() { setTimeout(function () { check(); requestAnimationFrame(function () { requestAnimationFrame(function () { nav.classList.remove('no-anim'); }); }); }, 150); }
+    if (document.readyState === 'complete') settle(); else window.addEventListener('load', settle, { once: true });
   })();
 
   // ------------------------------------------------------------------ start

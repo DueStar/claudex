@@ -21,6 +21,7 @@
 .widget {
   --card: #14161c;
   --card-2: #1b1e26;
+  --mon-bg: #2a2b30; /* behind every Pokémon picture, as in the app */
   --line: rgba(255, 255, 255, 0.07);
   --ink: #f1f2f5;
   --ink-2: #a4a9b6;
@@ -68,7 +69,25 @@
   padding: 7px 8px 7px 12px;
   border-radius: 14px;
 }
-.w-brand { margin-right: auto; font: inherit; font-weight: 650; font-size: 13px; letter-spacing: -0.01em; color: inherit; background: none; border: 0; padding: 0; }
+/* the app's wordmark (widget.css): the ball and "spawn", Uncut Sans 600 17px -2% */
+.w-brand { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; font-size: 17px; line-height: 1; letter-spacing: -0.02em; color: inherit; background: none; border: 0; padding: 0; }
+.w-brand-name { display: block; transform: translateY(-0.75px); }
+.w-brand .pokeball { display: block; }
+/* a working session: a glint turns round its border, yellow on the chosen one, light grey on the others (widget.css) */
+.w-row.mood-working { --spin-head: rgba(255, 255, 255, 0.5); --spin-tail: rgba(255, 255, 255, 0.07); }
+.w-row.chosen.mood-working { border-color: transparent; --spin-head: var(--accent); --spin-tail: rgba(242, 201, 76, 0.18); }
+.w-glint {
+  position: absolute; inset: -1px; border-radius: 11px; padding: 1.5px; pointer-events: none; overflow: hidden;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.w-row:not(.mood-working) > .w-glint { display: none; }
+.w-glint::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 130%; aspect-ratio: 1; translate: -50% -50%;
+  background: conic-gradient(var(--spin-head), var(--spin-tail) 30%, var(--spin-tail) 55%, var(--spin-head) 85%, var(--spin-head));
+  animation: w-spin 4s linear infinite; will-change: transform;
+}
+@keyframes w-spin { to { rotate: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .w-glint::before { animation: none; } }
 .w-conn { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .w-icon {
   width: 24px;
@@ -306,7 +325,7 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 92px;
   border-radius: 10px;
-  background: var(--card-2);
+  background: var(--mon-bg);
   border: 1px solid var(--line);
   display: grid;
   place-items: center;
@@ -402,7 +421,7 @@
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tier) 22%, transparent), transparent 70%), var(--card-2);
+  background: var(--mon-bg);
 }
 .dex-card-art img { max-height: 130px; max-width: 90%; }
 .dex-card-art img.silhouette { filter: brightness(0) invert(0.32); }
@@ -547,7 +566,7 @@
   animation: toastIn 0.3s cubic-bezier(.2, .8, .2, 1) both;
 }
 .w-toast.leaving { animation: toastOut 0.35s ease-in both; }
-.w-toast-art { width: 72px; height: 72px; border-radius: 14px; display: grid; place-items: center; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tier) 26%, transparent), transparent 72%), #1b1e26; }
+.w-toast-art { width: 72px; height: 72px; border-radius: 14px; display: grid; place-items: center; background: var(--mon-bg); }
 .w-toast-art img { width: 52px; height: 52px; object-fit: contain; image-rendering: auto; }
 .w-toast-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-right: 10px; }
 .w-toast-eyebrow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; line-height: 1.4; }
@@ -562,10 +581,10 @@
 .w-toast-ball img { width: 14px; height: 14px; }
 .w-toast-place { overflow: hidden; text-overflow: ellipsis; }
 .w-toast-arrow { color: #9aa0ad; font-weight: 600; }
-.w-toast.shiny { border-color: #fff3a0; box-shadow: 0 0 22px rgba(255, 243, 160, 0.45); }
+.w-toast.shiny { border-color: #fff3a0; }
 .w-toast-via { font-size: 11px; color: #7d8291; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-toast.kind-flee .w-toast-art img { filter: brightness(0) invert(0.32); }
-.w-toast.kind-flee .w-toast-art { background: #1b1e26; }
+.w-toast.kind-flee .w-toast-art { background: var(--mon-bg); }
 .w-toast.kind-flee .w-toast-title { color: #c9cdd6; }
 .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.5); }
 @keyframes toastIn { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }

@@ -147,6 +147,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
   transition: max-width 0.35s cubic-bezier(.2, .8, .2, 1), height 0.35s cubic-bezier(.2, .8, .2, 1), margin-top 0.35s cubic-bezier(.2, .8, .2, 1),
     padding 0.35s cubic-bezier(.2, .8, .2, 1), border-radius 0.35s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
+/* While the page opens (main.js lifts .no-anim once it has settled): the header takes its place at once, no shrinking or opening on the way */
+.nav.no-anim .nav-row { transition: none; }
 .nav.floating .nav-row {
   max-width: 860px; height: 52px; margin-top: 12px; padding-inline: 18px 8px; gap: 16px; border-radius: 999px;
   background: rgba(16, 17, 23, 0.8); border-color: rgba(255, 255, 255, 0.1);
@@ -160,6 +162,10 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
    570 renders exactly with the variable face installed locally ('W Uncut'); the web font has 400/600/700 only, so it falls to 600. */
 .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; flex: none; color: var(--ink); }
 .brand-ball { display: block; width: 24px; height: 24px; flex: none; }
+/* One line for the header: the wordmark sat ~2px below the menu words (its 21px Uncut Sans against 14px text).
+   Lifted 1px and the menu and KO·EN·JA lowered 1px, their baselines meet and both centre on the ball */
+.brand-name { transform: translateY(-1px); }
+.nav-links a, .lang-seg button { position: relative; top: 1px; }
 .brand-name { font-family: 'W Uncut', 'Uncut Sans', 'Uncut Sans Variable', 'Pretendard Variable', system-ui, sans-serif; font-weight: 570; font-size: 21px; line-height: 1; letter-spacing: -0.03em; }
 .nav-links { display: flex; gap: 2px; margin-left: 8px; margin-right: auto; }
 .nav-links a { font-size: 14px; color: var(--ink-2); text-decoration: none; padding: 6px 10px; border-radius: 8px; transition: color 0.15s; }
@@ -186,7 +192,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 
 /* ---------- 1. Hero ---------- */
 .hero { position: relative; isolation: isolate; padding-top: calc(64px + clamp(72px, 11vw, 144px)); padding-bottom: calc(var(--section) * 0.5); }
-.hero-head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 24px; }
+.hero-head, .hero-copy { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 24px; }
+.hero-copy { width: 100%; }
+/* Until the fonts are in (assets/js/loading.js) the page waits unseen, then the content fades in once.
+   The header just appears: fading it (or anything around it) would show its blurred pill unblurred, then snap */
+.fonts-wait body { visibility: hidden; }
+.fonts-in main, .fonts-in footer { animation: fontsIn 0.35s ease-out both; }
+@keyframes fontsIn { from { opacity: 0; } to { opacity: 1; } }
 .hero-head h1 { max-width: 12ch; }
 :lang(en) .hero-head h1 { max-width: 13ch; }
 :lang(ja) .hero-head h1 { max-width: 11em; }
@@ -283,6 +295,7 @@ section[id], #features { scroll-margin-top: 88px; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .trail-tile, .trail-walker.hop { animation: none; }
+  .fonts-in main, .fonts-in footer { animation: none; }
   .btn, .pill-btn, .faq summary::after, .nav-links a, .lang-seg button, .nav-row, .ext-link { transition: none; }
 }
 
