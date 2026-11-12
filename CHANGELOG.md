@@ -2,6 +2,10 @@
 
 ## spawn
 
+### 1.3.47
+- 도감과 박스에서 포켓몬 뒤 칸의 색이 한 단계 더 어두워졌어요.
+- 위쪽 보기 전환 버튼 묶음(터미널·도감·박스·기록·랭킹)의 배경이 원래 색으로 돌아왔어요.
+
 ### 1.3.46
 - 의견 보내기가 GitHub 대신 spawn으로 바로 가요. GitHub 계정이 없어도 되고, 보낸 글은 공개되지 않아요. 화면에서 위치를 찍고 그 부분 그림을 함께 보내는 것도 그대로 돼요.
 - 의견 창이 단순해졌어요. 제목과 입력칸만 남았고, 보내지 못했을 때만 '복사' 버튼이 나와요.
@@ -330,6 +334,10 @@
 
 ## spawn (English)
 
+### 1.3.47
+- The boxes behind Pokémon in the Pokédex and the box are a shade darker.
+- The view buttons at the top (terminal, Pokédex, box, log, rankings) are back on their own background colour.
+
 ### 1.3.46
 - Feedback now goes straight to spawn instead of GitHub: no GitHub account needed, and what you send is not public. Pinning a spot and sending a picture of it still work.
 - The feedback box is simpler: a title and the text box; a Copy button shows only if sending fails.
@@ -521,6 +529,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.47
+- 図鑑とボックスで、ポケモンの後ろのマスの色が一段暗くなりました。
+- 上の表示切り替えボタン(ターミナル・図鑑・ボックス・記録・ランキング)の背景が元の色に戻りました。
 
 ### 1.3.46
 - 意見はGitHubではなく、spawnに直接届くようになりました。GitHubのアカウントは不要で、送った内容は公開されません。画面で位置を指定して、その部分の画像を一緒に送ることもこれまでどおりできます。
