@@ -52,7 +52,7 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
 .toast-host .w-toast-art {
   width: 72px; height: 72px; border-radius: 14px;
   display: grid; place-items: center;
-  background: #2a2b30;
+  background: #222428;
 }
 .toast-host .w-toast-art img { width: 52px; height: 52px; object-fit: contain; image-rendering: auto; }
 
@@ -93,7 +93,7 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
 /* ---------- Kinds ---------- */
 /* One that got away: a silhouette, as in the dex */
 .toast-host .w-toast.kind-flee .w-toast-art img { filter: brightness(0) invert(0.32); }
-.toast-host .w-toast.kind-flee .w-toast-art { background: #2a2b30; }
+.toast-host .w-toast.kind-flee .w-toast-art { background: #222428; }
 .toast-host .w-toast.kind-flee .w-toast-title { color: #c9cdd6; }
 .toast-host .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.5); }
 .toast-host .w-toast.kind-catch.tier-legendary, .toast-host .w-toast.kind-catch.tier-mythical {
