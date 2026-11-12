@@ -1330,8 +1330,12 @@ if (lockWaits < 0) {
     const tellServer = (async () => {
       if (running.length) await Promise.race([Promise.all(running.map(t => postSessionEnded(t.sessionId))), sleep(2000)])
       timer.mark('sessions-posted', `n=${running.length}`)
-      await serverPost('/flush', {}, 1500)
-      timer.mark('flushed')
+      // The server is ended right after this, so a flush that timed out (a busy server)
+      // gets one longer try: what it holds is up to 30 s of steps and the sessions' list
+      let flushed = await serverPost('/flush', {}, 1500)
+      if (!flushed?.ok && flushed?.reason !== 'no-token') flushed = await serverPost('/flush', {}, 3000)
+      timer.mark('flushed', flushed?.ok ? '' : `failed=${flushed?.reason ?? 'unknown'}`)
+      if (!flushed?.ok) console.warn('[main] quit: the server did not flush', flushed?.reason)
     })()
     const endSessions = (async () => {
       if (!terminals) return
