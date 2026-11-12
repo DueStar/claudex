@@ -2,7 +2,10 @@
    Random Scarlet/Violet icons in tidy, unseen boxes: a grid whose every other column sits half a
    box lower (a zigzag). They are unseen until the pointer comes near, then come up clearer as it comes
    near (closer = clearer). Only a background: the words and the button above are left as they are.
-   Icons at one size, 72×67 (60% of the 120×112 original: scaled down, never up). */
+   Icons at one size, 72×67 (60% of the 120×112 original: scaled down, never up).
+   A Pokémon that was seen and has faded fully out again is quietly swapped for another one, so
+   the field is never quite the same when the pointer comes back (only with a pointer: on a touch
+   screen they stay faintly in view and never fade out, so nothing is swapped there). */
 (function () {
   'use strict';
   var section = document.querySelector('.closing');
@@ -10,7 +13,8 @@
   var ICON = 'https://img.pokemondb.net/sprites/scarlet-violet/icon/';
   var ALL = SPECIES.filter(function (r) { return r[7]; });
   var CELL = 104;       // the unseen box, room around each Pokémon
-  var R = 200;          // how far the pointer's light reaches
+  var R = 170;          // how far the pointer's light reaches
+  var FADE = 300;       // ms: a little past the 0.25s fade-out in site.css, then it is truly unseen
   var BASE = 0;         // unseen until the pointer comes near
   var hover = false;
   try { hover = window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) {}
@@ -43,7 +47,7 @@
         i.style.top = Math.round(y) + 'px';
         if (BASE) i.style.opacity = BASE;
         field.appendChild(i);
-        mons.push({ el: i, x: x + 36, y: y + 33, o: BASE });
+        mons.push({ el: i, x: x + 36, y: y + 33, o: BASE, slug: s[7], seen: false, t: 0 });
       }
     }
   }
@@ -54,10 +58,33 @@
     for (var k = 0; k < mons.length; k++) {
       var m = mons[k], d = Math.hypot(m.x - px, m.y - py);
       var o = BASE + (1 - BASE) * (d >= R ? 0 : Math.pow(1 - d / R, 1.3));
-      if (Math.abs(o - m.o) < 0.01) continue;
+      // small steps are skipped, but reaching nothing never is: else a faint 0.008 could linger
+      if (Math.abs(o - m.o) < 0.01 && !(o === 0 && m.o !== 0)) continue;
       m.o = o;
       m.el.style.opacity = o.toFixed(3);
+      if (o > 0) {
+        m.seen = true;
+        if (m.t) { clearTimeout(m.t); m.t = 0; } // lit again before the swap: keep this one
+      } else if (m.seen && !m.t) {
+        m.t = setTimeout(swap.bind(null, m), FADE);
+      }
     }
+  }
+
+  // once it has faded fully out, load another Pokémon unseen and put it in only if still unseen
+  function swap(m) {
+    m.t = 0;
+    if (m.o !== 0) return;
+    var s;
+    do { s = ALL[Math.floor(Math.random() * ALL.length)]; } while (s[7] === m.slug && ALL.length > 1);
+    var next = new Image();
+    next.onload = function () {
+      if (m.o !== 0 || !m.el.parentNode) return; // lit again, or the field was laid out anew
+      m.el.src = next.src;
+      m.slug = s[7];
+      m.seen = false;
+    };
+    next.src = ICON + s[7] + '.png';
   }
   function ask() { if (!raf) raf = requestAnimationFrame(light); }
 

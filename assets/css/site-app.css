@@ -91,7 +91,7 @@
 }
 
 /* No gradient anywhere but the hero glow: the art backdrops get a flat tier tint instead of the app's radial one */
-.w-toast-art { background: var(--mon-bg); }
+.w-toast-art { background: var(--toast-art-bg); }
 .dex-card-art { background: color-mix(in srgb, var(--tier) 12%, var(--card-2)); }
 
 /* Live views shown large on wide screens: the app's 12px UI, scaled up as a whole */

@@ -21,7 +21,8 @@
 .widget {
   --card: #14161c;
   --card-2: #1b1e26;
-  --mon-bg: #1d1e22; /* behind every Pokémon picture, as in the app */
+  --mon-bg: #16181d; /* behind every Pokémon picture in the dex and box, as in the app (1.3.48) */
+  --toast-art-bg: #1d1e22; /* the catch toast keeps the lighter grey, as in the app */
   --line: rgba(255, 255, 255, 0.07);
   --ink: #f1f2f5;
   --ink-2: #a4a9b6;
@@ -568,7 +569,7 @@
   animation: toastIn 0.3s cubic-bezier(.2, .8, .2, 1) both;
 }
 .w-toast.leaving { animation: toastOut 0.35s ease-in both; }
-.w-toast-art { width: 72px; height: 72px; border-radius: 14px; display: grid; place-items: center; background: var(--mon-bg); }
+.w-toast-art { width: 72px; height: 72px; border-radius: 14px; display: grid; place-items: center; background: var(--toast-art-bg); }
 .w-toast-art img { width: 52px; height: 52px; object-fit: contain; image-rendering: auto; }
 .w-toast-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-right: 10px; }
 .w-toast-eyebrow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; line-height: 1.4; }
@@ -586,7 +587,7 @@
 .w-toast.shiny { border-color: #fff3a0; }
 .w-toast-via { font-size: 11px; color: #7d8291; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-toast.kind-flee .w-toast-art img { filter: brightness(0) invert(0.32); }
-.w-toast.kind-flee .w-toast-art { background: var(--mon-bg); }
+.w-toast.kind-flee .w-toast-art { background: var(--toast-art-bg); }
 .w-toast.kind-flee .w-toast-title { color: #c9cdd6; }
 .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.5); }
 @keyframes toastIn { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }

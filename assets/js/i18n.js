@@ -18,13 +18,13 @@ var SITE_LINKS = {
 };
 
 /* The latest release (shown under the closing download button; update with each release) */
-var LATEST_VERSION = '1.3.47'; // the fallback: loading.js asks GitHub for the newest
+var LATEST_VERSION = '1.3.48'; // the fallback: loading.js asks GitHub for the newest
 
 var STRINGS = {
   ko: {
     'lang.name': '한국어',
-    'meta.title': '{name}: 기다리던 시간을 모험으로',
-    'meta.desc': 'Claude Code와 Codex 세션을 포켓몬과 함께 쓰는 Windows 앱이에요. 일할수록 걷고, 레벨이 오르고, 야생 포켓몬을 만나요.',
+    'meta.title': 'Spawn : 기다리던 시간을 모험으로', // the user's wording, capital S (also in index.html for link previews)
+    'meta.desc': '에이전트가 일하는 동안, 야생 포켓몬을 만나 도감을 완성해 보세요.',
     'skip': '본문으로 건너뛰기',
     'nav.features': '둘러보기',
     'nav.dex': '도감',
