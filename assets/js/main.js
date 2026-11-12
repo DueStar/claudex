@@ -114,6 +114,8 @@
     });
     document.querySelectorAll('[data-version]').forEach(function (el) { el.textContent = versionText(el); });
     langListeners.forEach(function (fn) { fn(); });
+    // the fresh text gets its line breaks by meaning again (wrap.js; not there yet on the first run)
+    if (window.spawnRewrap) window.spawnRewrap(true);
   }
 
   function setLang(next) {

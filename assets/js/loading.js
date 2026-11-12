@@ -29,6 +29,8 @@
   }
 
   within(FONT_WAIT_MS, fontsIn()).then(function () {
+    // line breaks by meaning (wrap.js), measured in the real fonts before anything shows
+    try { if (window.spawnRewrap) window.spawnRewrap(); } catch (e) {}
     root.classList.remove('fonts-wait');
     root.classList.add('fonts-in');
   });
