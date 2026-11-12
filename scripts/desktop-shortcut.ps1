@@ -50,7 +50,9 @@ $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($link)
 $shortcut.TargetPath = $exe
 $shortcut.WorkingDirectory = $InstallDir
-$shortcut.IconLocation = "$exe,0"
+# The icon file that app updates replace (the exe's own icon never changes after install)
+$ico = Join-Path $InstallDir 'resources\app\electron\assets\icon.ico'
+$shortcut.IconLocation = if (Test-Path $ico) { "$ico,0" } else { "$exe,0" }
 $shortcut.Description = 'spawn'
 $shortcut.Save()
 

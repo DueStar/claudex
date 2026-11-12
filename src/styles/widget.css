@@ -114,18 +114,19 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   cursor: pointer;
 }
 .w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); --row-bg: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
-/* The chosen session while it works: a glint of the accent yellow runs round its border;
-   resting, it is the still yellow border above again */
+/* A session while it works: a glint runs round its border, accent yellow on the chosen
+   one and light grey on the others; resting, the chosen one has the still yellow border above */
 @property --w-spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 @keyframes w-spin { to { --w-spin: 360deg; } }
-.w-row.chosen.mood-working { border-color: transparent; }
-.w-row.chosen.mood-working::before {
+.w-row.mood-working { --spin-head: rgba(255, 255, 255, 0.5); --spin-tail: rgba(255, 255, 255, 0.07); }
+.w-row.chosen.mood-working { border-color: transparent; --spin-head: var(--accent); --spin-tail: rgba(242, 201, 76, 0.18); }
+.w-row.mood-working::before {
   content: ''; position: absolute; inset: -1px; border-radius: 11px; padding: 1.5px; pointer-events: none;
-  background: conic-gradient(from var(--w-spin), var(--accent), rgba(242, 201, 76, 0.18) 30%, rgba(242, 201, 76, 0.18) 55%, var(--accent) 85%, var(--accent));
+  background: conic-gradient(from var(--w-spin), var(--spin-head), var(--spin-tail) 30%, var(--spin-tail) 55%, var(--spin-head) 85%, var(--spin-head));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
   animation: w-spin 4s linear infinite;
 }
-@media (prefers-reduced-motion: reduce) { .w-row.chosen.mood-working::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .w-row.mood-working::before { animation: none; } }
 .w-row-name { font-weight: 650; font-size: 13px; }
 .w-row-project { color: var(--ink-3); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .w-pill { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #262a34; color: var(--ink-2); white-space: nowrap; }

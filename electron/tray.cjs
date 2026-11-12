@@ -19,7 +19,9 @@ const ASSETS_DIR = path.join(__dirname, 'assets')
 
 function trayIconFile() {
   if (process.platform === 'darwin') return 'trayTemplate.png'
-  if (process.platform === 'win32') return 'tray-16.png'
+  // The tray is 16 px at 100 %, 24 at 150 %, 32 at 200 %: the .ico holds each size, so
+  // Windows takes the one for the display's scale (a 16 px PNG was blown up and blurred)
+  if (process.platform === 'win32') return 'icon.ico'
   return 'tray-32.png'
 }
 

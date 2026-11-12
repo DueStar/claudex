@@ -42,6 +42,7 @@ const { createLog, teeConsole } = require('./logs.cjs')
 const { t, useLanguage } = require('./i18n.cjs')
 const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 const { migrateUserData } = require('./userDataMigration.cjs')
+const { refreshShortcutIcons } = require('./shortcutIcon.cjs')
 // Settings made under the old name (CLAUDEX_PORT=…) keep working; the server and terminals inherit them
 adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
@@ -99,7 +100,9 @@ process.on('unhandledRejection', (err) => { console.error('[main] unhandled reje
 let updater = null
 
 const PRELOAD = path.join(__dirname, 'preload.cjs')
-const APP_ICON = path.join(__dirname, 'assets', 'icon.png')
+// Windows gets the .ico (16–256 px, each size drawn separately), so the taskbar and the
+// tray pick a sharp size for the display's scale instead of shrinking or blowing up one
+const APP_ICON = path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png')
 const REPO_ROOT = path.join(__dirname, '..')
 
 // The server's port: SPAWN_PORT, default 3334 (helpers.cjs mirrors
@@ -673,6 +676,10 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
   })
   win.spawnKind = kind
+  // A window pinned to the taskbar keeps this icon and reopens the app, not the exe's icon
+  if (process.platform === 'win32' && app.isPackaged) {
+    try { win.setAppDetails({ appIconPath: APP_ICON, appIconIndex: 0, relaunchCommand: `"${process.execPath}"`, relaunchDisplayName: 'spawn' }) } catch {}
+  }
   if (isWidget && appSettings().app.widgetOnTop) win.setAlwaysOnTop(true, 'floating')
   win.webContents.on('will-navigate', (event) => event.preventDefault())
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -1270,6 +1277,9 @@ if (lockWaits < 0) {
     setInterval(() => updater.check(), 30 * 60 * 1000).unref?.()
     // A local build folder (the developer's own PC) is looked at every minute
     setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
+    // The Desktop / Start menu shortcuts show the icon that comes with updates (spawn.exe's
+    // own icon never changes after the first install); a moment after start, off the start path
+    setTimeout(() => { try { refreshShortcutIcons({ app, shell }) } catch (err) { console.error('[main] Shortcut icon:', err.message) } }, 5000).unref?.()
     return open()
   })
 
