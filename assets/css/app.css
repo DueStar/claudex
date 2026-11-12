@@ -21,7 +21,7 @@
 .widget {
   --card: #14161c;
   --card-2: #1b1e26;
-  --mon-bg: #222428; /* behind every Pokémon picture, as in the app */
+  --mon-bg: #1d1e22; /* behind every Pokémon picture, as in the app */
   --line: rgba(255, 255, 255, 0.07);
   --ink: #f1f2f5;
   --ink-2: #a4a9b6;
