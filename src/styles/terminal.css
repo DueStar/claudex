@@ -2,7 +2,8 @@
    widget.css / widget-expanded.css, which place the view in its card. The
    pickers (이어하기, 교체, 던지기) are styled in widget-expanded.css only. */
 
-.term-view { position: absolute; inset: 4px 0 0 6px; }
+/* overflow: the terminal keeps its size while its box is resized and fits once it rests (TerminalPanel) */
+.term-view { position: absolute; inset: 4px 0 0 6px; overflow: hidden; }
 
 /* Find in the terminal (Ctrl+F): a small bar over the terminal's top right */
 .term-search {

@@ -205,10 +205,13 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     // wrong width
     //
     // While the window is being dragged wider or narrower the box changes size on
-    // every frame. The terminal follows at most once a frame, and the session is told
-    // the new size only once the drag settles: each size Claude Code receives makes it
-    // clear and redraw its whole screen, which flickered the terminal and kept the
-    // window too busy to paint (it went blank while resized side by side with another)
+    // every frame. Fitting then wiped the terminal every frame: a new column count
+    // clears xterm's canvas at once (FitAddon -> renderService.clear, the WebGL canvas
+    // resized) and the redraw only comes a frame later, so each frame shown had an empty
+    // terminal (blank while resized side by side, flicker on a slow drag; 1.3.37 only
+    // spaced the fits out). Now the terminal keeps its size during the drag (the box
+    // clips it) and fits once, with the session told the new size, after the drag rests.
+    // Each size Claude Code receives also makes it redraw its whole screen.
     let sizeTimer: ReturnType<typeof setTimeout> | null = null
     let sentSize = ''
     const sendSize = () => {
@@ -222,16 +225,17 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       if (!hostRef.current || hostRef.current.offsetWidth === 0 || document.visibilityState !== 'visible') return
       try {
         fit.fit()
-        if (sizeTimer) clearTimeout(sizeTimer)
-        if (settle) sizeTimer = setTimeout(sendSize, 150)
+        if (sizeTimer) { clearTimeout(sizeTimer); sizeTimer = null }
+        if (settle) sendSize()
         else { sentSize = ''; sendSize() }
       } catch {}
     }
     fitNowRef.current = () => doFit()
-    let frame = 0
+    const FIT_REST_MS = 120
+    let fitTimer: ReturnType<typeof setTimeout> | null = null
     const ro = new ResizeObserver(() => {
-      if (frame) return
-      frame = requestAnimationFrame(() => { frame = 0; if (!disposed) doFit(true) })
+      if (fitTimer) clearTimeout(fitTimer)
+      fitTimer = setTimeout(() => { fitTimer = null; if (!disposed) doFit(true) }, FIT_REST_MS)
     })
     ro.observe(hostRef.current)
     doFit()
@@ -260,7 +264,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       document.removeEventListener('visibilitychange', fitNow)
       window.removeEventListener('focus', fitNow)
       ro.disconnect()
-      if (frame) cancelAnimationFrame(frame)
+      if (fitTimer) clearTimeout(fitTimer)
       if (sizeTimer) clearTimeout(sizeTimer)
       offData()
       input.dispose()
