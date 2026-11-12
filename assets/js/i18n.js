@@ -23,7 +23,7 @@ var LATEST_VERSION = '1.3.37';
 var STRINGS = {
   ko: {
     'lang.name': '한국어',
-    'meta.title': '{name}: 코딩하면, 포켓몬이 자라요',
+    'meta.title': '{name}: 기다리던 시간을 모험으로',
     'meta.desc': 'Claude Code와 Codex 세션을 포켓몬과 함께 쓰는 Windows 앱이에요. 일할수록 걷고, 레벨이 오르고, 야생 포켓몬을 만나요.',
     'skip': '본문으로 건너뛰기',
     'nav.features': '둘러보기',
@@ -36,8 +36,8 @@ var STRINGS = {
     'cta.github': 'GitHub에서 보기',
     'cta.version': '최신 버전 {v} · 무료',
 
-    'hero.title': '코딩하면, 포켓몬이 자라요.',
-    'hero.lede': 'Claude Code와 Codex 세션마다 포켓몬 한 마리가 함께 일해요.',
+    'hero.title': '기다리던 시간을\n모험으로',
+    'hero.lede': '에이전트가 일하는 동안, 야생 포켓몬을 만나 도감을 완성해 보세요.',
     'hero.note': '무료 · Windows · 비영리 팬 프로젝트',
     'hero.caption': '실제 앱 화면을 옮겨 와 움직이는 데모예요. 이름과 숫자는 예시예요.',
     'demo.pause': '데모 멈추기',
@@ -209,7 +209,7 @@ var STRINGS = {
 
   en: {
     'lang.name': 'English',
-    'meta.title': '{name}: code, and your Pokémon grow',
+    'meta.title': '{name}: all that waiting, now an adventure',
     'meta.desc': 'A Windows app that runs your Claude Code and Codex sessions with Pokémon. The more you work, the more they walk, level up and meet wild Pokémon.',
     'skip': 'Skip to content',
     'nav.features': 'Tour',
@@ -222,8 +222,8 @@ var STRINGS = {
     'cta.github': 'View on GitHub',
     'cta.version': 'Latest {v} · Free',
 
-    'hero.title': 'Code, and your Pokémon grow.',
-    'hero.lede': 'Every Claude Code or Codex session is worked by one Pokémon from your party.',
+    'hero.title': 'All that waiting,\nnow an adventure',
+    'hero.lede': 'While your agent works, meet wild Pokémon and complete your Pokédex.',
     'hero.note': 'Free · Windows · Non-commercial fan project',
     'hero.caption': 'A live demo built from the app’s own UI. Names and numbers are made up.',
     'demo.pause': 'Pause the demo',
@@ -391,7 +391,7 @@ var STRINGS = {
 
   ja: {
     'lang.name': '日本語',
-    'meta.title': '{name}：コードを書けば、ポケモンが育つ',
+    'meta.title': '{name}：待っていた時間を冒険に',
     'meta.desc': 'Claude CodeとCodexのセッションをポケモンと一緒に使うWindowsアプリです。作業するほど歩いて、レベルが上がり、野生のポケモンに出会います。',
     'skip': '本文へ移動',
     'nav.features': '紹介',
@@ -404,8 +404,8 @@ var STRINGS = {
     'cta.github': 'GitHubで見る',
     'cta.version': '最新版 {v} · 無料',
 
-    'hero.title': 'コードを書けば、ポケモンが育つ。',
-    'hero.lede': 'Claude CodeやCodexのセッションごとに、手持ちのポケモンが1匹ずつ一緒に働きます。',
+    'hero.title': '待っていた時間を\n冒険に',
+    'hero.lede': 'エージェントが働くあいだに、野生のポケモンに出会って図鑑を完成させよう。',
     'hero.note': '無料 · Windows · 非営利のファンプロジェクト',
     'hero.caption': 'アプリの画面をそのまま持ってきて動かしているデモです。名前と数字は例です。',
     'demo.pause': 'デモを止める',
