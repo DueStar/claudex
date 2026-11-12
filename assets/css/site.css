@@ -144,29 +144,39 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .nav-row {
   pointer-events: auto; display: flex; align-items: center; gap: 20px; height: 64px;
   border: 1px solid transparent; border-radius: 0; background: transparent;
-  transition: max-width 0.35s cubic-bezier(.2, .8, .2, 1), height 0.35s cubic-bezier(.2, .8, .2, 1), margin-top 0.35s cubic-bezier(.2, .8, .2, 1),
+  /* the width itself is what moves (not max-width, which sat far above the real width on a small
+     window, so the pill first widened as its padding shrank, then shrank late) */
+  width: min(100%, calc(var(--wrap) + var(--gutter) * 2)); max-width: none;
+  transition: width 0.35s cubic-bezier(.2, .8, .2, 1), height 0.35s cubic-bezier(.2, .8, .2, 1), margin-top 0.35s cubic-bezier(.2, .8, .2, 1),
     padding 0.35s cubic-bezier(.2, .8, .2, 1), border-radius 0.35s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 /* While the page opens (main.js lifts .no-anim once it has settled): the header takes its place at once, no shrinking or opening on the way */
-.nav.no-anim .nav-row { transition: none; }
+.nav.no-anim .nav-row, .nav.no-anim .brand-ball, .nav.no-anim .brand-name, .nav.no-anim .nav-dl { transition: none; }
 .nav.floating .nav-row {
-  max-width: 860px; height: 52px; margin-top: 12px; padding-inline: 18px 8px; gap: 16px; border-radius: 999px;
+  width: min(860px, calc(100% - 24px)); height: 52px; margin-top: 12px; padding-inline: 18px 8px; gap: 16px; border-radius: 999px;
   background: rgba(16, 17, 23, 0.8); border-color: rgba(255, 255, 255, 0.1);
   -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
   box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.7);
 }
 .nav.floating .brand-name { font-size: 19px; }
+/* the ball and the name are one mark: when the pill shrinks the name, the ball shrinks with it (24 → 22, as 21 → 19) */
+.nav.floating .brand-ball { width: 22px; height: 22px; }
 .nav.floating .nav-links { margin-left: 4px; }
-@media (max-width: 900px) { .nav.floating .nav-row { max-width: calc(100% - 24px); } }
+/* the pill's own button goes round with it, a little smaller, so it sits inside instead of standing out */
+.nav.floating .nav-dl { border-radius: 999px; min-height: 34px; padding: 0 14px 0 12px; }
+.nav-dl { transition: border-radius 0.35s cubic-bezier(.2, .8, .2, 1), min-height 0.35s cubic-bezier(.2, .8, .2, 1), padding 0.35s cubic-bezier(.2, .8, .2, 1), background-color 0.15s; }
+
 /* The brand: the Poké Ball and the name (PRODUCT_NAME) in Uncut Sans.
    570 renders exactly with the variable face installed locally ('W Uncut'); the web font has 400/600/700 only, so it falls to 600. */
 .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; flex: none; color: var(--ink); }
-.brand-ball { display: block; width: 24px; height: 24px; flex: none; }
+.brand-ball { display: block; width: 24px; height: 24px; flex: none; transition: width 0.35s cubic-bezier(.2, .8, .2, 1), height 0.35s cubic-bezier(.2, .8, .2, 1); }
 /* One line for the header: the wordmark sat ~2px below the menu words (its 21px Uncut Sans against 14px text).
    Lifted 1px and the menu and KO·EN·JA lowered 1px, their baselines meet and both centre on the ball */
 .brand-name { transform: translateY(-1px); }
-.nav-links a, .lang-seg button { position: relative; top: 1px; }
-.brand-name { font-family: 'W Uncut', 'Uncut Sans', 'Uncut Sans Variable', 'Pretendard Variable', system-ui, sans-serif; font-weight: 570; font-size: 21px; line-height: 1; letter-spacing: -0.03em; }
+.nav-links a, .lang-seg button { position: relative; top: 2px; }
+/* the download button's icon and word: down with the menu (the user asked the header's words 1px lower) */
+.nav-dl > * { position: relative; top: 1px; }
+.brand-name { transition: font-size 0.35s cubic-bezier(.2, .8, .2, 1); font-family: 'W Uncut', 'Uncut Sans', 'Uncut Sans Variable', 'Pretendard Variable', system-ui, sans-serif; font-weight: 570; font-size: 21px; line-height: 1; letter-spacing: -0.03em; }
 .nav-links { display: flex; gap: 2px; margin-left: 8px; margin-right: auto; }
 .nav-links a { font-size: 14px; color: var(--ink-2); text-decoration: none; padding: 6px 10px; border-radius: 8px; transition: color 0.15s; }
 .nav-links a:hover { color: var(--ink); }
@@ -181,8 +191,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 @media (max-width: 900px) { .nav-links { display: none; } .lang-seg { margin-left: auto; } }
 @media (max-width: 420px) {
   .nav-row { gap: 12px; height: 56px; }
-  .nav.floating .nav-row { height: 48px; margin-top: 8px; padding-inline: 14px 6px; max-width: calc(100% - 16px); }
+  .nav.floating .nav-row { height: 48px; margin-top: 8px; padding-inline: 14px 6px; width: calc(100% - 16px); }
   .brand-name { font-size: 19px; }
+  .brand-ball { width: 22px; height: 22px; }
   .lang-seg button + button::before { margin: 0 5px; }
   .nav-dl { padding: 0 12px; }
 }
@@ -202,7 +213,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .hero-head h1 { max-width: 12ch; }
 :lang(en) .hero-head h1 { max-width: 13ch; }
 :lang(ja) .hero-head h1 { max-width: 11em; }
-.hero-head .lede, .pillars .lede, .privacy .lede { max-width: 34em; text-wrap: balance; }
+.hero-head .lede, .pillars .lede, .privacy .lede { max-width: 46em; text-wrap: balance; } /* wide enough that a subtitle breaks by meaning (wrap.js), not for want of room */
 .hero-head .actions { margin-top: 10px; }
 .hero-demo { margin: clamp(56px, 8vw, 96px) auto 0; }
 .app-frame { position: relative; border-radius: var(--r-panel); overflow: hidden; border: 1px solid var(--line-strong); background: var(--bg-deep); box-shadow: 0 40px 120px -40px rgba(0, 0, 0, 0.9); }
@@ -227,7 +238,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 
 /* ---------- 3. Feature blocks: head on one line, the live view large below ---------- */
 .feature-head { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 20px var(--gap); align-items: end; margin-bottom: clamp(32px, 4.5vw, 56px); }
-.feature-head .lede { padding-bottom: 0.4em; max-width: 26em; }
+.feature-head .lede { padding-bottom: 0.4em; }
 .feature-sub { display: flex; flex-direction: column; gap: 14px; padding-bottom: 0.4em; }
 .feature-sub .lede { padding-bottom: 0; }
 .hp-line { display: flex; align-items: baseline; gap: 10px; font-size: 14px; color: var(--ink-3); line-height: 1.55; max-width: 30em; }
@@ -238,8 +249,8 @@ section[id], #features { scroll-margin-top: 88px; }
 
 /* ---------- 4. Privacy ---------- */
 .privacy .center { gap: 20px; }
-.privacy .lede { max-width: 30em; }
-.privacy-more { margin-top: 18px; text-align: center; font-size: 14px; }
+.privacy .lede { max-width: 46em; }
+.privacy-more { margin-top: 18px; font-size: 14px; } /* the section reads from the left like the ones above it */
 
 /* ---------- 5. Four steps ---------- */
 .start-title { margin-bottom: clamp(40px, 5vw, 64px); }
@@ -302,3 +313,17 @@ section[id], #features { scroll-margin-top: 88px; }
 /* Japanese: half-width 、。 in centred lines (main.js wraps them), so a line that ends in one is centred on its ink */
 :lang(ja) .jp-p { margin-inline-end: -0.42em; }
 :lang(ja) h1, :lang(ja) h2, :lang(ja) .lede { line-break: strict; }
+
+/* The cursor: a little rounded arrow in the brand yellow,
+   a shade lighter over what can be pressed; text fields keep the text cursor */
+html { cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M5%203.5c0-1%201.1-1.5%201.9-.9l15.4%2011.6c.9.7.4%202.1-.7%202.1h-6.3l3.6%206.9c.3.6.1%201.3-.5%201.6l-2.2%201.1c-.6.3-1.3.1-1.6-.5l-3.5-7-4.3%204.1c-.8.7-2%20.2-2-.9z%22%20fill%3D%22%23F2C94C%22%20stroke%3D%22%231b1e27%22%20stroke-width%3D%221.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%228.6%22%20cy%3D%228.4%22%20r%3D%221.3%22%20fill%3D%22%23fff%22%20opacity%3D%22.85%22%2F%3E%3C%2Fsvg%3E") 5 3, auto; }
+a, button, summary, label, [role="button"] { cursor: url("data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M5%203.5c0-1%201.1-1.5%201.9-.9l15.4%2011.6c.9.7.4%202.1-.7%202.1h-6.3l3.6%206.9c.3.6.1%201.3-.5%201.6l-2.2%201.1c-.6.3-1.3.1-1.6-.5l-3.5-7-4.3%204.1c-.8.7-2%20.2-2-.9z%22%20fill%3D%22%23FFDD6E%22%20stroke%3D%22%231b1e27%22%20stroke-width%3D%221.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%228.6%22%20cy%3D%228.4%22%20r%3D%221.3%22%20fill%3D%22%23fff%22%20opacity%3D%22.85%22%2F%3E%3C%2Fsvg%3E") 5 3, pointer; }
+input, textarea { cursor: text; }
+
+/* the closing section as a field: more room below, Pokémon hidden in it (assets/js/field.js) */
+.closing { padding-top: calc(var(--section) * 0.9); padding-bottom: calc(var(--section) + 120px); }
+.closing > .wrap { position: relative; z-index: 1; }
+.sv-field { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  /* the field fades out at its top and bottom edges: no hard line where the section starts or ends */
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); }
+.sv-field .sv-hidden { position: absolute; width: 72px; height: 67px; opacity: 0; transition: opacity 0.25s ease-out; will-change: opacity; } /* unseen until the pointer comes near (field.js) */

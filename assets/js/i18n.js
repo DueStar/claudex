@@ -18,7 +18,7 @@ var SITE_LINKS = {
 };
 
 /* The latest release (shown under the closing download button; update with each release) */
-var LATEST_VERSION = '1.3.43'; // the fallback: loading.js asks GitHub for the newest
+var LATEST_VERSION = '1.3.45'; // the fallback: loading.js asks GitHub for the newest
 
 var STRINGS = {
   ko: {
@@ -141,7 +141,7 @@ var STRINGS = {
     'privacy.hide.s': '켜면 화면과 클라우드 사본에서 요청 내용을 빼요. 눌러 보세요.',
     'privacy.hide.sample': '헤더 문구 다듬고 테스트 돌려 줘',
     'privacy.out.b': '밖으로 나가는 것',
-    'privacy.out.s': '포켓몬 그림 받기, 새 버전 확인, 그리고 로그인했다면 동기화와 랭킹이 전부예요.',
+    'privacy.out.s': '포켓몬 그림 받기, 새 버전 확인, 로그인했다면 동기화와 랭킹, 그리고 의견을 보낼 때 그 글이 전부예요.',
     'start.latest': '최신',
 
     /* the Pokédex (PokedexView.tsx) */
@@ -326,7 +326,7 @@ var STRINGS = {
     'privacy.hide.s': 'Keeps your requests off the screen and out of the cloud copy. Try it.',
     'privacy.hide.sample': 'Tidy the header copy and run the tests',
     'privacy.out.b': 'What leaves your PC',
-    'privacy.out.s': 'Pokémon pictures, update checks, and sync and ranking if you signed in. That is all.',
+    'privacy.out.s': 'Pokémon pictures, update checks, sync and ranking if you signed in, and your note when you send feedback. That is all.',
     'start.latest': 'Latest',
 
     'dex.gen': 'Generation',
@@ -508,7 +508,7 @@ var STRINGS = {
     'privacy.hide.s': 'オンにすると画面とクラウドのコピーからリクエストを外します。押してみてください。',
     'privacy.hide.sample': 'ヘッダーの文言を整えて、テストを回して',
     'privacy.out.b': 'PCの外に出るもの',
-    'privacy.out.s': 'ポケモンの絵、新しいバージョンの確認、ログインしていれば同期とランキング。それだけです。',
+    'privacy.out.s': 'ポケモンの絵、新しいバージョンの確認、ログインしていれば同期とランキング、意見を送るときはその文。それだけです。',
     'start.latest': '最新',
 
     'dex.gen': '世代',

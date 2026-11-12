@@ -169,7 +169,8 @@
 .hp-hint::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); flex: none; }
 
 /* ---------- 내 PC에서만: the app's settings rows ---------- */
-.widget.panel.set-panel { max-width: 720px; margin: clamp(32px, 4vw, 48px) auto 0; padding: 8px 22px 10px; border-radius: 20px; background: var(--card); }
+/* full width under its left-aligned head, like the other sections' panels */
+.widget.panel.set-panel { padding: 8px 22px 10px; border-radius: 20px; background: var(--card); }
 .set-head { padding: 10px 0 4px; }
 .set-panel .set-row:last-child { border-bottom: 0; }
 .set-panel .set-text b { font-size: 14px; }

@@ -13,6 +13,7 @@
   var SW = window.semanticWrap;
   if (!SW || !SW.selectLineBreaks) return;
   var TARGETS = '.lede, .steps4 li > p';
+  var FILL = 0.84;
   var canvas = document.createElement('canvas').getContext('2d');
 
   function modelFor(lang) { return lang === 'ko' ? SW.koTitleModel : lang === 'en' ? SW.enTitleModel : null; }
@@ -37,12 +38,20 @@
     if (el.children.length && !el.hasAttribute('data-sw')) return;
     var text = el.getAttribute('data-sw') || el.textContent;
     if (!text || !text.trim()) return;
+    // the room it may take, not the width it has now: a centred line shrinks to its longest line, so
+    // measuring that kept the breaks of a narrower window after the window grew again
+    el.textContent = text;
+    var before = el.style.width;
+    el.style.width = '100%';
     var cs = getComputedStyle(el);
     var width = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    el.style.width = before;
     if (!(width > 0)) return;
     canvas.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
     if ('letterSpacing' in canvas) canvas.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
-    var lines = linesFor(text, model, width - 1, function (s) { return canvas.measureText(s).width; });
+    // lines are kept to 84% of the room: a line that runs edge to edge reads like a rule, and two
+    // shorter lines read easier than one full one
+    var lines = linesFor(text, model, (width - 1) * FILL, function (s) { return canvas.measureText(s).width; });
     el.setAttribute('data-sw', text);
     if (!lines) { el.textContent = text; return; }
     el.textContent = '';

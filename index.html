@@ -248,9 +248,11 @@
 
     <!-- ============ 4. Privacy, one line ============ -->
     <section class="section privacy" id="privacy">
-      <div class="wrap center">
-        <h2 class="display-2" data-i18n="privacy.title"></h2>
-        <p class="lede" data-i18n="privacy.lede"></p>
+      <div class="wrap">
+        <div class="feature-head">
+          <h2 data-i18n="privacy.title"></h2>
+          <p class="lede" data-i18n="privacy.lede"></p>
+        </div>
       </div>
       <div class="wrap">
         <div class="widget panel set-panel privacy-panel">
@@ -341,15 +343,6 @@
         </div>
         <p class="fine" data-version></p>
       </div>
-      <div class="wrap">
-        <div class="widget dex-strip" id="dexStrip" aria-hidden="true">
-          <div class="dex-strip-head">
-            <span class="w-label" data-i18n="app.dex"></span>
-            <span class="w-dex-count"><b id="stripCount"></b><span> / 1025</span></span>
-          </div>
-          <div class="dex-strip-cells" id="stripCells"></div>
-        </div>
-      </div>
     </section>
   </main>
 
@@ -380,5 +373,6 @@
   <script src="assets/js/wrap.js"></script>
   <script src="assets/js/loading.js"></script>
   <script src="assets/js/motion.js"></script>
+  <script src="assets/js/field.js"></script>
 </body>
 </html>
