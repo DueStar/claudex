@@ -2,6 +2,13 @@
 
 ## spawn
 
+### 1.3.46
+- 의견 보내기가 GitHub 대신 spawn으로 바로 가요. GitHub 계정이 없어도 되고, 보낸 글은 공개되지 않아요. 화면에서 위치를 찍고 그 부분 그림을 함께 보내는 것도 그대로 돼요.
+- 의견 창이 단순해졌어요. 제목과 입력칸만 남았고, 보내지 못했을 때만 '복사' 버튼이 나와요.
+- 도감·박스·상세 카드의 포켓몬 뒤 배경이 조금 더 어두워졌어요.
+- 왼쪽 패널을 접었을 때 보이는 사용량 막대가 조금 가늘어졌어요.
+- 터미널에서 Ctrl+클릭한 웹 페이지, PDF, 그림 파일은 기본 앱(브라우저, 사진 앱)으로 열려요.
+
 ### 1.3.45
 - 오른쪽 위 창 버튼이 다른 Windows 프로그램처럼 최소화, 전체화면(전체화면일 때는 창 모드로), 닫기 순서예요.
 - 위젯·창·전체화면 세 버튼은 위젯으로 줄이는 버튼 하나로 바뀌었어요. 위젯에서 다시 펼칠 때는 지금처럼 ⇤를 눌러요.
@@ -323,6 +330,13 @@
 
 ## spawn (English)
 
+### 1.3.46
+- Feedback now goes straight to spawn instead of GitHub: no GitHub account needed, and what you send is not public. Pinning a spot and sending a picture of it still work.
+- The feedback box is simpler: a title and the text box; a Copy button shows only if sending fails.
+- The background behind Pokémon in the Pokédex, the box and the detail card is a little darker.
+- The usage bars on the folded left panel are a little thinner.
+- Ctrl+click on a web page, PDF or picture named in the terminal opens it in its default app (the browser, the photo viewer).
+
 ### 1.3.45
 - The window buttons at the top right are minimize, maximize (restore when full screen) and close, as in other Windows apps.
 - The widget, window and full screen buttons became one button that shrinks to the widget. From the widget, ⇤ opens it again as before.
@@ -507,6 +521,13 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.46
+- 意見はGitHubではなく、spawnに直接届くようになりました。GitHubのアカウントは不要で、送った内容は公開されません。画面で位置を指定して、その部分の画像を一緒に送ることもこれまでどおりできます。
+- 意見の画面がシンプルになりました。タイトルと入力欄だけになり、送れなかったときだけ「コピー」ボタンが出ます。
+- 図鑑・ボックス・詳細カードのポケモンの背景が少し暗くなりました。
+- 左パネルをたたんだときの使用量バーが少し細くなりました。
+- ターミナルでCtrl+クリックしたWebページ、PDF、画像は既定のアプリ(ブラウザ、フォトアプリ)で開きます。
 
 ### 1.3.45
 - 右上のウィンドウボタンが、ほかのWindowsアプリと同じく最小化・全画面（全画面のときはウィンドウに戻す）・閉じるの順になりました。
