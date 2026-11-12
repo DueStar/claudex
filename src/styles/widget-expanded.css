@@ -258,6 +258,10 @@
 .pokeball { display: block; flex-shrink: 0; object-fit: contain; image-rendering: auto; }
 .w-view-switch button { display: inline-flex; align-items: center; gap: 5px; }
 .w-view-switch button.icon-only { padding: 4px 7px; }
+/* the views and the text size: a little room between the tabs, and 2px off the left so a tab
+   that starts with an icon (or the "A" of Aa) does not look wider on its left side */
+.w-view-switch { gap: 2px; }
+.w-view-switch button:not(.icon-only) { padding-left: 9px; }
 .w-icon { display: inline-flex; align-items: center; justify-content: center; }
 
 .w-grip:hover { opacity: 1; }
