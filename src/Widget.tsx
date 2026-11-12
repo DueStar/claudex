@@ -802,6 +802,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 onClick={rowOrder.click(() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') })}
                 title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
+                {r.mood === 'working' && <span className="w-glint" aria-hidden="true" />}
                 {/* Line 1: the session's name and its status; line 2: Lv first, then folder, AI tool and
                     branch (the branch gives way first), helpers at the end. The buttons float over
                     line 2's end on hover instead of holding space the name needs */}

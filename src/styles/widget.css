@@ -115,18 +115,24 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 }
 .w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); --row-bg: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
 /* A session while it works: a glint runs round its border, accent yellow on the chosen
-   one and light grey on the others; resting, the chosen one has the still yellow border above */
-@property --w-spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-@keyframes w-spin { to { --w-spin: 360deg; } }
+   one and light grey on the others; resting, the chosen one has the still yellow border above.
+   The ring (.w-glint) is masked to the border once; inside it a still conic gradient turns by
+   transform, which the GPU does without repainting (animating the gradient's angle repainted
+   every row every frame: about half the CPU and GPU in a 12-row test) */
 .w-row.mood-working { --spin-head: rgba(255, 255, 255, 0.5); --spin-tail: rgba(255, 255, 255, 0.07); }
 .w-row.chosen.mood-working { border-color: transparent; --spin-head: var(--accent); --spin-tail: rgba(242, 201, 76, 0.18); }
-.w-row.mood-working::before {
-  content: ''; position: absolute; inset: -1px; border-radius: 11px; padding: 1.5px; pointer-events: none;
-  background: conic-gradient(from var(--w-spin), var(--spin-head), var(--spin-tail) 30%, var(--spin-tail) 55%, var(--spin-head) 85%, var(--spin-head));
+.w-glint {
+  position: absolute; inset: -1px; border-radius: 11px; padding: 1.5px; pointer-events: none; overflow: hidden;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
-  animation: w-spin 4s linear infinite;
 }
-@media (prefers-reduced-motion: reduce) { .w-row.mood-working::before { animation: none; } }
+/* 130% wide and square: wider than the row's diagonal, so the turning layer always covers the ring */
+.w-glint::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 130%; aspect-ratio: 1; translate: -50% -50%;
+  background: conic-gradient(var(--spin-head), var(--spin-tail) 30%, var(--spin-tail) 55%, var(--spin-head) 85%, var(--spin-head));
+  animation: w-spin 4s linear infinite; will-change: transform;
+}
+@keyframes w-spin { to { rotate: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .w-glint::before { animation: none; } }
 .w-row-name { font-weight: 650; font-size: 13px; }
 .w-row-project { color: var(--ink-3); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .w-pill { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #262a34; color: var(--ink-2); white-space: nowrap; }
