@@ -5,6 +5,9 @@
  */
 
 import { spawn } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -37,5 +40,20 @@ describe('quit watchdog', () => {
     spawned.push(child.pid!, watchdog.pid)
     expect(await until(() => !alive(child.pid!), 3000)).toBe(true)
     expect(await until(() => !alive(watchdog.pid), 3000)).toBe(true)
+  })
+
+  it('notes in the log when the main went, or that it ended it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'spawn-watchdog-'))
+    const log = join(dir, 'update.log')
+    const quick = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 100)'], { stdio: 'ignore' })
+    const stuck = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' })
+    const w1 = startQuitWatchdog(quick.pid!, 60_000, process.execPath, log)
+    const w2 = startQuitWatchdog(stuck.pid!, 300, process.execPath, log)
+    spawned.push(quick.pid!, stuck.pid!, w1.pid, w2.pid)
+    const lines = () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split(/\r?\n/) : [])
+    expect(await until(() => lines().length === 2, 4000)).toBe(true)
+    expect(lines().find(l => l.includes(`pid=${quick.pid} p1 main-gone`))).toBeTruthy()
+    expect(lines().find(l => l.includes(`pid=${stuck.pid} p1 main-killed`))).toBeTruthy()
+    rmSync(dir, { recursive: true, force: true })
   })
 })

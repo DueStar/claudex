@@ -68,6 +68,7 @@ describe('runPendingUpdate', () => {
     const [cmd, args] = f.spawn.mock.calls[0] as unknown as [string, string[]]
     expect(cmd).toBe('robocopy')
     expect(args.slice(0, 3)).toEqual([staged, join(resources, 'app'), '/MIR'])
+    expect(args).toContain('/MT:8') // files copied side by side
     expect(existsSync(staged)).toBe(true)
     expect(f.app.relaunch).toHaveBeenCalledWith({ args: ['--some-flag', '--spawn-updated'] })
     expect(f.app.exit).toHaveBeenCalledWith(0)

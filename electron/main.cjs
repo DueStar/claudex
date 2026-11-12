@@ -1,6 +1,6 @@
 'use strict'
 
-const { app, BrowserWindow, Menu, Notification, clipboard, dialog, screen, shell, ipcMain } = require('electron')
+const { app, BrowserWindow, Menu, Notification, clipboard, dialog, screen, shell, ipcMain, session } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -91,7 +91,9 @@ function startupMark(step, extra = '') {
   startupTimer?.mark(step, extra)
   console.log(`[main] startup: ${step} +${Date.now() - startupT0}ms${extra ? ` ${extra}` : ''}`)
 }
-startupMark('start')
+// How long Windows took to start this process before its code ran (the gap an update
+// restart's previous step cannot see)
+startupMark('start', `boot=${Math.max(0, Date.now() - Math.round(process.getCreationTime?.() ?? Date.now()))}ms`)
 // ~/.agent-office (versions up to 1.3.7) -> ~/.spawn, once, before anything
 // reads the token or starts the server (server/runtime-dir.cjs)
 migrateRuntimeDir()
@@ -1305,10 +1307,10 @@ if (lockWaits < 0) {
     if (quitSequence === 'done') return
     e.preventDefault()
     if (quitSequence) return
-    if (app.isPackaged) { try { startQuitWatchdog(process.pid) } catch {} }
     // An update restart (the updater left its marker): the "updating" card stands
     // where the app window was while this quits, and each step is timed
     const updating = app.isPackaged && hasPendingUpdate(app.getPath('userData'))
+    if (app.isPackaged) { try { startQuitWatchdog(process.pid, 10_000, process.execPath, updating ? path.join(app.getPath('userData'), 'update.log') : null) } catch {} }
     const timer = updating ? createStepTimer({ file: path.join(app.getPath('userData'), 'update.log'), label: 'p1' }) : { mark() {} }
     timer.mark('quit-start')
     const near = widgetWin && !widgetWin.isDestroyed() ? widgetWin.getBounds() : (state.widgetBounds ?? null)
@@ -1344,6 +1346,17 @@ if (lockWaits < 0) {
         try { stopServer() } catch {}
         timer.mark('server-stopped')
         quitSequence = 'done'
+        // An update restart: everything worth keeping is saved by now (the server flushed
+        // and stopped, the sessions' list frozen), so this process ends here. Left to
+        // app.quit(), Electron's own teardown took 0.8–17 s before the next step could
+        // start (it waits for this process to be gone). A normal quit is left as it was.
+        if (updating) {
+          try { saveState() } catch {}
+          try { session.defaultSession.flushStorageData() } catch {}
+          timer.mark('exit')
+          app.exit(0)
+          return
+        }
         app.quit()
       })
   })

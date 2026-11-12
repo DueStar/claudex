@@ -42,7 +42,7 @@ function robocopy(spawn, from, to) {
   return new Promise((resolve) => {
     let child
     try {
-      child = spawn('robocopy', [from, to, '/MIR', '/R:20', '/W:1', '/NFL', '/NDL', '/NJH', '/NJS', '/NP'], { windowsHide: true, stdio: 'ignore' })
+      child = spawn('robocopy', [from, to, '/MIR', '/MT:8', '/R:20', '/W:1', '/NFL', '/NDL', '/NJH', '/NJS', '/NP'], { windowsHide: true, stdio: 'ignore' })
     } catch { resolve(-1); return }
     child.on('error', () => resolve(-1))
     child.on('exit', (code) => resolve(typeof code === 'number' ? code : -1))
@@ -64,7 +64,7 @@ async function runPendingUpdate({
   setAsideMarker = (file) => fs.renameSync(file, `${file}.stuck-${Date.now()}`),
   readyTimeoutMs = 5000,
 }) {
-  timer.mark('p2-start')
+  timer.mark('p2-start', `boot=${Math.max(0, Date.now() - Math.round(process.getCreationTime?.() ?? Date.now()))}ms`)
   const file = pendingFile(userData)
   let pending = null
   try { pending = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
