@@ -28,7 +28,7 @@ import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { useDragOrder } from './useDragOrder'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
-import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, CloseIcon, FolderIcon, FullscreenIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon, WindowModeIcon } from './components/Icons'
+import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, MaximizeIcon, RestoreIcon, CloseIcon, FolderIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
 // paint needs none of them. They are fetched right after it (preloadViews), so
 // opening one later does not wait.
@@ -980,13 +980,14 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 ))}
               </div>
             )}
-            <div className="w-view-switch w-mode-switch" role="group" aria-label={t('화면 모드')}>
-              <button className="icon-only" onClick={() => setMode('widget')} title={t('위젯 (작게, 항상 위)')} aria-label={t('위젯')}><WidgetModeIcon /></button>
-              <button className={`icon-only${mode === 'window' ? ' on' : ''}`} onClick={() => setMode('window')} title={t('창 모드')} aria-label={t('창 모드')}><WindowModeIcon /></button>
-              <button className={`icon-only${mode === 'fullscreen' ? ' on' : ''}`} onClick={() => setMode('fullscreen')} title={t('전체화면')} aria-label={t('전체화면')}><FullscreenIcon /></button>
-            </div>
+            {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again) */}
+            <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
+            {/* As Windows users know them: minimize, maximize/restore (window ↔ full screen), close */}
             <div className="w-win-controls">
               <button className="w-icon" onClick={() => bridge?.widget.minimize()} title={t('최소화')} aria-label={t('최소화')}><MinimizeIcon size={14} /></button>
+              {mode === 'fullscreen'
+                ? <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로')} aria-label={t('창 모드로')}><RestoreIcon size={14} /></button>
+                : <button className="w-icon" onClick={() => setMode('fullscreen')} title={t('전체화면')} aria-label={t('전체화면')}><MaximizeIcon size={14} /></button>}
               <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>

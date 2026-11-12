@@ -46,6 +46,14 @@ export const WidgetModeIcon: React.FC<P> = (p) => (
 export const WindowModeIcon: React.FC<P> = (p) => (
   <Svg {...p}><rect x="2" y="3" width="12" height="10" rx="1.8" /><path d="M2 6h12M6 6v7" /></Svg>
 )
+/** Maximize (as Windows draws it): one square — the window fills the screen */
+export const MaximizeIcon: React.FC<P> = (p) => (
+  <Svg {...p}><rect x="3.5" y="3.5" width="9" height="9" rx="1.2" /></Svg>
+)
+/** Restore (as Windows draws it): two squares — back to the window */
+export const RestoreIcon: React.FC<P> = (p) => (
+  <Svg {...p}><rect x="2.8" y="5.2" width="8" height="8" rx="1.2" /><path d="M5.2 5.2V4a1.2 1.2 0 0 1 1.2-1.2H12a1.2 1.2 0 0 1 1.2 1.2v5.6a1.2 1.2 0 0 1-1.2 1.2h-1.2" /></Svg>
+)
 /** Fullscreen: four corners */
 export const FullscreenIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" /></Svg>

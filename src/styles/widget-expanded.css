@@ -283,6 +283,9 @@
 
 /* ---------- Tab bar: new session right after the open sessions; window controls at the far right ---------- */
 .w-win-controls { display: flex; gap: 2px; margin-left: 4px; -webkit-app-region: no-drag; flex: none; }
+/* the widget toggle, apart from the window's own three */
+.w-widget-toggle { -webkit-app-region: no-drag; flex: none; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-left: 4px; }
+.w-widget-toggle:hover { background: var(--card-2); color: var(--ink); }
 .w-win-controls .w-icon { width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); }
 .w-win-controls .w-icon:hover { background: var(--card-2); color: var(--ink); }
 .w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
