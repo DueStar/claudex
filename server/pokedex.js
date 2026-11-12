@@ -65,7 +65,7 @@ export const TIER_ORDER = ['mythical', 'legendary', 'sub', 'rare', 'common']
 /** The tiers the daily attendance encounter never brings */
 const LEGENDS = new Set(['legendary', 'mythical'])
 /** Chance the Poké Ball holds, by tier (a fled one is still "seen"); pities always hold */
-export const CATCH = Object.freeze({ common: 0.9, rare: 0.75, sub: 0.5, legendary: 0.35, mythical: 0.3 })
+export const CATCH = Object.freeze({ common: 0.8, rare: 0.7, sub: 0.5, legendary: 0.4, mythical: 0.3 })
 /**
  * Chance a step meets a wild Pokémon. Kept low on purpose (0.03 until 1.3.35
  * felt too frequent: about 34 a day for a heavy user); the daily attendance

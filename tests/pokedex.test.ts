@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import { createPokedex, catchSource, STARTERS, RATES, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel, THINK_STEP_MS, SESSION_LIMIT } from '../server/pokedex.js'
+import { createPokedex, catchSource, STARTERS, RATES, CATCH, PITY, PITY_MYTHICAL, PARTY_SIZE, BOX_LIMIT, ballBoosts, isFullMoon, levelFrom, minutesForLevel, THINK_STEP_MS, SESSION_LIMIT } from '../server/pokedex.js'
 
 const S = (id: number, ko: string, tier: string, evolvesFrom: number | null, types = ['normal'], captureRate = 255) =>
   ({ id, ko, types, tier, captureRate, evolvesFrom })
@@ -360,6 +360,10 @@ describe('pokedex', () => {
     expect(att).toMatchObject({ attendance: true, pity: false, tier: 'sub', id: 144 })
     dex.noteEvent(work('s1', 'Read'), { project: 'web' })
     expect(sent.at(-1).event).toMatchObject({ kind: 'catch', tier: 'mythical', pity: true, attendance: false })
+  })
+
+  it('a wild Pokémon flees 20% / 30% / 50% / 60% / 70% of the time, common to mythical (2026-11-12)', () => {
+    expect(CATCH).toEqual({ common: 0.8, rare: 0.7, sub: 0.5, legendary: 0.4, mythical: 0.3 })
   })
 
   it('the tiers keep their chances however often the others were caught (the ×0.9 works inside a tier)', () => {
