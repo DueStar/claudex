@@ -17,7 +17,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   --card: #14161c;
   --card-2: #1b1e26;
   /* behind every Pokémon picture (dex, box, cards): one neutral grey, no tier tint or glow */
-  --mon-bg: #222428;
+  --mon-bg: #1d1e22;
   --line: rgba(255, 255, 255, 0.07);
   --ink: #f1f2f5;
   --ink-2: #a4a9b6;

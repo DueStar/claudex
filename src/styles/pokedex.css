@@ -48,7 +48,7 @@
   padding: 3px;
   margin-right: 6px;
   border-radius: 10px;
-  background: var(--mon-bg);
+  background: var(--card-2);
   border: 1px solid var(--line);
   flex-shrink: 0;
 }
