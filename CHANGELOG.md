@@ -2,6 +2,9 @@
 
 ## spawn
 
+### 1.3.43
+- 야생 포켓몬이 조금 더 잘 도망쳐요. 일반은 10번 중 2번, 희귀는 10번 중 3번 정도 도망쳐요. 대신 전설은 조금 덜 도망쳐서 끝판에 전설을 모으는 시간이 줄어요. 보장으로 만난 전설·환상은 지금처럼 꼭 잡혀요.
+
 ### 1.3.42
 - 다른 창과 나란히 놓고 크기를 조절할 때 터미널이 하얗게 비던 문제를 고쳤어요. 끄는 동안에는 터미널을 그대로 두고, 손을 떼면 한 번만 크기를 맞춰요(끄는 동안 글자가 살짝 잘려 보일 수 있어요).
 - 업데이트 뒤 다시 켜지는 시간이 짧아졌어요. 예전 앱이 저장을 마치면 바로 꺼지고, 파일을 여러 개씩 한꺼번에 복사해요. 이 부분은 이번 업데이트의 다음 업데이트부터 빨라져요.
@@ -312,6 +315,9 @@
 
 ## spawn (English)
 
+### 1.3.43
+- Wild Pokémon flee a little more often: about 2 in 10 Common and 3 in 10 Rare ones get away. Legendaries flee a little less, so collecting the last legendaries takes less time. A guaranteed legendary or mythical encounter is still always caught.
+
 ### 1.3.42
 - Fixed the terminal going blank while you resized the window side by side with another one. The terminal now stays as it is while you drag and fits once you let go (the text may look clipped for a moment while dragging).
 - Restarting after an update is quicker: the old app quits as soon as its work is saved, and files are copied several at a time. This speeds up the update after this one.
@@ -485,6 +491,9 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.43
+- 野生のポケモンが少し逃げやすくなりました。一般は10回に2回、レアは10回に3回ほど逃げます。そのかわり伝説は少し逃げにくくなり、最後に伝説を集める時間が短くなります。天井で出会った伝説・幻はこれまでどおり必ず捕まえられます。
 
 ### 1.3.42
 - 他のウィンドウと並べてサイズを変えるとき、ターミナルが真っ白になる問題を直しました。ドラッグ中はターミナルをそのままにして、手を離したら一度だけサイズを合わせます(ドラッグ中は文字が少し切れて見えることがあります)。
