@@ -3,7 +3,7 @@
 Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17ant/Claude-Office(MIT)를 포크했다.
 
 > **새 세션은 여기부터**: 최신 릴리스 1.3.40(2026-11-12): PC를 꺼도 다시 열 세션 목록 유지(7-32), 여행의 시작 친구 몬스터볼 기록·1~9세대 스타팅(7-33). 그 전 1.3.39(2026-11-11): 새 몬스터볼 아이콘(비스듬한 Dream 볼), 헤더 워드마크 spawn 복귀, 기록 화면 빈 문제 수정, 박스 칸 Lv·볼 뺌, 확률 표 비공개, 접힌 레일 구분선·프로필(7-31). 그 전 1.3.38: 모든 아이콘 Dream 몬스터볼(커밋함, NOTICE), 새 세션 버튼 +, 왼쪽 패널 이름 없앰·구분선 끝까지, 닫기 문구, 세 색 → 노랑 한 색(7-30). 그 전 1.3.37: 몬스터볼 아이콘 통일(Wikimedia CC BY-SA 4.0), 창 크기 조절 깜빡임 수정, 탭 옅은 색·일하는 세션 도는 테두리, 패널 접기 버튼 위치·호버(7-29). 그 전 1.3.36: **이름이 Claudex → spawn**(저장소 `DueStar/spawn`, 데이터 `~/.spawn`·`%APPDATA%\spawn`, 환경 변수 `SPAWN_*`, 7-28) + 조우 줄이기(7-27). 그 전 1.3.35: 앱 안 피드백, 도감 등급 다중 선택(7-26). 그 전 1.3.34: 탭 닫기·셸 버튼·랭킹 1~3위, 왼쪽 패널 접기, 업데이트 안내·시간 기록(7-25). 다음은 업데이트 재시작 수치 읽기(8번).
-> 최근 변경은 아래 7-23~7-31(1.3.32~1.3.39). **다음은 8번**: 맨 위가 미해결 창 크기 조절 깜빡임, 그다음 재시작 속도, 사이트 배포 준비. 이름은 1.3.36부터 spawn(7-28, 옛 이름 호환 규칙은 그 항목).
+> 최근 변경은 아래 7-23~7-33(1.3.32~1.3.40). **다음은 8번**: 맨 위가 미해결 창 크기 조절 깜빡임, 그다음 재시작 속도, 사이트 배포 준비. 이름은 1.3.36부터 spawn(7-28, 옛 이름 호환 규칙은 그 항목).
 > 작업 방식(사용자 요청): 무엇이든 superpowers로 계획부터 보여 주고 승인 뒤 실행, 작업마다 테스트 먼저, 리뷰 에이전트로 검토.
 - 경로: `Documents\pokemon-office`
 - 저장소: https://github.com/DueStar/claudex (공개, main)
@@ -613,6 +613,8 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **업데이트 재시작 속도(3단계, 계획 먼저)**: 보통 약 18.5초(p1 3.1s, p1→p2 5.6s, robocopy 2s, 새 앱 6.3s 중 server-ready 5.9s). 한 번은 약 3분(06:52, 중복 빌드 중): p1 server-stopped 뒤 2분 15초 옛 프로세스 안 꺼짐(세션 5개 stuck), robocopy 30초(/R:20 재시도로 보임). update.log(`%APPDATA%\spawn\update.log`)를 읽고 시작.
    - **소개 사이트 배포 준비(사용자: "올리기 준비")**: 사이트는 `Documents\claudex-site\`(저장소 밖). 정할 것: (1) 어디에 — `DueStar/spawn`의 `docs/` 폴더나 gh-pages 브랜치(주소 duestar.github.io/spawn) vs 새 저장소 `DueStar/spawn-site`, (2) 로컬 폴더 이름 `spawn-site`로, (3) 쓰지 않는 `assets/img/claudex-ball.png` 정리, (4) PokeAPI·Pokémon Database 그림을 다른 사이트에서 바로 불러오는 게 GitHub Pages에서도 되는지 첫 배포 뒤 확인. 배포는 공개 작업이라 계획을 보여 주고 확인받은 뒤에. 사이트 상태: Subframe 느낌 개편 끝(첫 화면 + 실제로 움직이는 앱 창, 세션마다 한 마리 / 도구를 쓰면 한 걸음(39걸음부터) / 1025종(피카츄 기본) / Claude와 Codex 같이(HP=컨텍스트 설명) / 내 PC에서만(설정 화면) / 네 단계 / 질문 / 마지막 도감 칸이 하나씩 채워지는 줄), 떠 있는 헤더, Dream 몬스터볼 로고·파비콘, 노랑 빛, 바깥 링크 연회색+아이콘, 일본어 제목의 、。 반 칸 당김. 개편 전 백업 `Documents\claudex-site-backup\`.
    - **사용자가 직접(자동 권한이 삭제를 막음)**: 예전 폴더를 휴지통으로 — `%LOCALAPPDATA%\Claudex`(옛 설치 307MB, 지금은 `%LOCALAPPDATA%\spawn\spawn.exe`를 씀), `%APPDATA%\Claudex`, `%APPDATA%\Claudex-dev`, `~/.claudex`, `~/.agent-office`(모두 새 폴더로 복사 끝남, `~/.spawn` 도감 157종 ≥ 예전 153종), 바탕화면 옛 Claudex 바로가기.
+   - **확인 대기(1.3.40)**: 세션을 몇 개 열어 둔 채 PC를 껐다 켜면 다시 열리는지(7-32, 테스트로만 확인). spawn.log에 `[main] Windows is ending the session: open sessions kept` 줄이 남는지도 보기. 이 PC의 이미 사라진 목록은 "이어하기"로 다시 열어야 함.
+   - 시작 친구 6마리의 도감 기록에 몬스터볼이 채워졌는지(7-33, `~/.spawn/pokedex.json`의 caught[515·104·517·27·270].ball).
    - (끝남 2026-11-11) Google 로그인 동의 화면 앱 이름 spawn으로(사용자가 함).
    - 확인 대기(예전부터): Codex 탭의 "Codex 월간" 줄·`codex resume`, `pnpm dev` 띄운 세션이 턴 끝나면 '쉬는 중'으로 바뀌는지.
    - **알려진 한계(사용자에게 말함)**: 예전 세션 이어하기 목록은 Claude만, Codex 안 `/new`는 그 탭이 첫 대화를 계속 따라감, Codex 권한 확인은 화면 문구 감지, Codex 한도는 서버 재시작 뒤 Codex가 다시 보고할 때까지 비어 있음.
