@@ -2,6 +2,10 @@
 
 ## spawn
 
+### 1.3.45
+- 오른쪽 위 창 버튼이 다른 Windows 프로그램처럼 최소화, 전체화면(전체화면일 때는 창 모드로), 닫기 순서예요.
+- 위젯·창·전체화면 세 버튼은 위젯으로 줄이는 버튼 하나로 바뀌었어요. 위젯에서 다시 펼칠 때는 지금처럼 ⇤를 눌러요.
+
 ### 1.3.44
 - 포켓몬 그림 뒤 배경이 모두 같은 연한 회색으로 바뀌었어요. 도감 칸, 박스 칸, 도감 카드, 포획 알림 모두 같아요. 등급 색으로 깔리던 남색·흰빛 배경과 그림 뒤 후광을 없앴어요.
 - 전설·환상·색이 다른 포켓몬 알림 둘레에 퍼지던 빛을 없애고, 테두리 색만 남겼어요.
@@ -319,6 +323,10 @@
 
 ## spawn (English)
 
+### 1.3.45
+- The window buttons at the top right are minimize, maximize (restore when full screen) and close, as in other Windows apps.
+- The widget, window and full screen buttons became one button that shrinks to the widget. From the widget, ⇤ opens it again as before.
+
 ### 1.3.44
 - Every Pokémon picture now sits on the same light grey: Pokédex cells, box cells, the Pokédex card and catch notifications. The tier-coloured navy and whitish backgrounds and the halo behind the picture are gone.
 - Legendary, mythical and shiny notifications lost the glow around them; only the coloured border stays.
@@ -499,6 +507,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.45
+- 右上のウィンドウボタンが、ほかのWindowsアプリと同じく最小化・全画面（全画面のときはウィンドウに戻す）・閉じるの順になりました。
+- ウィジェット・ウィンドウ・全画面の3つのボタンは、ウィジェットに小さくするボタン1つになりました。ウィジェットから戻すときはこれまでどおり ⇤ を押します。
 
 ### 1.3.44
 - ポケモンの絵の背景がすべて同じ薄いグレーになりました。図鑑のマス、ボックスのマス、図鑑カード、捕獲通知すべて同じです。ランクの色で敷かれていた紺色・白っぽい背景と、絵の後ろの光をなくしました。
