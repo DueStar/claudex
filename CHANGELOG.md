@@ -2,6 +2,11 @@
 
 ## spawn
 
+### 1.3.40
+- PC를 끄거나 다시 시작해도 열어 둔 세션이 다음에 켤 때 다시 열려요. 지금까지는 Windows가 꺼지면서 세션을 하나씩 닫는 동안 목록이 비어 버려서, 다시 켜면 "새 세션"으로 시작했어요.
+- 여행의 시작부터 함께한 친구들도 도감에 몬스터볼로 기록돼요. 레벨은 그대로예요.
+- 새로 시작하면 1~9세대 스타팅 가운데 1마리와 일반 포켓몬 5마리를 받아요. 모두 Lv.5로 몬스터볼에 들어 있어요.
+
 ### 1.3.39
 - 앱 아이콘, 트레이, 왼쪽 위 로고가 새 몬스터볼 그림(살짝 비스듬히 본 모습)으로 바뀌었어요. 실행 파일 아이콘까지 바꾸려면 Releases에서 전체 zip을 새로 받아 설치해 주세요(업데이트로는 창과 트레이 아이콘만 바뀌어요). 작업 표시줄에 예전 그림이 남아 있으면 Windows 아이콘 캐시 때문이라, 로그아웃했다 들어오거나 PC를 다시 켜면 바뀌어요.
 - 왼쪽 패널 위 몬스터볼 옆에 spawn 글자가 다시 보여요.
@@ -294,6 +299,11 @@
 
 ## spawn (English)
 
+### 1.3.40
+- Shutting down or restarting the PC no longer loses your open sessions: they open again next time. Until now Windows closed them one by one on the way out and the list ended up empty, so the next start began with a "New session".
+- The companions you set out with are now recorded in the Pokédex in a Poké Ball. Their levels stay as they are.
+- A new journey starts with one starter from any of the nine generations and five common Pokémon, all at Lv.5 in a Poké Ball.
+
 ### 1.3.39
 - The app icon, the tray and the logo at the top left are a new Poké Ball picture (seen slightly from the side). For the exe's own icon too, download the full zip from Releases and install it fresh (an update changes the window and tray icons only). If the taskbar still shows the old picture, that is Windows' icon cache: sign out and back in, or restart the PC.
 - The word spawn is back next to the Poké Ball at the top of the left panel.
@@ -449,6 +459,11 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.40
+- PCをシャットダウン・再起動しても、開いていたセッションが次に起動したときにまた開きます。これまではWindowsが終了しながらセッションを一つずつ閉じるあいだに一覧が空になり、次の起動が「新しいセッション」から始まっていました。
+- 旅の始まりから一緒の仲間も、図鑑にモンスターボールで記録されます。レベルはそのままです。
+- 新しく始めると、1〜9世代の最初のパートナーから1匹と、ふつうのポケモン5匹をもらいます。どれも Lv.5 でモンスターボールに入っています。
 
 ### 1.3.39
 - アプリアイコン・トレイ・左上のロゴが新しいモンスターボールの絵(少し斜めから見た形)になりました。実行ファイルのアイコンも変えるには、Releases から完全版 zip を入れ直してください(アップデートではウィンドウとトレイのアイコンだけが変わります)。タスクバーに古い絵が残るときは Windows のアイコンキャッシュのせいなので、サインインし直すか PC を再起動すると変わります。
