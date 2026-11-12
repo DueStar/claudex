@@ -157,6 +157,7 @@ spawn starts Claude Code as `claude --session-id <id> --settings %APPDATA%\spawn
 | Joining or changing your ranking entry | Supabase | Nickname, public or not, partner Pokémon number. The ranking numbers (Pokédex count, shiny count, legendaries and mythicals, catches this week) are not sent by the app: Supabase works them out from the uploaded game copy. Your Google name and email never appear in the rankings |
 | The first time a Pokémon picture is shown | `raw.githubusercontent.com` (PokeAPI art), `img.pokemondb.net` (box icons) | A request for the picture's address only |
 | 15 seconds after start, then every 30 minutes | GitHub Releases (`github.com`, falling back to `api.github.com`) | A check for a new version (`latest.json`). Updating downloads the app files |
+| Only when you press Send in Send feedback | Supabase (the `feedback` table: it can only be added to, nobody can read it through the API) | What you wrote, the app version, the system (Windows version), the language, the screen and window size at the time, and the element name if you pinned a spot. A picture of that part only when "Send a picture of this part too" is on (private storage). Who sent it (your account) is not sent |
 
 - There is no other code that sends usage statistics or error reports.
 

@@ -417,7 +417,7 @@
 /* Usage: two thin bars filling from the bottom */
 .w-rail-usage { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; cursor: default; }
 .w-rail-bars { display: flex; gap: 4px; align-items: flex-end; height: 30px; }
-.w-rail-bar { position: relative; width: 5px; height: 100%; border-radius: 3px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
+.w-rail-bar { position: relative; width: 4px; height: 100%; border-radius: 3px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
 .w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--green); }
 .w-rail-bar.mid i { background: var(--amber); }
 .w-rail-bar.high i { background: var(--danger); }

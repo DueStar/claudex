@@ -1,28 +1,22 @@
 /**
  * FeedbackPin — feedback about spawn, with a pin on the screen if wanted.
  *
- * Mounted while it is open. It opens on the note: what kind and a line of text.
+ * Mounted while it is open. It opens on the note: a title and the box to write in.
  * Pinning a spot is optional: the trainer picks one (the page under it does not
  * react), a pin goes there and a small picture of that part is taken; sending
- * the picture is a separate tick. Sending opens a new GitHub issue on our repo,
- * filled in by the app (electron/feedback.cjs); the picture goes on the
- * clipboard for a Ctrl+V. On the terminal screen the picture starts unticked and
- * no terminal text is written down, so code or paths never land in a public issue.
+ * the picture is a separate tick. Sending puts one row in our Supabase feedback
+ * table (electron/feedback.cjs; anyone may add, nobody can read it back through
+ * the API), the picture in a private bucket. If it cannot go, the note can be
+ * copied instead. On the terminal screen the picture starts unticked and no
+ * terminal text is written down.
  */
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { bridge, type FeedbackKind } from '../desktop'
+import { bridge } from '../desktop'
 import { t, lang } from '../i18n'
 import '../styles/feedback.css'
 
 type Rect = { x: number; y: number; width: number; height: number }
 interface Spot { x: number; y: number; element: string; text: string; inTerminal: boolean; area: Rect }
-
-const KINDS: { id: FeedbackKind; label: string }[] = [
-  { id: 'fix', label: '고쳐 주세요' },
-  { id: 'add', label: '추가해 주세요' },
-  { id: 'direction', label: '이런 방향은 어때요' },
-  { id: 'like', label: '좋았던 점' },
-]
 
 const isOurs = (el: Element | null) => !!el?.closest('.fb-ui')
 
@@ -68,11 +62,12 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
   const [hover, setHover] = useState<DOMRect | null>(null)
   const [spot, setSpot] = useState<Spot | null>(null)
   const [shot, setShot] = useState<string | null>(null)
-  const [kind, setKind] = useState<FeedbackKind>('fix')
   const [text, setText] = useState('')
   const [attach, setAttach] = useState(false)
   const [msg, setMsg] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
   const [sent, setSent] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [sending, setSending] = useState(false)
   const popRef = useRef<HTMLDivElement>(null)
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const [popAt, setPopAt] = useState<{ left: number; top: number } | null>(null)
@@ -142,7 +137,7 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
   useEffect(() => { if (phase === 'write') areaRef.current?.focus({ preventScroll: true }) }, [phase])
 
   const note = () => ({
-    kind, text,
+    text,
     context: {
       view,
       element: spot?.element,
@@ -154,10 +149,12 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
 
   async function send() {
     if (!text.trim()) { setMsg({ tone: 'warn', text: t('한 줄만 적어 주세요') }); areaRef.current?.focus(); return }
-    const r = await bridge?.feedback?.send({ ...note(), attach: attach && !!shot })
-    if (!r?.ok) { setMsg({ tone: 'warn', text: t('GitHub 창을 열지 못했어요') }); return }
+    setSending(true)
+    const r = await bridge?.feedback?.send({ ...note(), attach: attach && !!shot }).catch(() => null)
+    setSending(false)
+    if (!r?.ok) { setFailed(true); setMsg({ tone: 'warn', text: t('보내지 못했어요. 복사해서 보내 주세요') }); return }
     setSent(true)
-    setMsg({ tone: 'ok', text: r.attached ? t('GitHub 창이 열렸어요. 본문에 Ctrl+V 하면 화면이 붙고, 「Create」를 누르면 올라가요') : t('GitHub 창에서 「Create」를 누르면 올라가요') })
+    setMsg({ tone: 'ok', text: attach && shot && !r.attached ? t('보냈어요. 화면은 함께 가지 못했어요') : t('보냈어요. 고마워요!') })
   }
 
   async function copy() {
@@ -192,19 +189,13 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
           ref={popRef}
           className="fb-ui fb-pop"
           role="dialog"
-          aria-label={t('spawn에 바라는 점')}
+          aria-label={t('의견 보내기')}
           style={popAt ? { left: popAt.left, top: popAt.top } : { visibility: 'hidden' }}
           onKeyDown={e => e.stopPropagation()}
         >
           <div className="fb-pop-head">
-            <strong>{t('spawn에 바라는 점')}</strong>
+            <strong>{t('의견 보내기')}</strong>
             <button type="button" className="fb-x" onClick={onClose} aria-label={t('닫기')}>×</button>
-          </div>
-          <p className="fb-lead">{t('고쳤으면 하는 것, 더해졌으면 하는 것, 이렇게 자랐으면 하는 방향을 들려주세요.')}</p>
-          <div className="fb-kinds" role="group">
-            {KINDS.map(k => (
-              <button key={k.id} type="button" className={`fb-kind${kind === k.id ? ' on' : ''}`} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>{t(k.label)}</button>
-            ))}
           </div>
           <textarea
             ref={areaRef}
@@ -245,11 +236,10 @@ export default function FeedbackPin({ view, onClose }: { view: string; onClose()
             </label>
           )}
           <div className="fb-actions">
-            <button type="button" className="fb-btn primary" onClick={send}>{t('GitHub에 올리기')}</button>
-            <button type="button" className="fb-btn" onClick={copy}>{t('복사')}</button>
+            <button type="button" className="fb-btn primary" onClick={send} disabled={sending || sent}>{sending ? t('보내는 중…') : t('보내기')}</button>
+            {failed && <button type="button" className="fb-btn" onClick={copy}>{t('복사')}</button>}
           </div>
           {msg && <div className={`fb-msg ${msg.tone}`} role="status">{msg.text}</div>}
-          <p className="fb-note">{t('GitHub 로그인이 필요해요. 계정이 없으면 복사해서 보내 주세요. 올린 내용은 누구나 볼 수 있어요.')}</p>
         </div>
       )}
     </>

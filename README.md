@@ -157,6 +157,7 @@ spawn은 Claude Code를 `claude --session-id <id> --settings %APPDATA%\spawn\ses
 | 랭킹에 참여하거나 바꿀 때 | Supabase | 닉네임, 공개 여부, 대표 포켓몬 번호. 순위 숫자(도감 수, 색이 다른 포켓몬 수, 전설·환상 수, 이번 주 포획)는 앱이 보내지 않고 Supabase가 올라온 게임 사본에서 계산해요. 구글 이름과 이메일은 랭킹에 나오지 않아요 |
 | 포켓몬 그림을 처음 볼 때 | `raw.githubusercontent.com`(PokeAPI 그림), `img.pokemondb.net`(박스 아이콘) | 그림 주소 요청만 |
 | 켠 뒤 15초, 그다음 30분마다 | GitHub Releases(`github.com`, 안 되면 `api.github.com`) | 새 버전 확인(`latest.json`). 업데이트를 받을 때는 앱 파일을 내려받아요 |
+| 의견 보내기에서 「보내기」를 눌렀을 때만 | Supabase(`feedback` 표, 쓰기만 되고 API로는 아무도 읽을 수 없어요) | 쓴 글, 앱 버전, 시스템(Windows 버전), 언어, 그때 화면 이름과 창 크기, 위치를 찍었다면 그 요소 이름. "이 부분 화면도 같이 보내기"를 켰을 때만 그 부분 그림(비공개 저장소). 누가 보냈는지(계정)는 보내지 않아요 |
 
 - 이 밖에 사용 통계나 오류 보고를 보내는 코드는 없어요.
 

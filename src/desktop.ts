@@ -119,7 +119,7 @@ interface spawnBridge {
   feedback: {
     /** A picture of that part of the page (page pixels), for the preview; null if it could not be taken */
     capture(rect: { x: number; y: number; width: number; height: number }): Promise<string | null>
-    /** Opens a new GitHub issue filled in; with attach, the picture goes on the clipboard first */
+    /** Sends it to our Supabase feedback table (write-only); with attach, the spot's picture goes too */
     send(note: FeedbackNote & { attach: boolean }): Promise<{ ok: boolean; attached?: boolean; reason?: string }>
     copy(note: FeedbackNote): Promise<{ ok: boolean; reason?: string }>
   }
@@ -136,9 +136,7 @@ interface spawnBridge {
   }
 }
 
-export type FeedbackKind = 'fix' | 'add' | 'direction' | 'like'
 export interface FeedbackNote {
-  kind: FeedbackKind
   text: string
   context: { view: string; element?: string; text?: string; width: number; height: number; lang: string }
 }

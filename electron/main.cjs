@@ -35,7 +35,7 @@ const { createUpdater } = require('./updater.cjs')
 const { isUpdatedRun, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates } = require('./updateRunner.cjs')
 const { openStatusCard, cardLang } = require('./statusCard.cjs')
 const { createStepTimer } = require('./updateTiming.cjs')
-const { registerFeedbackIpc } = require('./feedback.cjs')
+const { registerFeedbackIpc, createFeedbackSender } = require('./feedback.cjs')
 const { startQuitWatchdog } = require('./quitWatchdog.cjs')
 const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
@@ -1101,8 +1101,15 @@ function registerTerminalIpc() {
   ipcMain.handle('settings:set', guard((patch) => (patch && typeof patch === 'object' ? changeSettings(patch) : appSettings())))
   ipcMain.handle('data:export', guard(() => exportBackup()))
   ipcMain.handle('data:open-folder', guard(() => shell.openPath(runtimeDirFromEnv(process.env)).then(() => true).catch(() => false)))
-  // Feedback from a pin on the screen: a new issue on our repo, the spot's picture on the clipboard
-  registerFeedbackIpc({ ipcMain, guard, shell, clipboard, appInfo: () => ({ version: app.getVersion(), os: `${{ win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] ?? process.platform} ${os.release()}` }) })
+  // Feedback (a pin on the screen if wanted): one row in our Supabase feedback table, which anyone
+  // may add to and nobody can read through the API; the spot's picture in a private bucket
+  let cloudConfig = null
+  try { cloudConfig = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'server', 'cloud-config.json'), 'utf8')) } catch {}
+  registerFeedbackIpc({
+    ipcMain, guard, clipboard,
+    send: createFeedbackSender({ config: cloudConfig }),
+    appInfo: () => ({ version: app.getVersion(), os: `${{ win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] ?? process.platform} ${os.release()}` }),
+  })
   ipcMain.handle('terminals:list', guard(() => terminals.list()))
   // The git branch of each session's folder (files read only; at most 24 folders a call)
   ipcMain.handle('terminals:branches', guard((dirs) => Object.fromEntries((Array.isArray(dirs) ? dirs : []).filter(d => typeof d === 'string' && d).slice(0, 24).map(d => [d, gitBranch(d)]))))
