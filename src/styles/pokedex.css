@@ -48,7 +48,7 @@
   padding: 3px;
   margin-right: 6px;
   border-radius: 10px;
-  background: var(--card-2);
+  background: var(--mon-bg);
   border: 1px solid var(--line);
   flex-shrink: 0;
 }
@@ -104,7 +104,7 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 92px;
   border-radius: 10px;
-  background: var(--card-2);
+  background: var(--mon-bg);
   border: 1px solid var(--line);
   display: grid;
   place-items: center;
@@ -191,7 +191,7 @@
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tier) 22%, transparent), transparent 70%), var(--card-2);
+  background: var(--mon-bg);
 }
 .dex-card-art img { max-height: 130px; max-width: 90%; }
 .dex-card-art img.silhouette { filter: brightness(0) invert(0.32); }
@@ -338,14 +338,14 @@
 .box-cell {
   position: relative; width: 96px; height: 96px; padding: 16px; border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: var(--card-2); cursor: pointer; display: grid; place-items: center;
+  background: var(--mon-bg); cursor: pointer; display: grid; place-items: center;
 }
 .box-cell img { width: 50px; height: 50px; object-fit: contain; }
 .box-cell:hover { border-color: rgba(255, 255, 255, 0.2); }
 .box-cell.picked { border-color: var(--accent); }
 /* Dragging a box Pokémon onto the party */
 .box-cell.dragging { opacity: 0.4; }
-.box-cell.drop { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--card-2)); transform: scale(1.05); }
+.box-cell.drop { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--mon-bg)); transform: scale(1.05); }
 .box-cell.nodrop { opacity: 0.45; }
 .box-cell { transition: transform 0.12s ease, background 0.12s ease; }
 .box-cell:disabled { opacity: 0.4; cursor: not-allowed; }

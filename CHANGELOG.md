@@ -2,6 +2,10 @@
 
 ## spawn
 
+### 1.3.44
+- 포켓몬 그림 뒤 배경이 모두 같은 연한 회색으로 바뀌었어요. 도감 칸, 박스 칸, 도감 카드, 포획 알림 모두 같아요. 등급 색으로 깔리던 남색·흰빛 배경과 그림 뒤 후광을 없앴어요.
+- 전설·환상·색이 다른 포켓몬 알림 둘레에 퍼지던 빛을 없애고, 테두리 색만 남겼어요.
+
 ### 1.3.43
 - 야생 포켓몬이 조금 더 잘 도망쳐요. 일반은 10번 중 2번, 희귀는 10번 중 3번 정도 도망쳐요. 대신 전설은 조금 덜 도망쳐서 끝판에 전설을 모으는 시간이 줄어요. 보장으로 만난 전설·환상은 지금처럼 꼭 잡혀요.
 
@@ -315,6 +319,10 @@
 
 ## spawn (English)
 
+### 1.3.44
+- Every Pokémon picture now sits on the same light grey: Pokédex cells, box cells, the Pokédex card and catch notifications. The tier-coloured navy and whitish backgrounds and the halo behind the picture are gone.
+- Legendary, mythical and shiny notifications lost the glow around them; only the coloured border stays.
+
 ### 1.3.43
 - Wild Pokémon flee a little more often: about 2 in 10 Common and 3 in 10 Rare ones get away. Legendaries flee a little less, so collecting the last legendaries takes less time. A guaranteed legendary or mythical encounter is still always caught.
 
@@ -491,6 +499,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.44
+- ポケモンの絵の背景がすべて同じ薄いグレーになりました。図鑑のマス、ボックスのマス、図鑑カード、捕獲通知すべて同じです。ランクの色で敷かれていた紺色・白っぽい背景と、絵の後ろの光をなくしました。
+- 伝説・幻・色違いの通知のまわりに広がっていた光をなくし、枠の色だけを残しました。
 
 ### 1.3.43
 - 野生のポケモンが少し逃げやすくなりました。一般は10回に2回、レアは10回に3回ほど逃げます。そのかわり伝説は少し逃げにくくなり、最後に伝説を集める時間が短くなります。天井で出会った伝説・幻はこれまでどおり必ず捕まえられます。
