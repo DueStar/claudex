@@ -635,7 +635,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 7-38. **2026-11-12 — Windows식 창 버튼 (main, 1.3.45)**
    - 사용자: "보통 윈도우 유저는 최소화 버튼과 닫기 버튼 사이에 창모드와 전체화면 모드 버튼이 있는 게 익숙하다. 기존 3버튼은 빼고 위젯 모드를 켜고 끄는 걸로."
    - Widget.tsx 보기 막대 오른쪽: `.w-widget-toggle`(WidgetModeIcon, setMode('widget')) 하나, 그다음 `.w-win-controls` [최소화][창이면 MaximizeIcon→fullscreen, 전체화면이면 RestoreIcon→window][닫기]. Icons.tsx에 MaximizeIcon·RestoreIcon(Windows 모양), WindowModeIcon·FullscreenIcon은 Icons에만 남음. 위젯에서 끄기는 그대로 헤더의 ⇤. 세 언어 문구 3개. 사용자가 테스트 빌드를 보기 전에 "전부 릴리즈 배포"로 릴리스함 → 확인 대기.
-   - 사이트 데모의 창 버튼도 같은 배치로 바꿔 gh-pages에 올림. 남은 것: 사이트 사용량 섹션 왼쪽 카드 위아래 빈 공간(사용자에게 물어봄, 답 대기).
+   - 사이트 데모의 창 버튼도 같은 배치로 바꿔 gh-pages에 올림. 그다음 semantic-wrap 0.4.0(Apache-2.0, esbuild로 묶은 vendor/semantic-wrap-0.4.0.js + wrap.js): 설명 문장(.lede)·네 단계 설명만, 한 줄에 들어가면 그대로, 넘치면 문장 끝에서 먼저, 그래도 긴 문장만 모델(ko·en, 일본어 모델 없음). 짧은 제목은 "내 / PC에서만."처럼 끊겨서 뺌. 글꼴이 온 뒤 보이기 전에 계산, 언어 바꿈·너비 바뀜에 다시. 남은 것: 사이트 사용량 섹션 왼쪽 카드 위아래 빈 공간(사용자에게 물어봄, 답 대기).
 
 8. **다음에 할 일 (2026-11-12 오후, 1.3.41 + 7-35 로컬 기준)**
    - 1.3.42는 테스트 빌드 확인 없이 사용자 "푸시하자"로 릴리스함 → 사용자 확인: 나란히 놓고 경계 끌기(터미널 안 비는지), 도감 빈 칸, 일하는 세션 빛.
