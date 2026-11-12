@@ -3,7 +3,7 @@
 Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17ant/Claude-Office(MIT)를 포크했다.
 
 > **새 세션은 여기부터**: 최신 릴리스 1.3.41(2026-11-12): 바로가기·작업 표시줄 아이콘이 업데이트를 따라감, 여러 크기 .ico로 선명하게, 패널 로고 캐시 문제, 고르지 않은 일하는 세션 회색 빛(7-34). 그 전 1.3.40: PC를 꺼도 다시 열 세션 목록 유지(7-32), 여행의 시작 친구 몬스터볼 기록·1~9세대 스타팅(7-33). 그 전 1.3.39(2026-11-11): 새 몬스터볼 아이콘(비스듬한 Dream 볼), 헤더 워드마크 spawn 복귀, 기록 화면 빈 문제 수정, 박스 칸 Lv·볼 뺌, 확률 표 비공개, 접힌 레일 구분선·프로필(7-31). 그 전 1.3.38: 모든 아이콘 Dream 몬스터볼(커밋함, NOTICE), 새 세션 버튼 +, 왼쪽 패널 이름 없앰·구분선 끝까지, 닫기 문구, 세 색 → 노랑 한 색(7-30). 그 전 1.3.37: 몬스터볼 아이콘 통일(Wikimedia CC BY-SA 4.0), 창 크기 조절 깜빡임 수정, 탭 옅은 색·일하는 세션 도는 테두리, 패널 접기 버튼 위치·호버(7-29). 그 전 1.3.36: **이름이 Claudex → spawn**(저장소 `DueStar/spawn`, 데이터 `~/.spawn`·`%APPDATA%\spawn`, 환경 변수 `SPAWN_*`, 7-28) + 조우 줄이기(7-27). 그 전 1.3.35: 앱 안 피드백, 도감 등급 다중 선택(7-26). 그 전 1.3.34: 탭 닫기·셸 버튼·랭킹 1~3위, 왼쪽 패널 접기, 업데이트 안내·시간 기록(7-25). 다음은 업데이트 재시작 수치 읽기(8번).
-> 최근 변경은 아래 7-23~7-34(1.3.32~1.3.41). **다음은 8번**: 맨 위가 미해결 창 크기 조절 깜빡임, 그다음 재시작 속도, 사이트 배포 준비. 이름은 1.3.36부터 spawn(7-28, 옛 이름 호환 규칙은 그 항목).
+> 최근 변경은 아래 7-23~7-34(1.3.32~1.3.41). **다음은 8번**: 7-35(로컬, 릴리스 전) 테스트 빌드 확인 → 1.3.42, 중복 → 새 종 본가 방식 고르기, 사이트 배포 확인. 이름은 1.3.36부터 spawn(7-28, 옛 이름 호환 규칙은 그 항목).
 > 작업 방식(사용자 요청): 무엇이든 superpowers로 계획부터 보여 주고 승인 뒤 실행, 작업마다 테스트 먼저, 리뷰 에이전트로 검토.
 - 경로: `Documents\pokemon-office`
 - 저장소: https://github.com/DueStar/claudex (공개, main)
@@ -608,27 +608,30 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 원인 2: electron-builder가 만든 .ico에 256px 한 장뿐 → Windows가 즉석에서 줄여 뭉갬. 트레이는 16px PNG 한 장 → 150%(이 PC 2560×1600)에서 24px로 늘려 흐림. 트레이 기준 16px은 100% 기준이고 배율만큼 커짐(150%=24, 200%=32).
    - 고침: `scripts/make-win-icon.ps1`이 `electron/assets/icon.png`(512)에서 16·20·24·32·40·48·64·96·128·256을 각각 고품질로 줄여 PNG 항목 .ico로 `electron/assets/icon.ico`·`build/icon.ico`에 씀. exe(`win.icon`)·창(`APP_ICON`, Windows만)·트레이(Windows만)가 이 .ico. `electron/shortcutIcon.cjs`: 패키지 앱이 켜지고 5초 뒤 바탕화면·시작 메뉴·작업 표시줄 고정의 spawn.lnk/Claudex.lnk 중 이 exe를 여는 것만 `shell.writeShortcutLink(update, icon=icon.ico)`, 바꿨으면 `ie4uinit -show`. 창에 `setAppDetails`(고정했을 때 아이콘·다시 열기). `desktop-shortcut.ps1`도 .ico를 가리킴. 테스트 `tests/shortcut-icon.test.ts` 5개. 사용자가 이 PC에서 확인함("적용 잘됐어").
    - 패널 로고: 그림 파일은 이미 새 볼이었는데 서버가 `/sprites/balls/*`에 `max-age=86400`이라 브라우저 캐시의 옛 그림이 보였음. `ballUrl`에 빌드마다 바뀌는 `?v=`(`VITE_ASSET_REV`, vite.config.ts) 붙임.
-   - 일하는 세션 빛: `.w-row.mood-working::before`가 모든 일하는 행에, 색만 변수(`--spin-head/--spin-tail`): 고른 세션 노랑, 나머지 흰색 50%→7%.
+   - 일하는 세션 빛: 모든 일하는 행에, 색만 변수(`--spin-head/--spin-tail`): 고른 세션 노랑, 나머지 흰색 50%→7%. (7-35에서 `::before`+`@property` 대신 `.w-glint` 요소를 GPU로 돌리는 방식으로 바뀜)
    - 사용자 질문(파이리 볼): 데이터는 caught[4]·m1(리자몽) 모두 poke-ball. 도감 카드엔 볼 칸이 없고 보유 개체 줄에만 있어 진화한 파이리 카드엔 안 보였음 → 사용자: "그럼 필요없다". 본가 도감도 '본 적/잡은 적' 둘뿐이고 진화·교환으로 떠나도 잡은 기록은 남는다고 설명함.
    - 밖: `Documentsclaudex-site`·`-backup`·`claudex-promo` → `spawn-site`·`spawn-site-backup`·`spawn-promo`. 서명키(`~/.claudex-release`, `claudex-signing-key.enc`)는 그대로.
 
-8. **다음에 할 일 (2026-11-11 저녁, 1.3.39 뒤 기준)**
-   - **사용자 결정 대기**: 도감에서 아무것도 안 골랐을 때 오른쪽 빈 칸을 둘지 숨길지.
-   - **[미해결] 창 크기 조절 깜빡임 · 나란히 조절할 때 빈 화면** (사용자: 1.3.37 수정 뒤에도 "해결 안 됐다"). 7-29의 고침(TerminalPanel ResizeObserver 프레임당 1번 + pty 크기 150ms 뒤 1번, terminals.cjs 같은 크기 건너뜀)은 들어가 있음 → 원인이 하나 더 있음. 다음 할 일: superpowers:systematic-debugging으로 증거부터. 후보와 확인 방법:
-     - 사용자에게 먼저 물을 것: 깜빡이는 게 터미널 글자만인지 창 전체인지, 위젯·창·전체 화면 중 어디서인지, 터미널 탭이 아닐 때(도감 화면)도 그런지.
-     - `SPAWN_DEBUG_RESIZE=1`로 앱을 띄워 드래그하는 동안 `[terminals] resize` 줄이 몇 번 찍히는지(줄었으면 pty 쪽은 해결, 남은 건 그리기 쪽).
-     - 렌더러: 창 크기가 바뀔 때마다 React가 다시 그리는 것(`viewsCompact` ResizeObserver, Widget 전체 re-render), xterm WebGL 캔버스 크기 바꾸기(캔버스가 지워졌다 다시 그려짐 → WebGL addon 대신 canvas/DOM 렌더러로 드래그 중만 바꾸는 방법도 후보).
-     - main: `win.on('resize', remember)`(getBounds + scheduleSave)가 매 이벤트, frameless 창의 `backgroundColor`(빈 화면일 때 보이는 색), Electron frameless + Windows Snap 동시 조절의 알려진 그리기 지연.
-     - 재현: 앱 창과 다른 창을 Win+←/→로 나란히 놓고 가운데 경계를 끌기.
-   - **업데이트 재시작 속도(3단계, 계획 먼저)**: 보통 약 18.5초(p1 3.1s, p1→p2 5.6s, robocopy 2s, 새 앱 6.3s 중 server-ready 5.9s). 한 번은 약 3분(06:52, 중복 빌드 중): p1 server-stopped 뒤 2분 15초 옛 프로세스 안 꺼짐(세션 5개 stuck), robocopy 30초(/R:20 재시도로 보임). update.log(`%APPDATA%\spawn\update.log`)를 읽고 시작.
-   - **소개 사이트 배포 준비(사용자: "올리기 준비")**: 사이트는 `Documents\spawn-site\`(저장소 밖). 정할 것: (1) 어디에 — `DueStar/spawn`의 `docs/` 폴더나 gh-pages 브랜치(주소 duestar.github.io/spawn) vs 새 저장소 `DueStar/spawn-site`, (2) ~~로컬 폴더 이름 `spawn-site`로~~ 2026-11-12 끝, (3) 쓰지 않는 `assets/img/claudex-ball.png` 정리, (4) PokeAPI·Pokémon Database 그림을 다른 사이트에서 바로 불러오는 게 GitHub Pages에서도 되는지 첫 배포 뒤 확인. 배포는 공개 작업이라 계획을 보여 주고 확인받은 뒤에. 사이트 상태: Subframe 느낌 개편 끝(첫 화면 + 실제로 움직이는 앱 창, 세션마다 한 마리 / 도구를 쓰면 한 걸음(39걸음부터) / 1025종(피카츄 기본) / Claude와 Codex 같이(HP=컨텍스트 설명) / 내 PC에서만(설정 화면) / 네 단계 / 질문 / 마지막 도감 칸이 하나씩 채워지는 줄), 떠 있는 헤더, Dream 몬스터볼 로고·파비콘, 노랑 빛, 바깥 링크 연회색+아이콘, 일본어 제목의 、。 반 칸 당김. 개편 전 백업 `Documents\spawn-site-backup\`.
-   - **사용자가 직접(자동 권한이 삭제를 막음)**: 예전 폴더를 휴지통으로 — `%LOCALAPPDATA%\Claudex`(옛 설치 307MB, 지금은 `%LOCALAPPDATA%\spawn\spawn.exe`를 씀), `%APPDATA%\Claudex`, `%APPDATA%\Claudex-dev`, `~/.claudex`, `~/.agent-office`(모두 새 폴더로 복사 끝남, `~/.spawn` 도감 157종 ≥ 예전 153종), 바탕화면 옛 Claudex 바로가기.
-   - **확인 대기(1.3.40)**: 세션을 몇 개 열어 둔 채 PC를 껐다 켜면 다시 열리는지(7-32, 테스트로만 확인). spawn.log에 `[main] Windows is ending the session: open sessions kept` 줄이 남는지도 보기. 이 PC의 이미 사라진 목록은 "이어하기"로 다시 열어야 함.
-   - 시작 친구 6마리의 도감 기록에 몬스터볼이 채워졌는지(7-33, `~/.spawn/pokedex.json`의 caught[515·104·517·27·270].ball).
-   - (끝남 2026-11-11) Google 로그인 동의 화면 앱 이름 spawn으로(사용자가 함).
-   - 확인 대기(예전부터): Codex 탭의 "Codex 월간" 줄·`codex resume`, `pnpm dev` 띄운 세션이 턴 끝나면 '쉬는 중'으로 바뀌는지.
-   - **알려진 한계(사용자에게 말함)**: 예전 세션 이어하기 목록은 Claude만, Codex 안 `/new`는 그 탭이 첫 대화를 계속 따라감, Codex 권한 확인은 화면 문구 감지, Codex 한도는 서버 재시작 뒤 Codex가 다시 보고할 때까지 비어 있음.
-   - unslop 스킬은 `.claude/skills/unslop`에 로컬만(`.git/info/exclude`).
+7-35. **2026-11-12 — 아직 릴리스 안 함 (main 로컬 커밋, 다음 1.3.42)**
+   - 도감: 아무것도 안 골랐을 때 오른쪽 빈 칸 숨김(`.dex-detail.empty`). 사용자 결정 "안 골랐을 때 빈칸 숨기자".
+   - **창 크기 조절 빈 화면 해결(원인 확인)**: 사용자 A/B로 "터미널일 때만" 확인. xterm WebGL 캔버스는 크기가 바뀔 때마다 지워지고 다음 프레임에 다시 그려지는데, ResizeObserver가 끄는 동안 매 프레임 fit()을 불렀음. → 크기 변화가 120ms(FIT_REST_MS) 멈춘 뒤 한 번만 fit, 그동안 .term-view overflow hidden(글자가 잠깐 잘려 보이는 건 정상). 사용자 확인 대기(테스트 빌드).
+   - **업데이트 재시작 1단계**: 업데이트 재시작이면 서버가 flush·정지한 뒤 saveState·flushStorageData·app.exit(0)(Electron 기본 종료가 0.8~17초 걸려 다음 단계를 막았음). robocopy /MT:8. update.log에 p3 boot=(Windows가 프로세스를 띄운 뒤 걸린 시간), 감시 프로세스가 "p1 main-gone +Nms (watchdog)". ⚠️ p1·p2 코드는 **이걸 담은 업데이트의 다음 업데이트부터** 효과(옛 앱이 옛 코드로 종료함). 계획의 3번(서버와 창 동시에 만들기)은 효과가 작아 뺌.
+   - 리뷰 에이전트 결과(6a9508b..): 큰 문제 없음. 고친 것: 종료 때 /flush가 1.5초 안에 답하지 않으면 그냥 서버를 죽이던 것(예전부터) → 3초로 한 번 더, 실패하면 update.log에 "flushed failed=…". 남은 것(낮음): 종료 직전 바뀐 도감은 클라우드에 다음 실행 때 올라감(로컬은 안전), 업데이트 종료 경로(main before-quit)에 테스트 없음.
+   - **일하는 세션 빛 가볍게**: @property --w-spin 각도를 애니메이션하면 행마다 매 프레임 다시 그림. → 행 안 <span class="w-glint">(테두리 모양 마스크) 안에서 멈춘 conic을 rotate로 돌림(GPU). 12행 실험(Electron 33, scratchpad): 렌더러 CPU 33%→10~16%, GPU 66%→34~45%, 그림은 같음. 창이 최소화·트레이면 Chromium이 이미 멈춤(backgroundThrottling 기본값).
+   - 쉬는 동안 자원(2026-11-12 13시, 창 열림·세션 작업 중, 빛 개선 전): 프로세스 7개, 사설 메모리 합 약 680MB(GPU 289, main 157, 렌더러 102+34, 서버 75), 10초 CPU: GPU 13%, 렌더러 11%. 빛 개선 뒤 다시 재서 비교.
+   - 사이트: 안 쓰는 spawn-site/assets/img/claudex-ball.png 지움(백업 폴더엔 남음). PokeAPI·pokemondb 그림을 github.io Referer로 받아 보니 셋 다 200 → Pages에서도 될 것. 사이트 안 링크는 모두 DueStar/spawn.
+   - 중복 포켓몬 → 새 종, 본가 방식 아이디어: docs/superpowers/specs/2026-11-12-mainline-duplicates-idea.md(안 1 게임 내 교환 추천, 2 GTS, 3 파견, 4 미라클 교환). 사용자: 대량발생·산책 코스·박사님 평가는 "중복을 처리하며 다른 포켓몬을 얻는 방식이 없다"며 이 방향을 원함. 세션 수 상한은 두지 않음("그만큼 일했다는 소리").
+
+8. **다음에 할 일 (2026-11-12 오후, 1.3.41 + 7-35 로컬 기준)**
+   - 테스트 빌드는 사용자가 지금 못 받음 → 받을 수 있을 때 node scripts/release.mjs "test build: …", 확인: 나란히 놓고 경계 끌기(터미널 안 비는지), 도감 빈 칸, 일하는 세션 빛. 확인되고 "푸시해"면 1.3.42.
+   - 1.3.42 뒤 그다음 업데이트 때 update.log로 재시작 1단계 효과 읽기 → 2단계 후보: 서버 파일 묶기(차가운 디스크 server-ready 5~7초), robocopy가 새 앱 직접 띄우기, 바뀐 파일만 복사. asar 묶기는 옛 업데이트 경로와 얽혀 따로 계획.
+   - **사용자 결정 대기**: 중복 → 새 종 안 고르기(위 문서), 도감 플러그인 모드에서 외부 터미널 포획 알림을 어디에 띄울지.
+   - **소개 사이트 배포**: gh-pages 브랜치(DueStar/spawn, 주소 duestar.github.io/spawn, 무료) 추천. 정리 끝. 올리기 직전에 사용자 확인.
+   - **사용자가 직접(자동 권한이 삭제를 막음)**: 예전 폴더를 휴지통으로 — %LOCALAPPDATA%\Claudex(옛 설치 307MB), %APPDATA%\Claudex, %APPDATA%\Claudex-dev, ~/.claudex, ~/.agent-office, 바탕화면 옛 Claudex 바로가기.
+   - **확인 대기(1.3.40)**: 세션을 열어 둔 채 PC를 껐다 켜면 다시 열리는지(7-32). spawn.log에 "[main] Windows is ending the session: open sessions kept".
+   - 확인 대기(예전부터): Codex 탭의 "Codex 월간" 줄·codex resume, pnpm dev 띄운 세션이 턴 끝나면 '쉬는 중'으로 바뀌는지.
+   - **알려진 한계(사용자에게 말함)**: 예전 세션 이어하기 목록은 Claude만, Codex 안 /new는 그 탭이 첫 대화를 계속 따라감, Codex 권한 확인은 화면 문구 감지, Codex 한도는 서버 재시작 뒤 Codex가 다시 보고할 때까지 비어 있음.
+   - unslop 스킬은 .claude/skills/unslop에 로컬만(.git/info/exclude).
 
 9. **나중에**
    - **확률형 교환 요소** (사용자 아이디어, 2026-11-11): 중복 포켓몬을 보내 새 종을 데려오는 장치로 3년짜리 완성을 조금 당기되 전설·환상 희소성은 지키기. **아이디어 정리: `docs/superpowers/specs/2026-11-11-trade-idea.md`**(안 A 박사님 교환 6:1 추천, B 사탕, C 키우미집 알, D 이상한 교환; 사용자가 정할 것 4가지). 정하면 시뮬레이션 → 계획.
