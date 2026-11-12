@@ -2,6 +2,13 @@
 
 ## spawn
 
+### 1.3.42
+- 다른 창과 나란히 놓고 크기를 조절할 때 터미널이 하얗게 비던 문제를 고쳤어요. 끄는 동안에는 터미널을 그대로 두고, 손을 떼면 한 번만 크기를 맞춰요(끄는 동안 글자가 살짝 잘려 보일 수 있어요).
+- 업데이트 뒤 다시 켜지는 시간이 짧아졌어요. 예전 앱이 저장을 마치면 바로 꺼지고, 파일을 여러 개씩 한꺼번에 복사해요. 이 부분은 이번 업데이트의 다음 업데이트부터 빨라져요.
+- 일하는 세션 테두리의 빛이 훨씬 가벼워졌어요(CPU·GPU 사용이 절반쯤). 모양은 같아요.
+- 도감에서 아무것도 고르지 않았을 때 오른쪽 빈 칸이 보이지 않아요.
+- 앱을 끌 때 도감 저장이 늦어지면 한 번 더 기다렸다 꺼요.
+
 ### 1.3.41
 - 바탕화면 바로가기와 작업 표시줄 아이콘도 새 몬스터볼 그림으로 바뀌어요. 지금까지는 업데이트로 실행 파일이 바뀌지 않아 처음 설치할 때의 그림이 남아 있었어요. 이제 앱이 켜질 때 spawn 바로가기가 업데이트와 함께 바뀌는 아이콘을 보게 해요.
 - 아이콘이 더 선명해졌어요. 화면 배율(125%·150%·200%)에 맞는 크기를 골라 그려서, 트레이와 작업 표시줄에서 흐리거나 뭉개지지 않아요.
@@ -305,6 +312,13 @@
 
 ## spawn (English)
 
+### 1.3.42
+- Fixed the terminal going blank while you resized the window side by side with another one. The terminal now stays as it is while you drag and fits once you let go (the text may look clipped for a moment while dragging).
+- Restarting after an update is quicker: the old app quits as soon as its work is saved, and files are copied several at a time. This speeds up the update after this one.
+- The glint round a working session's border is much lighter (about half the CPU and GPU). It looks the same.
+- The Pokédex no longer shows an empty column on the right while nothing is picked.
+- When saving the Pokédex is slow on quit, the app waits once more before closing.
+
 ### 1.3.41
 - The Desktop shortcut and the taskbar now show the new Poké Ball too. An update never replaced the exe, so the picture from the first install stayed; now the app points its spawn shortcuts at the icon that updates bring.
 - Sharper icons: the size that fits your display scale (125 %, 150 %, 200 %) is drawn, so the tray and taskbar icons are no longer blurry.
@@ -471,6 +485,13 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.42
+- 他のウィンドウと並べてサイズを変えるとき、ターミナルが真っ白になる問題を直しました。ドラッグ中はターミナルをそのままにして、手を離したら一度だけサイズを合わせます(ドラッグ中は文字が少し切れて見えることがあります)。
+- アップデート後の再起動が速くなりました。古いアプリは保存が終わるとすぐ終了し、ファイルを複数まとめてコピーします。この部分は今回の次のアップデートから速くなります。
+- 作業中のセッションの枠を回る光がずっと軽くなりました(CPU・GPU の使用が約半分)。見た目は同じです。
+- 図鑑で何も選んでいないとき、右側の空欄が表示されなくなりました。
+- 終了時に図鑑の保存が遅れたら、もう一度待ってから閉じます。
 
 ### 1.3.41
 - デスクトップのショートカットとタスクバーのアイコンも新しいモンスターボールの絵になります。これまではアップデートで実行ファイルが変わらず、最初にインストールしたときの絵が残っていました。起動時に spawn のショートカットがアップデートと一緒に変わるアイコンを使うようにしました。
