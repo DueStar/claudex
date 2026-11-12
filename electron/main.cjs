@@ -1143,12 +1143,17 @@ function registerTerminalIpc() {
   // A file named in a session's output (Ctrl+click): resolved against that session's folder, and
   // only a file that exists. It opens at its line in VS Code or Cursor through their own
   // vscode:// / cursor:// links (no command line, so nothing in the path is ever run), else
-  // with the file's default app
+  // with the file's default app. A page, PDF or picture named without a line goes to its
+  // default app (the browser, the image viewer): that is what Ctrl+click on one means.
+  const VIEW_IN_DEFAULT_APP = new Set(['.html', '.htm', '.xhtml', '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico'])
   ipcMain.handle('terminals:open-path', guard(async ({ id, file, line, col } = {}) => {
     const term = terminals.list().find(t => t.id === String(id))
     if (!term || typeof file !== 'string' || file.length > 1024) return false
     const abs = path.resolve(term.cwd, file)
     try { if (!fs.statSync(abs).isFile()) return false } catch { return false }
+    if (!(Number(line) > 0) && VIEW_IN_DEFAULT_APP.has(path.extname(abs).toLowerCase())) {
+      return (await shell.openPath(abs)) === ''
+    }
     const at = `${Number(line) > 0 ? `:${Math.floor(Number(line))}` : ''}${Number(line) > 0 && Number(col) > 0 ? `:${Math.floor(Number(col))}` : ''}`
     for (const scheme of ['vscode', 'cursor']) {
       if (app.getApplicationNameForProtocol(`${scheme}://`)) {
