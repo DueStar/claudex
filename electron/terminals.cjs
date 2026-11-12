@@ -186,7 +186,7 @@ function linkedConversation(userDataDir, sessionId) {
  * `tools()`: the trainer's other AI tools (설정 › 세션). `emit(event)`: a server
  * event for a session whose tool has no hooks (main posts it to /event).
  */
-function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {}, postStatus = () => {}, pty: ptyModule = null, killTree = killTreeNow, codexWatch = createCodexWatch }) {
+function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {}, postStatus = () => {}, pty: ptyModule = null, killTree = killTreeNow, codexWatch = createCodexWatch, exitGraceMs = 5000 }) {
   const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
   // The sessions open when the app last closed (open-sessions.json): what the
@@ -214,8 +214,22 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
 
   function broadcastList() { rememberOpen(); send('terminals:list', list()) }
 
+  /**
+   * A session that ended by itself leaves the list only a few seconds later. When
+   * Windows shuts down or logs off it ends the sessions' processes one by one before
+   * it kills the app, without the app's own quit (which freezes the list): written at
+   * once, each exit took one more session off and the next start reopened none.
+   */
+  let exitTimer = null
+  function rememberSoon() {
+    if (exitTimer) clearTimeout(exitTimer)
+    exitTimer = setTimeout(() => { exitTimer = null; rememberOpen() }, exitGraceMs)
+    exitTimer.unref?.()
+  }
+
   /** The running sessions, written on every change (a crash or a kill leaves the last list) */
   function rememberOpen() {
+    if (exitTimer) { clearTimeout(exitTimer); exitTimer = null }
     if (frozen) return
     const open = [...terms.values()].filter(t => t.status !== 'exited').map(t => ({ sessionId: t.sessionId, cwd: t.cwd, tool: t.adapter.id }))
     try { fs.writeFileSync(openFile, JSON.stringify(open)) } catch {}
@@ -303,7 +317,8 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
       t.status = 'exited'
       t.exitCode = exitCode
       t.markExited()
-      broadcastList()
+      rememberSoon()
+      send('terminals:list', list())
       // Claude killed with its terminal never runs SessionEnd: say it ourselves
       if (onExit) { try { onExit(t.sessionId, exitCode) } catch {} }
     })
@@ -424,8 +439,14 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
    * and drainMs leaves time for the worker's own drain-then-terminate (1 s).
    * The sessions stay listed as open (frozen), for the next start to reopen.
    */
-  async function shutdown(timeoutMs = 3000, drainMs = 1200) {
+  /** Windows is ending the session (shutdown, restart, log off): keep the list as it is */
+  function freeze() {
     frozen = true
+    if (exitTimer) { clearTimeout(exitTimer); exitTimer = null }
+  }
+
+  async function shutdown(timeoutMs = 3000, drainMs = 1200) {
+    freeze()
     const all = [...terms.values()]
     const running = all.filter(t => t.status !== 'exited')
     if (!all.length) return { exited: 0, stuck: 0 }
@@ -440,7 +461,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
     return { exited: running.length - stuck, stuck }
   }
 
-  return { create, write, sendInstruction, resize, buffer, list, rename, close, move, shutdown, takeRestorable }
+  return { create, write, sendInstruction, resize, buffer, list, rename, close, move, shutdown, freeze, takeRestorable }
 }
 
 module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch, HOOK_EVENTS }

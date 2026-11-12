@@ -194,6 +194,47 @@ describe('terminal manager shutdown', () => {
   })
 })
 
+describe('the reopen list when Windows shuts down', () => {
+  const setup = (exitGraceMs: number) => {
+    const pty = fakePty()
+    const userDataDir = tempDir()
+    const terms = createTerminalManager({ repoRoot: REPO, userDataDir, defaultCwd: userDataDir, send: () => {}, pty, killTree: () => {}, exitGraceMs })
+    const openList = () => JSON.parse(readFileSync(join(userDataDir, 'open-sessions.json'), 'utf8')).map((o: any) => o.sessionId)
+    return { pty, terms, openList }
+  }
+
+  it('sessions ending one by one (Windows killing them before the app) stay listed until the exits settle', async () => {
+    const { pty, terms, openList } = setup(60)
+    const a = terms.create({ tool: 'shell' }) as any
+    const b = terms.create({ tool: 'shell' }) as any
+    expect(openList()).toEqual([a.sessionId, b.sessionId])
+    pty.exit(100)
+    pty.exit(101)
+    // the app is killed in this window: the file still lists both, so the next start reopens them
+    expect(openList()).toEqual([a.sessionId, b.sessionId])
+    await new Promise(r => setTimeout(r, 120))
+    // the app lived on: the ended ones leave the list
+    expect(openList()).toEqual([])
+  })
+
+  it('once Windows says the session is ending (freeze), later exits never empty the list', async () => {
+    const { pty, terms, openList } = setup(20)
+    const a = terms.create({ tool: 'shell' }) as any
+    terms.freeze()
+    pty.exit(100)
+    await new Promise(r => setTimeout(r, 60))
+    expect(openList()).toEqual([a.sessionId])
+  })
+
+  it('closing a tab yourself still updates the list at once', () => {
+    const { terms, openList } = setup(10_000)
+    const a = terms.create({ tool: 'shell' }) as any
+    const b = terms.create({ tool: 'shell' }) as any
+    terms.close(a.id)
+    expect(openList()).toEqual([b.sessionId])
+  })
+})
+
 describe('resizing a session', () => {
   it('passes a new size on to the session once; the same size again is not sent (Claude Code redraws on every resize)', () => {
     const log: string[] = []

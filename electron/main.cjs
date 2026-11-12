@@ -692,6 +692,11 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     maybeCaptureScreenshot()
   })
   win.on('show', refreshMenus)
+  // Windows shutting down, restarting or logging off ends the sessions' processes before
+  // it kills the app, and the app's own quit never runs: keep the reopen list as it is now
+  const keepSessions = () => { try { terminals?.freeze?.(); console.log('[main] Windows is ending the session: open sessions kept for the next start') } catch {} }
+  win.on('query-session-end', keepSessions)
+  win.on('session-end', keepSessions)
   win.on('hide', refreshMenus)
   const remember = () => {
     if (win.isDestroyed() || win !== widgetWin || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return
