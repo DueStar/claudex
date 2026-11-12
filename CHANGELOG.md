@@ -2,6 +2,12 @@
 
 ## spawn
 
+### 1.3.41
+- 바탕화면 바로가기와 작업 표시줄 아이콘도 새 몬스터볼 그림으로 바뀌어요. 지금까지는 업데이트로 실행 파일이 바뀌지 않아 처음 설치할 때의 그림이 남아 있었어요. 이제 앱이 켜질 때 spawn 바로가기가 업데이트와 함께 바뀌는 아이콘을 보게 해요.
+- 아이콘이 더 선명해졌어요. 화면 배율(125%·150%·200%)에 맞는 크기를 골라 그려서, 트레이와 작업 표시줄에서 흐리거나 뭉개지지 않아요.
+- 왼쪽 패널 위 로고가 업데이트 뒤에도 예전 몬스터볼 그림으로 보이던 문제를 고쳤어요.
+- 지금 고르지 않은 세션도 일하는 중이면 테두리에 연한 회색 빛이 돌아요.
+
 ### 1.3.40
 - PC를 끄거나 다시 시작해도 열어 둔 세션이 다음에 켤 때 다시 열려요. 지금까지는 Windows가 꺼지면서 세션을 하나씩 닫는 동안 목록이 비어 버려서, 다시 켜면 "새 세션"으로 시작했어요.
 - 여행의 시작부터 함께한 친구들도 도감에 몬스터볼로 기록돼요. 레벨은 그대로예요.
@@ -299,6 +305,12 @@
 
 ## spawn (English)
 
+### 1.3.41
+- The Desktop shortcut and the taskbar now show the new Poké Ball too. An update never replaced the exe, so the picture from the first install stayed; now the app points its spawn shortcuts at the icon that updates bring.
+- Sharper icons: the size that fits your display scale (125 %, 150 %, 200 %) is drawn, so the tray and taskbar icons are no longer blurry.
+- Fixed the logo at the top of the left panel still showing the old Poké Ball after an update.
+- Sessions that are working but not selected get a light grey glint running round their border.
+
 ### 1.3.40
 - Shutting down or restarting the PC no longer loses your open sessions: they open again next time. Until now Windows closed them one by one on the way out and the list ended up empty, so the next start began with a "New session".
 - The companions you set out with are now recorded in the Pokédex in a Poké Ball. Their levels stay as they are.
@@ -459,6 +471,12 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.41
+- デスクトップのショートカットとタスクバーのアイコンも新しいモンスターボールの絵になります。これまではアップデートで実行ファイルが変わらず、最初にインストールしたときの絵が残っていました。起動時に spawn のショートカットがアップデートと一緒に変わるアイコンを使うようにしました。
+- アイコンがくっきりしました。画面の拡大率(125%・150%・200%)に合うサイズで描くので、トレイやタスクバーでぼやけません。
+- アップデートしても左パネル上のロゴが古いモンスターボールの絵のままだった問題を直しました。
+- 選んでいないセッションも、作業中は枠に薄いグレーの光が回ります。
 
 ### 1.3.40
 - PCをシャットダウン・再起動しても、開いていたセッションが次に起動したときにまた開きます。これまではWindowsが終了しながらセッションを一つずつ閉じるあいだに一覧が空になり、次の起動が「新しいセッション」から始まっていました。
