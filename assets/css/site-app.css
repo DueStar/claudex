@@ -1,0 +1,221 @@
+/* site-app.css — how the app's components sit on this page: sizes, the panels
+   they live in (in the app they sit inside the terminal card), the fake
+   terminal, and the phone layout. Colours come from the app's own .widget
+   tokens (app.css) or the site tokens (site.css). */
+
+.widget { line-height: 1.4; }
+.widget button { font: inherit; color: inherit; }
+.widget [hidden] { display: none !important; }
+
+/* ---------- The hero app (window mode) ---------- */
+.hero-app { display: flex; height: 560px; position: relative; cursor: default; user-select: none; }
+.widget.expanded.hero-app .w-side { flex: 0 0 328px; width: 328px; }
+.hero-app .w-party { overflow: hidden; }
+.hero-app .rows { display: flex; flex-direction: column; gap: 6px; }
+.hero-app .w-row { animation: rowIn 0.35s cubic-bezier(.2, .8, .2, 1) both; }
+.hero-app .w-sess-tab { animation: rowIn 0.25s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes rowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.fake-term {
+  height: 100%; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; color: var(--term-ink); white-space: pre-wrap; overflow-wrap: anywhere;
+  padding-right: 10px; padding-bottom: 6px;
+}
+.fake-term .ln { animation: lnIn 0.18s ease-out both; }
+.fake-term .ln-gap { height: 8px; }
+.fake-term .t-prompt { color: var(--ink); background: var(--card-2); border-radius: 8px; padding: 6px 10px; margin: 4px 0; }
+.fake-term .t-prompt::before { content: '> '; color: var(--ink-3); }
+.fake-term .t-tool b { color: var(--ink); font-weight: 700; }
+.fake-term .t-tool::before { content: '● '; color: var(--green); }
+.fake-term .t-res { color: var(--ink-3); padding-left: 2ch; }
+.fake-term .t-res::before { content: '⎿  '; }
+.fake-term .t-say::before { content: '● '; color: var(--ink); }
+.fake-term .t-status { color: var(--ink-3); margin-top: 6px; }
+.fake-term .t-cursor { display: inline-block; width: 0.6em; height: 1.1em; vertical-align: -0.2em; background: var(--ink-2); animation: blink 1s steps(1) infinite; }
+@keyframes lnIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes blink { 50% { opacity: 0; } }
+
+.toast-slot { position: absolute; right: 16px; bottom: 16px; width: 344px; max-width: calc(100% - 32px); z-index: 5; pointer-events: none; }
+.toast-slot .w-toast { box-shadow: 0 18px 40px -12px var(--shadow); }
+
+/* Narrower screens: the tab bar drops its mode buttons first, as the app does */
+@media (max-width: 1080px) { .hero-app .w-mode-switch, .hero-app .w-win-controls { display: none; } }
+@media (max-width: 820px) {
+  .hero-app { flex-direction: column; height: auto; }
+  .widget.expanded.hero-app .w-side { flex: none; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .hero-app .w-party { max-height: 260px; }
+  .widget.mode-window.hero-app .w-term { flex: none; height: 320px; }
+  .toast-slot { right: 10px; left: 10px; bottom: 10px; width: auto; max-width: none; }
+}
+@media (max-width: 420px) {
+  .hero-app .w-limit { grid-template-columns: 44px minmax(0, 1fr) 40px; }
+  .hero-app .w-limit-reset { display: none; }
+  .toast-slot .w-toast { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 14px 16px 14px 14px; }
+  .toast-slot .w-toast-art { width: 56px; height: 56px; }
+  .toast-slot .w-toast-art img { width: 42px; height: 42px; }
+}
+
+/* ---------- Panels: an app view on its own ---------- */
+.widget.panel { display: block; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
+
+/* The Pokédex as the app lays it out inside its terminal card: dashboard on top, grid and detail side by side */
+.widget.panel.dex-panel { background: var(--term); }
+.dex-panel .dex { height: 760px; min-height: 0; }
+.dex-panel .dex-main { min-height: 0; }
+.dex-panel .dex-grid { min-height: 0; }
+.dex-panel .dex-detail { min-height: 0; }
+.dex-panel .dex-cell { cursor: pointer; }
+.dex-panel .dex-cell.seen, .dex-panel .dex-cell.unknown { cursor: pointer; }
+.dex-panel .dex-fsearch input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 1100px) { .dex-panel .dex-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .dex-panel .dex { height: auto; }
+  .dex-panel .dex-main { flex-direction: column; }
+  .dex-panel .dex-grid { flex: none; height: 420px; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+  .dex-panel .dex-cell img { width: 52px; height: 52px; }
+  .dex-panel .dex-detail { width: auto; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .dex-panel .dex-fsearch { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .dex-panel .dex-top { padding: 10px; }
+  .dex-panel .dex-stats { gap: 6px; }
+  .dex-panel .dex-stat { grid-template-columns: minmax(0, 1fr); padding: 8px 9px; }
+  .dex-panel .dex-stat-pct { grid-column: 1; grid-row: auto; align-self: start; }
+  .dex-panel .dex-stat-value b { font-size: 22px; }
+  .dex-panel .dex-stat-value small { display: block; font-size: 11px; }
+  .dex-panel .dex-tiers { gap: 6px; }
+  .dex-panel .dex-tiercol em { font-size: 15px; }
+  .dex-panel .dex-tiercol em small { display: block; }
+  .dex-panel .dex-chips { flex-wrap: wrap; }
+  .dex-panel .dex-seg { flex-wrap: wrap; }
+}
+
+/* No gradient anywhere but the hero glow: the art backdrops get a flat tier tint instead of the app's radial one */
+.w-toast-art { background: color-mix(in srgb, var(--tier) 16%, #1b1e26); }
+.dex-card-art { background: color-mix(in srgb, var(--tier) 12%, var(--card-2)); }
+
+/* Live views shown large on wide screens: the app's 12px UI, scaled up as a whole */
+@media (min-width: 1040px) {
+  .sess-demo, .step-panel, .tools-panel { zoom: 1.18; }
+}
+
+/* ---------- 세션마다 한 마리: the party and three sessions opening ---------- */
+.sess-demo { display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 20px; background: var(--side); border: 1px solid var(--line); --w-icon: 40px; --w-icon-gap: 14px; }
+.sess-party { display: flex; align-items: center; gap: 18px; padding: 14px 18px; }
+.sess-party .w-party-mon img { transition: opacity 0.4s, filter 0.4s, transform 0.3s; }
+.sess-party .w-party-mon.out img { transform: translateY(-3px); }
+.sess-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sess-col { min-width: 0; height: 300px; display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 16px; background: var(--term); border: 1px dashed var(--line-strong); }
+.sess-col.open { border: 1px solid var(--line); animation: rowIn 0.35s cubic-bezier(.2, .8, .2, 1) both; }
+.sess-col .w-row { flex: none; }
+.sess-wait { margin: auto; opacity: 0.35; }
+.sess-term { flex: 1; min-height: 0; height: auto; padding: 2px 4px 0; font-size: 12px; }
+@media (max-width: 760px) {
+  .sess-cols { grid-template-columns: minmax(0, 1fr); }
+  .sess-col { height: 220px; }
+  .sess-col:nth-child(3) { display: none; }
+  .sess-demo { --w-icon: 32px; --w-icon-gap: 8px; }
+  .sess-party { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+}
+
+/* ---------- 도구를 쓰면 한 걸음: tool calls on the left, the walk and the catch card on the right ---------- */
+.widget.panel.step-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); background: var(--term); border-radius: 20px; }
+.step-term { position: relative; height: 400px; border-right: 1px solid var(--line); }
+.step-term .fake-term { position: absolute; inset: 18px 12px 14px 20px; height: auto; font-size: 13px; }
+.step-side { display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 28px; background: var(--side); min-width: 0; }
+.step-count { display: flex; align-items: baseline; gap: 12px; }
+.step-count .w-label { font-size: 13px; }
+.step-count b { font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.step-trail { height: 64px; }
+.step-toast { min-height: 112px; }
+.step-toast .w-toast { box-shadow: 0 18px 40px -12px var(--shadow); }
+@media (max-width: 760px) {
+  .widget.panel.step-panel { grid-template-columns: minmax(0, 1fr); }
+  .step-term { height: 230px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .step-term .fake-term { inset: 12px 10px 10px 14px; font-size: 12px; }
+  .step-side { padding: 20px 16px; gap: 16px; }
+  .step-count b { font-size: 48px; }
+}
+@media (max-width: 420px) {
+  .step-toast .w-toast { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 14px 16px 14px 14px; }
+  .step-toast .w-toast-art { width: 56px; height: 56px; }
+  .step-toast .w-toast-art img { width: 42px; height: 42px; }
+}
+
+/* ---------- Claude와 Codex: the usage card beside the session rows ---------- */
+.widget.panel.tools-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 8px; padding: 8px; background: var(--side); border-radius: 20px; }
+.tools-panel .w-limits { justify-content: center; gap: 16px; padding: 20px 22px; }
+.tools-panel .w-limit { grid-template-columns: 92px minmax(0, 1fr) 40px 48px; }
+.tools-panel .rows { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.tools-panel .w-row { padding: 10px 12px; }
+@media (max-width: 760px) {
+  .widget.panel.tools-panel { grid-template-columns: minmax(0, 1fr); }
+  .tools-panel .w-limits { padding: 14px 14px; gap: 12px; }
+  .tools-panel .w-limit { grid-template-columns: 84px minmax(0, 1fr) 36px; }
+  .tools-panel .w-limit-reset { display: none; }
+}
+
+/* ---------- 도구를 쓰면 한 걸음: today's earlier encounters under the card ---------- */
+.step-log { flex: none; min-height: 0; }
+.step-log .today-day { position: static; margin: 0 0 2px; padding: 2px 4px; background: transparent; }
+.step-log .today-row { padding: 7px 4px; gap: 10px; }
+.step-log .today-row img.today-icon { width: 32px; height: 32px; }
+.step-log .today-sub { flex-wrap: wrap; white-space: normal; }
+.step-side { justify-content: flex-start; }
+
+/* ---------- Claude와 Codex: the low-HP note on its row ---------- */
+.hp-hint { margin-top: 2px; font-size: 11px; color: #ff9b9b; display: flex; align-items: center; gap: 6px; }
+.hp-hint::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); flex: none; }
+
+/* ---------- 내 PC에서만: the app's settings rows ---------- */
+.widget.panel.set-panel { max-width: 720px; margin: clamp(32px, 4vw, 48px) auto 0; padding: 8px 22px 10px; border-radius: 20px; background: var(--card); }
+.set-head { padding: 10px 0 4px; }
+.set-panel .set-row:last-child { border-bottom: 0; }
+.set-panel .set-text b { font-size: 14px; }
+.set-panel .set-text small { font-size: 12px; }
+.set-pill { flex: none; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--green); background: rgba(116, 214, 139, 0.12); border-radius: 999px; padding: 2px 8px; }
+.set-panel .set-switch:focus-visible { outline-offset: 3px; }
+.hide-sample { margin: 2px 0 10px; padding: 9px 12px; border-radius: 10px; background: var(--card-2); display: flex; flex-direction: column; gap: 2px; }
+.hide-sample .today-line { font-size: 13px; }
+.hide-sample .today-sub { white-space: normal; flex-wrap: wrap; }
+@media (max-width: 560px) { .widget.panel.set-panel { padding: 6px 14px 8px; } }
+
+/* ---------- 네 단계: one small app piece per step ---------- */
+.step-pic { height: 136px; border-radius: 16px; background: var(--side); border: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; justify-content: center; gap: 10px; overflow: hidden; }
+.rel-row { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; color: var(--ink-2); text-decoration: none; min-width: 0; }
+.rel-row.ext-link { text-decoration: none; color: var(--ink-ext); }
+.rel-row:hover { border-color: var(--line-strong); color: var(--ink); }
+.rel-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.rel-name { font-size: 11.5px; color: var(--ink); overflow-wrap: anywhere; line-height: 1.35; }
+.rel-tag { flex: none; font-size: 10px; font-weight: 700; color: var(--green); background: rgba(116, 214, 139, 0.12); padding: 1px 7px; border-radius: 999px; }
+.mini-head { border-radius: 12px; padding: 9px 12px; }
+.mini-head .w-brand { font-size: 14px; }
+.mini-exe { font-size: 11.5px; color: var(--ink-3); padding-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-launch { background: transparent; border: 0; padding: 0; }
+.mini-launch .w-launch-main { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 12px; border-radius: 12px; font-weight: 650; font-size: 13px; }
+.mini-term { height: auto; font-size: 11.5px; padding: 0 4px; }
+.mini-catch { padding: 10px; }
+.mini-catch .w-toast { padding: 12px 14px 12px 12px; gap: 12px; grid-template-columns: 56px minmax(0, 1fr); }
+.mini-catch .w-toast-art { width: 56px; height: 56px; }
+.mini-catch .w-toast-art img { width: 42px; height: 42px; }
+.mini-catch .w-toast-meta { flex-wrap: wrap; row-gap: 2px; }
+
+/* ---------- The closing strip: a row of Pokédex cells, one filling in now and then ---------- */
+.dex-strip { max-width: 880px; margin: clamp(48px, 6vw, 72px) auto 0; padding: 14px 16px 16px; border-radius: 20px; background: var(--side); border: 1px solid var(--line); }
+.dex-strip-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; padding: 0 2px; }
+.dex-strip-head .w-dex-count b { font-variant-numeric: tabular-nums; }
+.dex-strip-cells { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; }
+.dex-strip .dex-cell { cursor: default; content-visibility: visible; }
+.dex-strip .dex-cell img { width: 78%; height: 78%; }
+.dex-strip .dex-cell.fill img { animation: cellIn 0.7s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes cellIn { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .dex-strip-cells { grid-template-columns: repeat(6, minmax(0, 1fr)); } .dex-strip { padding: 12px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-app .w-row, .hero-app .w-sess-tab, .fake-term .ln, .sess-col.open, .dex-strip .dex-cell.fill img { animation: none; }
+  .sess-party .w-party-mon img { transition: none; }
+  .fake-term .t-cursor { animation: none; }
+  .w-ctx.w-hp span, .w-bar span { transition: none; }
+}
+@media (max-width: 520px) { .step-pic { height: auto; padding: 12px; } }
+.w-launch-main .w-launch-plus { flex: none; }

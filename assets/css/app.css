@@ -1,0 +1,577 @@
+/* app.css — the spawn app's own stylesheets, copied from the app repo and trimmed
+   to the components this site rebuilds. Rules are kept as they are in the app;
+   the only edits are: -webkit-app-region removed (no window to drag here), the
+   font stacks point at the web fonts the site loads, and the toast card is not
+   bound to its own window.
+
+   Sources (DueStar/spawn):
+     src/styles/widget.css           .widget tokens, cards, session rows, pills, HP, limits
+     src/styles/widget-expanded.css  window mode, launcher, terminal card, session tabs,
+                                     view switch, patch notes, settings rows and switch
+     src/styles/pokedex.css          tiers, dex card, party slots, Pokédex grid and
+                                     dashboard, rate table, detail card, types, setup
+                                     card, log (기록), ranking
+     src/styles/toast.css            the catch notification card
+     src/styles/terminal.css         the terminal view base
+   Literal colours here are the app's own values (the site's tokens in site.css
+   point at the same ones). */
+
+/* ======================= widget.css ======================= */
+
+.widget {
+  --card: #14161c;
+  --card-2: #1b1e26;
+  --line: rgba(255, 255, 255, 0.07);
+  --ink: #f1f2f5;
+  --ink-2: #a4a9b6;
+  --ink-3: #6e7381;
+  --accent: #f2c94c;
+  --accent-hover: #f7d76c;
+  --accent-ink: #16171b;
+  --accent-soft: rgba(242, 201, 76, 0.14);
+  --green: #74d68b;
+  --amber: #ffb54a;
+  --danger: #ff6464;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-feature-settings: 'tnum' 1;
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+.widget *, .widget *::before, .widget *::after { box-sizing: border-box; }
+
+/* ---------- The bento ---------- */
+.w-bento { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.w-bento > .w-card { flex: none; }
+.w-bento > .w-party { flex: 1 1 auto; min-height: 0; }
+.w-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.w-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: 0.01em;
+}
+.w-empty { color: var(--ink-3); font-size: 12px; }
+
+.w-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 12px;
+  border-radius: 14px;
+}
+.w-brand { margin-right: auto; font: inherit; font-weight: 650; font-size: 13px; letter-spacing: -0.01em; color: inherit; background: none; border: 0; padding: 0; }
+.w-conn { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.w-icon {
+  width: 24px;
+  height: 22px;
+  border-radius: 8px;
+  border: 0;
+  background: var(--card-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 13px;
+}
+.w-bar { height: 5px; border-radius: 3px; background: #262a34; overflow: hidden; }
+.w-bar span { display: block; height: 100%; border-radius: 3px; background: var(--green); transition: width 0.4s; }
+
+.w-party {
+  grid-column: 1 / -1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.w-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  --row-bg: var(--card-2);
+  background: var(--row-bg);
+  border: 1px solid transparent;
+}
+.w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); --row-bg: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
+.w-row-name { font-weight: 650; font-size: 13px; }
+.w-row-project { color: var(--ink-3); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.w-pill { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #262a34; color: var(--ink-2); white-space: nowrap; }
+.w-pill.mood-working { background: rgba(116, 214, 139, 0.14); color: var(--green); }
+.w-pill.mood-needs-you { background: rgba(255, 181, 74, 0.16); color: var(--amber); }
+.w-pill.mood-error { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
+.w-row-bottom { display: flex; align-items: center; gap: 8px; }
+.w-ctx { flex: 1; height: 4px; border-radius: 2px; background: #2a2e39; overflow: hidden; }
+.w-ctx span { display: block; height: 100%; background: var(--accent); }
+.w-row-num { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+
+/* ---------- Limits: two slim rows instead of four big tiles ---------- */
+.w-limits { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
+.w-limit { display: grid; grid-template-columns: 44px 1fr 40px 86px; align-items: center; gap: 8px; }
+.w-limit > .w-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-limit .w-bar { height: 6px; }
+.w-limit-pct { text-align: right; font-weight: 650; font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.w-limit-pct small { font-size: 10px; font-weight: 500; color: var(--ink-3); margin-left: 1px; }
+.w-limit-reset { font-size: 11px; color: var(--ink-3); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.w-limit.tone-warn .w-bar span { background: var(--amber); }
+.w-limit.tone-warn .w-limit-pct { color: var(--amber); }
+
+/* ---------- Session rows: the Pokémon beside two lines ---------- */
+.w-row-head { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 8px; row-gap: 3px; align-items: center; }
+.w-row-head > .w-row-mon { grid-row: 1 / span 2; width: 30px; height: 30px; }
+.w-row-line1, .w-row-line2 { display: flex; align-items: center; gap: 6px; min-width: 0; position: relative; }
+.w-row-line1 .w-row-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-row-line1 > .w-pill { flex: none; }
+.w-row-line2 { gap: 5px; min-height: 18px; font-size: 11px; }
+.w-row-meta { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; }
+.w-row-meta .w-row-project { flex: 0 1 auto; min-width: 44px; }
+.w-row-meta .w-row-tool { margin-left: 0; }
+.w-row-lv { flex: none; white-space: nowrap; }
+.w-row-helper { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; color: var(--accent); background: var(--accent-soft); }
+.w-row-model { flex: none; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-3); }
+/* The context window as HP: what is left drains like a Pokémon's HP bar */
+.w-hp-label { flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-3); }
+.w-ctx.w-hp span { transition: width 0.6s ease-out, background-color 0.3s; }
+.w-ctx.hp-green span, .w-ctx.hp-full span { background: #5fcf7a; }
+.w-ctx.hp-yellow span { background: var(--accent); }
+.w-ctx.hp-red span { background: var(--danger); }
+.w-row-branch { flex: 0 1 auto; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ink-3); padding: 0 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.05); font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Pretendard JP Variable', Consolas, monospace; }
+.w-row-branch::before { content: '⎇ '; opacity: 0.7; }
+
+/* ======================= widget-expanded.css ======================= */
+
+.widget { flex-direction: row; gap: 6px; }
+.w-side { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.widget.expanded .w-side { flex: 0 0 328px; width: 328px; }
+
+/* ---------- Launcher card ---------- */
+.w-launch { grid-column: 1 / -1; display: flex; gap: 6px; padding: 6px; border-radius: 14px; }
+.w-launch-main {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  font: inherit; font-weight: 650; font-size: 13px; color: var(--accent-ink); background: var(--accent);
+  border: 0; border-radius: 10px; padding: 9px 12px;
+}
+.w-launch-alt {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 40px;
+  font: inherit; font-size: 14px; color: var(--ink-2); background: var(--card-2);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+
+/* ---------- Terminal card (expanded) ---------- */
+.w-term { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: #101217; margin-top: 6px; }
+.w-term-tabs {
+  display: flex; align-items: center; gap: 4px; padding: 7px 8px;
+  border-bottom: 1px solid var(--line); background: var(--card);
+  overflow: hidden; min-width: 0; flex-shrink: 0;
+}
+.w-term-tabs > * { flex-shrink: 0; }
+.w-term-tabs > .w-term-spacer { flex: 1 1 0; min-width: 0; }
+.w-view-icons button.icon-only { padding: 5px 9px; position: relative; }
+
+/* ---------- Session tabs ---------- */
+.w-sess-bar { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--card); }
+.w-sess-tabs { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.w-sess-tabs::-webkit-scrollbar { height: 0; }
+.w-sess-tab {
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px;
+  font: inherit; font-size: 12px; color: var(--ink-2);
+  background: transparent; border: 1px solid transparent; border-radius: 10px;
+  user-select: none; white-space: nowrap;
+}
+.w-sess-tab img { width: 20px; height: 20px; object-fit: contain; flex: none; }
+.w-sess-tab.on { background: var(--card-2); border-color: var(--line); color: var(--ink); }
+.w-sess-tab-name { font-weight: 650; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.w-sess-tab-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+.w-sess-tab.mood-working .w-sess-tab-dot { background: var(--green); }
+.w-sess-tab.mood-needs-you .w-sess-tab-dot { background: var(--amber); }
+.w-sess-new { flex: none; margin-left: 2px; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 0; background: none; color: var(--ink-3); }
+.w-sess-shell-btn { flex: none; height: 26px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card-2); color: var(--ink-2); font: 700 10px/1 'Monaspace Neon Var', 'Monaspace Neon', Consolas, monospace; }
+.w-term-spacer { flex: 1; }
+.w-term-body { position: relative; flex: 1; min-height: 0; }
+.w-term-body .term-view { position: absolute; inset: 10px 4px 6px 12px; }
+
+/* ---------- Window mode: one opaque app, edge to edge ---------- */
+.widget.mode-window { background: #0b0c10; padding: 0; gap: 0; --head-h: 46px; }
+.widget.mode-window .w-side { background: #0e1015; border-right: 1px solid var(--line); padding: 0 8px 8px; box-sizing: border-box; height: 100%; }
+.widget.mode-window .w-term { margin: 0; border: 0; border-radius: 0; height: 100%; }
+.w-mode-switch { flex-shrink: 0; }
+.w-mode-switch button { font-size: 11px; }
+
+/* ---------- Icons ---------- */
+.ico { display: block; flex-shrink: 0; }
+.pokeball { display: block; flex-shrink: 0; object-fit: contain; image-rendering: auto; }
+.w-view-switch button { display: inline-flex; align-items: center; gap: 5px; }
+.w-view-switch button.icon-only { padding: 4px 7px; }
+.w-icon { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---------- Window: the sidebar is open space, not cards in a box ---------- */
+.widget.mode-window .w-side .w-card { background: transparent; border: 0; border-radius: 0; border-bottom: 1px solid var(--line); padding-left: 6px; padding-right: 6px; }
+.widget.mode-window .w-side .w-card:last-child { border-bottom: 0; }
+.widget.mode-window .w-bento { gap: 0; }
+.widget.mode-window .w-side .w-launch { padding: 10px 6px; }
+
+.w-win-controls { display: flex; gap: 2px; margin-left: 4px; flex: none; }
+.w-win-controls .w-icon { width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); }
+
+/* ---------- Patch notes (PatchNotes.tsx) ---------- */
+.w-notes-body { overflow-y: auto; padding: 4px 16px 8px; line-height: 1.55; font-size: 13px; }
+.w-notes-body h3 { margin: 12px 0 4px; font-size: 12px; font-weight: 700; color: var(--accent); }
+.w-notes-body ul { margin: 0; padding-left: 18px; color: var(--ink-2); }
+.w-notes-body li { margin: 3px 0; }
+.w-notes-body li::marker { color: var(--ink-3); }
+
+/* ---------- Window: the sidebar header and the tab bar share one height ---------- */
+.widget.mode-window .w-side .w-head, .widget.mode-window .w-term-tabs { height: var(--head-h); box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
+
+/* ---------- 설정 rows ---------- */
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.set-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-text b { font-size: 13px; font-weight: 650; color: var(--ink); }
+.set-text small { font-size: 11px; color: var(--ink-3); line-height: 1.45; overflow-wrap: anywhere; }
+.set-btn { flex: none; font: inherit; font-size: 12px; font-weight: 650; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.set-btn:hover { border-color: rgba(255, 255, 255, 0.25); }
+.set-switch { flex: none; position: relative; width: 36px; height: 20px; padding: 0; border-radius: 999px; border: 0; background: #2c303b; cursor: pointer; transition: background 0.15s; }
+.set-switch i { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #c9cdd6; transition: transform 0.15s, background 0.15s; }
+.set-switch.on { background: var(--accent); }
+.set-switch.on i { transform: translateX(16px); background: var(--accent-ink); }
+.set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Pretendard JP Variable', monospace; }
+.set-side-toggle, .w-side-toggle { flex: none; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-right: 4px; }
+.w-row { position: relative; user-select: none; }
+
+/* ======================= pokedex.css ======================= */
+
+.widget { --w-icon: 28px; --w-icon-gap: 6px; }
+
+/* tier colours, shared */
+.tier-common { --tier: #a4a9b6; }
+.tier-rare { --tier: #6cb6ff; }
+.tier-sub { --tier: #c08bff; }
+.tier-legendary { --tier: #ffc94a; }
+.tier-mythical { --tier: #ff7ad9; }
+.w-toast-tier { color: var(--tier); font-weight: 700; }
+
+.dex-cell img, .dex-card-art img, .w-sess-tab img,
+.w-dex-recent img, .w-party-slots img, .w-row img { image-rendering: auto !important; }
+
+/* ---------- Dex card (compact) ---------- */
+.w-dex {
+  position: relative; grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto;
+  align-items: center; column-gap: 10px; row-gap: 4px; text-align: left; font: inherit; color: inherit;
+}
+.w-dex .w-label { grid-column: 1; grid-row: 1; }
+.w-dex-count { grid-column: 1; grid-row: 2; font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.w-dex-count b { font-size: 20px; font-weight: 650; color: var(--ink); letter-spacing: -0.02em; }
+.w-dex-recent { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: var(--w-icon-gap); justify-content: flex-end; align-items: center; min-width: 0; overflow: hidden; }
+.w-dex-recent img { width: var(--w-icon); height: var(--w-icon); object-fit: contain; flex: none; }
+
+/* ---------- View switch (selected: a soft yellow; solid yellow is for 보내기 only) ---------- */
+.w-view-switch { display: inline-flex; padding: 3px; margin-right: 6px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); flex-shrink: 0; }
+.w-view-switch button { position: relative; font: inherit; font-size: 12px; font-weight: 650; padding: 4px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-3); }
+.w-view-switch button.on { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- "New": a caught Pokémon whose entry was never opened ---------- */
+.dex-new, .w-new-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff4d4f; box-shadow: 0 0 0 2px var(--card); }
+.dex-new { position: absolute; right: 6px; top: 6px; }
+.w-view-switch .w-new-dot { position: absolute; top: 2px; right: 3px; width: 6px; height: 6px; }
+.w-new-dot.corner { position: absolute; top: 10px; right: 10px; }
+
+/* ---------- The Pokédex (pokedex.css, the whole block as the app has it) ---------- */
+.dex { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dex-main { flex: 1; min-height: 0; display: flex; }
+/* Columns stretch to fill the width, cells stay square */
+.dex-grid {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+.dex-grid::-webkit-scrollbar, .dex-detail::-webkit-scrollbar { width: 8px; }
+.dex-grid::-webkit-scrollbar-thumb, .dex-detail::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 4px; }
+.dex-cell {
+  position: relative;
+  aspect-ratio: 1;
+  /* 1025 cells: the ones scrolled out of view skip layout and paint */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 92px;
+  border-radius: 10px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.dex-cell img { width: 62px; height: 62px; object-fit: contain; }
+.dex-cell.seen img { filter: brightness(0) invert(0.32); }
+.dex-cell.unknown { background: #15171d; }
+.dex-cell:hover { border-color: rgba(255, 255, 255, 0.18); }
+/* One quiet border for every caught cell: the tier shows in the detail card, not as a colored frame */
+.dex-cell.caught { border-color: rgba(255, 255, 255, 0.1); }
+.dex-cell.picked { border-color: var(--accent); }
+.dex-cell:focus-visible { outline: 2px solid #ffd84a; outline-offset: 1px; }
+.dex-q { color: #3a3f4c; font-weight: 700; font-size: 16px; }
+.dex-q.big { font-size: 48px; }
+.dex-no { position: absolute; left: 5px; top: 3px; font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.dex-shiny { position: absolute; left: 5px; bottom: 3px; font-size: 10px; color: #fff3a0; }
+.dex-count { position: absolute; right: 5px; bottom: 3px; font-size: 10px; color: var(--ink-2); font-weight: 600; }
+.dex-empty { grid-column: 1 / -1; color: var(--ink-3); padding: 20px; text-align: center; }
+
+/* Dashboard: three big numbers and the tiers as columns */
+.dex-top { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+.dex-stats { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)) minmax(360px, 2.4fr); gap: 8px; }
+.dex-stat {
+  display: grid; grid-template-columns: 1fr auto; align-content: space-between; row-gap: 4px;
+  padding: 10px 12px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--line); min-width: 0;
+}
+.dex-stat-label { grid-column: 1 / -1; font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.dex-stat-value { grid-column: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dex-stat-value b { font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+.dex-stat-value small { font-size: 12px; color: var(--ink-3); }
+.dex-stat-pct { grid-column: 2; grid-row: 2; align-self: end; font-size: 11px; color: var(--accent); font-weight: 650; font-variant-numeric: tabular-nums; }
+.dex-stat-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.dex-stat-bar i { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+/* The tier names sit where the other cards' labels sit, no title above them */
+.dex-stat-tiers { align-content: stretch; }
+.dex-tiers { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.dex-tiercol { display: flex; flex-direction: column; justify-content: space-between; gap: 4px; min-width: 0; }
+.dex-tiercol span { font-size: 11px; font-weight: 600; color: var(--tier); }
+.dex-tiercol em { font-style: normal; font-size: 20px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dex-tiercol em small { font-size: 11px; font-weight: 500; color: var(--ink-3); }
+.dex-tiercol i { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.dex-tiercol i b { display: block; height: 100%; border-radius: 2px; background: var(--tier); }
+@media (max-width: 1100px) {
+  .dex-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dex-stat-tiers { grid-column: 1 / -1; }
+}
+
+/* Filters: generation, view, tier and search on one line (wraps when narrow) */
+.dex-filterbar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.dex-fgroup { display: flex; align-items: center; gap: 8px; }
+.dex-flabel { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.dex-seg { display: flex; padding: 2px; border-radius: 9px; background: var(--card-2); border: 1px solid var(--line); }
+.dex-seg button, .dex-chips button {
+  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  border: 0; background: transparent; color: var(--ink-2); padding: 4px 9px; border-radius: 7px;
+}
+.dex-seg button:hover, .dex-chips button:hover { color: var(--ink); }
+.dex-seg button.on { background: var(--accent-soft); color: var(--accent); }
+.dex-chips { display: flex; gap: 4px; }
+.dex-chips button { border: 1px solid var(--line); color: var(--tier); }
+.dex-chips button.on { background: color-mix(in srgb, var(--tier) 18%, transparent); border-color: var(--tier); }
+.dex-fsearch { margin-left: auto; }
+.dex-fsearch input {
+  font: inherit; font-size: 12px; color: var(--ink); width: 150px;
+  background: var(--card-2); border: 1px solid var(--line); border-radius: 9px; padding: 5px 9px;
+}
+.dex-fsearch input:focus { outline: none; border-color: rgba(242, 201, 76, 0.5); }
+.dex-result { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; min-width: 40px; }
+
+/* The right panel: help (the encounter rates) or a card */
+.dex-detail { width: 280px; flex-shrink: 0; border-left: 1px solid var(--line); overflow-y: auto; padding: 14px; }
+.dex-help { color: var(--ink-2); font-size: 12px; line-height: 1.55; display: flex; flex-direction: column; gap: 10px; }
+.dex-fine { font-size: 11px; color: var(--ink-3); }
+.dex-help .dex-fine { margin: 2px 0 0; }
+.dex-box { background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.dex-box h4 { margin: 0 0 2px; font-size: 12px; color: var(--ink-3); font-weight: 650; }
+.dex-rate { display: grid; grid-template-columns: 44px 1fr 52px; align-items: center; gap: 8px; font-size: 11px; }
+/* The rate table: one grid, its label column as wide as the longest label in this language ("Sub-legendary"), never wrapping */
+.dex-rates { display: grid; grid-template-columns: max-content 1fr auto; column-gap: 8px; row-gap: 6px; align-items: center; }
+.dex-rates > h4 { grid-column: 1 / -1; }
+.dex-rates .dex-rate { display: contents; }
+.dex-rates .dex-rate span, .dex-rates .dex-rate em { white-space: nowrap; }
+.dex-rate span { color: var(--tier); font-weight: 650; }
+.dex-rate i { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.dex-rate b { display: block; height: 100%; border-radius: 2px; background: var(--tier); }
+.dex-rate em { font-style: normal; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.dex-card { display: flex; flex-direction: column; gap: 6px; }
+.dex-card-art {
+  height: 150px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tier) 22%, transparent), transparent 70%), var(--card-2);
+}
+.dex-card-art img { max-height: 130px; max-width: 90%; }
+.dex-card-art img.silhouette { filter: brightness(0) invert(0.32); }
+.dex-card-no { font-size: 11px; color: var(--ink-3); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.dex-card-name { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.dex-card-name .w-toast-tier { font-size: 11px; margin-left: 6px; }
+/* The SV icon beside a name in the detail cards */
+.dex-card-icon { width: 34px; height: 34px; object-fit: contain; margin: -6px 0 -6px -4px; flex: none; }
+.dex-card-en { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 4px; letter-spacing: 0; }
+.dex-card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.dex-tier { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: var(--tier); background: color-mix(in srgb, var(--tier) 16%, transparent); }
+.dex-type { font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 999px; background: #262a34; color: var(--ink); }
+.dex-card-genus { font-size: 12px; color: var(--ink-2); }
+.dex-card-flavor { font-size: 12px; line-height: 1.6; color: var(--ink-2); margin: 2px 0; }
+.dex-card-flavor.muted { color: var(--ink-3); }
+.dex-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.dex-facts div { background: var(--card-2); border-radius: 9px; padding: 6px 9px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dex-facts div.wide { grid-column: 1 / -1; }
+.dex-facts span { font-size: 11px; color: var(--ink-3); }
+.dex-facts b { font-size: 12px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.dex-facts b small { font-size: 11px; font-weight: 500; color: var(--ink-3); }
+.dex-facts .box-ball-dd { display: flex; align-items: center; gap: 5px; }
+
+/* type colours, softly */
+.type-fire { background: rgba(255, 120, 80, 0.2); color: #ffb08a; }
+.type-water { background: rgba(90, 150, 255, 0.2); color: #9ec2ff; }
+.type-grass { background: rgba(110, 200, 90, 0.2); color: #a6e39a; }
+.type-electric { background: rgba(250, 210, 60, 0.2); color: #ffe27a; }
+.type-psychic { background: rgba(250, 100, 160, 0.2); color: #ffa6c9; }
+.type-ice { background: rgba(120, 220, 230, 0.2); color: #aef0f5; }
+.type-dragon { background: rgba(120, 90, 255, 0.22); color: #b8a8ff; }
+.type-dark { background: rgba(120, 100, 90, 0.3); color: #d0c0b4; }
+.type-fairy { background: rgba(240, 150, 220, 0.2); color: #ffc2ec; }
+.type-fighting { background: rgba(200, 70, 60, 0.22); color: #ff9b90; }
+.type-poison { background: rgba(170, 90, 200, 0.22); color: #dca6f0; }
+.type-ground { background: rgba(220, 180, 100, 0.22); color: #ecd29a; }
+.type-flying { background: rgba(150, 170, 255, 0.2); color: #c2ccff; }
+.type-bug { background: rgba(170, 190, 40, 0.22); color: #d4e07a; }
+.type-rock { background: rgba(180, 160, 100, 0.22); color: #ddd0a0; }
+.type-ghost { background: rgba(110, 90, 160, 0.26); color: #c4b4f0; }
+.type-steel { background: rgba(180, 190, 210, 0.2); color: #d6dde9; }
+
+/* Owned individuals */
+.dex-owned { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+.dex-owned-title { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.dex-owned-row { position: relative; background: var(--card-2); border-radius: 9px; padding: 6px 8px; }
+.dex-owned-top { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.dex-owned-top .dex-nature { margin-left: auto; }
+.dex-nature { font-size: 11px; color: #ffd84a; white-space: nowrap; }
+.dex-owned-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; line-height: 1.45; }
+.dex-release { position: absolute; right: 6px; bottom: 5px; font: inherit; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 7px; border: 1px solid var(--line); background: transparent; color: var(--ink-3); cursor: pointer; }
+.dex-release:hover { color: var(--danger); border-color: rgba(255, 100, 100, 0.4); }
+.dex-release.confirm { background: var(--danger); color: #fff; border-color: var(--danger); }
+.dex-lv { font-size: 10px; font-weight: 700; color: var(--ink-2); margin-right: 2px; font-variant-numeric: tabular-nums; }
+.box-cell img.box-ball, .dex-owned-top img.pokeball { width: 14px; height: 14px; }
+
+/* ---------- Party lineup ---------- */
+.w-party-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.w-party-slots { display: flex; gap: var(--w-icon-gap); flex: 1; align-items: center; }
+.w-party-slots img { width: var(--w-icon); height: var(--w-icon); flex: none; object-fit: contain; opacity: 0.45; filter: grayscale(0.3); }
+.w-party-mon { padding: 0; border: 0; background: none; border-radius: 8px; display: grid; place-items: center; }
+.w-party-mon.out img { opacity: 1; filter: none; }
+.w-row-mon { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; image-rendering: auto; }
+.w-row-lv { font-size: 10px; font-weight: 650; color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- Setup card: missing prerequisites ---------- */
+.w-setup { grid-column: 1 / -1; border-color: rgba(255, 181, 74, 0.45); display: flex; flex-direction: column; gap: 6px; }
+.w-setup-title { font-weight: 700; font-size: 13px; color: var(--amber); }
+.w-setup-desc { margin: 0; color: var(--ink-2); font-size: 12px; line-height: 1.5; }
+.w-setup-row { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: var(--card-2); }
+.w-setup-name { font-weight: 650; font-size: 13px; }
+.w-setup-why { grid-row: 2; font-size: 11px; color: var(--ink-3); }
+.w-setup-go { grid-row: 1 / span 2; grid-column: 2; font: inherit; font-size: 12px; font-weight: 700; padding: 6px 10px; border: 0; border-radius: 9px; background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none; }
+
+/* ---------- The log (기록) ---------- */
+.today { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.today-sum { display: flex; gap: 18px; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
+.today-sum b { color: var(--ink); font-size: 16px; font-weight: 650; margin-right: 3px; font-variant-numeric: tabular-nums; }
+.today-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 10px 14px; }
+.today-day { position: sticky; top: 0; z-index: 1; margin: 8px 0 2px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: var(--ink-3); background: var(--card); }
+.today-day:first-child { margin-top: 0; }
+.today-row { display: flex; align-items: center; gap: 10px; padding: 12px 8px; border-radius: 10px; }
+.today-time { width: 42px; flex: none; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.today-row img.today-icon { width: 40px; height: 40px; object-fit: contain; flex: none; }
+.today-row.kind-levelups { padding: 8px 8px; gap: 8px; font-size: 11px; color: var(--ink-3); }
+.today-lv-label { flex: none; font-weight: 650; }
+.today-lv-mons { display: flex; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+.today-lv-mon { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.today-lv-mon img { width: 22px; height: 22px; object-fit: contain; }
+.today-lv-mon b { color: var(--ink-2); font-weight: 650; margin-left: 2px; }
+.today-row img.faded { opacity: 0.4; filter: grayscale(0.6); }
+.today-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.today-line { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.today-line b { color: var(--ink); }
+.today-row.kind-flee .today-line, .today-row.kind-flee .today-line b { color: var(--ink-3); }
+.today-new { font-size: 10px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 999px; }
+.today-tag { font-size: 10px; font-weight: 650; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 999px; }
+.today-sub { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.today-ball { display: inline-flex; align-items: center; gap: 3px; color: var(--ink-2); }
+.today-ball img { width: 13px; height: 13px; }
+.today-row + .today-row { border-top: 1px solid rgba(255, 255, 255, 0.045); border-radius: 0; }
+
+/* ---------- New session: the same shape as the folder / sessions buttons, a touch brighter ---------- */
+.w-launch-main { background: var(--card-2); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.26); }
+
+/* A session waiting on the trainer: its Pokémon hops in place */
+.w-row.mood-needs-you .w-row-mon { animation: wMonHop 1.2s cubic-bezier(.3, .7, .4, 1) infinite; transform-origin: 50% 100%; }
+@keyframes wMonHop { 0%, 60%, 100% { transform: none; } 20% { transform: translateY(-4px); } 40% { transform: translateY(0) scale(1.04, 0.96); } }
+@media (prefers-reduced-motion: reduce) { .w-row.mood-needs-you .w-row-mon { animation: none; } }
+
+/* ---------- 랭킹: board tabs, my entry, the list ---------- */
+.rank { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.rank-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.rank-note { font-size: 11px; color: var(--ink-3); }
+.rank-list { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.rank-row { display: grid; grid-template-columns: 40px 36px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 10px; }
+.rank-row.me { background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.rank-place { font-size: 14px; font-weight: 800; color: var(--ink-3); text-align: center; font-variant-numeric: tabular-nums; }
+.rank-row img, .rank-noicon { width: 36px; height: 36px; object-fit: contain; }
+.rank-name { font-size: 13px; font-weight: 650; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-name small { margin-left: 6px; font-size: 10px; font-weight: 800; color: var(--accent-ink); background: var(--accent); padding: 1px 6px; border-radius: 999px; }
+.rank-value { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rank-value b { font-size: 14px; font-weight: 750; color: var(--ink); margin-right: 2px; }
+.rank-gap { text-align: center; color: var(--ink-3); font-size: 14px; line-height: 1; padding: 2px 0; }
+.w-row-tool { flex: none; font-size: 10px; color: var(--ink-3); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }
+.rank-row.top { --metal: #e3a76f; padding: 10px 12px; border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--metal) 6%, transparent); box-shadow: inset 3px 0 0 var(--metal); }
+.rank-row.top1 { --metal: #ffd84a; }
+.rank-row.top2 { --metal: #c9ced8; }
+.rank-row.top + .rank-row:not(.top) { margin-top: 6px; }
+.rank-row.top .rank-place { justify-self: center; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--metal); color: #15171d; font-size: 13px; }
+.rank-npc-toggle { margin-left: auto; font: inherit; font-size: 11px; padding: 4px 10px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink-3); cursor: pointer; }
+.rank-npc-toggle.on { color: var(--ink); background: var(--card-2); }
+.rank-npc-note { font-size: 10px; color: var(--ink-3); opacity: 0.7; }
+
+/* ======================= toast.css (the catch card, out of its window) ======================= */
+
+.w-toast {
+  position: relative; width: 100%; box-sizing: border-box;
+  display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 16px;
+  padding: 18px 22px 18px 18px; border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09); background: #14161c;
+  animation: toastIn 0.3s cubic-bezier(.2, .8, .2, 1) both;
+}
+.w-toast.leaving { animation: toastOut 0.35s ease-in both; }
+.w-toast-art { width: 72px; height: 72px; border-radius: 14px; display: grid; place-items: center; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tier) 26%, transparent), transparent 72%), #1b1e26; }
+.w-toast-art img { width: 52px; height: 52px; object-fit: contain; image-rendering: auto; }
+.w-toast-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-right: 10px; }
+.w-toast-eyebrow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; line-height: 1.4; }
+.w-toast-kind { color: #9aa0ad; }
+.w-toast .w-toast-tier { color: var(--tier); padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, var(--tier) 15%, transparent); }
+.w-toast-new { color: #1b1e27; background: #ffd84a; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+.w-toast-badge { color: #1b1e27; background: #ffd84a; padding: 0 7px; border-radius: 999px; }
+.w-toast-title { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -0.02em; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-toast-title small { margin-left: 7px; font-size: 12px; font-weight: 650; color: #9aa0ad; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.w-toast-meta { margin-top: 5px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a3a8b5; min-width: 0; white-space: nowrap; }
+.w-toast-ball { display: inline-flex; align-items: center; gap: 4px; color: #d7dae3; font-weight: 600; flex: none; }
+.w-toast-ball img { width: 14px; height: 14px; }
+.w-toast-place { overflow: hidden; text-overflow: ellipsis; }
+.w-toast-arrow { color: #9aa0ad; font-weight: 600; }
+.w-toast.shiny { border-color: #fff3a0; box-shadow: 0 0 22px rgba(255, 243, 160, 0.45); }
+.w-toast-via { font-size: 11px; color: #7d8291; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-toast.kind-flee .w-toast-art img { filter: brightness(0) invert(0.32); }
+.w-toast.kind-flee .w-toast-art { background: #1b1e26; }
+.w-toast.kind-flee .w-toast-title { color: #c9cdd6; }
+.w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.5); }
+@keyframes toastIn { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes toastOut { to { transform: translateY(16px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .w-toast, .w-toast.leaving { animation: none; } }
+
+/* ======================= terminal.css ======================= */
+
+.term-view { position: absolute; inset: 4px 0 0 6px; }

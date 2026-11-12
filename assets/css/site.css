@@ -1,0 +1,291 @@
+/* site.css — the intro page around the app's components.
+   Direction: black page, very short copy in large type, lots of room, and the
+   real app UI (rebuilt in main.js with app.css) doing the explaining.
+   Rules kept on purpose:
+   - the page stays black (--bg); the one gradient is the soft glow (--hero-glow)
+     behind the hero (repeated faintly behind the closing CTA). No gradient text,
+     buttons, bars, badges or focus rings.
+   - the primary button is the app's solid yellow with dark text.
+   - Korean always renders in Pretendard Variable, Japanese in Pretendard JP
+     Variable; both sit in every font stack, the monospace one included. */
+
+:root {
+  /* the app's tokens (src/styles/widget.css .widget, index.html body, window mode) */
+  --bg: #0d0d12;
+  --bg-deep: #0b0c10;
+  --side: #0e1015;
+  --card: #14161c;
+  --card-2: #1b1e26;
+  --card-3: #232733;
+  --track: #262a34;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --ink: #f1f2f5;
+  --ink-2: #a4a9b6;
+  --ink-3: #6e7381;
+  --ink-ext: #c9cdd6;  /* external text links: lighter than --ink-2 */
+  --accent: #f2c94c;
+  --accent-hover: #f7d76c;
+  --accent-ink: #16171b;
+  --accent-soft: rgba(242, 201, 76, 0.14);
+  --green: #74d68b;
+  --amber: #ffb54a;
+  --danger: #ff6464;
+  --term: #101217;
+  --term-ink: #e6e6e6;
+  --shadow: rgba(0, 0, 0, 0.5);
+
+  /* The hero glow's colours, in one place so the palette can be switched later.
+     A conic ring: the last stop repeats the first so the ring closes without a seam. */
+  --hero-glow: #F2C94C, #C9952A, #F2C94C, #8A6A1F, #F2C94C; /* the app yellow only (user, 2026-11-11) */
+
+  --font-ui: 'Uncut Sans', 'W Uncut', 'Uncut Sans Variable', 'Pretendard Variable', 'Pretendard JP Variable', 'Malgun Gothic', 'Yu Gothic UI', system-ui, sans-serif;
+  --font-mono: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Pretendard JP Variable', Consolas, monospace;
+
+  --wrap: 1200px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --gap: clamp(24px, 4vw, 56px);
+  --section: clamp(96px, 13vw, 176px);
+  --r-panel: 20px;
+  --r-btn: 12px;
+  --step--1: 13px;
+  --step-0: 16px;
+  --step-1: clamp(17px, 1.6vw, 20px);
+  --step-2: clamp(22px, 2.4vw, 28px);
+  --display: clamp(42px, 8vw, 96px);
+  --display-2: clamp(36px, 6vw, 72px);
+}
+
+/* Monaspace Neon: the app's terminal face (installed copy first, then the web font) */
+@font-face { font-family: 'Monaspace Neon'; font-weight: 400; font-display: swap;
+  src: local('Monaspace Neon Var'), local('Monaspace Neon'), url('https://cdn.jsdelivr.net/gh/githubnext/monaspace@v1.101/fonts/webfonts/MonaspaceNeon-Regular.woff') format('woff'); }
+@font-face { font-family: 'Monaspace Neon'; font-weight: 700; font-display: swap;
+  src: local('Monaspace Neon Var'), local('Monaspace Neon Bold'), url('https://cdn.jsdelivr.net/gh/githubnext/monaspace@v1.101/fonts/webfonts/MonaspaceNeon-Bold.woff') format('woff'); }
+/* Uncut Sans installed locally (the app's own declaration) */
+@font-face { font-family: 'W Uncut'; src: local('Uncut Sans Variable'), local('UncutSans-Variable'); font-weight: 100 900; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scroll-behavior: smooth; scroll-padding-top: 88px; -webkit-text-size-adjust: 100%; color-scheme: dark; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  scrollbar-color: var(--track) var(--bg);
+  caret-color: var(--accent);
+}
+::selection { background: var(--accent-soft); color: var(--ink); }
+img, svg { max-width: 100%; }
+a { color: inherit; }
+h1, h2, h3 { margin: 0; font-weight: 700; color: var(--ink); overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h2 { font-size: var(--display-2); line-height: 1.04; letter-spacing: -0.04em; }
+h3 { font-size: var(--step-2); line-height: 1.25; letter-spacing: -0.02em; }
+.display { font-size: var(--display); line-height: 1.02; letter-spacing: -0.045em; }
+.display-2 { font-size: var(--display-2); line-height: 1.04; letter-spacing: -0.04em; }
+:lang(ko) h1, :lang(ko) h2, :lang(ko) h3 { word-break: keep-all; letter-spacing: -0.035em; }
+:lang(ko) .display { letter-spacing: -0.04em; line-height: 1.08; }
+:lang(ja) h1, :lang(ja) h2 { letter-spacing: -0.02em; line-height: 1.16; word-break: auto-phrase; }
+:lang(ja) .display { font-size: clamp(36px, 6.6vw, 84px); }
+:lang(ja) h2:not(.display) { font-size: clamp(32px, 5vw, 64px); }
+:lang(ko) p, :lang(ko) li, :lang(ko) summary { word-break: keep-all; }
+:lang(ja) p, :lang(ja) summary { word-break: auto-phrase; }
+p { margin: 0; text-wrap: pretty; }
+.lede { font-size: var(--step-1); color: var(--ink-2); line-height: 1.5; }
+.fine { font-size: var(--step--1); color: var(--ink-3); line-height: 1.55; }
+code { font-family: var(--font-mono); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; transition: none; }
+a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { width: 100%; max-width: calc(var(--wrap) + var(--gutter) * 2); margin-inline: auto; padding-inline: var(--gutter); }
+.center { display: flex; flex-direction: column; align-items: center; text-align: center; }
+
+.skip { position: absolute; left: 12px; top: -48px; z-index: 100; padding: 8px 14px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; }
+.skip:focus-visible { top: 12px; }
+.noscript { padding: 24px var(--gutter); color: var(--ink-2); }
+
+/* ---------- Buttons: one primary recipe (the app's solid yellow), one ghost ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px; border-radius: var(--r-btn);
+  font: inherit; font-size: var(--step-0); font-weight: 600; line-height: 1; text-decoration: none; white-space: nowrap;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+.btn-ghost:hover { background: var(--card-2); border-color: var(--ink-3); }
+.btn-ghost:active { transform: translateY(1px); }
+.btn-small { min-height: 36px; padding: 0 14px; font-size: 14px; border-radius: 10px; }
+.btn-large { min-height: 52px; padding: 0 24px; font-size: 16px; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.text-link { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; font-weight: 600; }
+.text-link:hover { color: var(--accent-hover); }
+/* Links that leave the site: light grey with an external-link mark (added by main.js); buttons are not text links */
+.ext-link { color: var(--ink-ext); text-decoration: underline; text-decoration-color: rgba(255, 255, 255, 0.22); text-decoration-thickness: 1px; text-underline-offset: 0.22em; transition: color 0.15s, text-decoration-color 0.15s; }
+.ext-link:hover { color: var(--ink); text-decoration-color: rgba(255, 255, 255, 0.5); }
+.ext-ico { display: inline-block; width: 12px; height: 12px; margin-left: 4px; vertical-align: -1px; flex: none; opacity: 0.8; }
+.pill-btn {
+  flex: none; font: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--card-2); color: var(--ink-2); cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.pill-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+
+/* ---------- Nav: wordmark, a few anchors, KO · EN · JA as text, one download ---------- */
+/* At the top the header is clear (the hero glow shows through); past ~80px it becomes a small floating pill (main.js adds .floating) */
+.nav { position: fixed; inset: 0 0 auto 0; z-index: 40; pointer-events: none; }
+.nav-row {
+  pointer-events: auto; display: flex; align-items: center; gap: 20px; height: 64px;
+  border: 1px solid transparent; border-radius: 0; background: transparent;
+  transition: max-width 0.35s cubic-bezier(.2, .8, .2, 1), height 0.35s cubic-bezier(.2, .8, .2, 1), margin-top 0.35s cubic-bezier(.2, .8, .2, 1),
+    padding 0.35s cubic-bezier(.2, .8, .2, 1), border-radius 0.35s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.nav.floating .nav-row {
+  max-width: 860px; height: 52px; margin-top: 12px; padding-inline: 18px 8px; gap: 16px; border-radius: 999px;
+  background: rgba(16, 17, 23, 0.8); border-color: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.7);
+}
+.nav.floating .brand-name { font-size: 19px; }
+.nav.floating .nav-links { margin-left: 4px; }
+@media (max-width: 900px) { .nav.floating .nav-row { max-width: calc(100% - 24px); } }
+/* The brand: the Poké Ball and the name (PRODUCT_NAME) in Uncut Sans.
+   570 renders exactly with the variable face installed locally ('W Uncut'); the web font has 400/600/700 only, so it falls to 600. */
+.brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; flex: none; color: var(--ink); }
+.brand-ball { display: block; width: 24px; height: 24px; flex: none; }
+.brand-name { font-family: 'W Uncut', 'Uncut Sans', 'Uncut Sans Variable', 'Pretendard Variable', system-ui, sans-serif; font-weight: 570; font-size: 21px; line-height: 1; letter-spacing: -0.03em; }
+.nav-links { display: flex; gap: 2px; margin-left: 8px; margin-right: auto; }
+.nav-links a { font-size: 14px; color: var(--ink-2); text-decoration: none; padding: 6px 10px; border-radius: 8px; transition: color 0.15s; }
+.nav-links a:hover { color: var(--ink); }
+.lang-seg { display: flex; align-items: center; flex: none; }
+.lang-seg button {
+  font: 600 13px/1 var(--font-ui); letter-spacing: 0.02em; color: var(--ink-3);
+  background: none; border: 0; padding: 8px 2px; cursor: pointer; transition: color 0.15s;
+}
+.lang-seg button + button::before { content: '·'; display: inline-block; margin: 0 8px; color: var(--ink-3); font-weight: 400; }
+.lang-seg button:hover { color: var(--ink-2); }
+.lang-seg button.on { color: var(--ink); }
+@media (max-width: 900px) { .nav-links { display: none; } .lang-seg { margin-left: auto; } }
+@media (max-width: 420px) {
+  .nav-row { gap: 12px; height: 56px; }
+  .nav.floating .nav-row { height: 48px; margin-top: 8px; padding-inline: 14px 6px; max-width: calc(100% - 16px); }
+  .brand-name { font-size: 19px; }
+  .lang-seg button + button::before { margin: 0 5px; }
+  .nav-dl { padding: 0 12px; }
+}
+
+/* ---------- Sections: big gaps, no rules between them ---------- */
+.section { padding-block: calc(var(--section) * 0.5); }
+
+/* ---------- 1. Hero ---------- */
+.hero { position: relative; isolation: isolate; padding-top: calc(64px + clamp(72px, 11vw, 144px)); padding-bottom: calc(var(--section) * 0.5); }
+.hero-head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 24px; }
+.hero-head h1 { max-width: 12ch; }
+:lang(en) .hero-head h1 { max-width: 13ch; }
+:lang(ja) .hero-head h1 { max-width: 11em; }
+.hero-head .lede, .pillars .lede, .privacy .lede { max-width: 34em; text-wrap: balance; }
+.hero-head .actions { margin-top: 10px; }
+.hero-demo { margin: clamp(56px, 8vw, 96px) auto 0; }
+.app-frame { position: relative; border-radius: var(--r-panel); overflow: hidden; border: 1px solid var(--line-strong); background: var(--bg-deep); box-shadow: 0 40px 120px -40px rgba(0, 0, 0, 0.9); }
+.demo-caption { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; font-size: var(--step--1); color: var(--ink-3); line-height: 1.5; }
+
+/* The one gradient on the page: a blurred blob in the --hero-glow colours, high behind the hero (and faintly behind the closing CTA) */
+.hero-glow, .closing-glow { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; }
+.hero-glow { bottom: auto; height: min(1000px, 100%); }
+.hero-glow i, .closing-glow i {
+  position: absolute; left: 50%; top: -280px; transform: translateX(-50%);
+  width: min(1100px, 150vw); aspect-ratio: 1.7; border-radius: 50%;
+  background: conic-gradient(from 210deg at 50% 50%, var(--hero-glow));
+  filter: blur(110px); opacity: 0.17;
+}
+@media (max-width: 640px) { .hero-glow i { top: -180px; filter: blur(70px); opacity: 0.18; } }
+
+/* ---------- 2. Pillars ---------- */
+.pillars .center { gap: 22px; }
+.pillars h2 { max-width: 14ch; }
+:lang(ja) .pillars h2 { max-width: 12em; }
+.pillars .lede { max-width: 30em; }
+
+/* ---------- 3. Feature blocks: head on one line, the live view large below ---------- */
+.feature-head { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 20px var(--gap); align-items: end; margin-bottom: clamp(32px, 4.5vw, 56px); }
+.feature-head .lede { padding-bottom: 0.4em; max-width: 26em; }
+.feature-sub { display: flex; flex-direction: column; gap: 14px; padding-bottom: 0.4em; }
+.feature-sub .lede { padding-bottom: 0; }
+.hp-line { display: flex; align-items: baseline; gap: 10px; font-size: 14px; color: var(--ink-3); line-height: 1.55; max-width: 30em; }
+.hp-chip { flex: none; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: #5fcf7a; background: rgba(95, 207, 122, 0.12); border-radius: 6px; padding: 2px 6px; transform: translateY(-1px); }
+section[id], #features { scroll-margin-top: 88px; }
+@media (max-width: 860px) { .feature-head { grid-template-columns: minmax(0, 1fr); } .feature-head .lede { padding-bottom: 0; } }
+.feature-note { margin-top: 16px; }
+
+/* ---------- 4. Privacy ---------- */
+.privacy .center { gap: 20px; }
+.privacy .lede { max-width: 30em; }
+.privacy-more { margin-top: 18px; text-align: center; font-size: 14px; }
+
+/* ---------- 5. Four steps ---------- */
+.start-title { margin-bottom: clamp(40px, 5vw, 64px); }
+.steps4 { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px var(--gap); }
+.steps4 li { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.steps4 .n { font-family: var(--font-mono); font-size: 13px; color: var(--accent); font-variant-numeric: tabular-nums; margin-top: 12px; }
+.steps4 h3 { font-size: clamp(26px, 2.8vw, 34px); letter-spacing: -0.03em; }
+.steps4 p { color: var(--ink-2); }
+@media (max-width: 900px) { .steps4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .steps4 { grid-template-columns: minmax(0, 1fr); gap: 28px; } }
+
+/* ---------- 6. FAQ ---------- */
+.faq-wrap { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: var(--gap); align-items: start; }
+@media (max-width: 860px) { .faq-wrap { grid-template-columns: minmax(0, 1fr); } }
+.faq { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 22px 2px; font-weight: 600; font-size: 18px; color: var(--ink); }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--card-2); color: var(--ink-2); font-weight: 400; transition: transform 0.2s, color 0.15s; }
+.faq summary:hover::after { color: var(--ink); }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding: 0 44px 22px 2px; color: var(--ink-2); }
+
+/* ---------- 7. Closing ---------- */
+.closing { position: relative; isolation: isolate; padding-bottom: var(--section); }
+.closing .center { gap: 32px; }
+.closing h2 { max-width: 12ch; }
+:lang(en) .closing h2 { max-width: 13ch; }
+:lang(ja) .closing h2 { max-width: 11em; }
+.closing .fine { margin-top: -14px; }
+.closing-glow { overflow: visible; }
+.closing-glow i { top: 46%; transform: translate(-50%, -50%); width: min(820px, 130vw); aspect-ratio: 2; filter: blur(120px); opacity: 0.1; }
+
+/* ---------- 8. Footer ---------- */
+.foot { border-top: 1px solid var(--line); padding-block: 48px 96px; }
+.foot-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 5fr); gap: var(--gap); }
+.foot-brand p { margin-top: 12px; color: var(--ink-3); font-size: 14px; }
+.foot-links { display: flex; flex-direction: column; gap: 8px; }
+.foot-links a { font-size: 14px; width: fit-content; }
+.foot-legal { display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
+@media (max-width: 860px) { .foot-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; } }
+
+/* ---------- The walk (used by the steps demo) ---------- */
+.trail-track { position: relative; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; justify-content: flex-end;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 56px); mask-image: linear-gradient(to right, transparent, #000 56px); }
+.trail-tile { flex: none; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--card-2); color: var(--ink-2); white-space: nowrap; animation: tileIn 0.3s ease-out both; }
+.trail-tile.hit { background: var(--accent-soft); color: var(--accent); }
+.trail-walker { flex: none; width: 52px; height: 52px; object-fit: contain; }
+.trail-walker.hop { animation: hop 0.42s cubic-bezier(.3, .7, .4, 1); }
+@keyframes tileIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes hop { 0%, 100% { transform: none; } 40% { transform: translateY(-8px); } 70% { transform: translateY(0) scale(1.06, 0.94); } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .trail-tile, .trail-walker.hop { animation: none; }
+  .btn, .pill-btn, .faq summary::after, .nav-links a, .lang-seg button, .nav-row, .ext-link { transition: none; }
+}
+
+/* Japanese: half-width 、。 in centred lines (main.js wraps them), so a line that ends in one is centred on its ink */
+:lang(ja) .jp-p { margin-inline-end: -0.42em; }
+:lang(ja) h1, :lang(ja) h2, :lang(ja) .lede { line-break: strict; }

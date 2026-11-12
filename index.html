@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Title and description are written from assets/js/i18n.js (PRODUCT_NAME): rename there, once -->
+  <title data-i18n="meta.title"></title>
+  <meta name="description" data-i18n-attr="content:meta.desc" content="">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/png" href="assets/img/poke-ball-dream.png">
+
+  <!-- The app's fonts: Uncut Sans (Latin), Pretendard (Hangul, Japanese), Monaspace Neon (terminal) -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/uncut-sans@5.3.0/400.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/uncut-sans@5.3.0/600.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/uncut-sans@5.3.0/700.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-jp-dynamic-subset.min.css">
+
+  <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="stylesheet" href="assets/css/site-app.css">
+  <link rel="stylesheet" href="assets/css/feedback.css">
+</head>
+<body>
+  <a class="skip" href="#main" data-i18n="skip"></a>
+
+  <noscript>
+    <div class="noscript wrap">
+      <p>이 페이지는 JavaScript로 글을 불러와요. This page loads its text with JavaScript.</p>
+      <p><a href="https://github.com/DueStar/spawn/releases/latest">GitHub Releases</a></p>
+    </div>
+  </noscript>
+
+  <!-- ============ Nav: wordmark, a few anchors, language, download ============ -->
+  <header class="nav">
+    <div class="wrap nav-row">
+      <a class="brand" href="#top"><img class="brand-ball" src="assets/img/poke-ball-dream.png" width="24" height="24" alt=""><span class="brand-name" data-name>spawn</span></a>
+      <nav class="nav-links" aria-label="sections">
+        <a href="#features" data-i18n="nav.features"></a>
+        <a href="#dex" data-i18n="nav.dex"></a>
+        <a href="#start" data-i18n="nav.start"></a>
+        <a href="#faq" data-i18n="nav.faq"></a>
+      </nav>
+      <div class="lang-seg" role="group" data-i18n-attr="aria-label:nav.lang">
+        <button type="button" data-lang="ko" lang="ko">KO</button>
+        <button type="button" data-lang="en" lang="en">EN</button>
+        <button type="button" data-lang="ja" lang="ja">JA</button>
+      </div>
+      <a class="btn btn-primary btn-small nav-dl" data-link="releases" href="https://github.com/DueStar/spawn/releases/latest">
+        <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>
+        <span data-i18n="nav.download"></span>
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ============ 1. Hero: one line, two buttons, the app working ============ -->
+    <section class="hero" id="top">
+      <div class="hero-glow" aria-hidden="true"><i></i></div>
+      <div class="wrap hero-head">
+        <h1 class="display" data-i18n="hero.title"></h1>
+        <p class="lede" data-i18n="hero.lede"></p>
+        <div class="actions">
+          <a class="btn btn-primary btn-large" data-link="releases" href="https://github.com/DueStar/spawn/releases/latest">
+            <svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>
+            <span data-i18n="cta.download"></span>
+          </a>
+          <a class="btn btn-ghost btn-large" data-link="repo" href="https://github.com/DueStar/spawn" data-i18n="cta.github"></a>
+        </div>
+        <p class="fine" data-i18n="hero.note"></p>
+      </div>
+
+      <figure class="wrap hero-demo">
+          <div class="app-frame">
+            <!-- The app in window mode, rebuilt from src/Widget.tsx + SessionTabs.tsx with the app's CSS -->
+            <div class="widget expanded mode-window hero-app" id="app" aria-hidden="true" inert>
+              <div class="w-side">
+                <div class="w-bento">
+                  <header class="w-card w-head">
+                    <span class="w-brand" data-name></span>
+                    <span class="w-conn"></span>
+                    <span class="w-icon"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.32 3.40L6.63 1.54L9.37 1.54L9.68 3.40L11.15 4.25L12.90 3.58L14.28 5.96L12.83 7.15L12.83 8.85L14.28 10.04L12.90 12.42L11.15 11.75L9.68 12.60L9.37 14.46L6.63 14.46L6.32 12.60L4.85 11.75L3.10 12.42L1.72 10.04L3.17 8.85L3.17 7.15L1.72 5.96L3.10 3.58L4.85 4.25Z"/><circle cx="8" cy="8" r="2.1"/></svg></span>
+                  </header>
+                  <section class="w-card w-limits">
+                    <div class="w-limit tone-ok" id="lim5">
+                      <span class="w-label" data-i18n="app.usage5h"></span>
+                      <div class="w-bar"><span></span></div>
+                      <span class="w-limit-pct"><b></b><small>%</small></span>
+                      <span class="w-limit-reset">↻ 15:40</span>
+                    </div>
+                    <div class="w-limit tone-ok" id="limW">
+                      <span class="w-label" data-i18n="app.usageWeek"></span>
+                      <div class="w-bar"><span></span></div>
+                      <span class="w-limit-pct"><b></b><small>%</small></span>
+                      <span class="w-limit-reset">↻ 11/17</span>
+                    </div>
+                  </section>
+                  <section class="w-card w-launch">
+                    <span class="w-launch-main"><svg class="ico w-launch-plus" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg> <span data-i18n="app.newSession"></span></span>
+                    <span class="w-launch-alt"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5c0-.6.4-1 1-1h3l1.5 1.5H13c.6 0 1 .4 1 1V12c0 .6-.4 1-1 1H3c-.6 0-1-.4-1-1z"/></svg></span>
+                    <span class="w-launch-alt"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5.5" width="12" height="8" rx="1.5"/><path d="M3.5 3.5h9M5 1.8h6"/><path d="M5 9.5h4"/></svg></span>
+                  </section>
+                  <div class="w-card w-dex">
+                    <span class="w-label" data-i18n="app.dex"></span>
+                    <span class="w-new-dot corner" id="dexNew" hidden></span>
+                    <span class="w-dex-count"><b id="dexCount">86</b><span> / 1025</span></span>
+                    <span class="w-dex-recent" id="dexRecent"></span>
+                  </div>
+                  <section class="w-card w-party">
+                    <div class="w-party-head">
+                      <span class="w-label" data-i18n="app.party"></span>
+                      <span class="w-party-slots" id="partySlots"></span>
+                    </div>
+                    <div id="rows" class="rows"></div>
+                  </section>
+                </div>
+              </div>
+
+              <section class="w-card w-term">
+                <div class="w-term-tabs">
+                  <span class="w-icon w-side-toggle"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="11" height="10" rx="2"/><path d="M6.5 3v10"/></svg></span>
+                  <div class="w-view-switch w-view-icons">
+                    <button class="icon-only on" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.8"/><path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3"/></svg></button>
+                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.2C6.6 3.2 4.6 3 2.5 3.3v9.2c2.1-.3 4.1-.1 5.5.9 1.4-1 3.4-1.2 5.5-.9V3.3C11.4 3 9.4 3.2 8 4.2zM8 4.2v9.2"/></svg><span class="w-new-dot" id="viewNew" hidden></span></button>
+                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></svg></button>
+                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.6"/></svg></button>
+                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5h7v3.2a3.5 3.5 0 0 1-7 0z"/><path d="M4.5 3.8H3.2a1.4 1.4 0 0 0 0 2.8h1.5M11.5 3.8h1.3a1.4 1.4 0 0 1 0 2.8h-1.5"/><path d="M8 9.2v2.3M5.5 13.5h5M6.3 11.5h3.4"/></svg></button>
+                  </div>
+                  <span class="w-term-spacer"></span>
+                  <div class="w-view-switch w-mode-switch">
+                    <button class="icon-only" tabindex="-1"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.8" stroke-dasharray="2 1.6"/><rect x="8.5" y="4.5" width="4" height="7" rx="1" fill="currentColor" stroke="none"/></svg></button>
+                    <button class="icon-only on" tabindex="-1"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.8"/><path d="M2 6h12M6 6v7"/></svg></button>
+                    <button class="icon-only" tabindex="-1"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg></button>
+                  </div>
+                  <div class="w-win-controls">
+                    <span class="w-icon"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h9"/></svg></span>
+                    <span class="w-icon"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></span>
+                  </div>
+                </div>
+                <div class="w-sess-bar">
+                  <div class="w-sess-tabs" id="tabs"></div>
+                  <span class="w-sess-shell-btn">&gt;_</span>
+                </div>
+                <div class="w-term-body">
+                  <div class="term-view"><div class="fake-term" id="term"></div></div>
+                </div>
+              </section>
+
+              <!-- The catch notification card (src/Toast.tsx), shown where its window would pop up -->
+              <div class="toast-slot" id="toastSlot"></div>
+            </div>
+          </div>
+        <figcaption class="demo-caption">
+          <span data-i18n="hero.caption"></span>
+          <button type="button" class="pill-btn" id="demoToggle" aria-pressed="false" data-i18n="demo.pause"></button>
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ============ 2. Pillars ============ -->
+    <section class="section pillars">
+      <div class="wrap center">
+        <h2 class="display" data-i18n="pillars.title"></h2>
+        <p class="lede" data-i18n="pillars.lede"></p>
+      </div>
+    </section>
+
+    <!-- ============ 3. Features: a short line each, and the app view working ============ -->
+    <div id="features">
+
+      <!-- 세션마다 한 마리: party slots + session rows (Widget.tsx) with their terminals -->
+      <section class="section feature" id="sessions">
+        <div class="wrap">
+          <div class="feature-head">
+            <h2 data-i18n="f1.title"></h2>
+            <p class="lede" data-i18n="f1.lede"></p>
+          </div>
+          <div class="widget sess-demo" id="sessDemo" aria-hidden="true">
+            <div class="w-card sess-party">
+              <span class="w-label" data-i18n="app.party"></span>
+              <div class="w-party-slots sess-slots" id="sessSlots"></div>
+            </div>
+            <div class="sess-cols" id="sessCols"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 도구를 쓰면 한 걸음: tool calls, the walk, the catch card (Toast.tsx) -->
+      <section class="section feature" id="steps">
+        <div class="wrap">
+          <div class="feature-head">
+            <h2 data-i18n="f2.title"></h2>
+            <p class="lede" data-i18n="f2.lede"></p>
+          </div>
+          <div class="widget panel step-panel" id="stepDemo" aria-hidden="true">
+            <div class="step-term"><div class="fake-term" id="stepTerm"></div></div>
+            <div class="step-side">
+              <div class="step-count"><span class="w-label" data-i18n="app.steps"></span><b id="stepCount">0</b></div>
+              <div class="trail-track step-trail" id="stepTrail"></div>
+              <div class="step-toast" id="stepToast"></div>
+              <div class="today step-log" id="stepLog"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1025종: the Pokédex (PokedexView.tsx) -->
+      <section class="section feature" id="dex">
+        <div class="wrap">
+          <div class="feature-head">
+            <h2 data-i18n="f3.title"></h2>
+            <p class="lede" data-i18n="f3.lede"></p>
+          </div>
+          <div class="widget panel dex-panel">
+            <div class="dex">
+              <div class="dex-top">
+                <div class="dex-stats" id="dexStats"></div>
+                <div class="dex-filterbar" id="dexFilters"></div>
+              </div>
+              <div class="dex-main">
+                <div class="dex-grid" role="list" id="dexGrid"></div>
+                <aside class="dex-detail" id="dexDetail" aria-live="polite"></aside>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Claude와 Codex: the usage card and session rows -->
+      <section class="section feature" id="tools">
+        <div class="wrap">
+          <div class="feature-head">
+            <h2 data-i18n="f4.title"></h2>
+            <div class="feature-sub">
+              <p class="lede" data-i18n="f4.lede"></p>
+              <p class="hp-line"><span class="hp-chip">HP</span><span data-i18n="f4.hp"></span></p>
+            </div>
+          </div>
+          <div class="widget panel tools-panel" aria-hidden="true">
+            <section class="w-card w-limits" id="toolLimits"></section>
+            <div class="rows" id="toolRows"></div>
+          </div>
+          <p class="fine feature-note" data-i18n="f4.note"></p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ 4. Privacy, one line ============ -->
+    <section class="section privacy" id="privacy">
+      <div class="wrap center">
+        <h2 class="display-2" data-i18n="privacy.title"></h2>
+        <p class="lede" data-i18n="privacy.lede"></p>
+      </div>
+      <div class="wrap">
+        <div class="widget panel set-panel privacy-panel">
+          <div class="set-head w-label" data-i18n="privacy.panel"></div>
+          <div class="set-row"><div class="set-text"><b class="set-mono" data-i18n="privacy.save.b"></b><small data-i18n="privacy.save.s"></small></div><span class="set-pill">PC</span></div>
+          <div class="set-row"><div class="set-text"><b class="set-mono" data-i18n="privacy.server.b"></b><small data-i18n="privacy.server.s"></small></div><span class="set-pill">PC</span></div>
+          <div class="set-row"><div class="set-text"><b data-i18n="privacy.cloud.b"></b><small data-i18n="privacy.cloud.s"></small></div></div>
+          <div class="set-row">
+            <div class="set-text"><b id="hideLabel" data-i18n="privacy.hide.b"></b><small data-i18n="privacy.hide.s"></small></div>
+            <button type="button" class="set-switch" id="hideSwitch" role="switch" aria-checked="false" aria-labelledby="hideLabel"><i></i></button>
+          </div>
+          <div class="hide-sample" id="hideSample" aria-live="polite"></div>
+          <div class="set-row"><div class="set-text"><b data-i18n="privacy.out.b"></b><small data-i18n="privacy.out.s"></small></div></div>
+        </div>
+        <p class="privacy-more"><a data-i18n-attr="href:link.privacy" href="https://github.com/DueStar/spawn" data-i18n="privacy.more"></a></p>
+      </div>
+    </section>
+
+    <!-- ============ 5. Start in four steps ============ -->
+    <section class="section" id="start">
+      <div class="wrap">
+        <h2 class="display-2 start-title" data-i18n="start.title"></h2>
+        <ol class="steps4">
+          <li>
+            <div class="step-pic widget">
+              <a class="w-card rel-row" data-link="releases" href="https://github.com/DueStar/spawn/releases/latest">
+                <svg class="ico" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.8h5.5L13 5.3v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2.8a1 1 0 0 1 1-1z"/><path d="M9.5 1.8v3.5H13M7 4v1M7 6.5v1M7 9v1.5"/></svg>
+                <span class="rel-text"><span class="set-mono rel-name" id="startZip"></span><span class="rel-tag" data-i18n="start.latest"></span></span>
+              </a>
+            </div>
+            <span class="n">01</span><h3 data-i18n="start.s1.h"></h3><p data-i18n="start.s1.p"></p>
+          </li>
+          <li>
+            <div class="step-pic widget" aria-hidden="true">
+              <div class="w-card w-head mini-head">
+                <img class="pokeball" src="assets/img/poke-ball-dream.png" width="18" height="18" alt="">
+                <span class="w-brand" data-name></span>
+                <span class="w-conn"></span>
+              </div>
+              <code class="mini-exe" id="startExe"></code>
+            </div>
+            <span class="n">02</span><h3 data-i18n="start.s2.h"></h3><p data-i18n="start.s2.p"></p>
+          </li>
+          <li>
+            <div class="step-pic widget" aria-hidden="true">
+              <div class="w-card w-launch mini-launch">
+                <span class="w-launch-main"><svg class="ico w-launch-plus" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg> <span data-i18n="app.newSession"></span></span>
+              </div>
+              <div class="fake-term mini-term"><div class="ln t-status">claude --session-id 7f3a…</div></div>
+            </div>
+            <span class="n">03</span><h3 data-i18n="start.s3.h"></h3><p data-i18n="start.s3.p"></p>
+          </li>
+          <li>
+            <div class="step-pic widget mini-catch" id="startCatch" aria-hidden="true"></div>
+            <span class="n">04</span><h3 data-i18n="start.s4.h"></h3><p data-i18n="start.s4.p"></p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============ 6. FAQ ============ -->
+    <section class="section" id="faq">
+      <div class="wrap faq-wrap">
+        <h2 class="display-2" data-i18n="faq.title"></h2>
+        <div class="faq">
+          <details><summary data-i18n="faq.q1"></summary><p data-i18n="faq.a1"></p></details>
+          <details><summary data-i18n="faq.q2"></summary><p data-i18n="faq.a2"></p></details>
+          <details><summary data-i18n="faq.q3"></summary><p data-i18n="faq.a3"></p></details>
+          <details><summary data-i18n="faq.q4"></summary><p data-i18n="faq.a4"></p></details>
+          <details><summary data-i18n="faq.q5"></summary><p data-i18n="faq.a5"></p></details>
+          <details><summary data-i18n="faq.q6"></summary><p data-i18n="faq.a6"></p></details>
+          <details><summary data-i18n="faq.q7"></summary><p data-i18n="faq.a7"></p></details>
+          <details><summary data-i18n="faq.q8"></summary><p data-i18n="faq.a8"></p></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 7. Closing: the hero line again, one button ============ -->
+    <section class="section closing">
+      <div class="closing-glow" aria-hidden="true"><i></i></div>
+      <div class="wrap center">
+        <h2 class="display" data-i18n="hero.title"></h2>
+        <div class="actions">
+          <a class="btn btn-primary btn-large" data-link="releases" href="https://github.com/DueStar/spawn/releases/latest">
+            <svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>
+            <span data-i18n="cta.download"></span>
+          </a>
+        </div>
+        <p class="fine" data-version></p>
+      </div>
+      <div class="wrap">
+        <div class="widget dex-strip" id="dexStrip" aria-hidden="true">
+          <div class="dex-strip-head">
+            <span class="w-label" data-i18n="app.dex"></span>
+            <span class="w-dex-count"><b id="stripCount"></b><span> / 1025</span></span>
+          </div>
+          <div class="dex-strip-cells" id="stripCells"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ 8. Footer ============ -->
+  <footer class="foot">
+    <div class="wrap foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top"><img class="brand-ball" src="assets/img/poke-ball-dream.png" width="24" height="24" alt=""><span class="brand-name" data-name>spawn</span></a>
+        <p data-i18n="foot.tag"></p>
+      </div>
+      <nav class="foot-links" aria-label="links">
+        <a data-link="repo" href="https://github.com/DueStar/spawn" data-i18n="foot.repo"></a>
+        <a data-link="releases" href="https://github.com/DueStar/spawn/releases/latest" data-i18n="foot.releases"></a>
+        <a data-link="notice" href="https://github.com/DueStar/spawn/blob/main/NOTICE.md" data-i18n="foot.notice"></a>
+      </nav>
+      <div class="foot-legal">
+        <p data-i18n="foot.legal"></p>
+        <p data-i18n="foot.art"></p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/pokedata.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/feedback.js"></script>
+</body>
+</html>
