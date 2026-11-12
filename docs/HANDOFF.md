@@ -548,7 +548,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 7-26. **2026-11-11 — 앱 안 피드백, 도감 등급 다중 선택(branch `feat/feedback-pin`). 1.3.35로 릴리스(2026-11-11)**
    - **피드백(사용자 요청)**: 헤더 설정 옆·접힌 레일에 말풍선 버튼 → `FeedbackPin.tsx`가 바로 글쓰기 창("Claudex에 바라는 점", 종류 fix/add/direction/like)을 엶. **위치 찍기와 화면 첨부는 선택**(사용자: "선택적으로"): "화면에서 위치 찍기"를 누르면 핀 모드(아래 화면 안 눌림, Esc·오른쪽 클릭이면 글쓰기로 돌아감) → 핀 둘레의 알맞은 크기 요소(80×48~900×560, 아니면 520×320 상자)를 `capturePage`로 찍어 미리 보기 + "이 부분 화면도 같이 보내기" 체크. 터미널 화면(또는 `.xterm` 안)은 체크가 꺼진 채 시작하고 경고, 터미널 글자는 이슈에 안 적음.
    - 보내기: `electron/feedback.cjs`가 제목·본문(종류, From app, 화면, 요소 경로, 그 자리 글자, 창 크기, 언어, 앱 버전, OS)을 만들고 **주소는 main이 `DueStar/claudex/issues/new`로 고정**(페이지가 다른 주소를 못 엶). 그림은 새 이슈 링크에 못 실어서 클립보드에(본문에 숨은 주석으로 Ctrl+V 안내). 복사는 글만 클립보드. IPC `feedback:capture|send|copy`, 테스트 `tests/feedback.test.ts`. 라벨 `feedback`은 권한 없는 사람이 올리면 GitHub가 뺌 → 제목 `[feedback]`으로 찾기.
-   - 소개 사이트(`Documents\claudex-site\`)의 "의견 보내기"도 같은 형식(`[feedback]`, From website). 사용자 뜻: 사이트가 아니라 **서비스에 대한 의견·방향·고칠 것·추가할 것**을 받는 곳. 나중에 `gh issue list --search "[feedback]"`로 읽고 고친 뒤 닫는 흐름.
+   - 소개 사이트(`Documents\spawn-site\`)의 "의견 보내기"도 같은 형식(`[feedback]`, From website). 사용자 뜻: 사이트가 아니라 **서비스에 대한 의견·방향·고칠 것·추가할 것**을 받는 곳. 나중에 `gh issue list --search "[feedback]"`로 읽고 고친 뒤 닫는 흐름.
    - **도감 등급**: 하나만 → 여러 개 함께(`tiers: Tier[]`, 아무것도 안 고르면 전체, `aria-pressed`).
 
 7-27. **2026-11-11 — 조우 줄이기(완성 약 2년 3개월), 피드백은 설정으로, 접힌 패널 다듬기(branch `tune/encounters`, 1.3.36에 포함)**
@@ -569,7 +569,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 로고: `public/brand/spawn-symbol-white.svg`·`-color.svg`, `SpawnMark`(Icons.tsx)를 헤더·접힌 레일에(24px 이하 단색 규칙). 앱 아이콘 `build/icon.png`·`electron/assets/icon.png` = white-gradient 512, 트레이 16/32/48 = 컬러 심볼, macOS 템플릿 = 검정 심볼. release.mjs는 더 이상 build-icons.py로 몬스터볼 아이콘을 그리지 않음. 게임 안 몬스터볼 그림(`public/sprites/spawn-ball.png`, 옛 claudex-ball.png)은 그대로.
    - **실제 업데이트에서 잡은 버그(테스트 빌드, 2026-11-11 14:52)**: 첫 1.3.36 시작 때 `%APPDATA%Claudex`가 아직 바빠서(업데이트 복사 단계의 옛 프로세스가 끝나는 중) 설정 폴더 복사가 실패 → 앱이 로그용으로 `%APPDATA%spawn`을 만들고 "폴더가 있으니 끝"으로 판단 → 세션 자동 열기·세션 이름이 빠짐(데이터는 옛 폴더에 그대로). 고침: 끝남은 표시 파일(`.copied-from-claudex.json`)로, 항목마다 따로 복사·3초 안에서 재시도, 실패한 항목은 다음 시작에 다시, 복사 없이 시작한 새 폴더보다 옛 상태가 이김, update.log는 이어 붙임, 결과를 spawn.log에 남김. 이 PC는 다음 테스트 빌드 재시작 때 옛 상태(세션 이름 9개, 다시 열 세션 8개)가 돌아와야 함.
    - 가끔 실패하던 `cleanupStaleUpdates` 테스트의 원인: 정확히 10분 경계(파일 시각이 ms보다 잘게 기록됨) → 여유 1초.
-   - 바깥에 남은 것: Google/Supabase 로그인 동의 화면 앱 이름, 로컬 폴더 이름(`Documents\pokemon-office`, `Documents\claudex-site`).
+   - 바깥에 남은 것: Google/Supabase 로그인 동의 화면 앱 이름, 로컬 폴더 이름 `Documents\pokemon-office`(사이트·홍보 폴더는 2026-11-12에 `spawn-site`·`spawn-site-backup`·`spawn-promo`로 바꿈).
 
 7-29. **2026-11-11 — 1.3.37 (branch `brand/logo-gradient`)**
    - 로고·아이콘은 7-28의 "브랜드 4차"대로(Wikimedia Commons Poké Ball icon). 매듭 심볼과 3D 아이콘은 모두 뺌.
@@ -577,7 +577,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - **창 크기 조절 깜빡임(사용자 제보)**: 원인은 1px마다 fit + pty resize → Claude Code가 매번 화면 전체를 지우고 다시 그림 → 깜빡임, 나란히 조절할 때 창이 그림을 못 따라가 빈 화면. 고침: TerminalPanel은 ResizeObserver를 프레임당 한 번으로, pty 크기는 드래그가 멈추고 150ms 뒤 한 번(같은 크기면 안 보냄), terminals.cjs도 같은 크기는 pty.resize를 건너뜀(테스트). **실제 드래그 확인은 사용자 몫(아직 결과 못 들음)**.
    - 패널 접기 버튼: 탭 줄 왼쪽 → 펼쳤을 땐 왼쪽 패널 헤더(설정 옆), 접었을 땐 레일의 로고 아래. 탭·글자 크기·화면 모드 버튼 호버.
    - 업데이트 재시작이 3분 걸린 일(06:52, 중복 빌드가 동시에 돌던 때): p1 server-stopped 뒤 2분 15초 동안 옛 프로세스가 안 꺼짐(세션 5개 stuck), robocopy 30초(/R:20 재시도로 보임). 3단계 재시작 속도 작업 때 원인부터.
-   - 소개 사이트(`Documents\claudex-site\`)는 Subframe 느낌으로 개편 중(서브에이전트, 저장소 밖). 개편 전 백업 `Documents\claudex-site-backup\`.
+   - 소개 사이트(`Documents\spawn-site\`)는 Subframe 느낌으로 개편 중(서브에이전트, 저장소 밖). 개편 전 백업 `Documents\spawn-site-backup\`.
 
 7-30. **2026-11-11 — 1.3.38 (branch `brand/dream-ball`)**
    - 아이콘: 7-28 "브랜드 5차" 그대로(Dream World Poké Ball, 저장소에 커밋, NOTICE에 비영리·요청 시 내림). 업데이트로 받은 설치는 Claudex.exe/spawn.exe 내장 아이콘이 안 바뀜 → 창 아이콘(`APP_ICON` png)으로 작업 표시줄은 바뀜, 실행 파일 아이콘은 새로 설치(`install-local.cmd` 또는 Releases 전체 zip). 이 PC는 Windows 아이콘 캐시가 예전 그림을 붙잡고 있어서 `ie4uinit -show`로 안 되고 탐색기 재시작 + `%LOCALAPPDATA%\Microsoft\Windows\Explorer\iconcache_*.db` 삭제로 해결.
@@ -585,7 +585,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 왼쪽 패널 헤더: "spawn" 글자 없이 볼만(`.w-brand` 버튼 안의 PokeBall, 패치노트), `.w-side` 좌우 패딩 0 + 칸마다 14px(구분선이 끝까지), 헤더 padding-left 18px(볼 가운데 28px, 레일과 같은 자리). 닫기 확인 문구 `닫기?` → `닫기`(위 탭 ×도).
 
 7-31. **2026-11-11 — 1.3.39**
-   - 아이콘: 사용자가 만든 `Downloads\pokeball\Dream_Poke_Ball_y-12_p-16_r0_{128,256,512}.png`(비스듬히 본 Dream 볼). 볼만 남게 잘라서 512 원본 → 앱·창 아이콘 512, 256 → 화면용 128(`public/sprites/spawn-ball.png`, gitignored `public/sprites/balls/poke-ball.png`, 사이트 `claudex-site/assets/img/poke-ball-dream.png`), 128 → 트레이 16/32/48, macOS 템플릿은 512에서 검은 볼에 휜 띠·버튼 둘레를 비움. `front` 폴더(정면 그림)는 쓰지 않음. `poke-ball.png`는 저장소에 없으니 릴리스는 이 PC에서 빌드.
+   - 아이콘: 사용자가 만든 `Downloads\pokeball\Dream_Poke_Ball_y-12_p-16_r0_{128,256,512}.png`(비스듬히 본 Dream 볼). 볼만 남게 잘라서 512 원본 → 앱·창 아이콘 512, 256 → 화면용 128(`public/sprites/spawn-ball.png`, gitignored `public/sprites/balls/poke-ball.png`, 사이트 `spawn-site/assets/img/poke-ball-dream.png`), 128 → 트레이 16/32/48, macOS 템플릿은 512에서 검은 볼에 휜 띠·버튼 둘레를 비움. `front` 폴더(정면 그림)는 쓰지 않음. `poke-ball.png`는 저장소에 없으니 릴리스는 이 PC에서 빌드.
    - 헤더 워드마크(사용자가 비교 화면에서 고름): Uncut Sans 600, 17px, 자간 -2%, 볼 20 옆 6px. 소문자 몸통 가운데가 볼 가운데보다 1.5px 아래 → 사용자가 +0.75 내림을 골라 `.w-brand-name { transform: translateY(-0.75px) }`. 레일(접힌 패널)은 볼만.
    - 기록 화면이 빈 원인: `publicState().log`가 최근 30개만 보냈고, 재시작·세션 열기로 sendout이 쌓이면(이날 105개) 기록 화면이 sendout을 숨겨 거의 비어 보였음. 서버에서 sendout·swap·exchange를 먼저 빼고 최근 200개(`PUBLIC_LOG`). 저장 파일은 멀쩡했음.
    - 박스 칸 Lv·볼 표시 제거(상세 카드에는 남김). 도감 확률 표·툴팁의 "만날 확률" 제거, `TIER_RATE` 삭제(사용자: 비공개가 낫다). 확률 표가 있던 도감 오른쪽 칸은 아무것도 안 고르면 비어 있음 — 숨길지 사용자 결정 대기.
@@ -611,7 +611,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
      - main: `win.on('resize', remember)`(getBounds + scheduleSave)가 매 이벤트, frameless 창의 `backgroundColor`(빈 화면일 때 보이는 색), Electron frameless + Windows Snap 동시 조절의 알려진 그리기 지연.
      - 재현: 앱 창과 다른 창을 Win+←/→로 나란히 놓고 가운데 경계를 끌기.
    - **업데이트 재시작 속도(3단계, 계획 먼저)**: 보통 약 18.5초(p1 3.1s, p1→p2 5.6s, robocopy 2s, 새 앱 6.3s 중 server-ready 5.9s). 한 번은 약 3분(06:52, 중복 빌드 중): p1 server-stopped 뒤 2분 15초 옛 프로세스 안 꺼짐(세션 5개 stuck), robocopy 30초(/R:20 재시도로 보임). update.log(`%APPDATA%\spawn\update.log`)를 읽고 시작.
-   - **소개 사이트 배포 준비(사용자: "올리기 준비")**: 사이트는 `Documents\claudex-site\`(저장소 밖). 정할 것: (1) 어디에 — `DueStar/spawn`의 `docs/` 폴더나 gh-pages 브랜치(주소 duestar.github.io/spawn) vs 새 저장소 `DueStar/spawn-site`, (2) 로컬 폴더 이름 `spawn-site`로, (3) 쓰지 않는 `assets/img/claudex-ball.png` 정리, (4) PokeAPI·Pokémon Database 그림을 다른 사이트에서 바로 불러오는 게 GitHub Pages에서도 되는지 첫 배포 뒤 확인. 배포는 공개 작업이라 계획을 보여 주고 확인받은 뒤에. 사이트 상태: Subframe 느낌 개편 끝(첫 화면 + 실제로 움직이는 앱 창, 세션마다 한 마리 / 도구를 쓰면 한 걸음(39걸음부터) / 1025종(피카츄 기본) / Claude와 Codex 같이(HP=컨텍스트 설명) / 내 PC에서만(설정 화면) / 네 단계 / 질문 / 마지막 도감 칸이 하나씩 채워지는 줄), 떠 있는 헤더, Dream 몬스터볼 로고·파비콘, 노랑 빛, 바깥 링크 연회색+아이콘, 일본어 제목의 、。 반 칸 당김. 개편 전 백업 `Documents\claudex-site-backup\`.
+   - **소개 사이트 배포 준비(사용자: "올리기 준비")**: 사이트는 `Documents\spawn-site\`(저장소 밖). 정할 것: (1) 어디에 — `DueStar/spawn`의 `docs/` 폴더나 gh-pages 브랜치(주소 duestar.github.io/spawn) vs 새 저장소 `DueStar/spawn-site`, (2) ~~로컬 폴더 이름 `spawn-site`로~~ 2026-11-12 끝, (3) 쓰지 않는 `assets/img/claudex-ball.png` 정리, (4) PokeAPI·Pokémon Database 그림을 다른 사이트에서 바로 불러오는 게 GitHub Pages에서도 되는지 첫 배포 뒤 확인. 배포는 공개 작업이라 계획을 보여 주고 확인받은 뒤에. 사이트 상태: Subframe 느낌 개편 끝(첫 화면 + 실제로 움직이는 앱 창, 세션마다 한 마리 / 도구를 쓰면 한 걸음(39걸음부터) / 1025종(피카츄 기본) / Claude와 Codex 같이(HP=컨텍스트 설명) / 내 PC에서만(설정 화면) / 네 단계 / 질문 / 마지막 도감 칸이 하나씩 채워지는 줄), 떠 있는 헤더, Dream 몬스터볼 로고·파비콘, 노랑 빛, 바깥 링크 연회색+아이콘, 일본어 제목의 、。 반 칸 당김. 개편 전 백업 `Documents\spawn-site-backup\`.
    - **사용자가 직접(자동 권한이 삭제를 막음)**: 예전 폴더를 휴지통으로 — `%LOCALAPPDATA%\Claudex`(옛 설치 307MB, 지금은 `%LOCALAPPDATA%\spawn\spawn.exe`를 씀), `%APPDATA%\Claudex`, `%APPDATA%\Claudex-dev`, `~/.claudex`, `~/.agent-office`(모두 새 폴더로 복사 끝남, `~/.spawn` 도감 157종 ≥ 예전 153종), 바탕화면 옛 Claudex 바로가기.
    - **확인 대기(1.3.40)**: 세션을 몇 개 열어 둔 채 PC를 껐다 켜면 다시 열리는지(7-32, 테스트로만 확인). spawn.log에 `[main] Windows is ending the session: open sessions kept` 줄이 남는지도 보기. 이 PC의 이미 사라진 목록은 "이어하기"로 다시 열어야 함.
    - 시작 친구 6마리의 도감 기록에 몬스터볼이 채워졌는지(7-33, `~/.spawn/pokedex.json`의 caught[515·104·517·27·270].ball).
