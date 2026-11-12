@@ -492,13 +492,11 @@
     mood(a, 'idle');
     await wait(2400);
 
-    // a new session: a ball first, then the Pokémon comes out
-    var c = newSession({ id: 'c', titleKey: 'app.newTab', project: 'spawn-site', branch: 'fix/login', model: 'Opus', dex: 0, lv: 12, mood: 'idle', hp: 100, ctx: 200000 });
+    // a new session: its Pokémon is there from the start
+    var c = newSession({ id: 'c', titleKey: 'app.newTab', project: 'spawn-site', branch: 'fix/login', model: 'Opus', dex: 133, lv: 12, mood: 'idle', hp: 100, ctx: 200000 });
     c.lines = [{ cls: 't-status', text: 'claude --session-id 2c91… ' }];
-    show(c);
-    await wait(1000);
-    c.dex = 133; update(c); renderSlots();
-    await wait(700);
+    show(c); renderSlots();
+    await wait(1700);
     await typePrompt(c, 'term.prompt2');
     c.titleKey = null; c.title = 'login-bug';
     mood(c, 'working');
@@ -825,18 +823,18 @@
 
     async function run(p, at) {
       var s = { title: '', titleKey: 'app.newTab', project: p.project, branch: p.branch, tool: p.tool || null, model: p.model,
-        dex: 0, lv: p.lv, mood: 'idle', hp: p.hp, ctx: p.ctx || 200000, chosen: false, lines: [] };
+        dex: p.mon, lv: p.lv, mood: 'idle', hp: p.hp, ctx: p.ctx || 200000, chosen: false, lines: [] };
       var col = colsEl.children[at];
       col.textContent = '';
       col.className = 'sess-col open';
       col.appendChild(makeRow(s));
       s.term = node('div', undefined, 'fake-term sess-term');
       col.appendChild(s.term);
-      live.push(s);
+      live.push(s); renderSlots();
       pushLine(s, { cls: 't-status', text: p.tool === 'Codex' ? 'codex' : 'claude --session-id ' + p.sid + '… ' });
       await clock.wait(1100);
-      // the ball opens: the Pokémon that takes this session
-      s.dex = p.mon; s.titleKey = null; s.title = p.title; updateRow(s); renderSlots();
+      // the session takes its name (its Pokémon was there from the start)
+      s.titleKey = null; s.title = p.title; updateRow(s);
       await clock.wait(800);
       pushLine(s, { cls: 'ln-gap' });
       pushLine(s, { cls: 't-prompt', key: p.prompt });
