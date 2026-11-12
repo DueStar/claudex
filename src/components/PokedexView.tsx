@@ -223,7 +223,8 @@ const PokedexView: React.FC = () => {
           {list.length === 0 && <div className="dex-empty">{t('조건에 맞는 포켓몬이 없어요')}</div>}
         </div>
 
-        <aside className="dex-detail">
+        {/* Nothing picked: no empty column, the grid takes the width */}
+        <aside className={`dex-detail${detail ? "" : " empty"}`} aria-hidden={!detail}>
           {detail && (
             <div className={`dex-card tier-${detail.tier}`}>
               <div className="dex-card-art">
