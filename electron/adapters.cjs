@@ -35,10 +35,28 @@ const CLAUDE_ASKING = /Do you trust|trust (the files in )?this folder|Do you wan
  */
 const GENERIC_ASKING = /\[y\/n\]|\(y\/n\)|\[Y\/n\]|\[y\/N\]|Would you like to (run|make|grant|approve)|needs your approval|Do you want to (approve|proceed|allow)|Apply this change\?|Allow (once|always|for this session|execution of)|Yes, proceed|Proceed\?|press enter to confirm/i
 
-function claudeCommand() {
-  if (process.platform !== 'win32') return 'claude'
-  const local = path.join(os.homedir(), '.local', 'bin', 'claude.exe')
-  return fs.existsSync(local) ? local : 'claude.exe'
+function claudeCommand({ platform = process.platform, home = os.homedir(), exists = fs.existsSync } = {}) {
+  if (platform === 'darwin') {
+    const local = path.posix.join(home, '.local', 'bin', 'claude')
+    return exists(local) ? local : 'claude'
+  }
+  if (platform !== 'win32') return 'claude'
+  const local = path.join(home, '.local', 'bin', 'claude.exe')
+  return exists(local) ? local : 'claude.exe'
+}
+
+/** The shell a shell tab runs: PowerShell on Windows, the login shell ($SHELL, else zsh) on the Mac */
+function shellLaunch({ platform = process.platform, env = process.env } = {}) {
+  if (platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] }
+  if (platform === 'darwin') return { file: env.SHELL || '/bin/zsh', args: ['-l'] }
+  return { file: env.SHELL || '/bin/bash', args: ['-l'] }
+}
+
+/** What the shell tab is called: PowerShell, or the shell's own name (zsh) on the Mac */
+function shellName({ platform = process.platform, env = process.env } = {}) {
+  if (platform === 'win32') return 'PowerShell'
+  if (platform === 'darwin') return path.posix.basename(shellLaunch({ platform, env }).file)
+  return 'Shell'
 }
 
 /**
@@ -94,13 +112,12 @@ const CLAUDE = Object.freeze({
 /** A plain shell: nothing reported, so no Pokémon goes with it */
 const SHELL = Object.freeze({
   id: 'shell',
-  name: process.platform === 'win32' ? 'PowerShell' : 'Shell',
+  name: shellName(),
   events: 'none',
   canResume: false,
   asking: /(?!)/,
   launch() {
-    if (process.platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] }
-    return { file: process.env.SHELL || '/bin/bash', args: ['-l'] }
+    return shellLaunch()
   },
 })
 
@@ -194,4 +211,4 @@ function createActivity({ sessionId, tool, cwd, emit, now = () => Date.now(), se
   return { output, input, stop, mute }
 }
 
-module.exports = { CLAUDE, adapterFor, validTool, terminalAdapter, splitCommand, spawnable, createActivity, STEP_MS, QUIET_MS, CLAUDE_ASKING, GENERIC_ASKING }
+module.exports = { claudeCommand, shellLaunch, shellName, CLAUDE, adapterFor, validTool, terminalAdapter, splitCommand, spawnable, createActivity, STEP_MS, QUIET_MS, CLAUDE_ASKING, GENERIC_ASKING }

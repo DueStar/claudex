@@ -31,6 +31,7 @@ const { createTray } = require('./tray.cjs')
 const { createTerminalManager, gitBranch } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
+const { mergeLoginEnv } = require('./shellEnv.cjs')
 const { createUpdater } = require('./updater.cjs')
 const { isUpdatedRun, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates } = require('./updateRunner.cjs')
 const { openStatusCard, cardLang } = require('./statusCard.cjs')
@@ -1281,7 +1282,15 @@ if (lockWaits < 0) {
 
   app.on('second-instance', reopen)
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    // Started from Finder the app has launchd's bare PATH: take the login shell's PATH and
+    // LANG once, before the server and the terminals are started (both read process.env)
+    if (process.platform === 'darwin') {
+      const merged = await mergeLoginEnv({ env: process.env })
+      process.env.PATH = merged.PATH
+      if (merged.LANG) process.env.LANG = merged.LANG
+      for (const k of ['LC_ALL', 'LC_CTYPE']) if (merged[k]) process.env[k] = merged[k]
+    }
     registerTerminalIpc()
     // Updates: a look at GitHub Releases shortly after start, then every 30 minutes
     // (a small file: latest.json is a plain download, no API rate limit). The app

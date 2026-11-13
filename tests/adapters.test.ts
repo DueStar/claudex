@@ -7,7 +7,7 @@ import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { adapterFor, validTool, splitCommand, createActivity, STEP_MS, QUIET_MS } = require('../electron/adapters.cjs')
+const { adapterFor, validTool, splitCommand, createActivity, STEP_MS, QUIET_MS, claudeCommand, shellLaunch, shellName } = require('../electron/adapters.cjs')
 const { sanitize } = require('../electron/settings.cjs')
 
 describe('adapters.cjs', () => {
@@ -118,3 +118,22 @@ describe('createActivity muted', () => {
     expect(events).toHaveLength(2)
   })
 })
+
+describe('adapters.cjs on the Mac', () => {
+  it('claude is ~/.local/bin/claude when it exists, else the bare name', () => {
+    const home = '/Users/me'
+    expect(claudeCommand({ platform: 'darwin', home, exists: (p: string) => p === '/Users/me/.local/bin/claude' })).toBe('/Users/me/.local/bin/claude')
+    expect(claudeCommand({ platform: 'darwin', home, exists: () => false })).toBe('claude')
+    expect(claudeCommand({ platform: 'linux', home, exists: () => true })).toBe('claude')
+  })
+
+  it('the shell tab is the login shell: $SHELL or /bin/zsh, with -l', () => {
+    expect(shellLaunch({ platform: 'darwin', env: {} })).toEqual({ file: '/bin/zsh', args: ['-l'] })
+    expect(shellLaunch({ platform: 'darwin', env: { SHELL: '/bin/bash' } })).toEqual({ file: '/bin/bash', args: ['-l'] })
+    expect(shellLaunch({ platform: 'win32', env: {} })).toEqual({ file: 'powershell.exe', args: ['-NoLogo'] })
+    expect(shellName({ platform: 'darwin', env: {} })).toBe('zsh')
+    expect(shellName({ platform: 'darwin', env: { SHELL: '/opt/homebrew/bin/fish' } })).toBe('fish')
+    expect(shellName({ platform: 'win32', env: {} })).toBe('PowerShell')
+  })
+})
+
