@@ -14,7 +14,7 @@ import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
-import { dispatchMeters, useMeters, formatClockTime, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
+import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
 import { sessionTools, shownCodexLimits } from './features'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
@@ -119,11 +119,8 @@ function modelLabel(display?: string, id?: string): string {
   return (id ?? '').slice(0, 16)
 }
 
-/** A reset a day or more away: M/D HH:MM */
-function resetText(epochSeconds: number): string {
-  const d = new Date(epochSeconds * 1000)
-  return `${d.getMonth() + 1}/${d.getDate()} ${formatClockTime(epochSeconds)}`
-}
+/** A reset a day or more away: the date, or on its own day the time (meters.ts formatResetDay) */
+const resetText = (epochSeconds: number): string => formatResetDay(epochSeconds)
 
 /** A token count, short: 124K, 1.2M */
 function tokens(n: number): string {
@@ -137,12 +134,12 @@ function pct(n: number | null | undefined): string {
 }
 
 /** One limit row: label, bar, percent, when it resets */
-const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null }> = ({ label, value, reset }) => (
+const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null; resetAt?: number | null }> = ({ label, value, reset, resetAt }) => (
   <div className={`w-limit tone-${contextTone(value)}${typeof value === 'number' ? '' : ' loading'}`}>
     <span className="w-label">{label}</span>
     <div className="w-bar" aria-hidden="true"><span style={{ width: `${typeof value === 'number' ? Math.max(2, Math.min(100, value)) : 0}%` }} /></div>
     <span className="w-limit-pct">{typeof value === 'number' ? <>{pct(value)}<small>%</small></> : <span className="w-limit-wait" />}</span>
-    <span className="w-limit-reset" title={t('리셋 시각')}>{reset ? `↻ ${reset}` : ''}</span>
+    <span className="w-limit-reset" title={resetAt ? `${t('리셋 시각')} ${formatResetFull(resetAt)}` : t('리셋 시각')}>{reset ? `↻ ${reset}` : ''}</span>
   </div>
 )
 
@@ -740,8 +737,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
           ) : (
             <section className="w-card w-limits">
               {showClaudeLimits && <>
-                <Limit label={t('5시간')} value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
-                <Limit label={t('주간')} value={sevenDay} reset={sevenReset ? resetText(sevenReset) : null} />
+                <Limit label={t('5시간')} value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} resetAt={fiveReset} />
+                <Limit label={t('주간')} value={sevenDay} reset={sevenReset ? resetText(sevenReset) : null} resetAt={sevenReset} />
               </>}
               {codexRows.map(r => <Limit key={r.key} label={r.label} value={r.value} reset={r.reset} />)}
             </section>
