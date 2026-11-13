@@ -973,6 +973,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')} aria-label={t('랭킹')}><RankIcon size={14} />{!viewsCompact && t('랭킹')}</button>
             </div>
             <span className="w-term-spacer" />
+            {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size */}
+            <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
             {view === 'terminal' && (
               <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 (Ctrl+휠로도 바꿀 수 있어요)')} title={t('글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-')}>
                 {FONT_PRESETS.map(p => (
@@ -980,8 +982,6 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 ))}
               </div>
             )}
-            {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again) */}
-            <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
             {/* As Windows users know them: minimize, maximize/restore (window ↔ full screen), close */}
             <div className="w-win-controls">
               <button className="w-icon" onClick={() => bridge?.widget.minimize()} title={t('최소화')} aria-label={t('최소화')}><MinimizeIcon size={14} /></button>

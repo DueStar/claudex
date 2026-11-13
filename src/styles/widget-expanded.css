@@ -293,6 +293,8 @@
 .w-win-controls .w-icon { width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); }
 .w-win-controls .w-icon:hover { background: var(--card-2); color: var(--ink); }
 .w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
+/* the widget toggle sits left of the text size: 6px on either side of the text size */
+.w-view-switch.w-font-switch { margin: 0 2px 0 6px; }
 .w-font-switch button { font-family: 'W Uncut', 'Uncut Sans Variable', system-ui, sans-serif; letter-spacing: -0.02em; }
 
 /* ---------- Patch notes after an update (PatchNotes.tsx) ---------- */
