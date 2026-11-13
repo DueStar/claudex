@@ -15,10 +15,15 @@ export function isMac(): boolean {
 }
 
 /** True when the platform's command modifier is held (⌘ on Mac, Ctrl elsewhere). */
-export function modKey(e: KeyboardEvent | MouseEvent): boolean {
+export function modKey(e: Pick<KeyboardEvent | MouseEvent | WheelEvent, 'metaKey' | 'ctrlKey'>): boolean {
   return isMac() ? e.metaKey : e.ctrlKey
 }
 
 export function modLabel(): '⌘' | 'Ctrl' {
   return isMac() ? '⌘' : 'Ctrl'
+}
+
+/** A key with the platform's modifier, as tooltips name it: ⌘1 on Mac, Ctrl+1 elsewhere */
+export function modCombo(key: string): string {
+  return isMac() ? `⌘${key}` : `Ctrl+${key}`
 }

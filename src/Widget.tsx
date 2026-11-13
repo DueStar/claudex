@@ -51,6 +51,8 @@ function preloadViews() {
 import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
+import { appShortcut } from './keys'
+import { modCombo, modLabel } from './platform'
 
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
@@ -191,41 +193,43 @@ const Widget: React.FC = () => {
     setView('dex')
     setExpanded(true)
   }), [])
-  // Ctrl+1–5: 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
-  // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
-  // Ctrl+Tab, Ctrl+Shift+Tab / T / W: sessions (below)
+  // Ctrl+1–5 (⌘1–5 on macOS): 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
+  // Ctrl+Alt+←/→ (⌘⌥←/→): the previous / next one (from the widget: opens the current one)
+  // Ctrl+Tab, Ctrl+Shift+Tab / T / W (⌘⇧[ / ⌘⇧] / ⌘T / ⌘W): sessions (below). The map is src/keys.ts
   useEffect(() => {
     const views = ['terminal', 'dex', 'box', 'today', 'rank'] as const
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      const action = appShortcut(e)
+      if (action === 'prevView' || action === 'nextView') {
         // Stopped here so the terminal and the dex grid do not also take the arrow
         e.preventDefault()
         e.stopPropagation()
-        const step = !expanded ? 0 : e.key === 'ArrowRight' ? 1 : -1
+        const step = !expanded ? 0 : action === 'nextView' ? 1 : -1
         setView(views[(views.indexOf(view) + step + views.length) % views.length])
         setExpanded(true)
         return
       }
       // Sessions, as in Windows Terminal: Ctrl+Tab / Ctrl+Shift+Tab next and previous, Ctrl+Shift+T
       // a new one, Ctrl+Shift+W close the one in view (Ctrl+T and Ctrl+W stay Claude Code's)
-      if (e.ctrlKey && !e.altKey && e.key === 'Tab') {
+      if (action === 'prevTab' || action === 'nextTab') {
         e.preventDefault(); e.stopPropagation()
         const list = withTerminal.filter(r => r.terminal)
         if (!list.length) return
         const at = Math.max(0, list.findIndex(r => r.sessionId === shown?.sessionId))
-        setTarget(list[(at + (e.shiftKey ? -1 : 1) + list.length) % list.length].sessionId)
+        setTarget(list[(at + (action === 'prevTab' ? -1 : 1) + list.length) % list.length].sessionId)
         setView('terminal'); setExpanded(true)
         return
       }
-      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.code === 'KeyW')) {
+      if (action === 'newTab' || action === 'closeTab') {
         e.preventDefault(); e.stopPropagation()
-        if (e.code === 'KeyT') void launch(false)
+        if (action === 'newTab') void launch(false)
         else if (shown?.terminal) closeSession(shown)
         return
       }
-      if (!e.ctrlKey || e.altKey || e.shiftKey || !/^[1-5]$/.test(e.key)) return
+      const n = ['view1', 'view2', 'view3', 'view4', 'view5'].indexOf(action ?? '')
+      if (n < 0) return
       e.preventDefault()
-      setView(views[Number(e.key) - 1])
+      setView(views[n])
       setExpanded(true)
     }
     window.addEventListener('keydown', onKey, true)
@@ -966,17 +970,17 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
           <div className="w-term-tabs" ref={viewBarRef}>
             {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
             <div className={`w-view-switch w-view-tabs${viewsCompact ? ' w-view-icons' : ''}`}>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')} aria-label={t('박스')}><BoxIcon size={14} />{!viewsCompact && t('박스')}</button>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')} aria-label={t('기록')}><TodayIcon size={14} />{!viewsCompact && t('기록')}</button>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')} aria-label={t('랭킹')}><RankIcon size={14} />{!viewsCompact && t('랭킹')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 ({key})', { key: modCombo('1') })} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 ({key})', { key: modCombo('2') })} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 ({key})', { key: modCombo('3') })} aria-label={t('박스')}><BoxIcon size={14} />{!viewsCompact && t('박스')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 ({key})', { key: modCombo('4') })} aria-label={t('기록')}><TodayIcon size={14} />{!viewsCompact && t('기록')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 ({key})', { key: modCombo('5') })} aria-label={t('랭킹')}><RankIcon size={14} />{!viewsCompact && t('랭킹')}</button>
             </div>
             <span className="w-term-spacer" />
             {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size */}
             <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
             {view === 'terminal' && (
-              <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 (Ctrl+휠로도 바꿀 수 있어요)')} title={t('글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-')}>
+              <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 ({mod}+휠로도 바꿀 수 있어요)', { mod: modLabel() })} title={t('글자 크기 · {mod}+휠, {mod}+= / {mod}+-', { mod: modLabel() })}>
                 {FONT_PRESETS.map(p => (
                   <button key={p.label} className={termFont === p.size ? 'on' : ''} onClick={() => setTermFont(p.size)} style={{ fontSize: 9 + FONT_PRESETS.indexOf(p) * 2 }} title={t('글자 {size}', { size: t(p.label) })} aria-label={t('글자 크기 {size}', { size: t(p.label) })}>Aa</button>
                 ))}

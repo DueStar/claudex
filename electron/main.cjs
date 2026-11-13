@@ -41,6 +41,7 @@ const { startQuitWatchdog } = require('./quitWatchdog.cjs')
 const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
 const { t, useLanguage } = require('./i18n.cjs')
+const { menuTemplate } = require('./menu.cjs')
 const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 const { migrateUserData } = require('./userDataMigration.cjs')
 const { refreshShortcutIcons } = require('./shortcutIcon.cjs')
@@ -468,29 +469,7 @@ async function exportBackup() {
 const menuActions = { toggleWidget, openSettings, quit: quitApp, ...(showQa ? { openQa } : {}), checkUpdate: checkUpdateNow, openLogs }
 
 function applicationMenuTemplate() {
-  const isMac = process.platform === 'darwin'
-  return [
-    ...(isMac ? [{ role: 'appMenu' }] : []),
-    {
-      label: APP_NAME,
-      submenu: [
-        { label: t('보이기/숨기기'), click: toggleWidget },
-        { type: 'separator' },
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
-        ...(isMac ? [] : [{ type: 'separator' }, { role: 'quit' }]),
-      ],
-    },
-    // The edit menu's shortcuts are not registered (registerAccelerator: false): registered,
-    // they caught Ctrl+X / Ctrl+Z / Ctrl+A before the terminal, so Claude Code never got them
-    // (Ctrl+X starts its chords). Text fields still cut, undo and select all by themselves;
-    // the terminal copies and pastes in its own key handler (TerminalPanel).
-    {
-      label: t('편집'),
-      submenu: ['undo', 'redo', 'separator', 'cut', 'copy', 'paste', 'separator', 'selectAll']
-        .map(role => (role === 'separator' ? { type: 'separator' } : { role, registerAccelerator: false })),
-    },
-  ]
+  return menuTemplate({ appName: APP_NAME, t, toggleWidget })
 }
 
 function refreshMenus() {
