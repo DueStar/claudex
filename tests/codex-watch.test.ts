@@ -5,19 +5,21 @@
  * usage limits, and the thread id a reopened tab resumes.
  */
 
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { createCodexWatch, codexTool } = require('../electron/codexWatch.cjs')
+const { createCodexWatch, codexTool, normPath } = require('../electron/codexWatch.cjs')
 
 const dirs: string[] = []
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }) })
 
 const START = new Date(2026, 10, 10, 14, 50).getTime() // local time: the date folders are local
+// The tabs below are Windows ones (C:\ folders, compared without case), on every host;
+// the Mac's folders have tests of their own at the end
 const CWD = 'C:\\Users\\me\\work'
 const line = (o: unknown) => JSON.stringify(o) + '\n'
 const meta = (id: string, cwd = CWD, at = START + 1000) => line({ timestamp: new Date(at).toISOString(), type: 'session_meta', payload: { id, session_id: id, timestamp: new Date(at).toISOString(), cwd } })
@@ -33,7 +35,7 @@ function setup() {
   const statuses: any[] = []
   const threads: string[] = []
   const make = (opts: object = {}) => createCodexWatch({
-    sessionId: 's1', cwd: CWD, startedAt: START, sessionsDir: root, pollMs: 0, now: () => START + 60_000,
+    sessionId: 's1', cwd: CWD, startedAt: START, sessionsDir: root, pollMs: 0, now: () => START + 60_000, platform: 'win32',
     emit: (e: any) => events.push(e), status: (s: any) => statuses.push(s), onThread: (id: string) => threads.push(id), ...opts,
   })
   return { day, events, statuses, threads, make }
@@ -129,6 +131,11 @@ describe('codex watch', () => {
     expect(codexTool({ command: '"C:\\Program Files\\codex\\codex.exe"' })).toBe(true)
     expect(codexTool({ command: 'gemini' })).toBe(false)
     expect(codexTool({ command: 'codexx' })).toBe(false)
+    // a Mac's (or Linux's) own command lines
+    expect(codexTool({ command: '/opt/homebrew/bin/codex --full-auto' })).toBe(true)
+    expect(codexTool({ command: '"/Users/me/My Tools/codex" resume' })).toBe(true)
+    expect(codexTool({ command: '~/.local/bin/codex' })).toBe(true)
+    expect(codexTool({ command: '/usr/local/bin/codex-helper' })).toBe(false)
   })
 })
 
@@ -275,5 +282,60 @@ describe('codex watch, an idle tab and a later one', () => {
     expect(a).toEqual([])
     expect(b).toEqual(['later'])
     wa.stop(); wb.stop()
+  })
+})
+
+describe('codex watch on a Mac: folders as Codex logs them', () => {
+  // Codex logs the folder its process runs in (getcwd: symlinks resolved, so /tmp/x is
+  // /private/tmp/x); the tab knows the folder it was opened in
+  const real = (map: Record<string, string>) => (p: string) => {
+    if (map[p]) return map[p]
+    throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+  }
+
+  it('normPath: Windows as it was; a Mac follows symlinks and ignores case; Linux keeps case', () => {
+    expect(normPath('C:\\Users\\Me\\Work\\', 'win32')).toBe('c:\\users\\me\\work')
+    expect(normPath('c:/users/me/work', 'win32')).toBe('c:\\users\\me\\work')
+    expect(normPath('/tmp/x/', 'darwin', real({ '/tmp/x': '/private/tmp/x' }))).toBe('/private/tmp/x')
+    expect(normPath('/Users/Me/Work', 'darwin', real({}))).toBe('/users/me/work')
+    expect(normPath('/home/Me/Work/', 'linux', real({}))).toBe('/home/Me/Work')
+    expect(normPath('/', 'darwin', real({}))).toBe('/')
+  })
+
+  it('a Mac tab finds its log whatever the case and a trailing slash (a folder not on this disk)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'codex-sessions-'))
+    dirs.push(root)
+    const day = join(root, '2026', '11', '10')
+    mkdirSync(day, { recursive: true })
+    const threads: string[] = []
+    const w = createCodexWatch({
+      sessionId: 'm1', cwd: '/spawn-test-nowhere/proj', startedAt: START, sessionsDir: root, pollMs: 0, now: () => START + 60_000, platform: 'darwin',
+      emit: () => {}, status: () => {}, onThread: (id: string) => threads.push(id),
+    })
+    // no such folder on this disk, so no realpath: the case and the trailing slash; the symlink is the next test
+    writeFileSync(join(day, 'rollout-a-mmm.jsonl'), meta('mmm', '/Spawn-Test-Nowhere/PROJ/'))
+    w.poll()
+    expect(threads).toEqual(['mmm'])
+    w.stop()
+  })
+
+  it.skipIf(process.platform === 'win32')('a real symlink: the tab in the link, Codex in its target', () => {
+    const root = mkdtempSync(join(tmpdir(), 'codex-sessions-'))
+    dirs.push(root)
+    const day = join(root, '2026', '11', '10')
+    mkdirSync(day, { recursive: true })
+    const target = join(root, 'project')
+    mkdirSync(target)
+    const link = join(root, 'link')
+    symlinkSync(target, link)
+    const threads: string[] = []
+    const w = createCodexWatch({
+      sessionId: 'm2', cwd: link, startedAt: START, sessionsDir: root, pollMs: 0, now: () => START + 60_000, platform: process.platform,
+      emit: () => {}, status: () => {}, onThread: (id: string) => threads.push(id),
+    })
+    writeFileSync(join(day, 'rollout-a-sym.jsonl'), meta('sym', realpathSync(target)))
+    w.poll()
+    expect(threads).toEqual(['sym'])
+    w.stop()
   })
 })

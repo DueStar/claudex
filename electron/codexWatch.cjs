@@ -54,14 +54,31 @@ const HEADER_MAX = 32 * 1024 * 1024
 const SLOW_AFTER_MS = 60_000
 const SLOW_EVERY = 5
 
-/** A tool's command line runs Codex CLI (`codex`, `codex.cmd`, `…\codex.exe`, with any arguments) */
+/**
+ * A tool's command line runs Codex CLI (`codex`, `codex.cmd`, `…\codex.exe`,
+ * `/opt/homebrew/bin/codex`, with any arguments). Either slash ends a folder
+ * whatever OS this runs on (path.win32 reads both), so a line reads the same everywhere.
+ */
 function codexTool(tool) {
   const line = String(tool?.command ?? '').trim()
   const program = line.startsWith('"') ? line.slice(1, line.indexOf('"', 1) > 0 ? line.indexOf('"', 1) : undefined) : line.split(/\s+/)[0]
-  return /^codex(\.(cmd|exe|ps1))?$/i.test(path.basename(program ?? ''))
+  return /^codex(\.(cmd|exe|ps1))?$/i.test(path.win32.basename(program ?? ''))
 }
 
-const normPath = (p) => path.resolve(String(p ?? '')).replace(/[\\/]+$/, '').toLowerCase()
+/**
+ * A folder as a tab and Codex's log are compared by. Windows: resolved, no
+ * trailing slash, lower case (as ever). Elsewhere the real path too: Codex logs
+ * the folder its process is in (getcwd: symlinks resolved), so a tab opened in
+ * /tmp/x is /private/tmp/x there, a symlinked project its target; and lower
+ * case on a Mac, whose disks ignore case by default.
+ */
+function normPath(p, platform = process.platform, realpath = fs.realpathSync.native) {
+  if (platform === 'win32') return path.win32.resolve(String(p ?? '')).replace(/[\\/]+$/, '').toLowerCase()
+  let out = path.posix.resolve(String(p ?? ''))
+  try { out = realpath(out) } catch { /* gone, or never there: compared as given */ }
+  if (out.length > 1) out = out.replace(/\/+$/, '')
+  return platform === 'darwin' ? out.toLowerCase() : out
+}
 
 /** The date folders a session started at `t` can be in (that day and the day before, local time) */
 function dayDirs(root, t) {
@@ -92,8 +109,9 @@ function findThreadFile(root, id) {
  * Headers never change, so they are kept by path.
  */
 const headers = new Map()
-function headerOf(f) {
-  if (headers.has(f)) return headers.get(f)
+function headerOf(f, platform = process.platform) {
+  const key = `${platform}|${f}`
+  if (headers.has(key)) return headers.get(key)
   let fd
   try {
     fd = fs.openSync(f, 'r')
@@ -107,14 +125,14 @@ function headerOf(f) {
       chunks.push(buf.subarray(0, nl >= 0 ? nl : n))
       pos += n
       if (nl >= 0) break
-      if (pos > HEADER_MAX) { headers.set(f, null); return null }
+      if (pos > HEADER_MAX) { headers.set(key, null); return null }
     }
     let rec = null
     try { rec = JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { /* not a session log */ }
     const meta = rec?.type === 'session_meta' ? rec.payload : null
     const at = Date.parse(meta?.timestamp ?? rec?.timestamp ?? '')
-    const out = meta && meta.cwd && Number.isFinite(at) ? { id: String(meta.id ?? ''), at, cwd: normPath(meta.cwd) } : null
-    headers.set(f, out)
+    const out = meta && meta.cwd && Number.isFinite(at) ? { id: String(meta.id ?? ''), at, cwd: normPath(meta.cwd, platform) } : null
+    headers.set(key, out)
     return out
   } catch {
     return undefined // busy or gone right now: not kept, tried again at the next look
@@ -171,7 +189,7 @@ const waiting = new Set()
 function match() {
   const byFolder = new Map()
   for (const w of waiting) {
-    const key = `${w.root}|${w.cwd}`
+    const key = `${w.root}|${w.platform}|${w.cwd}`
     if (!byFolder.has(key)) byFolder.set(key, [])
     byFolder.get(key).push(w)
   }
@@ -186,7 +204,7 @@ function match() {
         if (!name.endsWith('.jsonl')) continue
         const f = path.join(dir, name)
         if (claimed.has(f) || retired.has(f)) continue
-        const h = headerOf(f)
+        const h = headerOf(f, tabs[0].platform)
         if (!h || h.cwd !== tabs[0].cwd || h.at < earliest - SLACK_MS) continue
         logs.push({ f, h })
       }
@@ -207,7 +225,7 @@ function match() {
   }
 }
 
-function createCodexWatch({ sessionId, cwd, startedAt, resumeThread: resumeAsked = null, emit, status, onThread = () => {}, sessionsDir = path.join(os.homedir(), '.codex', 'sessions'), pollMs = 1000, now = () => Date.now() }) {
+function createCodexWatch({ sessionId, cwd, startedAt, resumeThread: resumeAsked = null, emit, status, onThread = () => {}, sessionsDir = path.join(os.homedir(), '.codex', 'sessions'), pollMs = 1000, now = () => Date.now(), platform = process.platform }) {
   let file = null
   let offset = 0
   let decoder = new StringDecoder('utf8')
@@ -219,7 +237,8 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread: resumeAsked
 
   const me = {
     root: sessionsDir,
-    cwd: normPath(cwd),
+    cwd: normPath(cwd, platform),
+    platform,
     startedAt,
     take(f) { file = f; offset = 0 },
   }
@@ -331,4 +350,4 @@ function createCodexWatch({ sessionId, cwd, startedAt, resumeThread: resumeAsked
   return { poll, stop, found: () => !!file }
 }
 
-module.exports = { createCodexWatch, codexTool, gameTool }
+module.exports = { createCodexWatch, codexTool, gameTool, normPath }
