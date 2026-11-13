@@ -106,7 +106,7 @@ function listHistory({ limit = 40 } = {}) {
     let d
     try { d = describe(f.file) } catch { continue }
     if (!d.cwd || !d.first) continue // nothing a person said: not worth resuming
-    if (/[\\/]AppData[\\/]Local[\\/]Temp[\\/]/i.test(d.cwd)) continue // throwaway temp folders
+    if (isTempCwd(d.cwd)) continue // throwaway temp folders
     out.push({
       id: f.id, cwd: d.cwd, project: path.basename(d.cwd), title: d.title || d.first,
       updatedAt: f.mtime, sizeKb: Math.round(f.size / 1024), running: running.has(f.id),
@@ -115,4 +115,9 @@ function listHistory({ limit = 40 } = {}) {
   return out
 }
 
-module.exports = { listHistory, promptText }
+/** Throwaway temp folders (Windows %TEMP%, macOS /var/folders): sessions started there are not worth resuming */
+function isTempCwd(cwd) {
+  return /[\\/]AppData[\\/]Local[\\/]Temp[\\/]/i.test(cwd) || /^(\/private)?\/var\/folders\//.test(cwd)
+}
+
+module.exports = { listHistory, promptText, isTempCwd }
