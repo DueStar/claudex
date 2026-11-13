@@ -1,6 +1,8 @@
 /**
  * Each open terminal's font and cell size, for the Mac CI's smoke launch
- * (electron/smoke.cjs reads window.spawnTermMetrics() from the page). xterm
+ * (electron/smoke.cjs reads window.spawnTermMetrics() from the page). The page
+ * globals exist only in a smoke run (main adds &smoke to the page's address:
+ * src/main.tsx calls registerSmokeGlobals); a normal run has none. xterm
  * measures one cell for every character from the first face of its stack that
  * is there; a proportional face first gives cells far too wide (spaced-out
  * text, CI run 2), which a cell width to font size ratio shows: a monospace
@@ -101,8 +103,9 @@ export function facePresent(face: string): boolean {
   } catch { return false }
 }
 
-if (typeof window !== 'undefined') {
-  const w = window as unknown as { spawnTermMetrics?: () => TermMetrics[]; spawnFontStatus?: () => FontStatus }
+/** The readings as page globals, for electron/smoke.cjs: called only in a smoke run */
+export function registerSmokeGlobals(target: object = window): void {
+  const w = target as { spawnTermMetrics?: () => TermMetrics[]; spawnFontStatus?: () => FontStatus }
   w.spawnTermMetrics = termMetrics
   w.spawnFontStatus = fontStatus
 }

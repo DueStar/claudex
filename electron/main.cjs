@@ -52,9 +52,11 @@ adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'spawn-dev'))
-// The Mac CI's smoke launch (scripts/smoke-mac.mjs): --smoke-test gives the run its own
-// userData and SPAWN_HOME and drives it from electron/smoke.cjs, loaded only with the flag
-const smoke = process.argv.includes('--smoke-test') ? require('./smoke.cjs').prepare({ app, dialog }) : null
+// The Mac CI's smoke launch (scripts/smoke-mac.mjs): --smoke-test on a Mac with SPAWN_SMOKE_DIR set
+// gives the run its own userData and SPAWN_HOME and drives it from electron/smoke.cjs; anywhere
+// else the flag is ignored (isSmokeRun)
+const { isSmokeRun, prepare: prepareSmoke } = require('./smoke.cjs')
+const smoke = isSmokeRun() ? prepareSmoke({ app, dialog }) : null
 // The app was called Claudex until 1.3.35: its folder (%APPDATA%/Claudex, or Claudex-dev)
 // is copied to the new name once, before anything reads it (userDataMigration.cjs)
 const userDataCopy = migrateUserData({ from: path.join(app.getPath('appData'), app.isPackaged ? 'Claudex' : 'Claudex-dev'), to: app.getPath('userData') })
@@ -647,7 +649,8 @@ const keepSessions = () => { try { terminals?.freeze?.(); console.log('[main] Wi
 
 /** Build the app's window for `mode`; it shows itself once painted unless `hidden`. */
 function buildAppWindow(mode, { hidden = false, near = null } = {}) {
-  const url = pageWith(`widget&mode=${mode}`)
+  // (a smoke run's page also offers its terminal and font readings: src/termMetrics.ts)
+  const url = pageWith(`widget&mode=${mode}${smoke ? '&smoke' : ''}`)
   if (!url) return null
   const kind = kindOf(mode)
   const isWidget = kind === 'widget'

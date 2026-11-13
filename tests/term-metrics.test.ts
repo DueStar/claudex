@@ -3,12 +3,26 @@
  * each open terminal (its font stack, size and measured cell), read only.
  */
 
-import { describe, expect, it } from 'vitest'
-import { BUNDLED_CHECKS, facePresent, faceStatus, faceSupplies, fontStatus, stackFaces, termMetrics, trackTermMetrics, type TermMetrics } from '../src/termMetrics'
+import { describe, expect, it, vi } from 'vitest'
+import { BUNDLED_CHECKS, facePresent, faceStatus, faceSupplies, fontStatus, registerSmokeGlobals, stackFaces, termMetrics, trackTermMetrics, type TermMetrics } from '../src/termMetrics'
 
 const m = (id: string): TermMetrics => ({ id, fontFamily: 'Menlo, monospace', fontSize: 13, cellWidth: 7.8, cellHeight: 15, cols: 80, rows: 24, faces: [], text: '' })
 
 describe('termMetrics', () => {
+  it('the page globals exist only once registered (a smoke run); loading the module adds none', async () => {
+    const fakeWindow: Record<string, unknown> = {}
+    vi.stubGlobal('window', fakeWindow)
+    vi.resetModules()
+    await import('../src/termMetrics')
+    expect(fakeWindow.spawnTermMetrics).toBeUndefined()
+    expect(fakeWindow.spawnFontStatus).toBeUndefined()
+    const target: Record<string, unknown> = {}
+    registerSmokeGlobals(target)
+    expect(typeof target.spawnTermMetrics).toBe('function')
+    expect(typeof target.spawnFontStatus).toBe('function')
+    vi.unstubAllGlobals()
+  })
+
   it('the faces of a stack, quotes off', () => {
     expect(stackFaces("'Monaspace Neon Var', \"Monaspace Neon\", Menlo, 'SF Mono', monospace")).toEqual(['Monaspace Neon Var', 'Monaspace Neon', 'Menlo', 'SF Mono', 'monospace'])
     expect(stackFaces('')).toEqual([])

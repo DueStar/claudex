@@ -2,8 +2,9 @@
 
 /**
  * electron/smoke.cjs — the smoke launch the Mac CI runs on the built app
- * (scripts/smoke-mac.mjs starts it with --smoke-test). main.cjs loads this
- * file only when that flag is given: without it nothing here runs.
+ * (scripts/smoke-mac.mjs starts it with --smoke-test and SPAWN_SMOKE_DIR).
+ * Loading it does nothing; main.cjs calls prepare() only when isSmokeRun()
+ * says so (the flag, on a Mac, with SPAWN_SMOKE_DIR set).
  *
  * A smoke run keeps to its own folders (SPAWN_SMOKE_USERDATA for userData,
  * SPAWN_HOME for the game data, SPAWN_SMOKE_DIR for what it leaves behind)
@@ -71,8 +72,13 @@ function smokeTimeoutMs(env = process.env) {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS
 }
 
-function isSmokeRun(argv = process.argv) {
-  return Array.isArray(argv) && argv.includes(SMOKE_FLAG)
+/**
+ * A smoke run only when all three hold: the flag, a Mac, and SPAWN_SMOKE_DIR (which
+ * scripts/smoke-mac.mjs sets). Otherwise the flag is ignored completely and the app
+ * starts as it always does (its lock, its updater, its real userData).
+ */
+function isSmokeRun(argv = process.argv, platform = process.platform, env = process.env) {
+  return Array.isArray(argv) && argv.includes(SMOKE_FLAG) && platform === 'darwin' && !!env?.SPAWN_SMOKE_DIR
 }
 
 /** Where the run writes: the environment's folders, else ones under the temp dir */

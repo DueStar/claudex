@@ -3,7 +3,8 @@
  * with --smoke-test): its own folders, a shell session that must print
  * spawn-42, a picture of each mode, then a quit; smoke.json says how far it
  * got. The run is driven here with a fake app and window, so its steps are
- * tested on any OS. main.cjs loads the file only behind the flag.
+ * tested on any OS. main.cjs prepares a run only behind isSmokeRun (the flag,
+ * a Mac, SPAWN_SMOKE_DIR).
  */
 
 import { EventEmitter } from 'node:events'
@@ -19,19 +20,42 @@ const { isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, ver
 const ROOT = join(__dirname, '..')
 
 describe('the flag', () => {
-  it('is on only with --smoke-test', () => {
-    expect(isSmokeRun(['/Applications/spawn.app/Contents/MacOS/spawn', '--smoke-test'])).toBe(true)
-    expect(isSmokeRun(['spawn.exe'])).toBe(false)
-    expect(isSmokeRun(['spawn.exe', '--smoke-tests'])).toBe(false)
+  it('is on only with --smoke-test, on a Mac, with SPAWN_SMOKE_DIR set: anything less and the flag is ignored', () => {
+    const app = '/Applications/spawn.app/Contents/MacOS/spawn'
+    const dir = { SPAWN_SMOKE_DIR: '/tmp/smoke' }
+    expect(isSmokeRun([app, '--smoke-test'], 'darwin', dir)).toBe(true)
+    expect(isSmokeRun([app, '--smoke-test'], 'darwin', {})).toBe(false)
+    expect(isSmokeRun([app, '--smoke-test'], 'darwin', { SPAWN_SMOKE_DIR: '' })).toBe(false)
+    expect(isSmokeRun(['spawn.exe', '--smoke-test'], 'win32', dir)).toBe(false)
+    expect(isSmokeRun(['spawn', '--smoke-test'], 'linux', dir)).toBe(false)
+    expect(isSmokeRun([app], 'darwin', dir)).toBe(false)
+    expect(isSmokeRun([app, '--smoke-tests'], 'darwin', dir)).toBe(false)
   })
 
-  it('main.cjs loads smoke.cjs only behind the flag (a run without it never requires the file)', () => {
+  it('loading smoke.cjs does nothing (no timer, no global, no file): only prepare() does', () => {
+    const src = readFileSync(join(ROOT, 'electron', 'smoke.cjs'), 'utf8')
+    const body = src.slice(0, src.indexOf('module.exports'))
+    // top level: constants, requires and function declarations only
+    const topLevel = body.split('\n').filter(l => /^\S/.test(l) && !/^(\/\/|\/\*\*| \*|'use strict'|const |function |async function |\}|\]|\))/.test(l))
+    expect(topLevel).toEqual([])
+  })
+
+  it('main.cjs prepares a smoke run only behind isSmokeRun', () => {
     const src = readFileSync(join(ROOT, 'electron', 'main.cjs'), 'utf8')
-    const lines = src.split('\n').filter(l => l.includes("require('./smoke.cjs')"))
-    expect(lines).toHaveLength(1)
-    expect(lines[0]).toMatch(/process\.argv\.includes\('--smoke-test'\)\s*\?\s*require\('\.\/smoke\.cjs'\)/)
+    expect(src).toContain("const { isSmokeRun, prepare: prepareSmoke } = require('./smoke.cjs')")
+    expect(src).toContain('const smoke = isSmokeRun() ? prepareSmoke({ app, dialog }) : null')
+    expect(src.split('prepareSmoke(').length - 1).toBe(1)
+    expect(src).not.toContain("process.argv.includes('--smoke-test')")
     // the rest of main only ever touches it through `smoke?.` or a `!smoke` test
     expect(src).not.toMatch(/\bsmoke\.(?!cjs)/)
+    // the page's readings only in a smoke run
+    expect(src).toContain("const url = pageWith(`widget&mode=${mode}${smoke ? '&smoke' : ''}`)")
+  })
+
+  it('the page registers its smoke readings only when its address says smoke', () => {
+    const page = readFileSync(join(ROOT, 'src', 'main.tsx'), 'utf8')
+    expect(page).toContain("if (params.has('smoke')) registerSmokeGlobals()")
+    expect(page.split('registerSmokeGlobals(').length - 1).toBe(1)
   })
 })
 
