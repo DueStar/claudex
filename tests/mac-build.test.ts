@@ -6,13 +6,13 @@
  * build left exactly as it was.
  */
 
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 // @ts-expect-error plain ESM script without types
-import { macArtifactNames, findMacApps, pickMacApp, appDirOf, spawnHelperProblems, sha256Lines, smokeKillMs } from '../scripts/mac-build.mjs'
+import { macArtifactNames, findMacApps, pickMacApp, appDirOf, spawnHelperProblems, sha256Lines, smokeKillMs, pruneOtherPlatforms, OTHER_PLATFORM_PATHS } from '../scripts/mac-build.mjs'
 
 const require = createRequire(import.meta.url)
 const { appFilePattern } = require('../electron/updater.cjs')
@@ -75,6 +75,22 @@ describe('the built app', () => {
     expect(pickMacApp(join(dir, 'nothing'), 'arm64')).toBe(null)
   })
 
+  it('prune: the Windows node-pty binaries leave the bundle, the Mac ones stay', () => {
+    const app = makeApp('mac-arm64')
+    const pty = join(appDirOf(app), 'node_modules', 'node-pty')
+    for (const d of ['prebuilds/win32-x64', 'prebuilds/win32-arm64', 'prebuilds/darwin-arm64', 'prebuilds/darwin-x64', 'third_party/conpty/1.23/win10-x64', 'build/Release/conpty', 'lib']) {
+      mkdirSync(join(pty, d), { recursive: true })
+      writeFileSync(join(pty, d, 'f'), 'x')
+    }
+    const removed = pruneOtherPlatforms(app).map((p: string) => p.replace(/\\/g, '/'))
+    expect(removed.sort()).toEqual(['build/Release/conpty', 'prebuilds/win32-arm64', 'prebuilds/win32-x64', 'third_party/conpty'].map(d => `${appDirOf(app).replace(/\\/g, '/')}/node_modules/node-pty/${d}`))
+    expect(readdirSync(join(pty, 'prebuilds')).sort()).toEqual(['darwin-arm64', 'darwin-x64'])
+    expect(readdirSync(pty).sort()).toEqual(['build', 'lib', 'prebuilds', 'third_party'])
+    // again: nothing left to remove
+    expect(pruneOtherPlatforms(app)).toEqual([])
+    expect(OTHER_PLATFORM_PATHS).toContain('prebuilds/win32-*')
+  })
+
   it('the app folder inside the bundle (what the update zip holds)', () => {
     expect(appDirOf('/r/mac-arm64/spawn.app').replace(/\\/g, '/')).toBe('/r/mac-arm64/spawn.app/Contents/Resources/app')
   })
@@ -111,9 +127,11 @@ describe('package.json build', () => {
     })
   })
 
-  it('mac leaves out the Windows node-pty binaries (prebuilds and conpty)', () => {
-    expect(pkg.build.mac.files).toEqual(expect.arrayContaining(['!node_modules/node-pty/prebuilds/win32-*/**', '!node_modules/node-pty/third_party/conpty/**']))
-    for (const p of pkg.build.mac.files) expect(p.startsWith('!')).toBe(true)
+  it('no platform has a files list of its own (electron-builder would copy the project twice: CI run 1)', () => {
+    // A per-platform files list sits beside the top-level one (normalized into a file set,
+    // app-builder-lib util/config.js normalizeFiles) as a second matcher that, holding only
+    // exclusions, takes **/* (fileMatcher.js getMainFileMatchers): server/ was linked twice (EEXIST)
+    for (const p of ['mac', 'win', 'linux']) expect(pkg.build[p]?.files).toBeUndefined()
   })
 
   it('Windows is as it was: its block, the shared files list, the output folder', () => {
@@ -134,11 +152,11 @@ describe('workflows', () => {
     expect(mac.on.workflow_dispatch.inputs.version).toBeTruthy()
   })
 
-  it('mac.yml: arm64 on macos-14, x64 on macos-15-intel (macOS 13 images are retired), neither stops the other', () => {
+  it('mac.yml: arm64 on macos-15, x64 on macos-15-intel (macOS 13 is retired, macos-14 arm64 refused in run 1), neither stops the other', () => {
     const job = mac.jobs.build
     expect(job.strategy['fail-fast']).toBe(false)
     expect(job.strategy.matrix.include).toEqual(expect.arrayContaining([
-      expect.objectContaining({ arch: 'arm64', runner: 'macos-14' }),
+      expect.objectContaining({ arch: 'arm64', runner: 'macos-15' }),
       expect.objectContaining({ arch: 'x64', runner: 'macos-15-intel' }),
     ]))
     expect(job['runs-on']).toBe('${{ matrix.runner }}')
@@ -152,6 +170,10 @@ describe('workflows', () => {
     expect(runs).toMatch(/npx vite build/)
     expect(runs).toMatch(/electron-builder --mac dir --\$\{\{ matrix\.arch \}\}/)
     expect(runs).toMatch(/codesign --force --deep --sign - /)
+    // the Windows binaries go after packaging and before the signature
+    const order = (re: RegExp) => steps.findIndex(s => re.test(s.run ?? ''))
+    expect(order(/mac-build\.mjs prune/)).toBeGreaterThan(order(/electron-builder --mac/))
+    expect(order(/mac-build\.mjs prune/)).toBeLessThan(order(/codesign --force/))
     expect(runs).toMatch(/codesign --verify --deep --strict/)
     expect(runs).toMatch(/node scripts\/smoke-mac\.mjs/)
     expect(runs).toMatch(/node scripts\/mac-build\.mjs pack/)

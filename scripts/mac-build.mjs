@@ -2,6 +2,8 @@
  * mac-build.mjs — the Mac build's steps after electron-builder, run by
  * .github/workflows/mac.yml on a macOS runner (ditto and codesign are macOS's).
  *
+ *   node scripts/mac-build.mjs prune <arch>   the Windows node-pty binaries out of the bundle
+ *                                             (electron-builder copies them: see below)
  *   node scripts/mac-build.mjs stamp <arch>   build-info.json into the bundle's app
  *                                             folder (before the ad-hoc signing:
  *                                             a file added after it breaks the seal)
@@ -19,6 +21,11 @@
  *
  * The version is the built app's own (its package.json). electron-builder puts
  * an x64 build in release/mac and an arm64 one in release/mac-arm64.
+ *
+ * Why prune here and not with a build.mac.files list: electron-builder 24 turns the
+ * top-level files list into a file set of its own, so a platform list beside it
+ * (exclusions only) becomes a second matcher that takes everything else (**\/*):
+ * the project went in twice and the Mac build failed linking server/ (EEXIST).
  */
 
 import { execFileSync } from 'node:child_process'
@@ -92,6 +99,29 @@ export function spawnHelperProblems(appPath) {
   return problems
 }
 
+/** node-pty's Windows binaries, under node_modules/node-pty: none of them runs on a Mac (~60 MB) */
+export const OTHER_PLATFORM_PATHS = Object.freeze(['prebuilds/win32-*', 'third_party/conpty', 'build/Release/conpty'])
+
+/** Remove OTHER_PLATFORM_PATHS from the bundle; returns what was removed */
+export function pruneOtherPlatforms(appPath) {
+  const pty = join(appDirOf(appPath), 'node_modules', 'node-pty')
+  const removed = []
+  for (const rel of OTHER_PLATFORM_PATHS) {
+    const parts = rel.split('/')
+    const last = parts.pop()
+    const dir = join(pty, ...parts)
+    let names = []
+    if (last.endsWith('*')) {
+      try { names = readdirSync(dir).filter(n => n.startsWith(last.slice(0, -1))) } catch {}
+    } else if (existsSync(join(dir, last))) names = [last]
+    for (const n of names) {
+      rmSync(join(dir, n), { recursive: true, force: true })
+      removed.push(join(dir, n))
+    }
+  }
+  return removed
+}
+
 /** sha256.txt's lines, as shasum -a 256 writes them */
 export function sha256Lines(hashes) {
   return Object.entries(hashes).map(([file, hash]) => `${hash}  ${file}\n`).join('')
@@ -103,14 +133,21 @@ function main(argv) {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..')
   const [command, arch] = argv
   const release = join(root, 'release')
-  if (!['stamp', 'pack'].includes(command) || !ARCHES.has(arch)) {
-    console.error('usage: node scripts/mac-build.mjs stamp|pack arm64|x64')
+  if (!['prune', 'stamp', 'pack'].includes(command) || !ARCHES.has(arch)) {
+    console.error('usage: node scripts/mac-build.mjs prune|stamp|pack arm64|x64')
     process.exit(2)
   }
   const app = pickMacApp(release, arch)
   if (!app) throw new Error(`no spawn.app for ${arch} in ${release}`)
   const appDir = appDirOf(app)
   const version = JSON.parse(readFileSync(join(appDir, 'package.json'), 'utf8')).version
+
+  if (command === 'prune') {
+    const removed = pruneOtherPlatforms(app)
+    console.log(`pruned ${removed.length} Windows node-pty folder(s) from ${app}${removed.map(r => `
+  - ${r}`).join('')}`)
+    return
+  }
 
   if (command === 'stamp') {
     // As scripts/release.mjs does for Windows: the app tells a newer local build of the same version by it
