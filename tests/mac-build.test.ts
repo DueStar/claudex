@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 // @ts-expect-error plain ESM script without types
-import { macArtifactNames, findMacApps, pickMacApp, appDirOf, spawnHelperProblems, sha256Lines } from '../scripts/mac-build.mjs'
+import { macArtifactNames, findMacApps, pickMacApp, appDirOf, spawnHelperProblems, sha256Lines, smokeKillMs } from '../scripts/mac-build.mjs'
 
 const require = createRequire(import.meta.url)
 const { appFilePattern } = require('../electron/updater.cjs')
@@ -41,6 +41,16 @@ describe('artifact names', () => {
 
   it('sha256.txt: one "<hash>  <file>" line per file', () => {
     expect(sha256Lines({ 'a.zip': 'ab12', 'b.zip': 'cd34' })).toBe('ab12  a.zip\ncd34  b.zip\n')
+  })
+})
+
+describe("the smoke launch's kill time", () => {
+  it("follows the app's own timeout: it plus the quit cap plus a margin, so the app always says why first", () => {
+    // default: 60 s run + 20 s quit + 10 s = 90 s
+    expect(smokeKillMs({})).toBe(90_000)
+    expect(smokeKillMs({ SPAWN_SMOKE_TIMEOUT_MS: '120000' })).toBe(150_000)
+    // what the app would not take as a timeout, the kill does not take either
+    for (const bad of ['', 'abc', '-5', '0', 'Infinity']) expect(smokeKillMs({ SPAWN_SMOKE_TIMEOUT_MS: bad })).toBe(90_000)
   })
 })
 
@@ -124,12 +134,12 @@ describe('workflows', () => {
     expect(mac.on.workflow_dispatch.inputs.version).toBeTruthy()
   })
 
-  it('mac.yml: arm64 on macos-14, x64 on macos-13, neither stops the other', () => {
+  it('mac.yml: arm64 on macos-14, x64 on macos-15-intel (macOS 13 images are retired), neither stops the other', () => {
     const job = mac.jobs.build
     expect(job.strategy['fail-fast']).toBe(false)
     expect(job.strategy.matrix.include).toEqual(expect.arrayContaining([
       expect.objectContaining({ arch: 'arm64', runner: 'macos-14' }),
-      expect.objectContaining({ arch: 'x64', runner: 'macos-13' }),
+      expect.objectContaining({ arch: 'x64', runner: 'macos-15-intel' }),
     ]))
     expect(job['runs-on']).toBe('${{ matrix.runner }}')
   })
@@ -161,5 +171,13 @@ describe('workflows', () => {
   it('ci.yml: macOS joins the test matrix; its triggers are as they were', () => {
     expect(ci.jobs.test.strategy.matrix.os).toEqual(['windows-latest', 'ubuntu-latest', 'macos-latest'])
     expect(ci.on).toEqual({ push: { branches: ['main'] }, pull_request: null })
+  })
+
+  it('ci.yml: the page is built before the tests (tests/dist-check.test.ts checks dist/)', () => {
+    const runs = (ci.jobs.test.steps as Array<{ run?: string }>).map(s => s.run ?? '')
+    const build = runs.findIndex(r => r.includes('npx vite build'))
+    const test = runs.findIndex(r => r === 'npm test')
+    expect(build).toBeGreaterThanOrEqual(0)
+    expect(test).toBeGreaterThan(build)
   })
 })

@@ -32,8 +32,9 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit -p .
 
-      - name: Test
-        run: npm test
-
+      # Before the tests: tests/dist-check.test.ts checks the built page in dist/
       - name: Build
         run: npx vite build
+
+      - name: Test
+        run: npm test

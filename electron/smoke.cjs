@@ -44,6 +44,18 @@ const ECHO = 'echo spawn-$((40+2))\n'
 const ECHO_SEEN = 'spawn-42'
 const ENV_ECHO = 'echo "spawn-path-$((1+1))=$PATH"; echo "spawn-lang-$((1+1))=$LANG"\n'
 const DEFAULT_TIMEOUT_MS = 60_000
+// How long the app's own quit sequence may take before the run gives up on it
+const QUIT_TIMEOUT_MS = 20_000
+
+/**
+ * The overall timeout: SPAWN_SMOKE_TIMEOUT_MS when it is a positive number, else 60 s.
+ * scripts/smoke-mac.mjs kills the app only after this plus QUIT_TIMEOUT_MS and a margin
+ * (mac-build.mjs smokeKillMs), so a run out of time still writes why.
+ */
+function smokeTimeoutMs(env = process.env) {
+  const n = Number(env.SPAWN_SMOKE_TIMEOUT_MS)
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS
+}
 
 function isSmokeRun(argv = process.argv) {
   return Array.isArray(argv) && argv.includes(SMOKE_FLAG)
@@ -111,7 +123,7 @@ function readyWindow(w) {
  * setMode(mode) → a promise settled when the window for it is in place,
  * terminals() (the terminal manager), workArea(win), quit() (the app's own).
  */
-function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = console, now = Date.now, timeoutMs = Number(env.SPAWN_SMOKE_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS, quitTimeoutMs = 20_000, settleMs = 1500, typeDelayMs = 300 }) {
+function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = console, now = Date.now, timeoutMs = smokeTimeoutMs(env), quitTimeoutMs = QUIT_TIMEOUT_MS, settleMs = 1500, typeDelayMs = 300 }) {
   const dirs = smokeDirs(env, tmp)
   for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true })
   // The server, the terminals and the hooks all take the game folder from SPAWN_HOME
@@ -296,4 +308,4 @@ function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = cons
   return { dirs, result, run, fail, stop }
 }
 
-module.exports = { SMOKE_FLAG, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }
+module.exports = { SMOKE_FLAG, DEFAULT_TIMEOUT_MS, QUIT_TIMEOUT_MS, smokeTimeoutMs, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }

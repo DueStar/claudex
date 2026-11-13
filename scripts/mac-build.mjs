@@ -23,11 +23,25 @@
 
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+const { smokeTimeoutMs, QUIT_TIMEOUT_MS } = createRequire(import.meta.url)('../electron/smoke.cjs')
+
 const ARCHES = new Set(['arm64', 'x64'])
+// Past the app's own timeout and quit cap: time for it to write smoke.json and exit
+const SMOKE_KILL_MARGIN_MS = 10_000
+
+/**
+ * When scripts/smoke-mac.mjs kills a smoke launch: the app's run timeout (its
+ * SPAWN_SMOKE_TIMEOUT_MS, read as the app reads it) plus its quit cap plus a margin,
+ * so the app always gets to record its own reason first. 90 s by default.
+ */
+export function smokeKillMs(env = process.env) {
+  return smokeTimeoutMs(env) + QUIT_TIMEOUT_MS + SMOKE_KILL_MARGIN_MS
+}
 const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
 
 /** The names one arch's build goes by: the CI artifact and the two zips */

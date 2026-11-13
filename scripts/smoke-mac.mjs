@@ -9,7 +9,8 @@
  * (each session starts through it). The app runs with its own temporary userData
  * and SPAWN_HOME, nothing of a real install touched, and writes its pictures and
  * smoke.json to SPAWN_SMOKE_DIR (default release/upload/smoke). Killed after 90 s
- * (the app gives itself 60). Exits with the app's code; smoke.json is printed.
+ * (the app gives itself 60, then 20 to quit; SPAWN_SMOKE_TIMEOUT_MS moves both:
+ * mac-build.mjs smokeKillMs). Exits with the app's code; smoke.json is printed.
  */
 
 import { spawn } from 'node:child_process'
@@ -17,9 +18,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { pickMacApp, spawnHelperProblems } from './mac-build.mjs'
+import { pickMacApp, smokeKillMs, spawnHelperProblems } from './mac-build.mjs'
 
-const KILL_AFTER_MS = 90_000
+// The app's timeout (SPAWN_SMOKE_TIMEOUT_MS, 60 s by default) + its quit cap + a margin
+const KILL_AFTER_MS = smokeKillMs(process.env)
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const arch = process.argv[2] || process.arch
 

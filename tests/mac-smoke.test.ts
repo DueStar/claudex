@@ -74,6 +74,13 @@ describe('helpers', () => {
     expect(verdict(failed)).toEqual({ ok: false, reason: 'window: timed out' })
   })
 
+  it('the timeout: SPAWN_SMOKE_TIMEOUT_MS when it is a positive number, else 60 s', () => {
+    expect(smoke.smokeTimeoutMs({})).toBe(60_000)
+    expect(smoke.smokeTimeoutMs({ SPAWN_SMOKE_TIMEOUT_MS: '120000' })).toBe(120_000)
+    for (const bad of ['', 'abc', '-5', '0', 'Infinity']) expect(smoke.smokeTimeoutMs({ SPAWN_SMOKE_TIMEOUT_MS: bad })).toBe(60_000)
+    expect(smoke.QUIT_TIMEOUT_MS).toBe(20_000)
+  })
+
   it('the steps, in order', () => {
     expect(STEPS).toEqual(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'capture-widget', 'capture-fullscreen', 'quit'])
   })
