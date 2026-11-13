@@ -2,6 +2,10 @@
 
 ## spawn
 
+### 1.3.50
+- 앱의 글꼴(Monaspace Neon, Pretendard, Uncut Sans)을 앱 안에 넣었어요. 글꼴을 따로 설치하지 않은 PC에서도 같은 모습으로 보여요.
+- 글꼴이 없는 PC에서 터미널 글자 사이가 벌어져 보이던 문제를 고쳤어요.
+
 ### 1.3.49
 - 알림이 하나만 떠도 "+1"이 붙던 문제를 고쳤어요.
 - "위젯으로 작게" 버튼이 글자 크기 버튼 왼쪽으로 옮겨졌어요.
@@ -343,6 +347,10 @@
 
 ## spawn (English)
 
+### 1.3.50
+- The app's fonts (Monaspace Neon, Pretendard, Uncut Sans) now come with the app, so it looks the same on a PC that does not have them installed.
+- Fixed terminal text standing spaced apart on a PC without those fonts.
+
 ### 1.3.49
 - A single notification no longer shows "+1".
 - The "shrink to widget" button now sits to the left of the text size buttons.
@@ -547,6 +555,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.50
+- アプリのフォント(Monaspace Neon、Pretendard、Uncut Sans)をアプリに同梱しました。フォントを入れていないPCでも同じ見た目になります。
+- それらのフォントがないPCで、ターミナルの文字の間隔が広がって見える問題を直しました。
 
 ### 1.3.49
 - 通知が1件だけでも「+1」が付く問題を直しました。
