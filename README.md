@@ -120,8 +120,12 @@ spawn은 Claude Code를 `claude --session-id <id> --settings %APPDATA%\spawn\ses
 
 - **빠지는 환경 변수**: 세션 환경에서 `CLAUDECODE`, `CLAUDE_PID`, `CLAUDE_CODE_`로 시작하는 변수는 빼요. Claude Code 안에서 spawn을 켰을 때 새 세션이 그 세션의 하위 세션으로 잡히지 않게 하려는 거예요. 그래서 `CLAUDE_CODE_…` 변수를 시스템 환경 변수로 두었다면 spawn 세션에는 전달되지 않아요.
 - **spawn 밖의 세션은 세지 않아요**: 걸음·포획·한도는 spawn 터미널에서 연 세션에서만 들어와요. 다른 터미널이나 IDE에서 연 Claude Code 세션에는 spawn 훅이 없어서 포켓몬이 걷지 않아요.
+<!-- Hidden 2026-11-13 with electron/features.json "otherTools": false (bring back together):
 - **Codex CLI**: 설정 › AI 도구에 Codex(`codex` 명령)를 넣으면, spawn은 Codex가 스스로 남기는 세션 기록(`~/.codex/sessions/…jsonl`)을 따라 읽어요. 요청·도구 호출(걸음)·턴 끝·모델·컨텍스트(HP)·Codex 사용량 한도(요금제에 따라 5시간·주간·월간)를 Claude 세션처럼 보여 주고, 앱을 다시 켜면 같은 대화로 `codex resume`해요. Codex 설정이나 로그인은 건드리지 않아요. Codex 안에서 `/new`로 새 대화를 시작하면 그 탭은 처음 대화를 계속 따라가요.
 - **다른 AI 도구**: 그 밖의 도구(Gemini CLI 등)에는 훅도 위 환경 변수도 넣지 않아요. 터미널 출력으로만 걸음을 세요.
+| `%APPDATA%\spawn\session-links\` | 터미널마다 지금 이어지는 대화 id(Codex 탭은 Codex 스레드 id) |
+- 이어하기 목록을 만들려고 `~/.claude/projects`(대화 기록)와 `~/.claude/sessions`(실행 중인 세션)를 읽기만 해요. Codex 탭이 열려 있으면 그 탭의 기록을 찾으려고 그날·전날 Codex 기록의 첫 줄(세션 정보: id·시각·폴더)을 읽고, 찾은 뒤에는 그 탭의 기록만 따라 읽어요.
+-->
 
 ## 저장하는 것과 보내는 것
 
@@ -140,11 +144,11 @@ spawn은 Claude Code를 `claude --session-id <id> --settings %APPDATA%\spawn\ses
 | `%APPDATA%\spawn\settings.json` | 설정 |
 | `%APPDATA%\spawn\window-state.json` | 창 위치·크기·모드, 세션 이름 |
 | `%APPDATA%\spawn\open-sessions.json` | 다음에 켤 때 다시 열 세션(세션 id, 폴더, 도구) |
-| `%APPDATA%\spawn\session-links\` | 터미널마다 지금 이어지는 대화 id(Codex 탭은 Codex 스레드 id) |
+| `%APPDATA%\spawn\session-links\` | 터미널마다 지금 이어지는 대화 id |
 | `%APPDATA%\spawn\session-settings.json` | spawn 세션에 주는 훅·상태줄 설정 |
 | `%APPDATA%\spawn\logs\spawn.log` | 앱과 로컬 서버의 로그 |
 
-- 이어하기 목록을 만들려고 `~/.claude/projects`(대화 기록)와 `~/.claude/sessions`(실행 중인 세션)를 읽기만 해요. Codex 탭이 열려 있으면 그 탭의 기록을 찾으려고 그날·전날 Codex 기록의 첫 줄(세션 정보: id·시각·폴더)을 읽고, 찾은 뒤에는 그 탭의 기록만 따라 읽어요.
+- 이어하기 목록을 만들려고 `~/.claude/projects`(대화 기록)와 `~/.claude/sessions`(실행 중인 세션)를 읽기만 해요.
 - 로컬 서버는 `127.0.0.1`에서만 열리고, 훅과 화면의 요청은 `auth-token`으로 서명하거나 확인해요.
 - 설정의 "프롬프트 숨기기"를 켜면 화면에서 가리고, 클라우드에 올리는 게임 사본에서도 요청 내용과 도구 인자를 빼요(도구 이름만 남아요). 이 PC의 `pokedex.json`에는 그대로 남아요.
 

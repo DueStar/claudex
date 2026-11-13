@@ -2,6 +2,9 @@
 
 ## spawn
 
+### 1.3.51
+- 다른 AI 도구(Codex CLI 등) 기능을 잠시 숨겼어요. 지금은 Claude Code 세션에 집중해요. 저장해 둔 설정은 그대로 남아 있어요.
+
 ### 1.3.50
 - 앱의 글꼴(Monaspace Neon, Pretendard, Uncut Sans)을 앱 안에 넣었어요. 글꼴을 따로 설치하지 않은 PC에서도 같은 모습으로 보여요.
 - 글꼴이 없는 PC에서 터미널 글자 사이가 벌어져 보이던 문제를 고쳤어요.
@@ -347,6 +350,9 @@
 
 ## spawn (English)
 
+### 1.3.51
+- The other AI tools feature (Codex CLI and so on) is hidden for now; spawn focuses on Claude Code sessions. Your saved settings are kept.
+
 ### 1.3.50
 - The app's fonts (Monaspace Neon, Pretendard, Uncut Sans) now come with the app, so it looks the same on a PC that does not have them installed.
 - Fixed terminal text standing spaced apart on a PC without those fonts.
@@ -555,6 +561,9 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.51
+- ほかのAIツール(Codex CLIなど)の機能をいったん隠しました。今はClaude Codeのセッションに集中します。保存した設定はそのまま残っています。
 
 ### 1.3.50
 - アプリのフォント(Monaspace Neon、Pretendard、Uncut Sans)をアプリに同梱しました。フォントを入れていないPCでも同じ見た目になります。
