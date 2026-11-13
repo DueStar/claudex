@@ -115,12 +115,12 @@ describe('vscodeUrl', () => {
     for (const abs of ['C:\\a\\x.ts', 'c:\\Users\\me\\my proj\\a b.ts', 'D:\\한글\\x.py', '\\\\server\\share\\x.ts']) {
       expect(vscodeUrl(abs, { platform: 'win32' })).toBe(before(abs))
     }
-    expect(vscodeUrl('C:\\a\\x.ts')).toBe('vscode://file/C:/a/x.ts')
+    expect(vscodeUrl('C:\\a\\x.ts', { platform: 'win32' })).toBe('vscode://file/C:/a/x.ts')
     expect(vscodeUrl('C:\\a\\x.ts', { scheme: 'cursor', platform: 'win32' })).toBe('cursor://file/C:/a/x.ts')
   })
 
   it('macOS paths: forward slashes, no double slash', () => {
-    expect(vscodeUrl('/Users/a/x.ts')).toBe('vscode://file/Users/a/x.ts')
+    expect(vscodeUrl('/Users/a/x.ts', { platform: 'linux' })).toBe('vscode://file/Users/a/x.ts')
     expect(vscodeUrl('/Users/a/x.ts', { platform: 'darwin' })).toBe('vscode://file/Users/a/x.ts')
     expect(vscodeUrl('/Users/a/my proj/x.ts', { platform: 'darwin' })).toBe('vscode://file/Users/a/my%20proj/x.ts')
     expect(vscodeUrl('/Users/a/x.ts', { scheme: 'cursor', platform: 'darwin' })).toBe('cursor://file/Users/a/x.ts')
