@@ -3,6 +3,7 @@ import './storageMigration'
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { captureServerToken } from './serverToken'
+import { terminalFontsReady } from './fontsReady'
 
 // The page link carries the server token in its fragment (#token=...): keep it
 // and take it out of the address bar before the first render and the WebSocket
@@ -22,7 +23,10 @@ else if (params.has('widget')) document.documentElement.classList.add('widget-mo
 // catch and needs neither the terminal nor the Pokédex. One import() per page:
 // in a single ternary the build attaches only one page's CSS to all three, and
 // the notification window showed without its styles (1.3.18).
-const Page = isQa ? lazy(() => import('./QaPage')) : isToast ? lazy(() => import('./Toast')) : lazy(() => import('./Widget'))
+// The app's page opens terminals: it waits for the bundled terminal faces as
+// its code loads, so xterm measures its cell with them (src/fontsReady.ts)
+const Page = isQa ? lazy(() => import('./QaPage')) : isToast ? lazy(() => import('./Toast'))
+  : lazy(() => Promise.all([import('./Widget'), terminalFontsReady()]).then(([page]) => page))
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
