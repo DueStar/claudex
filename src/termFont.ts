@@ -13,12 +13,19 @@ import { isMac } from './platform'
  * Malgun Gothic so Korean always has a font. A font that is not installed is
  * skipped: a missing Cascadia or D2Coding falls back to Consolas (still
  * monospace), and Hangul to Pretendard.
+ *
+ * Monaspace Neon and Pretendard ship with the app (public/fonts/fonts.css);
+ * Cascadia and D2Coding are used when installed. xterm measures its cell from
+ * the first face that has the letter: Consolas (on every Windows PC) comes
+ * before any proportional or CJK face, so should the bundled Monaspace ever
+ * fail to load the cell is still a monospace one (Korean still falls through
+ * to Pretendard glyph by glyph).
  */
 export const TERM_FONT_STACKS: Record<TerminalFont, string> = {
-  default: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', Consolas, 'SF Mono', Menlo, monospace",
-  consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
-  cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
-  d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
+  default: "'Monaspace Neon Var', 'Monaspace Neon', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+  consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+  cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+  d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
 }
 /**
  * The same choices on a Mac. xterm measures one cell for every character from the

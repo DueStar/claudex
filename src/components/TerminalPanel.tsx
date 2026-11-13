@@ -35,6 +35,19 @@ const THEME = {
 /** How long a terminal put away keeps its WebGL renderer */
 const WEBGL_IDLE_MS = 30_000
 
+/**
+ * Measure the cell again and draw the glyphs afresh, after a face finished loading.
+ * xterm measures only when fontFamily or fontSize changes, and setting an option to
+ * its current value is no change at all: give it a different string for a moment.
+ */
+function remeasure(x: Terminal) {
+  const family = x.options.fontFamily ?? ''
+  x.options.fontFamily = `${family} `
+  x.options.fontFamily = family
+  // Glyphs drawn before the face arrived (Hangul from a stand-in) are cached in the atlas
+  x.clearTextureAtlas()
+}
+
 export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus?: boolean }> = ({ term, active, focus = true }) => {
   const hostRef = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -50,6 +63,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
   // 설정 › 앱: scrollback and font, applied to this terminal as soon as they change
   const { scrollback, font } = useSettings().terminal
   const fitNowRef = useRef<() => void>(() => {})
+  const refontRef = useRef<() => void>(() => {})
   const webglRef = useRef<WebglAddon | null>(null)
 
   useEffect(() => {
@@ -273,10 +287,12 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     })
     ro.observe(hostRef.current)
     doFit()
-    // The cell size is measured with whatever font is ready: once Monaspace has
-    // loaded, measure again, or the last rows (Claude Code's status line) fall
-    // below the bottom edge
-    const refont = () => { if (disposed) return; xterm.options.fontFamily = xterm.options.fontFamily; doFit() }
+    // The cell size is measured with whatever font is ready: the app's page waits
+    // for the bundled faces before it opens a terminal (src/fontsReady.ts), and
+    // should a face still arrive later, measure again and redraw the glyphs, or the
+    // last rows (Claude Code's status line) fall below the bottom edge
+    const refont = () => { if (disposed) return; remeasure(xterm); doFit() }
+    refontRef.current = refont
     const fitNow = () => doFit()
     document.fonts.load("13px 'Monaspace Neon Var'").then(refont, () => {})
     // The shared text size changed: apply it and fit again
@@ -288,6 +304,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     return () => {
       disposed = true
       fitNowRef.current = () => {}
+      refontRef.current = () => {}
       host.removeEventListener('dragover', onDragOver)
       host.removeEventListener('drop', onDrop)
       host.removeEventListener('wheel', onWheel)
@@ -342,7 +359,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     x.options.fontFamily = stack
     fitNowRef.current()
     let gone = false
-    document.fonts.load(`13px ${stack.split(',')[0]}`).then(() => { if (!gone) fitNowRef.current() }, () => {})
+    document.fonts.load(`13px ${stack.split(',')[0]}`).then(() => { if (!gone) refontRef.current() }, () => {})
     return () => { gone = true }
   }, [scrollback, font])
 

@@ -3,6 +3,7 @@
 *.png binary
 *.gif binary
 *.ico binary
+*.woff2 binary
 # cmd.exe misreads LF-only batch files
 *.cmd text eol=crlf
 *.bat text eol=crlf

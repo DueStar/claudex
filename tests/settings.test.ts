@@ -100,13 +100,14 @@ describe('terminal font per platform', () => {
     for (const f of ['default', 'cascadia', 'd2coding'] as const) expect(termFontLabel(f, true)).toBe(termFontLabel(f, false))
   })
 
-  it('Windows stacks are exactly as they were', async () => {
+  it("Windows stacks are main's, untouched by the Mac ones", async () => {
     const { termFontStack, TERM_FONT_STACKS } = await import('../src/termFont')
+    // main (fonts bundled, 8f78a7e): Consolas before the proportional faces in the default
     const before = {
-      default: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', Consolas, 'SF Mono', Menlo, monospace",
-      consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
-      cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
-      d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
+      default: "'Monaspace Neon Var', 'Monaspace Neon', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+      consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+      cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+      d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
     }
     expect(TERM_FONT_STACKS).toEqual(before)
     for (const f of ['default', 'consolas', 'cascadia', 'd2coding'] as const) expect(termFontStack(f, false)).toBe(before[f])

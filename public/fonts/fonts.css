@@ -1,0 +1,75 @@
+/*
+ * The app's typefaces, shipped with the app so every PC renders from the same
+ * files instead of whatever fonts happen to be installed (on a PC without
+ * Monaspace the terminal measured its cell from a proportional Korean face and
+ * spaced the text far apart). Loaded by every page: index.html (the app, the
+ * catch notification, the QA page) and electron/status-card.html.
+ *
+ * The bundled file comes first, so it wins over an installed copy of the same
+ * name; local() is only a fallback should the file ever fail to load. URLs are
+ * relative to this file: /fonts/ when the server or Vite serves the page,
+ * dist/fonts/ when the status card opens it from disk.
+ *
+ *   Monaspace Neon Var 1.400  githubnext/monaspace v1.400  OFL 1.1  LICENSE-Monaspace.txt
+ *   Pretendard Variable 1.3.9 orioncactus/pretendard v1.3.9 OFL 1.1  LICENSE-Pretendard.txt
+ *   Uncut Sans Variable 1.304 kaspernordkvist/uncut_sans v1.3.4 OFL 1.1 LICENSE-UncutSans.txt
+ *
+ * Unmodified webfonts from each project's release (the Reserved Font Names
+ * forbid shipping a modified font under its name: no subsetting here).
+ *
+ * font-style: normal is written out on purpose. Left out it means auto, and
+ * Chromium then draws italic (Claude Code's thinking text) from Monaspace's
+ * slant axis, which looks different from the slanted letters the installed
+ * fonts gave; with normal the italic is the same as before.
+ */
+
+/* Terminal and code: block, so xterm never measures its cell with a fallback face */
+@font-face {
+  font-family: 'Monaspace Neon Var';
+  src: url('MonaspaceNeonVar.woff2') format('woff2'), local('Monaspace Neon Var');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: block;
+}
+/* The installed static family's name, used in the same stacks */
+@font-face {
+  font-family: 'Monaspace Neon';
+  src: url('MonaspaceNeonVar.woff2') format('woff2'), local('Monaspace Neon Var');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: block;
+}
+
+/* Hangul and kana: the weight range is Pretendard's own (its pretendardvariable.css) */
+@font-face {
+  font-family: 'Pretendard Variable';
+  src: url('PretendardVariable.woff2') format('woff2'), local('Pretendard Variable'), local('PretendardVariable');
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: block;
+}
+/* The UI's alias (src/styles/widget.css), unchanged weights */
+@font-face {
+  font-family: 'W Pretendard';
+  src: url('PretendardVariable.woff2') format('woff2'), local('Pretendard Variable'), local('PretendardVariable');
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: block;
+}
+
+/* Latin UI text and the wordmark (weight 570): the variable font, any weight */
+@font-face {
+  font-family: 'Uncut Sans Variable';
+  src: url('UncutSansVariable.woff2') format('woff2'), local('Uncut Sans Variable'), local('UncutSans-Variable');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: block;
+}
+/* The UI's alias (src/styles/widget.css), unchanged weights */
+@font-face {
+  font-family: 'W Uncut';
+  src: url('UncutSansVariable.woff2') format('woff2'), local('Uncut Sans Variable'), local('UncutSans-Variable');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
