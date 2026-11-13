@@ -4,11 +4,11 @@
  * argument, so neither leaves this PC.
  */
 
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, win32 } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { cloudCopy, readHidePrompts } from '../server/cloud.js'
+import { cloudCopy, defaultSettingsFile, readHidePrompts } from '../server/cloud.js'
 
 const dirs: string[] = []
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }) })
@@ -49,5 +49,27 @@ describe('cloud copy and 프롬프트 숨기기', () => {
     writeFileSync(file, '{broken')
     expect(readHidePrompts(file)).toBe(false)
     expect(readHidePrompts(null)).toBe(false)
+  })
+})
+
+describe('default settings file location', () => {
+  it('darwin: under Application Support', () => {
+    expect(defaultSettingsFile({}, '/Users/a', 'darwin')).toBe('/Users/a/Library/Application Support/spawn/settings.json')
+  })
+
+  it('win32: under APPDATA, as before', () => {
+    expect(defaultSettingsFile({ APPDATA: 'C:\\Users\\a\\AppData\\Roaming' }, 'C:\\Users\\a', 'win32'))
+      .toBe(win32.join('C:\\Users\\a\\AppData\\Roaming', 'spawn', 'settings.json'))
+  })
+
+  it('darwin: a settings file with hidePrompts on is found and hides the prompts', () => {
+    const home = mkdtempSync(join(tmpdir(), 'spawn-home-'))
+    dirs.push(home)
+    const dir = join(home, 'Library', 'Application Support', 'spawn')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ privacy: { hidePrompts: true } }))
+    const hide = readHidePrompts(defaultSettingsFile({}, home, 'darwin'))
+    expect(hide).toBe(true)
+    expect(JSON.stringify(cloudCopy(game, { hidePrompts: hide }))).not.toContain('고객사')
   })
 })
