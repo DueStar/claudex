@@ -21,21 +21,29 @@ describe('adapters.cjs', () => {
     expect(claude.events).toBe('hooks')
   })
 
+  // How a listed tool starts, per platform: on Windows a bare name not found as an .exe
+  // goes through cmd.exe (npm shims are .cmd files), anywhere else it starts as it is
+  const WIN = { platform: 'win32', env: { PATH: '' } }
+  const MAC = { platform: 'darwin', env: { PATH: '/usr/bin:/bin' } }
+
   it('a listed tool runs its own command, reports through its output, and cannot resume', () => {
     const tools = [{ id: 'gem', name: 'Gemini CLI', command: 'gemini --model "pro 3"' }]
-    const g = adapterFor('gem', tools)
+    const g = adapterFor('gem', tools, WIN)
     expect(g).toMatchObject({ id: 'gem', name: 'Gemini CLI', kind: 'tool', events: 'pty', canResume: false })
-    expect(g.launch({ resume: 'x' }).args.slice(-3)).toEqual(['gemini', '--model', 'pro 3'])
+    expect(g.launch({ resume: 'x' })).toEqual({ file: 'cmd.exe', args: ['/d', '/s', '/c', 'gemini', '--model', 'pro 3'] })
+    expect(adapterFor('gem', tools, MAC).launch({ resume: 'x' })).toEqual({ file: 'gemini', args: ['--model', 'pro 3'] })
   })
 
   it('Codex CLI is a listed tool that resumes its thread (codex … resume <id>)', () => {
     const tools = [{ id: 'codex', name: 'Codex CLI', command: 'codex --model "gpt 5"' }]
-    const a = adapterFor('codex', tools)
+    const a = adapterFor('codex', tools, WIN)
     expect(a).toMatchObject({ id: 'codex', name: 'Codex CLI', kind: 'codex', events: 'pty', canResume: true })
-    expect(a.launch({ resume: 'thread-1' }).args.slice(-5)).toEqual(['codex', '--model', 'gpt 5', 'resume', 'thread-1'])
-    const run = a.launch({})
-    // on Windows a bare name goes through cmd.exe (npm shims are .cmd files)
-    expect(run.args.slice(-3)).toEqual(['codex', '--model', 'gpt 5'].slice(-3))
+    expect(a.launch({ resume: 'thread-1' })).toEqual({ file: 'cmd.exe', args: ['/d', '/s', '/c', 'codex', '--model', 'gpt 5', 'resume', 'thread-1'] })
+    expect(a.launch({})).toEqual({ file: 'cmd.exe', args: ['/d', '/s', '/c', 'codex', '--model', 'gpt 5'] })
+    const mac = adapterFor('codex', tools, MAC)
+    expect(mac.kind).toBe('codex')
+    expect(mac.launch({ resume: 'thread-1' })).toEqual({ file: 'codex', args: ['--model', 'gpt 5', 'resume', 'thread-1'] })
+    expect(mac.launch({})).toEqual({ file: 'codex', args: ['--model', 'gpt 5'] })
     expect(a.asking.test('Would you like to run the following command?')).toBe(true)
     expect(a.asking.test('Allow once')).toBe(true)
     expect(a.asking.test('Reading files')).toBe(false)

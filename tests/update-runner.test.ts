@@ -44,7 +44,8 @@ function fakes(code: number | null = 1) {
   return { app, spawn, card, openCard, timer, steps }
 }
 
-const run = (f: ReturnType<typeof fakes>, isPackaged = true) => runPendingUpdate({
+// These are the Windows flow (robocopy, app.relaunch), pinned so they run on any host; the Mac flow is pinned to darwin below
+const run = (f: ReturnType<typeof fakes>, isPackaged = true) => runPendingUpdate({ platform: 'win32',
   app: f.app, isPackaged, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer,
   readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--some-flag'],
 })
@@ -107,14 +108,14 @@ describe('runPendingUpdate', () => {
   it('does not add the updated flag twice', async () => {
     writeMarker()
     const f = fakes(0)
-    await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--spawn-updated'] })
+    await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--spawn-updated'] })
     expect(f.app.relaunch).toHaveBeenCalledWith({ args: ['--spawn-updated'] })
   })
 
   it('drops the old --claudex-updated flag (from a 1.3.35 restart) instead of carrying it along', async () => {
     writeMarker()
     const f = fakes(0)
-    await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--claudex-updated', '--x'] })
+    await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--claudex-updated', '--x'] })
     expect(f.app.relaunch).toHaveBeenCalledWith({ args: ['--x', '--spawn-updated'] })
   })
 
@@ -147,7 +148,7 @@ describe('runPendingUpdate — robustness', () => {
   it('a marker that cannot be removed ends the run without starting it again (no loop)', async () => {
     writeMarker()
     const f = fakes()
-    const r = await runPendingUpdate({
+    const r = await runPendingUpdate({ platform: 'win32',
       app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'],
       removeMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
       setAsideMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
@@ -161,7 +162,7 @@ describe('runPendingUpdate — robustness', () => {
   it('a marker that cannot be removed but can be set aside still lets the update go in', async () => {
     writeMarker()
     const f = fakes(1)
-    const r = await runPendingUpdate({
+    const r = await runPendingUpdate({ platform: 'win32',
       app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'],
       removeMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
     })
@@ -183,7 +184,7 @@ describe('runPendingUpdate — robustness', () => {
     let ready = false
     f.app.whenReady = vi.fn(async () => { ready = true })
     const getLang = vi.fn(() => (ready ? 'ko' : 'en'))
-    await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], getLang })
+    await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], getLang })
     expect(f.openCard).toHaveBeenCalledWith(expect.objectContaining({ lang: 'ko' }))
   })
 
@@ -191,7 +192,7 @@ describe('runPendingUpdate — robustness', () => {
     writeMarker()
     const f = fakes(1)
     f.app.whenReady = vi.fn(() => new Promise<void>(() => {}))
-    const r = await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], readyTimeoutMs: 20 })
+    const r = await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], readyTimeoutMs: 20 })
     expect(r.ok).toBe(true)
     expect(f.openCard).not.toHaveBeenCalled()
     expect(f.app.relaunch).toHaveBeenCalledTimes(1)

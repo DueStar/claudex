@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isMac, modKey, modLabel, setPlatformForTest } from '../src/platform'
 
 const require = createRequire(import.meta.url)
@@ -23,10 +23,26 @@ describe('electron/platform.cjs', () => {
 })
 
 describe('src/platform.ts', () => {
-  afterEach(() => setPlatformForTest(null))
+  // Node has a navigator of its own (on a Mac its platform is MacIntel): each case sets one
+  afterEach(() => { setPlatformForTest(null); vi.unstubAllGlobals() })
 
   it('isMac does not throw without navigator and defaults to false', () => {
     setPlatformForTest(null)
+    vi.stubGlobal('navigator', undefined)
+    expect(isMac()).toBe(false)
+  })
+
+  it('isMac reads the navigator: platform, or userAgentData.platform first', () => {
+    setPlatformForTest(null)
+    vi.stubGlobal('navigator', { platform: 'Win32' })
+    expect(isMac()).toBe(false)
+    vi.stubGlobal('navigator', { platform: 'MacIntel' })
+    expect(isMac()).toBe(true)
+    vi.stubGlobal('navigator', { platform: '', userAgentData: { platform: 'macOS' } })
+    expect(isMac()).toBe(true)
+    vi.stubGlobal('navigator', { platform: 'MacIntel', userAgentData: { platform: 'Windows' } })
+    expect(isMac()).toBe(false)
+    vi.stubGlobal('navigator', { platform: 'Linux x86_64' })
     expect(isMac()).toBe(false)
   })
 
