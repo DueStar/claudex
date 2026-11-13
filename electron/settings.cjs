@@ -31,7 +31,8 @@ const DEFAULTS = Object.freeze({
   // restoreOnStart: reopen the sessions open at the last close. tools: other AI tools a session can run
   // ({ id, name, command }, Claude Code is always there), defaultTool: the one + opens with
   session: { defaultCwd: '', model: '', permissionMode: '', confirmClose: true, restoreOnStart: true, tools: [], defaultTool: 'claude' },
-  app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto' }, // auto: the system's language
+  // language auto: the system's. workMode: 업무 모드, nothing Pokémon on screen (src/workMode.ts); the game goes on
+  app: { openAtLogin: false, startHidden: false, widgetOnTop: true, language: 'auto', workMode: false },
   // the terminals' look, applied to open terminals at once (the text size stays per PC: src/termFont.ts)
   terminal: { scrollback: 5000, font: 'default' },
 })
@@ -90,8 +91,9 @@ function inQuietHours(notify, date = new Date()) {
 
 const RARE = new Set(['rare', 'sub', 'legendary', 'mythical'])
 
-/** Whether a game event pops up as a notification under these settings */
+/** Whether a game event pops up as a notification under these settings (never in 업무 모드) */
 function toastAllowed(event, settings, date = new Date()) {
+  if (settings.app?.workMode) return false
   const n = settings.notify
   const kind = event?.kind
   if (!['catch', 'flee', 'evolve', 'levelup'].includes(kind) || !n[kind]) return false

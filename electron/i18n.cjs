@@ -25,6 +25,7 @@ const en = {
   '업데이트를 확인하지 못했어요': "Couldn't check for updates",
   '도감 백업 저장': 'Save Pokédex backup',
   '포켓몬이 일할 폴더 선택': 'Choose a folder for your Pokémon to work in',
+  '세션 폴더 선택': 'Choose a folder for the session',
   'spawn 디자인 QA': 'spawn Design QA',
   '개발 실행에서는 업데이트하지 않아요': "Updates are off in a development run",
 }
@@ -48,6 +49,7 @@ const ja = {
   '업데이트를 확인하지 못했어요': 'アップデートを確認できませんでした',
   '도감 백업 저장': '図鑑のバックアップを保存',
   '포켓몬이 일할 폴더 선택': 'ポケモンが作業するフォルダを選択',
+  '세션 폴더 선택': 'セッションのフォルダを選択',
   'spawn 디자인 QA': 'spawn デザイン QA',
   '개발 실행에서는 업데이트하지 않아요': '開発版ではアップデートしません',
 }
