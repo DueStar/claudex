@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 // @ts-expect-error plain ESM script without types
-import { releaseMac, parseReleaseArgs, macFailureMessage } from '../scripts/release-mac.mjs'
+import { releaseMac, parseReleaseArgs, releaseArgsOrExit, macFailureMessage, SMOKE_STEP } from '../scripts/release-mac.mjs'
 // @ts-expect-error plain ESM script without types
 import { signManifest } from '../scripts/signing.mjs'
 
@@ -36,6 +36,7 @@ interface ArchSetup {
   badSha?: boolean         // sha256.txt does not match the app zip
   smoke?: 'ok' | 'failed' | 'missing'
   job?: string             // the CI job's conclusion
+  failedSteps?: string[]   // the job's steps that failed (mac.yml's names)
 }
 
 let root: string
@@ -60,13 +61,14 @@ function writeArtifact(dir: string, arch: Arch, s: ArchSetup) {
 }
 
 /** A fake `run` that answers as gh and git would, and records every call */
-function fakeRun(setup: Partial<Record<Arch, ArchSetup>> = {}, { headSha = SHA, watchFails = false, publishedNotes = NOTES } = {}) {
+function fakeRun(setup: Partial<Record<Arch, ArchSetup>> = {}, { headSha = SHA, watchFails = false, publishedNotes = NOTES, assets = [] as string[], failOn = (_a: string) => false } = {}) {
   let lists = 0
   return async (cmd: string, args: string[]) => {
     calls.push([cmd, ...args])
     const a = args.join(' ')
     if (cmd === 'git' && a === 'rev-parse --abbrev-ref HEAD') return 'main'
     if (cmd !== 'gh') throw new Error(`unexpected ${cmd} ${a}`)
+    if (failOn(a)) throw new Error(`gh ${args[0]} ${args[1]} failed`)
     if (a.startsWith(`api repos/${REPO}/commits/v${V}`)) return SHA
     if (a.startsWith('run list')) {
       lists++
@@ -77,8 +79,15 @@ function fakeRun(setup: Partial<Record<Arch, ArchSetup>> = {}, { headSha = SHA, 
     if (a.startsWith('workflow run')) return ''
     if (a.startsWith('run watch')) { if (watchFails) throw new Error('exit 1'); return '' }
     if (a.startsWith('run view')) {
-      return JSON.stringify({ jobs: (['arm64', 'x64'] as Arch[]).map(arch => ({ name: `mac-${arch}`, conclusion: setup[arch]?.job ?? (setup[arch]?.missing || setup[arch]?.smoke === 'failed' ? 'failure' : 'success') })) })
+      return JSON.stringify({ jobs: (['arm64', 'x64'] as Arch[]).map(arch => {
+        const s = setup[arch] ?? {}
+        const bad = s.failedSteps ?? (s.smoke === 'failed' ? [SMOKE_STEP] : s.missing ? ['Package'] : [])
+        const steps = ['Test', 'Package', SMOKE_STEP, 'Zip', 'Upload', 'Tests passed'].map(name => ({ name, conclusion: bad.includes(name) ? 'failure' : 'success' }))
+        return { name: `mac-${arch}`, conclusion: s.job ?? (bad.length ? 'failure' : 'success'), steps }
+      }) })
     }
+    if (a.startsWith('release view')) return JSON.stringify({ assets: assets.map(name => ({ name })) })
+    if (a.startsWith('release delete-asset')) return ''
     if (a.startsWith('run download')) {
       const name = args[args.indexOf('-n') + 1]
       const dir = args[args.indexOf('-D') + 1]
@@ -131,6 +140,7 @@ describe('releaseMac', () => {
       ['run', 'view', '101', '--repo', REPO, '--json', 'jobs'],
       ['run', 'download', '101', '--repo', REPO, '-n', 'mac-arm64', '-D', join(dir, 'mac-arm64')],
       ['run', 'download', '101', '--repo', REPO, '-n', 'mac-x64', '-D', join(dir, 'mac-x64')],
+      ['release', 'view', `v${V}`, '--repo', REPO, '--json', 'assets'],
       ['release', 'upload', `v${V}`, '--repo', REPO, '--clobber',
         join(dir, 'mac-arm64', `spawn-app-${V}-mac-arm64.zip`), join(dir, 'mac-arm64', `spawn-${V}-mac-arm64.zip`),
         join(dir, 'mac-x64', `spawn-app-${V}-mac-x64.zip`), join(dir, 'mac-x64', `spawn-${V}-mac-x64.zip`)],
@@ -213,6 +223,77 @@ describe('releaseMac', () => {
     expect(logs.some(l => l.startsWith('WARN') && /arm64/.test(l) && /smoke/i.test(l))).toBe(true)
   })
 
+  it('--mac-allow-unsmoked does not cover any other failed step: the tests failing still fails the arch', async () => {
+    const tests = await releaseMac(V, deps({ run: fakeRun({ arm64: { failedSteps: ['Tests passed'] } }, { watchFails: true }), allowUnsmoked: true }))
+    expect(tests).toMatchObject({ ok: false, released: ['x64'] })
+    expect(tests.failed[0]).toMatchObject({ arch: 'arm64' })
+    expect(tests.failed[0].reason).toMatch(/Tests passed/)
+    calls = []
+    const both = await releaseMac(V, deps({ run: fakeRun({ x64: { smoke: 'failed', failedSteps: [SMOKE_STEP, 'Tests passed'] } }, { watchFails: true }), allowUnsmoked: true }))
+    expect(both).toMatchObject({ ok: false, released: ['arm64'] })
+    calls = []
+    const cancelled = await releaseMac(V, deps({ run: fakeRun({ x64: { job: 'cancelled' } }), allowUnsmoked: true }))
+    expect(cancelled).toMatchObject({ ok: false, released: ['arm64'] })
+  })
+
+  it("the smoke step's name is mac.yml's", () => {
+    const yaml = require('js-yaml')
+    const wf = yaml.load(readFileSync(join(__dirname, '..', '.github', 'workflows', 'mac.yml'), 'utf8'))
+    expect(wf.jobs.build.steps.map((st: { name?: string }) => st.name)).toContain(SMOKE_STEP)
+  })
+
+  it('a retry removes the manifests already on the release before replacing their zips', async () => {
+    const assets = [`spawn-app-${V}-mac-arm64.zip`, 'latest-mac-arm64.json', 'latest-mac-x64.json', 'latest.json']
+    const result = await releaseMac(V, deps({ run: fakeRun({}, { assets }) }))
+    expect(result.ok).toBe(true)
+    const seq = gh().map(c => c.slice(0, 2).join(' '))
+    expect(gh().filter(c => c[1] === 'delete-asset')).toEqual([
+      ['release', 'delete-asset', `v${V}`, 'latest-mac-arm64.json', '--repo', REPO, '--yes'],
+      ['release', 'delete-asset', `v${V}`, 'latest-mac-x64.json', '--repo', REPO, '--yes'],
+    ])
+    expect(seq.lastIndexOf('release delete-asset')).toBeLessThan(seq.indexOf('release upload'))
+    // Windows' latest.json is never touched
+    expect(gh().flat()).not.toContain('latest.json')
+  })
+
+  it('only the manifests of the arches going out are removed', async () => {
+    await releaseMac(V, deps({ run: fakeRun({ x64: { badSha: true } }, { assets: ['latest-mac-arm64.json', 'latest-mac-x64.json'] }) }))
+    expect(gh().filter(c => c[1] === 'delete-asset').map(c => c[3])).toEqual(['latest-mac-arm64.json'])
+  })
+
+  it('a first release has no manifest to remove', async () => {
+    await releaseMac(V, deps())
+    expect(gh().some(c => c[1] === 'delete-asset')).toBe(false)
+  })
+
+  it('an old manifest that cannot be removed: no zip is replaced', async () => {
+    const result = await releaseMac(V, deps({ run: fakeRun({}, { assets: ['latest-mac-arm64.json'], failOn: (a: string) => a.startsWith('release delete-asset') }) }))
+    expect(result.ok).toBe(false)
+    expect(uploads()).toEqual([])
+  })
+
+  it('the zip upload fails: no manifest goes up', async () => {
+    const result = await releaseMac(V, deps({ run: fakeRun({}, { failOn: (a: string) => a.startsWith('release upload') && a.includes('.zip') }) }))
+    expect(result).toMatchObject({ ok: false, released: [], zipsUploaded: [] })
+    expect(uploads().filter(c => c.some((x: string) => x.endsWith('.json')))).toEqual([])
+    expect(macFailureMessage(V, result, { windowsOut: true })).toContain('Nothing was uploaded for the Macs.')
+  })
+
+  it('the manifest upload fails after the zips: the message says the zips are up', async () => {
+    const result = await releaseMac(V, deps({ run: fakeRun({}, { failOn: (a: string) => a.startsWith('release upload') && a.includes('.json') }) }))
+    expect(result).toMatchObject({ ok: false, released: [], zipsUploaded: ['arm64', 'x64'] })
+    const msg = macFailureMessage(V, result, { windowsOut: true })
+    expect(msg).toMatch(/Zips uploaded for arm64, x64, manifests not/)
+    expect(msg).not.toContain('Nothing was uploaded')
+    expect(msg).toContain(`node scripts/release.mjs --mac-only ${V}`)
+  })
+
+  it('old manifests removed but nothing replaced: the message says so', () => {
+    const msg = macFailureMessage(V, { released: [], failed: [{ arch: 'arm64', reason: 'x' }], zipsUploaded: [], manifestsRemoved: ['arm64'] }, { windowsOut: false })
+    expect(msg).toMatch(/old manifest of arm64 was removed/)
+    expect(msg).not.toContain('Nothing was uploaded')
+  })
+
   it('a failed CI job fails its arch even with the zips there', async () => {
     const result = await releaseMac(V, deps({ run: fakeRun({ x64: { job: 'failure' } }, { watchFails: true }) }))
     expect(result).toMatchObject({ ok: false, released: ['arm64'] })
@@ -277,6 +358,22 @@ describe('parseReleaseArgs', () => {
     expect(() => parseReleaseArgs(['--mac-only'])).toThrow(/version/)
     expect(() => parseReleaseArgs(['--mac-only', 'v1.3.49'])).toThrow(/version/)
     expect(() => parseReleaseArgs(['--mac-only', '--publish'])).toThrow(/version/)
+  })
+})
+
+describe('releaseArgsOrExit', () => {
+  it('a bad --mac-only value is one line and exit code 1', () => {
+    const errors: string[] = []
+    const codes: number[] = []
+    releaseArgsOrExit(['--mac-only', 'latest'], { error: (m: string) => errors.push(m), exit: (c: number) => { codes.push(c) } })
+    expect(codes).toEqual([1])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toMatch(/--mac-only needs the version/)
+    expect(errors[0]).not.toContain('\n')
+  })
+
+  it('good arguments pass through', () => {
+    expect(releaseArgsOrExit(['--publish'], { exit: () => { throw new Error('no exit') } })).toMatchObject({ mac: true })
   })
 })
 

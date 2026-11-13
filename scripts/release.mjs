@@ -43,13 +43,13 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { signManifest, signingKeyPath } from './signing.mjs'
 import { writeManifest } from './manifest.mjs'
-import { parseReleaseArgs, runMacRelease } from './release-mac.mjs'
+import { releaseArgsOrExit, runMacRelease } from './release-mac.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const version = pkg.version
 // --mac-only <v>: none of the Windows steps below, only the Mac part for the release v<v>
-const cli = parseReleaseArgs(process.argv.slice(2))
+const cli = releaseArgsOrExit(process.argv.slice(2))
 if (cli.macOnly) process.exit(await runMacRelease({ root, version: cli.macOnly, allowUnsmoked: cli.allowUnsmoked, windowsOut: false }))
 const given = process.argv.slice(2).filter(a => !a.startsWith('--')).join(' ').trim()
 // Without notes on the command line, the release says what CHANGELOG.md says

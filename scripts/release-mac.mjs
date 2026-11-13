@@ -37,6 +37,8 @@ const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
 // How long the started run may take to show up in `gh run list`
 const FIND_TRIES = 24
 const FIND_EVERY_MS = 5000
+// mac.yml's step that launches the built app: the only failed step --mac-allow-unsmoked lets through
+export const SMOKE_STEP = 'Smoke launch'
 
 /**
  * What release.mjs's arguments ask for. A test build (no --publish) is
@@ -70,6 +72,17 @@ function readSha256s(text) {
     if (m) out[m[2]] = m[1].toLowerCase()
   }
   return out
+}
+
+/**
+ * parseReleaseArgs for release.mjs: a bad argument is one line on stderr and
+ * exit code 1, not a stack trace.
+ */
+export function releaseArgsOrExit(argv, { exit = process.exit, error = console.error } = {}) {
+  try { return parseReleaseArgs(argv) } catch (err) {
+    error(err.message)
+    return exit(1)
+  }
 }
 
 /**
@@ -118,7 +131,9 @@ function warnLoud(log, msg) {
  *   CI builds: the current one by default), notes ({ notes, notesEn, notesJa,
  *   date } of the Windows manifest; null: read from the release's latest.json),
  *   allowUnsmoked.
- * Resolves to { ok, released: [arch], failed: [{ arch, reason }] }; never throws.
+ * Resolves to { ok, released: [arch], failed: [{ arch, reason }], zipsUploaded:
+ * [arch], manifestsRemoved: [arch] } (the last two say what is on the release
+ * when it stopped half way); never throws.
  */
 export async function releaseMac(version, deps = {}) {
   const {
@@ -129,10 +144,13 @@ export async function releaseMac(version, deps = {}) {
   const out = join(root, 'release', 'mac', version)
   const released = []
   const failed = []
+  const zipsUploaded = []
+  const manifestsRemoved = []
+  const result = () => ({ ok: failed.length === 0, released, failed, zipsUploaded, manifestsRemoved })
   const failAll = (reason) => {
     for (const arch of MAC_ARCHES) if (!failed.some(f => f.arch === arch)) failed.push({ arch, reason })
     log.error(`Mac release of ${version}: ${reason}`)
-    return { ok: false, released, failed }
+    return result()
   }
   const gh = (args, opts) => run('gh', args, opts)
 
@@ -188,8 +206,11 @@ export async function releaseMac(version, deps = {}) {
       try {
         const job = jobs.find(j => j.name === artifact)
         if (!job || job.conclusion !== 'success') {
-          const why = `CI job ${artifact} ended ${job ? job.conclusion || job.status : 'missing'}`
-          if (!allowUnsmoked) throw new Error(why)
+          // The override is for the smoke launch alone: any other failed step (the tests) still fails the arch
+          const failedSteps = (job?.steps ?? []).filter(st => st.conclusion === 'failure').map(st => st.name)
+          const why = `CI job ${artifact} ended ${job ? job.conclusion || job.status : 'missing'}${failedSteps.length ? ` (failed: ${failedSteps.join(', ')})` : ''}`
+          const onlySmoke = failedSteps.length === 1 && failedSteps[0] === SMOKE_STEP
+          if (!(allowUnsmoked && onlySmoke)) throw new Error(why)
           warnLoud(log, `${why}: going on (--mac-allow-unsmoked)`)
         }
         try { await gh(['run', 'download', id, '--repo', REPO, '-n', artifact, '-D', dir], { show: true }) } catch (err) { throw new Error(`could not download ${artifact}: ${err.message}`) }
@@ -210,27 +231,55 @@ export async function releaseMac(version, deps = {}) {
         log.error(`Mac ${arch}: ${err.message}`)
       }
     }
-    if (!ready.length) return { ok: false, released, failed }
+    if (!ready.length) return result()
+
+    // A retry rebuilds the zips and ditto's are not byte for byte the same: a manifest
+    // already on the release would name a zip with another sha256 once it is replaced.
+    // It goes first (no manifest only means no update offered); if it cannot go, nothing is replaced.
+    let assets = []
+    try { assets = (JSON.parse(String(await gh(['release', 'view', tag, '--repo', REPO, '--json', 'assets']))).assets ?? []).map(a => a.name) } catch (err) {
+      return failAll(`could not list ${tag}'s assets: ${err.message}`)
+    }
+    for (const r of ready) {
+      const name = manifestName('darwin', r.arch)
+      if (!assets.includes(name)) continue
+      try { await gh(['release', 'delete-asset', tag, name, '--repo', REPO, '--yes']) } catch (err) {
+        return failAll(`could not remove the old ${name} before replacing its zips: ${err.message}`)
+      }
+      manifestsRemoved.push(r.arch)
+    }
 
     // Zips first, manifests last: a manifest must never name a zip that is not there yet
-    await gh(['release', 'upload', tag, '--repo', REPO, '--clobber', ...ready.flatMap(r => r.zips)], { show: true })
-    await gh(['release', 'upload', tag, '--repo', REPO, '--clobber', ...ready.map(r => r.manifest)], { show: true })
+    try { await gh(['release', 'upload', tag, '--repo', REPO, '--clobber', ...ready.flatMap(r => r.zips)], { show: true }) } catch (err) {
+      return failAll(`the zip upload failed, so no manifest went up: ${err.message}`)
+    }
+    zipsUploaded.push(...ready.map(r => r.arch))
+    try { await gh(['release', 'upload', tag, '--repo', REPO, '--clobber', ...ready.map(r => r.manifest)], { show: true }) } catch (err) {
+      return failAll(`zips uploaded, manifests not: ${err.message}`)
+    }
     for (const r of ready) released.push(r.arch)
     log.log(`Mac: released ${released.join(', ')} to ${tag}`)
-    return { ok: failed.length === 0, released, failed }
+    return result()
   } catch (err) {
     return failAll(err.message)
   }
 }
 
 /** What to tell the operator when the Mac part did not fully go out */
-export function macFailureMessage(version, { released = [], failed = [] }, { windowsOut }) {
+export function macFailureMessage(version, { released = [], failed = [], zipsUploaded = [], manifestsRemoved = [] }, { windowsOut }) {
   const bar = '!'.repeat(72)
+  const zipsOnly = zipsUploaded.filter(a => !released.includes(a))
+  const removedOnly = manifestsRemoved.filter(a => !released.includes(a) && !zipsUploaded.includes(a))
+  const state = []
+  if (released.length) state.push(`  Released for: ${released.join(', ')}`)
+  if (zipsOnly.length) state.push(`  Zips uploaded for ${zipsOnly.join(', ')}, manifests not: those Macs are offered no update until the retry.`)
+  if (removedOnly.length) state.push(`  The old manifest of ${removedOnly.join(', ')} was removed, its zips not replaced: those Macs are offered no update until the retry.`)
+  if (!state.length) state.push('  Nothing was uploaded for the Macs.')
   return [
     bar,
     `  The Mac release of ${version} did not fully go out.`,
     ...failed.map(f => `  - ${f.arch}: ${f.reason}`),
-    released.length ? `  Released for: ${released.join(', ')}` : '  Nothing was uploaded for the Macs.',
+    ...state,
     windowsOut ? `  The Windows release v${version} is out and stays as it is.` : `  The Windows release v${version} was not touched.`,
     `  Retry the Mac part: node scripts/release.mjs --mac-only ${version}`,
     bar,
