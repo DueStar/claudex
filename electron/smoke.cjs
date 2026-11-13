@@ -18,9 +18,16 @@
  *                       back in the pty's output (the shell worked it out)
  *   shell-env           the PATH and LANG the shell sees (optional: a
  *                       readout that fails does not fail the run)
- *   capture-window      a PNG of each mode (webContents.capturePage)
+ *   capture-window      a PNG of each mode (webContents.capturePage), once the
+ *                       terminal in the page shows the shell's output again
+ *   terminal-font       the terminal's cell, measured by xterm, is a monospace
+ *                       one: 0.5–0.7 of the font size (a proportional or CJK
+ *                       face first in the stack made it far wider: CI run 2);
+ *                       and the new window replayed the shell's output
  *   capture-widget
- *   capture-fullscreen
+ *   capture-fullscreen  the window fills the work area (macWindow.cjs's fill,
+ *                       and the bounds equal the work area as it is now)
+ *   restore-window      back to the window mode: the bounds from before
  *   quit                the app's own quit sequence, to the end
  *
  * smoke.json in SPAWN_SMOKE_DIR is written after every step, so a run killed
@@ -35,7 +42,9 @@ const os = require('os')
 const path = require('path')
 
 const SMOKE_FLAG = '--smoke-test'
-const STEPS = Object.freeze(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'capture-widget', 'capture-fullscreen', 'quit'])
+const STEPS = Object.freeze(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'quit'])
+/** A monospace Latin cell is about 0.6 em: outside this the stack's first face is not monospace */
+const CELL_RATIO = Object.freeze({ min: 0.5, max: 0.7 })
 const OPTIONAL = new Set(['shell-env'])
 /** [step, mode, picture] */
 const CAPTURES = Object.freeze([['capture-window', 'window', 'window.png'], ['capture-widget', 'widget', 'widget.png'], ['capture-fullscreen', 'fullscreen', 'fullscreen.png']])
@@ -109,6 +118,25 @@ function verdict(result) {
   return { ok: true, reason: null }
 }
 
+/**
+ * The terminal's font, as the page measured it (src/termMetrics.ts): ok when its cell
+ * is CELL_RATIO of the font size and the page shows the shell's output again.
+ */
+function fontVerdict(m, seen = ECHO_SEEN) {
+  if (!m) return { ok: false, ratio: null, reason: 'the page has no metrics for the terminal (not on screen?)' }
+  const ratio = m.cellWidth > 0 && m.fontSize > 0 ? Math.round((m.cellWidth / m.fontSize) * 1000) / 1000 : null
+  if (ratio === null) return { ok: false, ratio, reason: `no cell size measured (cellWidth ${m.cellWidth}, fontSize ${m.fontSize})` }
+  if (ratio < CELL_RATIO.min || ratio > CELL_RATIO.max) {
+    const firstPresent = (m.faces ?? []).find(f => f.present)?.face ?? null
+    return { ok: false, ratio, reason: `the cell is ${ratio} of the font size (monospace: ${CELL_RATIO.min}–${CELL_RATIO.max}); first face there: ${firstPresent}` }
+  }
+  if (!String(m.text ?? '').includes(seen)) return { ok: false, ratio, reason: `the terminal in this window does not show ${seen} (its output was not replayed)` }
+  return { ok: true, ratio, reason: null }
+}
+
+/** Bounds equal to the work area, edge for edge */
+const sameRect = (a, b) => !!a && !!b && ['x', 'y', 'width', 'height'].every(k => a[k] === b[k])
+
 /** The window when it has loaded and shows, else null */
 function readyWindow(w) {
   return w && !w.isDestroyed() && w.isVisible() && !w.webContents.isLoading() ? w : null
@@ -121,7 +149,8 @@ function readyWindow(w) {
  *
  * hooks (from main.cjs, once the app is ready): getWindow(), mode(),
  * setMode(mode) → a promise settled when the window for it is in place,
- * terminals() (the terminal manager), workArea(win), quit() (the app's own).
+ * terminals() (the terminal manager), workArea(win), isFilled(win)
+ * (macWindow.cjs), quit() (the app's own).
  */
 function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = console, now = Date.now, timeoutMs = smokeTimeoutMs(env), quitTimeoutMs = QUIT_TIMEOUT_MS, settleMs = 1500, typeDelayMs = 300 }) {
   const dirs = smokeDirs(env, tmp)
@@ -271,22 +300,83 @@ function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = cons
         save()
       }
 
+      // The open terminal's metrics from the page (src/termMetrics.ts), or null
+      const pageMetrics = async () => {
+        const all = await win().webContents.executeJavaScript('window.spawnTermMetrics ? window.spawnTermMetrics() : null', true)
+        return Array.isArray(all) ? all.find(m => m && m.id === term.id) ?? null : null
+      }
+      const windowShows = (mode) => waitFor(() => (h.mode() === mode ? readyWindow(win()) : null), 15_000, `the ${mode} window`)
+      let windowBounds = null
+
       for (const [name, mode, file] of CAPTURES) {
         await step(name, async () => {
           await h.setMode(mode)
-          const w = await waitFor(() => (h.mode() === mode ? readyWindow(win()) : null), 15_000, `the ${mode} window`)
+          let w = await windowShows(mode)
           // The page lays the mode out and the cross-fade ends
           await sleep(settleMs)
+          // A window with the terminal: its output replayed before the picture (soft: the
+          // terminal-font step is the check)
+          let replayed = null
+          if (mode !== 'widget') {
+            try {
+              await waitFor(async () => String((await pageMetrics())?.text ?? '').includes(ECHO_SEEN), 8_000, `${ECHO_SEEN} in the page's terminal`)
+              replayed = true
+            } catch (err) { if (ended) throw err; replayed = false }
+          }
+          let filled = null
+          let fitsWorkArea = null
+          if (mode === 'fullscreen') {
+            // Filled (macWindow.cjs) and edge to edge with the work area as it is now: the Dock shown
+            // again on leaving the widget changes it after the fill (refillOnWorkAreaChange)
+            try {
+              await waitFor(() => {
+                const cur = readyWindow(win())
+                return cur && h.isFilled?.(cur) && sameRect(cur.getBounds(), h.workArea?.(cur)) ? cur : null
+              }, 3_000, 'the window to fill the work area')
+            } catch (err) { if (ended) throw err }
+            w = readyWindow(win()) ?? w
+            filled = h.isFilled ? !!h.isFilled(w) : null
+            fitsWorkArea = sameRect(w.getBounds(), h.workArea ? h.workArea(w) : null)
+          }
           const image = await w.webContents.capturePage()
           if (!image || image.isEmpty()) throw new Error('the capture came back empty')
           fs.writeFileSync(path.join(dirs.out, file), image.toPNG())
           result.screenshots[mode] = file
           const bounds = w.getBounds()
           const workArea = h.workArea ? h.workArea(w) : null
-          const filled = !!workArea && ['x', 'y', 'width', 'height'].every(k => bounds[k] === workArea[k])
-          return { file, size: image.getSize(), bounds, workArea, filled, kind: w.spawnKind ?? null }
+          if (mode === 'window') windowBounds = bounds
+          const detail = { file, size: image.getSize(), bounds, workArea, kind: w.spawnKind ?? null, ...(replayed === null ? {} : { replayed }), ...(mode === 'fullscreen' ? { filled, fitsWorkArea } : {}) }
+          if (mode === 'fullscreen' && (!filled || !fitsWorkArea)) {
+            throw new Error(`full screen is not the work area filled: filled ${filled}, bounds ${JSON.stringify(bounds)}, work area ${JSON.stringify(workArea)}`)
+          }
+          return detail
         })
+
+        if (mode === 'window') {
+          await step('terminal-font', async () => {
+            let m = null
+            try {
+              await waitFor(async () => { m = await pageMetrics(); return fontVerdict(m).ok }, 8_000, "the terminal's font")
+            } catch (err) { if (ended) throw err }
+            const v = fontVerdict(m)
+            const detail = m ? { ratio: v.ratio, fontFamily: m.fontFamily, fontSize: m.fontSize, cellWidth: m.cellWidth, cellHeight: m.cellHeight, cols: m.cols, rows: m.rows, faces: m.faces, firstPresent: (m.faces ?? []).find(f => f.present)?.face ?? null } : null
+            result.terminalFont = detail
+            if (!v.ok) throw new Error(v.reason)
+            return detail
+          })
+        }
       }
+
+      await step('restore-window', async () => {
+        await h.setMode('window')
+        const w = await windowShows('window')
+        await sleep(settleMs)
+        const bounds = w.getBounds()
+        const filled = h.isFilled ? !!h.isFilled(w) : null
+        if (!sameRect(bounds, windowBounds)) throw new Error(`back in the window mode at ${JSON.stringify(bounds)}, not where the window was (${JSON.stringify(windowBounds)})`)
+        if (filled) throw new Error('the window still counts as filled')
+        return { bounds, filled }
+      })
 
       current = 'quit'
       log.log('[smoke] quit …')
@@ -308,4 +398,4 @@ function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = cons
   return { dirs, result, run, fail, stop }
 }
 
-module.exports = { SMOKE_FLAG, DEFAULT_TIMEOUT_MS, QUIT_TIMEOUT_MS, smokeTimeoutMs, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }
+module.exports = { SMOKE_FLAG, DEFAULT_TIMEOUT_MS, QUIT_TIMEOUT_MS, smokeTimeoutMs, CELL_RATIO, fontVerdict, sameRect, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }

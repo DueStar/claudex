@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
 const smoke = require('../electron/smoke.cjs')
-const { isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, prepare, STEPS, ECHO, ECHO_SEEN, ENV_ECHO } = smoke
+const { isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, prepare, fontVerdict, sameRect, STEPS, ECHO, ECHO_SEEN, ENV_ECHO } = smoke
 const ROOT = join(__dirname, '..')
 
 describe('the flag', () => {
@@ -82,13 +82,32 @@ describe('helpers', () => {
   })
 
   it('the steps, in order', () => {
-    expect(STEPS).toEqual(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'capture-widget', 'capture-fullscreen', 'quit'])
+    expect(STEPS).toEqual(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'quit'])
+  })
+
+  it("the terminal's font: a monospace cell (0.5–0.7 em) and the shell's output on screen", () => {
+    const m = { fontSize: 13, cellWidth: 7.83, text: 'spawn-42', faces: [{ face: 'Monaspace Neon Var', present: false }, { face: 'Menlo', present: true }] }
+    expect(fontVerdict(m)).toEqual({ ok: true, ratio: 0.602, reason: null })
+    // CI run 2: Apple SD Gothic Neo first, a cell as wide as its W
+    const wide = fontVerdict({ ...m, cellWidth: 12.4, faces: [{ face: 'Apple SD Gothic Neo', present: true }] })
+    expect(wide.ok).toBe(false)
+    expect(wide.reason).toMatch(/0\.954 of the font size .*first face there: Apple SD Gothic Neo/)
+    expect(fontVerdict({ ...m, cellWidth: 5 }).ok).toBe(false)
+    expect(fontVerdict({ ...m, cellWidth: null }).reason).toMatch(/no cell size/)
+    expect(fontVerdict(null).ok).toBe(false)
+    expect(fontVerdict({ ...m, text: '' }).reason).toMatch(/not replayed/)
+  })
+
+  it('sameRect: edge for edge', () => {
+    expect(sameRect({ x: 0, y: 25, width: 1024, height: 681 }, { x: 0, y: 25, width: 1024, height: 681 })).toBe(true)
+    expect(sameRect({ x: 0, y: 25, width: 1024, height: 681 }, { x: 0, y: 25, width: 1024, height: 684 })).toBe(false)
+    expect(sameRect(null, { x: 0, y: 0, width: 1, height: 1 })).toBe(false)
   })
 })
 
 // A fake Electron: the app (paths, quit), one window per mode, terminals whose
 // output says spawn-42 once the echo is typed
-function fakeElectron({ shellError = null as string | null, windowShows = true } = {}) {
+function fakeElectron({ shellError = null as string | null, windowShows = true, cellWidth = 7.8, fullscreenFilled = true, restoreTo = null as null | { x: number, y: number, width: number, height: number } } = {}) {
   const app = Object.assign(new EventEmitter(), {
     setPath: vi.fn(),
     getPath: vi.fn(() => '/fake/userData'),
@@ -109,6 +128,9 @@ function fakeElectron({ shellError = null as string | null, windowShows = true }
       output = 'user@mac ~ % '
       return { id: 'term-1', tool: 'shell', toolName: 'zsh', cwd: '/Users/runner' }
     }
+    if (js.includes('spawnTermMetrics')) {
+      return [{ id: 'term-1', fontFamily: "'Monaspace Neon Var', Menlo, monospace", fontSize: 13, cellWidth, cellHeight: 15, cols: 100, rows: 30, faces: [{ face: 'Monaspace Neon Var', check: true, present: false }, { face: 'Menlo', check: true, present: true }], text: output }]
+    }
     if (js.includes('terminals.write')) {
       if (js.includes('40+2')) output += 'echo spawn-$((40+2))\r\nspawn-42\r\nuser@mac ~ % '
       if (js.includes('1+1')) output += 'spawn-path-2=/opt/homebrew/bin:/usr/bin\r\nspawn-lang-2=en_US.UTF-8\r\n'
@@ -117,11 +139,12 @@ function fakeElectron({ shellError = null as string | null, windowShows = true }
     return undefined
   })
   let mode = 'widget'
+  let windowsMade = 0
   const makeWindow = (m: string) => ({
     spawnKind: m === 'widget' ? 'widget' : 'window',
     isDestroyed: () => false,
     isVisible: () => windowShows,
-    getBounds: () => (m === 'fullscreen' ? { x: 0, y: 25, width: 1440, height: 875 } : { x: 100, y: 100, width: 800, height: 600 }),
+    getBounds: () => (m === 'fullscreen' ? { x: 0, y: 25, width: 1440, height: 875 } : (m === 'window' && windowsMade > 2 && restoreTo) ? restoreTo : { x: 100, y: 100, width: 800, height: 600 }),
     webContents: {
       isLoading: () => false,
       executeJavaScript: exec,
@@ -132,9 +155,10 @@ function fakeElectron({ shellError = null as string | null, windowShows = true }
   const hooks = {
     getWindow: () => win,
     mode: () => mode,
-    setMode: vi.fn(async (m: string) => { mode = m; win = makeWindow(m) }),
+    setMode: vi.fn(async (m: string) => { mode = m; windowsMade += 1; win = makeWindow(m) }),
     terminals: () => terms,
     workArea: () => ({ x: 0, y: 25, width: 1440, height: 875 }),
+    isFilled: () => mode === 'fullscreen' && fullscreenFilled,
     // the app's own quit sequence ends in will-quit
     quit: vi.fn(() => { setTimeout(() => app.emit('will-quit'), 0) }),
   }
@@ -172,7 +196,7 @@ describe('a smoke run (fake app)', () => {
     await s.run(f.hooks)
     await exited(f.app)
     expect(f.app.exit).toHaveBeenCalledWith(0)
-    expect(f.hooks.setMode.mock.calls.map(c => c[0])).toEqual(['window', 'widget', 'fullscreen'])
+    expect(f.hooks.setMode.mock.calls.map(c => c[0])).toEqual(['window', 'widget', 'fullscreen', 'window'])
     // the shell opens through the page's own bridge, in the run's folder (not Documents, which macOS guards)
     const js = f.exec.mock.calls.map((c: unknown[]) => String(c[0]))
     expect(js.some((c: string) => c.includes("window.spawn.terminals.create({ tool: 'shell', cwd: ") && c.includes(JSON.stringify(join(dir, 'home'))))).toBe(true)
@@ -185,7 +209,10 @@ describe('a smoke run (fake app)', () => {
     for (const m of ['window', 'widget', 'fullscreen']) {
       expect(readFileSync(join(dir, 'out', `${m}.png`), 'utf8')).toBe(`png-${m}`)
     }
-    expect(r.steps.find((x: { name: string }) => x.name === 'capture-fullscreen').detail.filled).toBe(true)
+    expect(r.steps.find((x: { name: string }) => x.name === 'capture-fullscreen').detail).toMatchObject({ filled: true, fitsWorkArea: true, replayed: true })
+    expect(r.steps.find((x: { name: string }) => x.name === 'capture-window').detail.replayed).toBe(true)
+    expect(r.terminalFont).toMatchObject({ ratio: 0.6, fontSize: 13, cellWidth: 7.8, firstPresent: 'Menlo' })
+    expect(r.steps.find((x: { name: string }) => x.name === 'restore-window').detail).toEqual({ bounds: { x: 100, y: 100, width: 800, height: 600 }, filled: false })
     expect(typeof r.totalMs).toBe('number')
     s.stop()
   })
@@ -203,6 +230,38 @@ describe('a smoke run (fake app)', () => {
     expect(quiet.error).toHaveBeenCalled()
     s.stop()
   })
+
+  it('a terminal drawn with a proportional face (CI run 2): the run fails at terminal-font with the ratio', async () => {
+    const f = fakeElectron({ cellWidth: 12.4 })
+    const s = prepare({ app: f.app, dialog: f.dialog, env: envFor(), tmp: dir, log: quiet, timeoutMs: 30_000, settleMs: 0, typeDelayMs: 0 })
+    await s.run(f.hooks)
+    await vi.waitFor(() => expect(f.app.exit).toHaveBeenCalled(), { timeout: 15_000 })
+    expect(f.app.exit).toHaveBeenCalledWith(1)
+    const r = readResult()
+    expect(r.failure).toMatch(/^terminal-font: the cell is 0\.954 of the font size/)
+    expect(r.terminalFont.ratio).toBe(0.954)
+    s.stop()
+  }, 20_000)
+
+  it('full screen not registered as filled: the run fails at capture-fullscreen', async () => {
+    const f = fakeElectron({ fullscreenFilled: false })
+    const s = prepare({ app: f.app, dialog: f.dialog, env: envFor(), tmp: dir, log: quiet, timeoutMs: 30_000, settleMs: 0, typeDelayMs: 0 })
+    await s.run(f.hooks)
+    await vi.waitFor(() => expect(f.app.exit).toHaveBeenCalled(), { timeout: 15_000 })
+    expect(f.app.exit).toHaveBeenCalledWith(1)
+    expect(readResult().failure).toMatch(/^capture-fullscreen: full screen is not the work area filled: filled false/)
+    s.stop()
+  }, 20_000)
+
+  it('back to the window mode somewhere else: the run fails at restore-window', async () => {
+    const f = fakeElectron({ restoreTo: { x: 0, y: 25, width: 1440, height: 875 } })
+    const s = prepare({ app: f.app, dialog: f.dialog, env: envFor(), tmp: dir, log: quiet, timeoutMs: 30_000, settleMs: 0, typeDelayMs: 0 })
+    await s.run(f.hooks)
+    await vi.waitFor(() => expect(f.app.exit).toHaveBeenCalled(), { timeout: 15_000 })
+    expect(f.app.exit).toHaveBeenCalledWith(1)
+    expect(readResult().failure).toMatch(/^restore-window: back in the window mode at/)
+    s.stop()
+  }, 20_000)
 
   it('the overall timeout: a window that never shows fails the run with the step it stopped at', async () => {
     const f = fakeElectron({ windowShows: false })

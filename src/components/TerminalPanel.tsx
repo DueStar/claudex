@@ -10,6 +10,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
 import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont, termFontStack } from '../termFont'
+import { facePresent, stackFaces, trackTermMetrics } from '../termMetrics'
 import { getSettings, useSettings } from '../settingsStore'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, onTerminalData, type PastSession, type TerminalInfo } from '../desktop'
@@ -71,6 +72,22 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     xterm.loadAddon(fit)
     xterm.open(hostRef.current)
     xtermRef.current = xterm
+    // Its font and cell size, for the Mac CI's smoke launch to check (src/termMetrics.ts)
+    const offMetrics = trackTermMetrics(term.id, () => {
+      const dims = (xterm as unknown as { _core?: { _renderService?: { dimensions?: { css?: { cell?: { width?: number; height?: number } } } } } })._core?._renderService?.dimensions?.css?.cell
+      const fontFamily = String(xterm.options.fontFamily ?? '')
+      const fontSize = Number(xterm.options.fontSize)
+      const buf = xterm.buffer.active
+      const lines: string[] = []
+      for (let y = Math.max(0, buf.length - 80); y < buf.length; y++) lines.push(buf.getLine(y)?.translateToString(true) ?? '')
+      return {
+        id: term.id, fontFamily, fontSize,
+        cellWidth: dims?.width ?? null, cellHeight: dims?.height ?? null,
+        cols: xterm.cols, rows: xterm.rows,
+        faces: stackFaces(fontFamily).map(face => ({ face, check: document.fonts.check(`${fontSize}px "${face}"`), present: facePresent(face) })),
+        text: lines.join('\n').trimEnd(),
+      }
+    })
     fitRef.current = fit
     // Links open with Ctrl+click, as in Windows Terminal (a plain click selects text)
     xterm.loadAddon(new WebLinksAddon((event, uri) => {
@@ -276,6 +293,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       host.removeEventListener('wheel', onWheel)
       offResults.dispose()
       offPaths.dispose()
+      offMetrics()
       offFont()
       document.fonts.removeEventListener('loadingdone', refont)
       document.removeEventListener('visibilitychange', fitNow)
