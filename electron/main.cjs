@@ -32,6 +32,7 @@ const { createTerminalManager, gitBranch } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
 const { mergeLoginEnv } = require('./shellEnv.cjs')
+const { createStartGate } = require('./startGate.cjs')
 const { createUpdater } = require('./updater.cjs')
 const { isUpdatedRun, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates } = require('./updateRunner.cjs')
 const { openStatusCard, cardLang } = require('./statusCard.cjs')
@@ -1293,7 +1294,10 @@ if (lockWaits < 0) {
   // takes seconds; one run at a time, so a Dock click or a second launch in
   // the meantime cannot spawn a second server and open a second window
   const startOnce = singleFlight(startApp)
-  const open = () => startOnce().catch((err) => console.error('[main] Could not start the app:', err))
+  // macOS: nothing opens before the login shell's PATH and LANG are in (a Dock click or a second
+  // launch during that read waits for it too); Windows: the start runs at once, as before
+  const envGate = createStartGate()
+  const open = () => envGate.run(() => startOnce()).catch((err) => console.error('[main] Could not start the app:', err))
 
   // Opened again (a Dock click, a second launch): wait for a startup in
   // progress, else show the window, else make one
@@ -1320,10 +1324,14 @@ if (lockWaits < 0) {
       // Full screen is the work area filled: when the work area changes (the Dock shown again on
       // leaving the widget, moved, resized), the filled window follows it (macWindow.cjs)
       screen.on('display-metrics-changed', (_event, _display, changed) => { refillOnWorkAreaChange(widgetWin, changed, screen) })
-      const merged = await mergeLoginEnv({ env: process.env })
-      process.env.PATH = merged.PATH
-      if (merged.LANG) process.env.LANG = merged.LANG
-      for (const k of ['LC_ALL', 'LC_CTYPE']) if (merged[k]) process.env[k] = merged[k]
+      try {
+        const merged = await mergeLoginEnv({ env: process.env })
+        process.env.PATH = merged.PATH
+        if (merged.LANG) process.env.LANG = merged.LANG
+        for (const k of ['LC_ALL', 'LC_CTYPE']) if (merged[k]) process.env[k] = merged[k]
+      } finally {
+        envGate.open()
+      }
     }
     registerTerminalIpc()
     // Updates: a look at GitHub Releases shortly after start, then every 30 minutes
