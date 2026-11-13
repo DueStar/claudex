@@ -10,6 +10,7 @@ import React, { useLayoutEffect, useRef } from 'react'
 import type { TerminalInfo } from '../desktop'
 import { PlusIcon } from './Icons'
 import { t } from '../i18n'
+import { isMac, platformWord } from '../platform'
 import { useDragOrder } from '../useDragOrder'
 
 export interface TabRow {
@@ -99,7 +100,7 @@ export const SessionTabs: React.FC<{
       <button className="w-sess-new" onClick={onNew} title={t('새로운 세션 시작하기 (문서 폴더)')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={14} /></button>
       </div>
       {/* The shell button stays at the right end, outside the scrolling tabs */}
-      {onNewShell && <button className="w-sess-shell-btn" onClick={onNewShell} title={t('셸 탭 열기 (포켓몬 없이 PowerShell)')} aria-label={t('셸 탭 열기')}>&gt;_</button>}
+      {onNewShell && <button className="w-sess-shell-btn" onClick={onNewShell} title={t('셸 탭 열기 (포켓몬 없이 {shell})', { shell: t(platformWord('shell', isMac())) })} aria-label={t('셸 탭 열기')}>&gt;_</button>}
     </div>
   )
 }

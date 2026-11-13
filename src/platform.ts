@@ -27,3 +27,18 @@ export function modLabel(): '⌘' | 'Ctrl' {
 export function modCombo(key: string): string {
   return isMac() ? `⌘${key}` : `Ctrl+${key}`
 }
+
+/**
+ * The words that differ per platform, as translation keys (Korean text, run
+ * through t()). The shell on a Mac is the login shell, which main labels with
+ * its basename; zsh is the macOS default, so it names the word here.
+ */
+export function platformWord(key: 'tray' | 'startup' | 'taskbar' | 'shell', mac: boolean): string {
+  const words = {
+    tray: ['트레이', '메뉴 막대'],
+    startup: ['Windows 시작 시 실행', '로그인 시 실행'],
+    taskbar: ['작업 표시줄 깜빡이기', 'Dock 아이콘 튀기기'],
+    shell: ['PowerShell', 'zsh'],
+  } as const
+  return words[key][mac ? 1 : 0]
+}

@@ -52,7 +52,7 @@ import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
 import { appShortcut } from './keys'
-import { modCombo, modLabel } from './platform'
+import { isMac, modCombo, modLabel, platformWord } from './platform'
 
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
@@ -691,7 +691,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>
             )}
             {/* As a window the right side has its own minimize and close */}
-            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title={t('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')} aria-label={t('숨기기')}>–</button>}
+            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title={isMac() ? t('숨기기 ({tray}의 몬스터볼을 누르면 다시 열려요)', { tray: t(platformWord('tray', true)) }) : t('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')} aria-label={t('숨기기')}>–</button>}
           </header>
 
           {accountOpen && cloud?.user && (
@@ -720,8 +720,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 {t('세션을 열려면 아래 프로그램이 필요해요. 설치한 뒤 {again}을 눌러주세요.').split('{again}').flatMap((s, i) => i ? [<b key={i}>{t('다시 확인')}</b>, s] : [s])}</p>
               {missing.map(([key]) => (
                 <div key={key} className="w-setup-row">
-                  <span className="w-setup-name">{PREREQ_LABEL[key].name}</span>
-                  <span className="w-setup-why">{t(PREREQ_LABEL[key].why)}</span>
+                  <span className="w-setup-name">{key === 'git' && isMac() ? 'Git' : PREREQ_LABEL[key].name}</span>
+                  <span className="w-setup-why">{key === 'git' && isMac() ? t('선택 사항이에요') : t(PREREQ_LABEL[key].why)}</span>
                   <button className="w-setup-go" onClick={() => bridge?.env.openLink(key)}>{t('설치 페이지')}</button>
                 </div>
               ))}
@@ -992,7 +992,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               {mode === 'fullscreen'
                 ? <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로')} aria-label={t('창 모드로')}><RestoreIcon size={14} /></button>
                 : <button className="w-icon" onClick={() => setMode('fullscreen')} title={t('전체화면')} aria-label={t('전체화면')}><MaximizeIcon size={14} /></button>}
-              <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
+              <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={isMac() ? t('닫기 ({tray} 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)', { tray: t(platformWord('tray', true)) }) : t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>
           {/* The sessions: their own row of tabs under the view bar, reordered by dragging */}

@@ -136,7 +136,7 @@ const en: Record<string, string> = {
   '고르면 이 세션을 맡는 포켓몬만 바뀌어요': 'Picking one only changes who works this session',
   'git 브랜치': 'git branch',
   '셸 탭은 {n}개까지 열 수 있어요.': 'You can have up to {n} shell tabs open.',
-  '셸 탭 열기 (포켓몬 없이 PowerShell)': 'Open a shell tab (PowerShell, no Pokémon)',
+  '셸 탭 열기 (포켓몬 없이 {shell})': 'Open a shell tab ({shell}, no Pokémon)',
   '셸 탭 열기': 'Open a shell tab',
   '파티가 모두 일하는 중이에요. 박스의 포켓몬이 조력자로 가요.': 'Your whole party is busy. A Pokémon from the Box goes as a helper.',
   '파티가 모두 일하는 중이라 박스의 포켓몬이 이 세션을 맡았어요': 'Your party was all busy, so a Pokémon from the Box works this session',
@@ -259,6 +259,9 @@ const en: Record<string, string> = {
   "GitHub 창에서 「Create」를 누르면 올라가요": "Press Create in the GitHub window to post it",
   "GitHub 로그인이 필요해요. 계정이 없으면 복사해서 보내 주세요. 올린 내용은 누구나 볼 수 있어요.": "Posting needs a GitHub sign-in; no account? Copy it and send it to me. Posts are public.",
 
+  '숨기기 ({tray}의 몬스터볼을 누르면 다시 열려요)': 'Hide (click the Poké Ball in the {tray} to bring it back)',
+  '닫기 ({tray} 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)': 'Close (click the {tray} icon to reopen; sessions keep running)',
+  '선택 사항이에요': 'Optional',
 }
 
 const ja: Record<string, string> = {
@@ -398,7 +401,7 @@ const ja: Record<string, string> = {
   '고르면 이 세션을 맡는 포켓몬만 바뀌어요': '選ぶとこのセッションを担当するポケモンだけが変わります',
   'git 브랜치': 'git ブランチ',
   '셸 탭은 {n}개까지 열 수 있어요.': 'シェルタブは{n}個まで開けます。',
-  '셸 탭 열기 (포켓몬 없이 PowerShell)': 'シェルタブを開く(ポケモンなしのPowerShell)',
+  '셸 탭 열기 (포켓몬 없이 {shell})': 'シェルタブを開く(ポケモンなしの{shell})',
   '셸 탭 열기': 'シェルタブを開く',
   '파티가 모두 일하는 중이에요. 박스의 포켓몬이 조력자로 가요.': '手持ちが全員作業中です。ボックスのポケモンがお手伝いとして行きます。',
   '파티가 모두 일하는 중이라 박스의 포켓몬이 이 세션을 맡았어요': '手持ちが全員作業中だったので、ボックスのポケモンがこのセッションを担当しています',
@@ -521,6 +524,9 @@ const ja: Record<string, string> = {
   "GitHub 창에서 「Create」를 누르면 올라가요": "GitHub の画面で「Create」を押すと投稿されます",
   "GitHub 로그인이 필요해요. 계정이 없으면 복사해서 보내 주세요. 올린 내용은 누구나 볼 수 있어요.": "投稿には GitHub のログインが必要です。アカウントがなければコピーして送ってください。投稿は誰でも見られます。",
 
+  '숨기기 ({tray}의 몬스터볼을 누르면 다시 열려요)': '隠す（{tray}のモンスターボールで再表示）',
+  '닫기 ({tray} 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)': '閉じる（{tray}アイコンで再表示。セッションは動き続けます）',
+  '선택 사항이에요': '任意です',
 }
 
 export default { en, ja }
