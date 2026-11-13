@@ -12,6 +12,7 @@ import { spriteUrl, pokemonById } from './theme'
 import { TIER_LABEL, genderMark, sourceText, placeText, ballName, NATURE_BY_ID, type DexEvent } from './pokedexStore'
 import { t as tr, nameOf, lang } from './i18n'
 import { PokeBall } from './components/Icons'
+import { admit } from './toastQueue'
 import { useSettings } from './settingsStore'
 
 /** 설정 › 알림 › 표시 시간 */
@@ -91,8 +92,13 @@ const Toast: React.FC = () => {
   const settings = useSettings() // also redraws the card when the privacy setting changes
   const scale = DURATION_SCALE[settings.notify.duration] ?? 1
 
+  // The card on screen, known at once (state is only set later): an arriving event must not be
+  // counted as waiting when it is the one about to be shown
+  const shown = useRef<DexEvent | null>(null)
+
   const next = () => {
     const n = queue.current.shift() ?? null
+    shown.current = n
     setWaiting(queue.current.length)
     setHovered(false)
     setCurrent(n)
@@ -101,9 +107,10 @@ const Toast: React.FC = () => {
 
   useEffect(() => {
     const off = bridge?.toast.onEvent((e: DexEvent) => {
-      queue.current.push(e)
-      setCurrent(c => c ?? queue.current.shift() ?? null)
-      setWaiting(queue.current.length)
+      const r = admit(queue.current, shown.current, e)
+      shown.current = r.shown
+      setCurrent(r.shown)
+      setWaiting(r.waiting)
     })
     bridge?.toast.ready() // events wait in main until the page listens
     return off
