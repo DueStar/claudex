@@ -20,11 +20,27 @@ export const TERM_FONT_STACKS: Record<TerminalFont, string> = {
   cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
   d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
 }
-/** The stack to render. On a Mac the stored value 'consolas' shows Menlo, as Consolas is not on macOS. */
-export const termFontStack = (font: TerminalFont | undefined, mac: boolean = isMac()): string =>
-  mac && font === 'consolas'
-    ? "Menlo, 'SF Mono', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', monospace"
-    : TERM_FONT_STACKS[font ?? 'default'] ?? TERM_FONT_STACKS.default
+/**
+ * The same choices on a Mac. xterm measures one cell for every character from the
+ * first face that is there, so after the chosen font (when installed) comes Menlo,
+ * which every Mac has, before any proportional or CJK face: with Pretendard or Apple
+ * SD Gothic Neo first, a cell was as wide as their W and the text stood spaced out
+ * (CI run 2). Korean and Japanese still fall through to Pretendard / Apple SD Gothic
+ * Neo, glyph by glyph. The stored value 'consolas' is Menlo here (Consolas is not on
+ * macOS); SF Mono is not a system font (it lives inside Terminal.app), Monaco is.
+ */
+export const MAC_TERM_FONT_STACKS: Record<TerminalFont, string> = {
+  default: "'Monaspace Neon Var', 'Monaspace Neon', Menlo, Monaco, 'SF Mono', 'Pretendard Variable', 'Apple SD Gothic Neo', monospace",
+  consolas: "Menlo, Monaco, 'SF Mono', 'Pretendard Variable', 'Apple SD Gothic Neo', monospace",
+  cascadia: "'Cascadia Mono', 'Cascadia Code', Menlo, Monaco, 'SF Mono', 'Pretendard Variable', 'Apple SD Gothic Neo', monospace",
+  d2coding: "D2Coding, 'D2Coding ligature', Menlo, Monaco, 'SF Mono', 'Pretendard Variable', 'Apple SD Gothic Neo', monospace",
+}
+
+/** The stack to render: Windows' (TERM_FONT_STACKS) or the Mac's (MAC_TERM_FONT_STACKS). */
+export const termFontStack = (font: TerminalFont | undefined, mac: boolean = isMac()): string => {
+  const stacks = mac ? MAC_TERM_FONT_STACKS : TERM_FONT_STACKS
+  return stacks[font ?? 'default'] ?? stacks.default
+}
 
 /** The settings label of a font choice: the stored value consolas reads Menlo on a Mac. */
 export const termFontLabel = (font: TerminalFont, mac: boolean = isMac()): string =>

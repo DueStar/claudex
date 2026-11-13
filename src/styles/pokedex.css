@@ -434,6 +434,8 @@
 /* Window mode: the question opens inside the asking session's row */
 .w-row-ask { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--card-2); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); cursor: default; }
 .w-row-ask-what { font-size: 12px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace; }
+/* A Mac: Menlo (on every Mac) before the proportional faces, as in the terminal (src/termFont.ts) */
+.is-mac .w-row-ask-what { font-family: 'Monaspace Neon Var', 'Monaspace Neon', Menlo, Monaco, 'Pretendard Variable', 'Apple SD Gothic Neo', monospace; }
 .w-ask-quick.quiet { margin-left: auto; color: var(--ink-3); border-color: transparent; }
 /* A session waiting on the trainer: its Pokémon hops in place (only then, so the hop is the signal) */
 .w-row.mood-needs-you .w-row-mon, .w-row.asking .w-row-mon { animation: wMonHop 1.2s cubic-bezier(.3, .7, .4, 1) infinite; transform-origin: 50% 100%; }

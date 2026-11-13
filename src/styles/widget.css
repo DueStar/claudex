@@ -279,3 +279,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 /* The session folder's git branch, after the project: quiet, cut short when the row is narrow */
 .w-row-branch { flex: 0 1 auto; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ink-3); padding: 0 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.05); font-family: 'Monaspace Neon Var', Consolas, 'SF Mono', Menlo, monospace; }
 .w-row-branch::before { content: '⎇ '; opacity: 0.7; }
+/* A Mac without Uncut Sans and Pretendard: Latin in the system face (SF) before any CJK face,
+   which would draw it otherwise (Apple SD Gothic Neo: the odd é of Pokédex, CI run 2); Hangul
+   and kana still fall through to Apple SD Gothic Neo / Hiragino glyph by glyph */
+.is-mac .widget { font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', -apple-system, system-ui, 'Apple SD Gothic Neo', 'Hiragino Sans', sans-serif; }

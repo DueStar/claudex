@@ -384,6 +384,8 @@
 .set-btn:disabled { opacity: 0.5; cursor: default; }
 /* 설정 › AI 도구 */
 .set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace; }
+/* A Mac: Menlo (on every Mac) before the proportional faces, as in the terminal (src/termFont.ts) */
+.is-mac .set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', Menlo, Monaco, 'Pretendard Variable', 'Apple SD Gothic Neo', monospace; }
 .set-tag { font-size: 11px; color: var(--ink-3); padding: 6px 4px; }
 .set-tool-add { flex-direction: column; align-items: stretch; gap: 10px; }
 .set-presets { display: flex; gap: 6px; margin-top: 6px; }

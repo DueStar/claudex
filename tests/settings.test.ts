@@ -92,23 +92,77 @@ describe('terminal font per platform', () => {
     const { termFontStack, termFontLabel, TERM_FONT_STACKS } = await import('../src/termFont')
     expect(termFontLabel('consolas', true)).toBe('Menlo')
     expect(termFontLabel('consolas', false)).toBe('Consolas')
-    expect(termFontStack('consolas', true).startsWith("Menlo, 'SF Mono', ")).toBe(true)
+    expect(termFontStack('consolas', true).startsWith('Menlo, ')).toBe(true)
     expect(termFontStack('consolas', true)).not.toContain('Consolas')
     // Windows: unchanged choice, still led by Consolas
     expect(termFontStack('consolas', false)).toBe(TERM_FONT_STACKS.consolas)
     expect(TERM_FONT_STACKS.consolas.startsWith("Consolas, 'Pretendard Variable', 'Malgun Gothic', ")).toBe(true)
-    // the other fonts are the same on both platforms
-    for (const f of ['default', 'cascadia', 'd2coding'] as const) {
-      expect(termFontStack(f, true)).toBe(termFontStack(f, false))
-      expect(termFontLabel(f, true)).toBe(termFontLabel(f, false))
-    }
+    for (const f of ['default', 'cascadia', 'd2coding'] as const) expect(termFontLabel(f, true)).toBe(termFontLabel(f, false))
   })
 
-  it('appends the macOS faces after the Windows ones, never before', async () => {
-    const { TERM_FONT_STACKS } = await import('../src/termFont')
-    for (const s of Object.values(TERM_FONT_STACKS)) {
-      expect(s.indexOf("'Apple SD Gothic Neo'")).toBeGreaterThan(s.indexOf("'Malgun Gothic'"))
-      expect(s.endsWith(", monospace")).toBe(true)
+  it('Windows stacks are exactly as they were', async () => {
+    const { termFontStack, TERM_FONT_STACKS } = await import('../src/termFont')
+    const before = {
+      default: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', Consolas, 'SF Mono', Menlo, monospace",
+      consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
+      cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
+      d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
+    }
+    expect(TERM_FONT_STACKS).toEqual(before)
+    for (const f of ['default', 'consolas', 'cascadia', 'd2coding'] as const) expect(termFontStack(f, false)).toBe(before[f])
+    expect(termFontStack(undefined, false)).toBe(before.default)
+  })
+
+  it('a Mac: Menlo (on every Mac) before any proportional or CJK face, for every font setting (CI run 2: spaced-out text)', async () => {
+    const { termFontStack, MAC_TERM_FONT_STACKS } = await import('../src/termFont')
+    const faces = (stack: string) => stack.split(',').map(f => f.trim().replace(/^'|'$/g, ''))
+    // faces that are not monospace: a cell measured from one of them is too wide
+    const PROPORTIONAL = ['Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Hiragino Sans', 'Uncut Sans Variable', 'system-ui', 'sans-serif']
+    // monospace faces that may be missing (installed by the user, or not a system font)
+    const OPTIONAL_MONO = ['Monaspace Neon Var', 'Monaspace Neon', 'Cascadia Mono', 'Cascadia Code', 'D2Coding', 'D2Coding ligature']
+    for (const f of ['default', 'consolas', 'cascadia', 'd2coding', undefined] as const) {
+      const list = faces(termFontStack(f, true))
+      const menlo = list.indexOf('Menlo')
+      expect(menlo, String(f)).toBeGreaterThanOrEqual(0)
+      // everything before Menlo is a monospace face the user may have installed
+      for (const face of list.slice(0, menlo)) expect(OPTIONAL_MONO, `${f}: ${face}`).toContain(face)
+      // no proportional face before it, and Korean still has its fonts after it
+      for (const p of PROPORTIONAL) if (list.includes(p)) expect(list.indexOf(p), `${f}: ${p}`).toBeGreaterThan(menlo)
+      expect(list).toContain('Apple SD Gothic Neo')
+      expect(list.at(-1)).toBe('monospace')
+      expect(list).not.toContain('Consolas')
+      expect(list).not.toContain('Malgun Gothic')
+    }
+    expect(Object.keys(MAC_TERM_FONT_STACKS).sort()).toEqual(['cascadia', 'consolas', 'd2coding', 'default'])
+    // the chosen font still comes first when it is there
+    expect(faces(termFontStack('default', true))[0]).toBe('Monaspace Neon Var')
+    expect(faces(termFontStack('cascadia', true))[0]).toBe('Cascadia Mono')
+    expect(faces(termFontStack('d2coding', true))[0]).toBe('D2Coding')
+  })
+})
+
+describe('UI fonts on a Mac (.is-mac rules)', () => {
+  const css = (f: string) => readFileSync(join(__dirname, '..', 'src', 'styles', f), 'utf8')
+  const familyOf = (sheet: string, selector: string) => {
+    const at = sheet.indexOf(`\n${selector} {`)
+    expect(at, selector).toBeGreaterThanOrEqual(0)
+    return /font-family:\s*([^;]+);/.exec(sheet.slice(at, sheet.indexOf('}', at)))![1].split(',').map(s => s.trim().replace(/^'|'$/g, ''))
+  }
+
+  it('the app text: the system face before any CJK face, so Latin never falls to Apple SD Gothic Neo', () => {
+    const mac = familyOf(css('widget.css'), '.is-mac .widget')
+    expect(mac.slice(0, 4)).toEqual(['W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable'])
+    expect(mac.indexOf('system-ui')).toBeLessThan(mac.indexOf('Apple SD Gothic Neo'))
+    expect(mac.indexOf('-apple-system')).toBeLessThan(mac.indexOf('Apple SD Gothic Neo'))
+    // Windows' own rule is as it was
+    expect(css('widget.css')).toContain("font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Hiragino Sans', system-ui, sans-serif;")
+  })
+
+  it('the small monospace texts: Menlo before the proportional faces', () => {
+    for (const [file, sel] of [['pokedex.css', '.is-mac .w-row-ask-what'], ['widget-expanded.css', '.is-mac .set-mono']]) {
+      const f = familyOf(css(file), sel)
+      expect(f.indexOf('Menlo'), sel).toBeLessThan(f.indexOf('Pretendard Variable'))
+      expect(f.indexOf('Menlo'), sel).toBeLessThan(f.indexOf('Apple SD Gothic Neo'))
     }
   })
 })
