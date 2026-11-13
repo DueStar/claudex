@@ -5,7 +5,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
 > **새 세션은 여기부터**: 최신 릴리스 1.3.48(2026-11-12): 포켓몬 칸 #16181d·박스 칸 테두리 옅게, 보기·글자 크기 탭 간격 2px(7-41). 그 전 1.3.47: 포켓몬 칸 #1d1e22, 보기 전환 버튼 배경 되돌림(7-40). 그 전 1.3.46: 의견이 Supabase 쓰기 전용 표로(7-39). 그 전 1.3.45: Windows식 창 버튼(최소화·최대화/복원·닫기), 위젯 버튼 하나(7-38). 그 전 1.3.44: 포켓몬 그림 배경 한 가지 연회색, 후광 없앰(7-37). 그 전 1.3.43: 도망 확률 20/30/50/60/70%(7-36). 그 전 1.3.42: 나란히 크기 조절할 때 터미널 빈 화면 해결, 업데이트 재시작 1단계, 일하는 세션 빛 GPU로, 도감 빈 칸 숨김, 종료 flush 재시도(7-35). 그 전 1.3.41: 바로가기·작업 표시줄 아이콘이 업데이트를 따라감, 여러 크기 .ico로 선명하게, 패널 로고 캐시 문제, 고르지 않은 일하는 세션 회색 빛(7-34). 그 전 1.3.40: PC를 꺼도 다시 열 세션 목록 유지(7-32), 여행의 시작 친구 몬스터볼 기록·1~9세대 스타팅(7-33). 그 전 1.3.39(2026-11-11): 새 몬스터볼 아이콘(비스듬한 Dream 볼), 헤더 워드마크 spawn 복귀, 기록 화면 빈 문제 수정, 박스 칸 Lv·볼 뺌, 확률 표 비공개, 접힌 레일 구분선·프로필(7-31). 그 전 1.3.38: 모든 아이콘 Dream 몬스터볼(커밋함, NOTICE), 새 세션 버튼 +, 왼쪽 패널 이름 없앰·구분선 끝까지, 닫기 문구, 세 색 → 노랑 한 색(7-30). 그 전 1.3.37: 몬스터볼 아이콘 통일(Wikimedia CC BY-SA 4.0), 창 크기 조절 깜빡임 수정, 탭 옅은 색·일하는 세션 도는 테두리, 패널 접기 버튼 위치·호버(7-29). 그 전 1.3.36: **이름이 Claudex → spawn**(저장소 `DueStar/spawn`, 데이터 `~/.spawn`·`%APPDATA%\spawn`, 환경 변수 `SPAWN_*`, 7-28) + 조우 줄이기(7-27). 그 전 1.3.35: 앱 안 피드백, 도감 등급 다중 선택(7-26). 그 전 1.3.34: 탭 닫기·셸 버튼·랭킹 1~3위, 왼쪽 패널 접기, 업데이트 안내·시간 기록(7-25). 다음은 업데이트 재시작 수치 읽기(8번).
 > 최근 변경은 아래 7-23~7-41(1.3.32~1.3.48). **다음은 8번**(2026-11-12 저녁에 새로 정리함): 사용자 확인 대기, 결정 대기, 다음 후보 순.
 > 작업 방식(사용자 요청): 무엇이든 superpowers로 계획부터 보여 주고 승인 뒤 실행, 작업마다 테스트 먼저, 리뷰 에이전트로 검토.
-- 경로: `Documents\pokemon-office`
+- 경로: `Documents\spawn` (2026-11-13까지 `Documents\pokemon-office`. 이 PC 업데이트 폴더 `~/.spawn/update-dir`도 새 경로로, Claude 기록은 `~/.claude/projects/C--Users-hoo20-Documents-spawn`로 복사함)
 - 저장소: https://github.com/DueStar/claudex (공개, main)
 - 수집이 중심이고 배틀은 없다. 비영리이고, 사용자 5만 명 이내를 목표로 한다.
 
@@ -570,7 +570,7 @@ Claude Code 세션을 포켓몬과 함께 쓰는 Windows Electron 앱이다. W17
    - 로고: `public/brand/spawn-symbol-white.svg`·`-color.svg`, `SpawnMark`(Icons.tsx)를 헤더·접힌 레일에(24px 이하 단색 규칙). 앱 아이콘 `build/icon.png`·`electron/assets/icon.png` = white-gradient 512, 트레이 16/32/48 = 컬러 심볼, macOS 템플릿 = 검정 심볼. release.mjs는 더 이상 build-icons.py로 몬스터볼 아이콘을 그리지 않음. 게임 안 몬스터볼 그림(`public/sprites/spawn-ball.png`, 옛 claudex-ball.png)은 그대로.
    - **실제 업데이트에서 잡은 버그(테스트 빌드, 2026-11-11 14:52)**: 첫 1.3.36 시작 때 `%APPDATA%Claudex`가 아직 바빠서(업데이트 복사 단계의 옛 프로세스가 끝나는 중) 설정 폴더 복사가 실패 → 앱이 로그용으로 `%APPDATA%spawn`을 만들고 "폴더가 있으니 끝"으로 판단 → 세션 자동 열기·세션 이름이 빠짐(데이터는 옛 폴더에 그대로). 고침: 끝남은 표시 파일(`.copied-from-claudex.json`)로, 항목마다 따로 복사·3초 안에서 재시도, 실패한 항목은 다음 시작에 다시, 복사 없이 시작한 새 폴더보다 옛 상태가 이김, update.log는 이어 붙임, 결과를 spawn.log에 남김. 이 PC는 다음 테스트 빌드 재시작 때 옛 상태(세션 이름 9개, 다시 열 세션 8개)가 돌아와야 함.
    - 가끔 실패하던 `cleanupStaleUpdates` 테스트의 원인: 정확히 10분 경계(파일 시각이 ms보다 잘게 기록됨) → 여유 1초.
-   - 바깥에 남은 것: Google/Supabase 로그인 동의 화면 앱 이름, 로컬 폴더 이름 `Documents\pokemon-office`(사이트·홍보 폴더는 2026-11-12에 `spawn-site`·`spawn-site-backup`·`spawn-promo`로 바꿈).
+   - 바깥에 남은 것: Google/Supabase 로그인 동의 화면 앱 이름(로컬 폴더는 2026-11-13에 `Documents\pokemon-office` → `Documents\spawn`. 사이트·홍보 폴더는 2026-11-12에 `spawn-site`·`spawn-site-backup`·`spawn-promo`로 바꿈).
 
 7-29. **2026-11-11 — 1.3.37 (branch `brand/logo-gradient`)**
    - 로고·아이콘은 7-28의 "브랜드 4차"대로(Wikimedia Commons Poké Ball icon). 매듭 심볼과 3D 아이콘은 모두 뺌.
