@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, dockFor } = require('../electron/macWindow.cjs')
+const { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, noteMode, dockFor, quitCapMs } = require('../electron/macWindow.cjs')
 const ROOT = join(__dirname, '..')
 
 type Bounds = { x: number, y: number, width: number, height: number }
@@ -109,6 +109,50 @@ describe('applyMode (the window ↔ fullscreen switch of one window)', () => {
   })
 })
 
+describe('a fill left by another route (macOS zoom toggled off → unmaximize → window mode)', () => {
+  it('is forgotten, so the place is saved again and a later fullscreen fills again', () => {
+    const win = fakeWindow({ x: 100, y: 120, width: 1200, height: 760 })
+    applyMode(win, 'fullscreen', fakeScreen(), 'darwin')
+    expect(win.getBounds()).toEqual(WORK)
+    // macOS puts the window somewhere else by itself; main hears unmaximize → window mode
+    win.setBounds({ x: 200, y: 150, width: 900, height: 600 })
+    noteMode(win, 'window', 'darwin')
+    expect(isFilled(win)).toBe(false) // remember() saves the place again
+    applyMode(win, 'fullscreen', fakeScreen(), 'darwin')
+    expect(win.getBounds()).toEqual(WORK) // filled again, not a no-op
+    applyMode(win, 'window', fakeScreen(), 'darwin')
+    expect(win.getBounds()).toEqual({ x: 200, y: 150, width: 900, height: 600 })
+  })
+  it('a fullscreen request on a filled window fills again and keeps the first bounds', () => {
+    const win = fakeWindow({ x: 100, y: 120, width: 1200, height: 760 })
+    applyMode(win, 'fullscreen', fakeScreen(), 'darwin')
+    win.setBounds({ x: 300, y: 300, width: 700, height: 500 }) // moved by hand
+    applyMode(win, 'fullscreen', fakeScreen(), 'darwin')
+    expect(win.getBounds()).toEqual(WORK)
+    applyMode(win, 'window', fakeScreen(), 'darwin')
+    expect(win.getBounds()).toEqual({ x: 100, y: 120, width: 1200, height: 760 })
+  })
+  it('noteMode: only the window mode forgets; win32 does nothing', () => {
+    const win = fakeWindow({ x: 1, y: 2, width: 800, height: 600 })
+    fillWorkArea(win, fakeScreen(), 'darwin')
+    noteMode(win, 'fullscreen', 'darwin')
+    expect(isFilled(win)).toBe(true)
+    noteMode(win, 'window', 'win32')
+    expect(isFilled(win)).toBe(true)
+    noteMode(win, 'window', 'darwin')
+    expect(isFilled(win)).toBe(false)
+  })
+})
+
+describe('quitCapMs', () => {
+  it('2 s only while macOS shuts down or logs out', () => {
+    expect(quitCapMs({ platform: 'darwin', systemShutdown: true })).toBe(2000)
+    expect(quitCapMs({ platform: 'darwin', systemShutdown: false })).toBeNull()
+    expect(quitCapMs({ platform: 'win32', systemShutdown: true })).toBeNull()
+    expect(quitCapMs({ platform: 'win32', systemShutdown: false })).toBeNull()
+  })
+})
+
 describe('dockFor', () => {
   it('hides the Dock icon in widget mode and shows it otherwise', () => {
     const dock = fakeDock()
@@ -147,11 +191,14 @@ describe('the wiring (main.cjs, the page)', () => {
     expect(main).toContain("setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })")
     expect(main).toContain("setVisibleOnAllWorkspaces(true, { skipTransformProcessType: true })")
     expect(main).toContain('dockFor(')
+    expect(main).toContain("if (process.platform === 'darwin' && widgetWin && !widgetWin.isDestroyed()) noteMode(widgetWin, mode)")
   })
 
   it('macOS: a shutdown keeps the open sessions, and the quit sequence waits 2 s at most', () => {
-    expect(main).toMatch(/powerMonitor\.on\('shutdown', [^\n]*keepSessions\(\)/)
-    expect(main).toContain("process.platform === 'darwin' ? Promise.race([ending, sleep(2000)]) : ending")
+    expect(main).toMatch(/powerMonitor\.on\('shutdown', [^\n]*macSystemEnding = true[^\n]*keepSessions\(\)/)
+    expect(main).toContain('const cap = quitCapMs({ platform: process.platform, systemShutdown: macSystemEnding })')
+    expect(main).toContain('quitSequence = (cap ? Promise.race([ending, sleep(cap)]) : ending)')
+    expect(main).not.toContain('sleep(2000)]) : ending')
   })
 
   it('the page marks a Mac with is-mac; the Mac rules live under .is-mac', () => {

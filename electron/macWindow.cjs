@@ -59,7 +59,8 @@ const isFilled = (win) => before.has(win)
 function applyMode(win, mode, screen, platform = process.platform) {
   if (!isMac(platform)) return false
   if (mode === 'fullscreen') {
-    if (!win.isFullScreen() && !isFilled(win)) fillWorkArea(win, screen, platform)
+    // Filled again even when filled already (moved by hand since): the first bounds stay
+    if (!win.isFullScreen()) fillWorkArea(win, screen, platform)
   } else if (win.isFullScreen()) {
     win.setFullScreen(false)
   } else if (isFilled(win)) {
@@ -70,6 +71,16 @@ function applyMode(win, mode, screen, platform = process.platform) {
   return true
 }
 
+/**
+ * The window mode reached another way than restore (macOS's zoom toggled off, heard as
+ * unmaximize): the fill is over, so its record goes. Kept, it would stop the window's
+ * place being saved and leave the bounds of an old fill for the next restore.
+ */
+function noteMode(win, mode, platform = process.platform) {
+  if (!isMac(platform) || mode !== 'window') return
+  before.delete(win)
+}
+
 /** The Dock icon: hidden while the app is the widget, shown in the other modes. */
 function dockFor(mode, dock, platform = process.platform) {
   if (!isMac(platform) || !dock) return
@@ -77,4 +88,13 @@ function dockFor(mode, dock, platform = process.platform) {
   else Promise.resolve(dock.show()).catch(() => {})
 }
 
-module.exports = { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, dockFor }
+/**
+ * How long a quit may take before the app goes anyway: 2 s while macOS shuts down or logs
+ * out (it gives up on the logout when an app takes long), else no cap (null): an ordinary
+ * quit, and every quit on Windows, waits for the server's flush and the sessions' end.
+ */
+function quitCapMs({ platform = process.platform, systemShutdown = false } = {}) {
+  return isMac(platform) && systemShutdown ? 2000 : null
+}
+
+module.exports = { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, noteMode, dockFor, quitCapMs }

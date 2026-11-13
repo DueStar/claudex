@@ -46,7 +46,7 @@ const { resolveRef, vscodeUrl } = require('./links.cjs')
 const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 const { migrateUserData } = require('./userDataMigration.cjs')
 const { refreshShortcutIcons } = require('./shortcutIcon.cjs')
-const { macWindowOptions, fillWorkArea, isFilled, restore: restoreFilled, applyMode: applyMacMode, dockFor } = require('./macWindow.cjs')
+const { macWindowOptions, fillWorkArea, isFilled, restore: restoreFilled, applyMode: applyMacMode, noteMode, dockFor, quitCapMs } = require('./macWindow.cjs')
 // Settings made under the old name (CLAUDEX_PORT=…) keep working; the server and terminals inherit them
 adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
@@ -153,6 +153,8 @@ let tray = null
 // The server child this app spawned (helpers.cjs childSlot): the one stopServer stops
 const server = childSlot()
 let quitting = false
+// macOS is shutting down or logging out (powerMonitor): the quit then has 2 s at most
+let macSystemEnding = false
 
 // Window state: the app window's place, sizes and mode, and the trainer's
 // session names, in userData/window-state.json.
@@ -761,6 +763,8 @@ function createWidgetWindow({ hidden = false } = {}) {
 
 /** The page shows `mode`; the window is already right (moved by hand, maximized). */
 function setModeQuietly(mode) {
+  // macOS: the window mode reached without restore (a zoom toggled off) ends a fill
+  if (process.platform === 'darwin' && widgetWin && !widgetWin.isDestroyed()) noteMode(widgetWin, mode)
   if (state.widgetMode === mode) return
   state.widgetMode = mode
   state.widgetExpanded = mode !== 'widget'
@@ -1305,7 +1309,7 @@ if (lockWaits < 0) {
     if (process.platform === 'darwin') {
       // A shutdown, restart or logout ends the sessions as Windows' does: keep the reopen list
       // (required here: powerMonitor is usable only once the app is ready)
-      require('electron').powerMonitor.on('shutdown', () => { console.log('[main] macOS is shutting down or logging out'); keepSessions() })
+      require('electron').powerMonitor.on('shutdown', () => { macSystemEnding = true; console.log('[main] macOS is shutting down or logging out'); keepSessions() })
       const merged = await mergeLoginEnv({ env: process.env })
       process.env.PATH = merged.PATH
       if (merged.LANG) process.env.LANG = merged.LANG
@@ -1385,9 +1389,11 @@ if (lockWaits < 0) {
       if (stuck) console.warn(`[main] quit: ${stuck} session(s) did not exit`)
     })()
     const ending = Promise.all([tellServer, endSessions])
-    // macOS: a logout or shutdown waits on the quit and gives up on it (the logout is
-    // cancelled) if it takes long: 2 s at most there, then the server is stopped anyway
-    quitSequence = (process.platform === 'darwin' ? Promise.race([ending, sleep(2000)]) : ending)
+    // macOS shutting down or logging out gives up on an app whose quit takes long (the
+    // logout is cancelled): 2 s at most then, and the server is stopped anyway. Any other
+    // quit, on a Mac too, waits for the whole sequence (quitCapMs)
+    const cap = quitCapMs({ platform: process.platform, systemShutdown: macSystemEnding })
+    quitSequence = (cap ? Promise.race([ending, sleep(cap)]) : ending)
       .catch((err) => console.error('[main] quit sequence:', err?.message ?? err))
       .finally(() => {
         try { if (tray) { tray.dispose(); tray = null } } catch {}
