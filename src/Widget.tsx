@@ -15,6 +15,7 @@ import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
 import { dispatchMeters, useMeters, formatClockTime, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
+import { sessionTools, shownCodexLimits } from './features'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
 import { isHardNeedsYou } from './mainState'
@@ -443,7 +444,9 @@ const Widget: React.FC = () => {
   const claudeOpen = rows.some(r => r.terminal?.status === 'running' && (r.terminal.tool ?? 'claude') === 'claude')
   const showClaudeLimits = typeof fiveHour === 'number' || typeof sevenDay === 'number' || claudeOpen
   // Codex CLI's windows, labelled by their length (5 hours, a week on today's plans)
-  const codexRows = ([['primary', meters.codexLimits?.primary], ['secondary', meters.codexLimits?.secondary]] as const)
+  // (none while other AI tools are switched off, src/features.ts: Claude's rows only)
+  const codexLimits = shownCodexLimits(meters.codexLimits)
+  const codexRows = ([['primary', codexLimits?.primary], ['secondary', codexLimits?.secondary]] as const)
     .filter((e): e is readonly ['primary' | 'secondary', CodexWindow] => !!e[1])
     .map(([key, w]) => {
       const value = limitNow(w.usedPercent, w.resetsAt ?? undefined)
@@ -1039,7 +1042,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
       {picking && <Suspense fallback={null}><ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
         monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: nameOf(pokemonById(m.dex)) } : null }} /></Suspense>}
       {throwing && dex && (
-        <ThrowPicker dex={dex} resume={!!throwing.resume} tools={throwing.resume ? [] : settings.session.tools} defaultTool={settings.session.defaultTool}
+        <ThrowPicker dex={dex} resume={!!throwing.resume} tools={throwing.resume ? [] : sessionTools(settings.session).tools} defaultTool={sessionTools(settings.session).defaultTool}
           onPick={(uid, tool) => throwBall(uid, { ...throwing, ...(tool && tool !== 'claude' ? { tool } : {}) })} onClose={() => setThrowing(null)} />
       )}
       <PatchNotes />

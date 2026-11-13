@@ -311,9 +311,9 @@ describe('terminal output', () => {
 
 describe('a Codex tab', () => {
   const TOOLS = [{ id: 'codex', name: 'Codex CLI', command: 'codex' }]
-  function codexManager() {
+  // Other AI tools switched on (electron/features.cjs), so the feature keeps being tested while it is hidden
+  function codexManager(otherTools = true, userDataDir = tempDir()) {
     const pty = fakePty()
-    const userDataDir = tempDir()
     const watches: any[] = []
     const events: any[] = []
     const statuses: any[] = []
@@ -321,6 +321,7 @@ describe('a Codex tab', () => {
       repoRoot: REPO, userDataDir, defaultCwd: userDataDir, send: () => {}, pty, killTree: () => {},
       tools: () => TOOLS, emit: (e: any) => events.push(e), postStatus: (s: any) => statuses.push(s),
       codexWatch: (opts: any) => { const w = { opts, stopped: false, stop() { w.stopped = true } }; watches.push(w); return w },
+      otherTools,
     })
     return { pty, userDataDir, watches, events, statuses, terms }
   }
@@ -355,6 +356,84 @@ describe('a Codex tab', () => {
     terms.create({ tool: 'codex', resume: id })
     expect(pty.spawned.at(-1)!.args.slice(-2)).toEqual(['resume', '01a1bf02-5c65-7463-ac3e-1dc7420b39fc'])
     expect(watches.at(-1).opts).toMatchObject({ sessionId: id, resumeThread: '01a1bf02-5c65-7463-ac3e-1dc7420b39fc' })
+  })
+
+  it('switched on, a Codex tab from the last run comes back in the reopen list', () => {
+    const userDataDir = tempDir()
+    const codexTab = { sessionId: '88888888-8888-4888-8888-888888888888', cwd: userDataDir, tool: 'codex' }
+    fs.writeFileSync(join(userDataDir, 'open-sessions.json'), JSON.stringify([codexTab]))
+    const { terms } = codexManager(true, userDataDir)
+    expect(terms.takeRestorable()).toEqual([codexTab])
+  })
+})
+
+describe('other AI tools switched off (electron/features.cjs)', () => {
+  const TOOLS = [{ id: 'codex', name: 'Codex CLI', command: 'codex' }]
+  function offManager(userDataDir = tempDir()) {
+    const pty = fakePty()
+    const watches: any[] = []
+    const events: any[] = []
+    const terms = createTerminalManager({
+      repoRoot: REPO, userDataDir, defaultCwd: userDataDir, send: () => {}, pty, killTree: () => {},
+      // Codex still listed in the stored settings: it must not leak through
+      tools: () => TOOLS, emit: (e: any) => events.push(e),
+      codexWatch: (opts: any) => { const w = { opts, stop() {} }; watches.push(w); return w },
+      otherTools: false,
+    })
+    return { pty, userDataDir, watches, events, terms }
+  }
+
+  it('a session asked for with Codex (a stored default) starts Claude Code, and no Codex log watcher runs', () => {
+    const { pty, watches, events, terms } = offManager()
+    const t = terms.create({ tool: 'codex' })
+    expect(t.tool).toBe('claude')
+    expect(t.toolName).toBe('Claude Code')
+    expect(pty.spawned.at(-1)!.args).toContain('--session-id')
+    expect(pty.spawned.at(-1)!.command).not.toMatch(/codex/i)
+    expect(watches).toEqual([])
+    expect(events).toEqual([]) // nothing stands in for hooks: it is a Claude session
+  })
+
+  it('a reopened Codex id starts a fresh Claude Code, never a resume of an id Claude never had', () => {
+    const { pty, terms } = offManager()
+    terms.create({ tool: 'codex', resume: '77777777-7777-4777-8777-777777777777' })
+    expect(pty.spawned.at(-1)!.args).not.toContain('--resume')
+    expect(pty.spawned.at(-1)!.args).not.toContain('resume')
+  })
+
+  it("the shell tab is not part of it: it still opens", () => {
+    const { pty, terms } = offManager()
+    expect(terms.create({ tool: 'shell' }).tool).toBe('shell')
+    expect(pty.spawned).toHaveLength(1)
+  })
+
+  it('Codex tabs in the reopen list are skipped, and kept in the list for when the switch is flipped back', () => {
+    const userDataDir = tempDir()
+    const codexTab = { sessionId: '88888888-8888-4888-8888-888888888888', cwd: userDataDir, tool: 'codex' }
+    const shellTab = { sessionId: '99999999-9999-4999-8999-999999999999', cwd: userDataDir, tool: 'shell' }
+    fs.writeFileSync(join(userDataDir, 'open-sessions.json'), JSON.stringify([codexTab, shellTab]))
+    const { terms } = offManager(userDataDir)
+    expect(terms.takeRestorable()).toEqual([shellTab])
+    // This run writes its own tabs over the list: the Codex one stays in it
+    const s = terms.create({ tool: 'shell' })
+    const list = JSON.parse(readFileSync(join(userDataDir, 'open-sessions.json'), 'utf8'))
+    expect(list).toEqual([{ sessionId: s.sessionId, cwd: userDataDir, tool: 'shell' }, codexTab])
+    terms.close(s.id)
+    expect(JSON.parse(readFileSync(join(userDataDir, 'open-sessions.json'), 'utf8'))).toEqual([codexTab])
+  })
+})
+
+describe('the other-tools switch', () => {
+  it('the manager follows electron/features.cjs when not told otherwise', () => {
+    const { OTHER_TOOLS } = require('../electron/features.cjs')
+    const pty = fakePty()
+    const userDataDir = tempDir()
+    const terms = createTerminalManager({
+      repoRoot: REPO, userDataDir, defaultCwd: userDataDir, send: () => {}, pty, killTree: () => {},
+      tools: () => [{ id: 'codex', name: 'Codex CLI', command: 'codex' }],
+      codexWatch: () => ({ stop() {} }),
+    })
+    expect(terms.create({ tool: 'codex' }).tool).toBe(OTHER_TOOLS ? 'codex' : 'claude')
   })
 })
 

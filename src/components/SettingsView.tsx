@@ -12,6 +12,7 @@ import { CloseIcon } from './Icons'
 import { t, locale } from '../i18n'
 import { isMac, platformWord } from '../platform'
 import { termFontLabel } from '../termFont'
+import { settingsSections } from '../features'
 
 type Section = 'notify' | 'privacy' | 'session' | 'tools' | 'app' | 'data'
 
@@ -137,7 +138,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback
       <div className="set-modal" role="dialog" aria-label={t('설정')} onClick={e => e.stopPropagation()}>
         <nav className="set-nav">
           <div className="set-title">{t('설정')}</div>
-          {SECTIONS.map(([k, label]) => <button key={k} className={section === k ? 'on' : ''} onClick={() => { setSection(k); setNote(null) }}>{t(label)}</button>)}
+          {settingsSections(SECTIONS).map(([k, label]) => <button key={k} className={section === k ? 'on' : ''} onClick={() => { setSection(k); setNote(null) }}>{t(label)}</button>)}
           {version && <div className="set-version">spawn {version}</div>}
         </nav>
         <div className="set-body">

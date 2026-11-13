@@ -120,8 +120,12 @@ spawn starts Claude Code as `claude --session-id <id> --settings %APPDATA%\spawn
 
 - **Environment variables left out**: `CLAUDECODE`, `CLAUDE_PID` and anything starting with `CLAUDE_CODE_` are removed from the session environment, so a spawn started from inside Claude Code does not open its sessions as child sessions. A `CLAUDE_CODE_…` variable you set system-wide therefore does not reach spawn sessions.
 - **Sessions outside spawn don't count**: steps, catches and limits come only from sessions opened in a spawn terminal. A Claude Code session in another terminal or an IDE has no spawn hooks, so no Pokémon walks with it.
+<!-- Hidden 2026-11-13 with electron/features.json "otherTools": false (bring back together):
 - **Codex CLI**: add Codex (the `codex` command) under Settings › AI tools, and spawn follows the session log Codex writes itself (`~/.codex/sessions/…jsonl`): prompts, tool calls (steps), turn ends, the model, the context (HP) and Codex's usage limits (5-hour, weekly or monthly, depending on the plan) show as they do for Claude, and reopening the app resumes the same conversation with `codex resume`. spawn never touches Codex's settings or sign-in. Starting a new conversation with `/new` inside Codex leaves the tab following the first one.
 - **Other AI tools**: other tools (Gemini CLI and so on) get no hooks and none of the variables above. Their steps are counted from the terminal output alone.
+| `%APPDATA%\spawn\session-links\` | Each terminal's current conversation id (a Codex tab: its Codex thread id) |
+- To list sessions to resume, spawn only reads `~/.claude/projects` (transcripts) and `~/.claude/sessions` (running sessions). While a Codex tab is open, finding its log reads the first line (the session header: id, time, folder) of that day's and the previous day's Codex logs; after that it reads only the tab's own log.
+-->
 
 ## What is stored and what is sent
 
@@ -140,11 +144,11 @@ spawn starts Claude Code as `claude --session-id <id> --settings %APPDATA%\spawn
 | `%APPDATA%\spawn\settings.json` | Settings |
 | `%APPDATA%\spawn\window-state.json` | Window position, size and mode; session names |
 | `%APPDATA%\spawn\open-sessions.json` | The sessions to reopen next time (session id, folder, tool) |
-| `%APPDATA%\spawn\session-links\` | Each terminal's current conversation id (a Codex tab: its Codex thread id) |
+| `%APPDATA%\spawn\session-links\` | Each terminal's current conversation id |
 | `%APPDATA%\spawn\session-settings.json` | The hook and status-line settings given to spawn sessions |
 | `%APPDATA%\spawn\logs\spawn.log` | The app's and the local server's log |
 
-- To list sessions to resume, spawn only reads `~/.claude/projects` (transcripts) and `~/.claude/sessions` (running sessions). While a Codex tab is open, finding its log reads the first line (the session header: id, time, folder) of that day's and the previous day's Codex logs; after that it reads only the tab's own log.
+- To list sessions to resume, spawn only reads `~/.claude/projects` (transcripts) and `~/.claude/sessions` (running sessions).
 - The local server listens on `127.0.0.1` only; requests from the hooks and the app are signed or checked with `auth-token`.
 - With "Hide prompts" on in Settings, prompts are hidden on screen, and the game copy uploaded to the cloud leaves out request text and tool arguments (only tool names remain). This PC's `pokedex.json` keeps them.
 
