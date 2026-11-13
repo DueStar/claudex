@@ -209,8 +209,8 @@ var STRINGS = {
 
   en: {
     'lang.name': 'English',
-    'meta.title': '{name}: all that waiting, now an adventure',
-    'meta.desc': 'A Windows app that runs your Claude Code and Codex sessions with Pokémon. The more you work, the more they walk, level up and meet wild Pokémon.',
+    'meta.title': 'Spawn : All that waiting, now an adventure',
+    'meta.desc': 'While your agent works, meet wild Pokémon and complete your Pokédex.',
     'skip': 'Skip to content',
     'nav.features': 'Tour',
     'nav.dex': 'Pokédex',
@@ -391,8 +391,8 @@ var STRINGS = {
 
   ja: {
     'lang.name': '日本語',
-    'meta.title': '{name}：待っていた時間を冒険に',
-    'meta.desc': 'Claude CodeとCodexのセッションをポケモンと一緒に使うWindowsアプリです。作業するほど歩いて、レベルが上がり、野生のポケモンに出会います。',
+    'meta.title': 'Spawn : 待っていた時間を冒険に',
+    'meta.desc': 'エージェントが働くあいだに、野生のポケモンに出会って図鑑を完成させよう。',
     'skip': '本文へ移動',
     'nav.features': '紹介',
     'nav.dex': '図鑑',

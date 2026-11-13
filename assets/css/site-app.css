@@ -90,9 +90,8 @@
   .dex-panel .dex-seg { flex-wrap: wrap; }
 }
 
-/* No gradient anywhere but the hero glow: the art backdrops get a flat tier tint instead of the app's radial one */
+/* The art backdrops as in the app: one plain grey, no tier tint (the dex card uses --mon-bg from app.css) */
 .w-toast-art { background: var(--toast-art-bg); }
-.dex-card-art { background: color-mix(in srgb, var(--tier) 12%, var(--card-2)); }
 
 /* Live views shown large on wide screens: the app's 12px UI, scaled up as a whole */
 @media (min-width: 1040px) {
@@ -145,15 +144,22 @@
 
 /* ---------- Claude와 Codex: the usage card beside the session rows ---------- */
 .widget.panel.tools-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 8px; padding: 8px; background: var(--side); border-radius: 20px; }
-.tools-panel .w-limits { justify-content: center; gap: 16px; padding: 20px 22px; }
-.tools-panel .w-limit { grid-template-columns: 92px minmax(0, 1fr) 40px 48px; }
+/* the four limits as tiles filling the card (2×2), the number large: no empty room above and below
+   (picked from spawn-site-lab/usage-lab.html, "B 타일") */
+.tools-panel .w-limits { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px; padding: 8px; }
+.tools-panel .w-limit { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr auto; align-items: end; gap: 0; padding: 16px 16px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.025); border: 1px solid var(--line); }
+.tools-panel .w-limit > .w-label { grid-column: 1 / -1; grid-row: 1; align-self: start; font-size: 12px; }
+.tools-panel .w-limit-pct { grid-column: 1; grid-row: 2; text-align: left; font-size: 34px; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
+.tools-panel .w-limit-pct small { font-size: 20px; margin-left: 2px; }
+.tools-panel .w-limit-reset { grid-column: 2; grid-row: 2; align-self: end; font-size: 11px; }
+.tools-panel .w-limit .w-bar { grid-column: 1 / -1; grid-row: 3; margin-top: 12px; height: 6px; }
 .tools-panel .rows { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
 .tools-panel .w-row { padding: 10px 12px; }
 @media (max-width: 760px) {
   .widget.panel.tools-panel { grid-template-columns: minmax(0, 1fr); }
-  .tools-panel .w-limits { padding: 14px 14px; gap: 12px; }
-  .tools-panel .w-limit { grid-template-columns: 84px minmax(0, 1fr) 36px; }
-  .tools-panel .w-limit-reset { display: none; }
+  .tools-panel .w-limit { padding: 12px 12px 11px; }
+  .tools-panel .w-limit-pct { font-size: 28px; }
+  .tools-panel .w-limit-pct small { font-size: 16px; }
 }
 
 /* ---------- 도구를 쓰면 한 걸음: today's earlier encounters under the card ---------- */
