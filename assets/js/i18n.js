@@ -18,7 +18,7 @@ var SITE_LINKS = {
 };
 
 /* The latest release (shown under the closing download button; update with each release) */
-var LATEST_VERSION = '1.3.50'; // the fallback: loading.js asks GitHub for the newest
+var LATEST_VERSION = '1.3.51'; // the fallback: loading.js asks GitHub for the newest
 
 var STRINGS = {
   ko: {
@@ -54,7 +54,6 @@ var STRINGS = {
     'f3.lede': '1025종을 세대와 등급별로 모아 봐요. 칸을 누르면 잡은 포켓몬의 레벨과 볼, 성격이 보여요.',
     'f4.title': '사용량과 컨텍스트를 한눈에.',
     'f4.lede': '5시간·주간 사용량이 얼마나 남았는지, 언제 다시 차는지 바로 보여요.',
-    'f4.note': 'Codex는 설정 › AI 도구에서 켜요.',
 
     'privacy.title': '내 PC에서만.',
     'privacy.lede': '게임 기록은 내 PC에 저장돼요. 사용 통계나 오류 보고는 보내지 않아요.',
@@ -67,7 +66,7 @@ var STRINGS = {
     'start.s2.h': '실행하기',
     'start.s2.p': '압축을 풀고 {name}.exe를 열어요.',
     'start.s3.h': '세션 열기',
-    'start.s3.p': '앱에서 Claude Code나 Codex 세션을 시작해요.',
+    'start.s3.p': '앱에서 Claude Code 세션을 시작해요.',
     'start.s4.h': '모으기',
     'start.s4.p': '평소처럼 일하면 포켓몬이 하나둘 나타나요.',
 
@@ -77,8 +76,6 @@ var STRINGS = {
     'app.needs': '확인 필요',
     'app.usage5h': '5시간',
     'app.usageWeek': '주간',
-    'app.codex5h': 'Codex 5시간',
-    'app.codexWeek': 'Codex 주간',
     'app.newSession': '새로운 세션 시작하기',
     'app.newTab': '새 세션',
     'app.dex': '도감',
@@ -183,7 +180,7 @@ var STRINGS = {
     'faq.q1': '배틀이 있나요?',
     'faq.a1': '없어요. 만나고, 잡고, 키우고, 모으는 게 전부예요.',
     'faq.q2': '돈이 드나요?',
-    'faq.a2': '무료예요. 비영리 팬 프로젝트이고, Claude Code나 Codex는 쓰시던 요금제 그대로 써요.',
+    'faq.a2': '무료예요. 비영리 팬 프로젝트이고, Claude Code는 쓰시던 요금제 그대로 써요.',
     'faq.q3': '뭐가 필요해요?',
     'faq.a3': '로그인된 Claude Code와 Git for Windows가 필요해요. 없으면 앱이 바로 알려줘요. Python 같은 건 필요 없어요.',
     'faq.q4': 'SmartScreen 경고가 떠요.',
@@ -214,7 +211,7 @@ var STRINGS = {
     'faq.a9.ready': '네, Apple Silicon과 Intel Mac 모두 받을 수 있어요. 아직 Apple 개발자 계정으로 서명하지 않아서, 처음 한 번은 “그래도 열기”를 눌러야 해요.',
 
     /* footer */
-    'foot.tag': 'Claude Code와 Codex 세션을 포켓몬과 함께.',
+    'foot.tag': 'Claude Code 세션을 포켓몬과 함께.',
     'foot.legal': '개인이 만든 비영리 팬 프로젝트예요. Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company, Anthropic과 관련이 없고 승인받지 않았어요. 포켓몬과 관련된 이름과 그림의 권리는 각 소유자에게 있어요.',
     'foot.art': '앱 코드는 MIT 라이선스이고 W17ant/Claude-Office를 바탕으로 만들었어요. 포켓몬 데이터와 그림은 PokeAPI, 박스 아이콘은 Pokémon Database에서 불러와요.',
     'foot.repo': 'GitHub 저장소',
@@ -256,7 +253,6 @@ var STRINGS = {
     'f3.lede': 'Browse all 1025 by generation and tier. Click a cell to see the level, ball and nature of the ones you caught.',
     'f4.title': 'Usage and context, at a glance.',
     'f4.lede': 'See how much of your 5-hour and weekly limits is left, and when they reset.',
-    'f4.note': 'Turn Codex on in Settings › AI tools.',
 
     'privacy.title': 'Only on your PC.',
     'privacy.lede': 'Your save stays on your PC. No usage stats or error reports are sent.',
@@ -269,7 +265,7 @@ var STRINGS = {
     'start.s2.h': 'Run',
     'start.s2.p': 'Unzip it and open {name}.exe.',
     'start.s3.h': 'Open a session',
-    'start.s3.p': 'Start a Claude Code or Codex session from the app.',
+    'start.s3.p': 'Start a Claude Code session from the app.',
     'start.s4.h': 'Collect',
     'start.s4.p': 'Work as usual, and Pokémon start showing up.',
 
@@ -278,8 +274,6 @@ var STRINGS = {
     'app.needs': 'Needs you',
     'app.usage5h': '5-hour',
     'app.usageWeek': 'Weekly',
-    'app.codex5h': 'Codex 5-hour',
-    'app.codexWeek': 'Codex weekly',
     'app.newSession': 'New session',
     'app.newTab': 'New session',
     'app.dex': 'Pokédex',
@@ -382,7 +376,7 @@ var STRINGS = {
     'faq.q1': 'Are there battles?',
     'faq.a1': 'No. You meet, catch, raise and collect. That is the whole game.',
     'faq.q2': 'Does it cost anything?',
-    'faq.a2': 'It is free, a non-commercial fan project. Claude Code and Codex run on whatever plan you already have.',
+    'faq.a2': 'It is free, a non-commercial fan project. Claude Code runs on whatever plan you already have.',
     'faq.q3': 'What do I need?',
     'faq.a3': 'Claude Code (signed in) and Git for Windows. If one is missing, the app tells you. Nothing else, like Python, is needed.',
     'faq.q4': 'SmartScreen warns me.',
@@ -412,7 +406,7 @@ var STRINGS = {
     'faq.a9': 'We are preparing the macOS version, for Apple Silicon and Intel. The app is not signed with an Apple developer account yet, so the first launch will need “Open Anyway” once.',
     'faq.a9.ready': 'Yes, for both Apple Silicon and Intel Macs. The app is not signed with an Apple developer account yet, so the first launch needs “Open Anyway” once.',
 
-    'foot.tag': 'Claude Code and Codex sessions, with Pokémon.',
+    'foot.tag': 'Claude Code sessions, with Pokémon.',
     'foot.legal': 'A personal, non-commercial fan project. Not affiliated with or endorsed by Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company or Anthropic. Pokémon and all related names and art are trademarks and © of their respective owners.',
     'foot.art': 'The app’s code is MIT-licensed and built on W17ant/Claude-Office. Pokémon data and art come from PokeAPI, box icons from Pokémon Database.',
     'foot.repo': 'GitHub repository',
@@ -454,7 +448,6 @@ var STRINGS = {
     'f3.lede': '1025種を世代とランク別に見られます。マスを押すと、捕まえたポケモンのレベル・ボール・性格がわかります。',
     'f4.title': '使用量とコンテキストをひと目で。',
     'f4.lede': '5時間・週間の使用量があとどれだけ残っているか、いつ回復するかがすぐわかります。',
-    'f4.note': 'Codexは設定 › AIツールでオンにします。',
 
     'privacy.title': 'あなたのPCだけに。',
     'privacy.lede': '記録はあなたのPCに保存されます。利用統計やエラーレポートは送りません。',
@@ -467,7 +460,7 @@ var STRINGS = {
     'start.s2.h': '起動',
     'start.s2.p': '解凍して{name}.exeを開きます。',
     'start.s3.h': 'セッションを開く',
-    'start.s3.p': 'アプリからClaude CodeかCodexのセッションを始めます。',
+    'start.s3.p': 'アプリからClaude Codeのセッションを始めます。',
     'start.s4.h': '集める',
     'start.s4.p': 'いつも通り作業すると、ポケモンが少しずつ現れます。',
 
@@ -476,8 +469,6 @@ var STRINGS = {
     'app.needs': '確認が必要',
     'app.usage5h': '5時間',
     'app.usageWeek': '週間',
-    'app.codex5h': 'Codex 5時間',
-    'app.codexWeek': 'Codex 週間',
     'app.newSession': '新しいセッションを始める',
     'app.newTab': '新しいセッション',
     'app.dex': '図鑑',
@@ -580,7 +571,7 @@ var STRINGS = {
     'faq.q1': 'バトルはありますか？',
     'faq.a1': 'ありません。出会って、捕まえて、育てて、集める。それがすべてです。',
     'faq.q2': 'お金はかかりますか？',
-    'faq.a2': '無料です。非営利のファンプロジェクトで、Claude CodeやCodexはいまのプランのまま使えます。',
+    'faq.a2': '無料です。非営利のファンプロジェクトで、Claude Codeはいまのプランのまま使えます。',
     'faq.q3': '何が必要ですか？',
     'faq.a3': 'ログイン済みのClaude CodeとGit for Windowsです。足りなければアプリが教えてくれます。Pythonなどは必要ありません。',
     'faq.q4': 'SmartScreenの警告が出ます。',
@@ -610,7 +601,7 @@ var STRINGS = {
     'faq.a9': 'macOS版を準備しています。Apple SiliconとIntelの両方に対応する予定です。まだApple Developerアカウントで署名していないため、初回だけ「このまま開く」が必要です。',
     'faq.a9.ready': 'はい、Apple SiliconとIntel Macの両方で使えます。まだApple Developerアカウントで署名していないため、初回だけ「このまま開く」が必要です。',
 
-    'foot.tag': 'Claude CodeとCodexのセッションを、ポケモンと一緒に。',
+    'foot.tag': 'Claude Codeのセッションを、ポケモンと一緒に。',
     'foot.legal': '個人による非営利のファンプロジェクトです。Nintendo、Creatures Inc.、GAME FREAK inc.、株式会社ポケモン、Anthropicとは関係がなく、承認も受けていません。ポケモンに関する名前とイラストの権利は、それぞれの権利者にあります。',
     'foot.art': 'アプリのコードはMITライセンスで、W17ant/Claude-Officeをもとに作られています。ポケモンのデータとイラストはPokeAPI、ボックスのアイコンはPokémon Databaseから読み込んでいます。',
     'foot.repo': 'GitHubリポジトリ',

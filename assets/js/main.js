@@ -570,7 +570,7 @@
     demo.sessions = [];
     demo.party = PARTY.slice();
     a = newSession({ id: 'a', title: 'header-copy', project: 'spawn-site', branch: 'main', model: 'Opus', dex: 4, lv: 15, mood: 'idle', hp: 84, ctx: 200000 });
-    b = newSession({ id: 'b', title: 'rank-api', project: 'server', branch: 'feat/rank', tool: 'Codex', model: 'gpt-5-codex', dex: 25, lv: 9, mood: 'working', hp: 63, ctx: 272000 });
+    b = newSession({ id: 'b', title: 'rank-api', project: 'server', branch: 'feat/rank', model: 'Sonnet', dex: 25, lv: 9, mood: 'working', hp: 63, ctx: 200000 });
     d = newSession({ id: 'd', title: 'migrate-db', project: 'server', branch: 'chore/db', model: 'Sonnet', dex: 143, lv: 23, mood: 'needs-you', hp: 24, ctx: 200000 });
     a.lines = [{ cls: 't-status', text: 'claude --session-id 7f3a… ' }];
     b.lines = []; d.lines = [];
@@ -593,7 +593,7 @@
     step(b, 'grass');
     await tool(a, 'Edit', 'src/Hero.tsx', 'Updated with 1 addition', 'grass');
     await tool(a, 'Write', 'src/hero.test.tsx', 'Wrote 36 lines', 'grass');
-    // the Codex session meets one too (its own toast, while Charmander's terminal stays on screen)
+    // the other session meets one too (its own toast, while Charmander's terminal stays on screen)
     step(b, 'plant', { encounter: { kind: 'catch', id: 81, level: 14, ball: 'quick-ball', nature: 'jolly', via: 'mcp__github', isNew: true } });
     await wait(2600);
     // Charmander reaches Lv.16 and evolves into Charmeleon
@@ -907,7 +907,7 @@
       [
         { mon: 4, title: 'header-copy', project: 'spawn-site', branch: 'main', model: 'Opus', lv: 15, hp: 92, sid: '7f3a', prompt: 'term.prompt1', reply: 'term.reply1',
           steps: [['Read', 'src/Header.tsx', 'Read 48 lines'], ['Grep', '"hero-title"', 'Found 3 files'], ['Edit', 'src/Header.tsx', 'Updated with 3 additions'], ['Bash', 'npm test', 'Tests  24 passed (24)']] },
-        { mon: 25, title: 'rank-api', project: 'server', branch: 'feat/rank', tool: 'Codex', model: 'gpt-5-codex', lv: 9, hp: 78, ctx: 272000, prompt: 'term.prompt3', reply: 'term.reply3',
+        { mon: 25, title: 'rank-api', project: 'server', branch: 'feat/rank', model: 'Opus', lv: 9, hp: 78, sid: 'a83c', prompt: 'term.prompt3', reply: 'term.reply3',
           steps: [['Read', 'server/rank.js', 'Read 210 lines'], ['Edit', 'server/rank.js', 'Updated with 18 additions'], ['Bash', 'npm run test:rank', '6 passed']] },
         { mon: 133, title: 'login-bug', project: 'spawn-site', branch: 'fix/login', model: 'Sonnet', lv: 12, hp: 100, sid: '2c91', prompt: 'term.prompt2', reply: 'term.reply2',
           steps: [['Read', 'src/auth/session.ts', 'Read 112 lines'], ['Bash', 'rg "refreshToken" src', 'src/auth/token.ts:41'], ['WebSearch', '"refresh token rotation"', 'Did 1 search'], ['Read', 'src/auth/token.ts', 'Read 64 lines']] }
@@ -915,7 +915,7 @@
       [
         { mon: 92, title: 'pwsh-profile', project: 'dotfiles', branch: 'main', model: 'Haiku', lv: 11, hp: 96, sid: 'e51d', prompt: 'term.prompt4', reply: 'term.reply4',
           steps: [['Read', '.zshrc', 'Read 88 lines'], ['Glob', '**/*.ps1', 'Found 2 files'], ['Write', 'Microsoft.PowerShell_profile.ps1', 'Wrote 41 lines'], ['PowerShell', '. $PROFILE', '(no output)']] },
-        { mon: 147, title: 'readme-ja', project: 'spawn', branch: 'docs/ja', tool: 'Codex', model: 'gpt-5-codex', lv: 18, hp: 70, ctx: 272000, prompt: 'term.prompt5', reply: 'term.reply5',
+        { mon: 147, title: 'readme-ja', project: 'spawn', branch: 'docs/ja', model: 'Opus', lv: 18, hp: 70, sid: '5d20', prompt: 'term.prompt5', reply: 'term.reply5',
           steps: [['Read', 'README.ja.md', 'Read 302 lines'], ['WebFetch', 'docs.claude.com', 'Received 18 KB'], ['Edit', 'README.ja.md', 'Updated with 22 changes']] },
         { mon: 143, title: 'migrate-db', project: 'server', branch: 'chore/db', model: 'Sonnet', lv: 23, hp: 58, sid: 'b04e', prompt: 'term.prompt6', ask: 'term.ask6',
           steps: [['Read', 'db/migrations/0042.sql', 'Read 37 lines'], ['Bash', 'npm run db:diff', '1 column dropped: users.legacy_id'], ['Grep', '"legacy_id"', 'Found 2 files']] }
@@ -941,7 +941,7 @@
       s.term = node('div', undefined, 'fake-term sess-term');
       col.appendChild(s.term);
       live.push(s); renderSlots();
-      pushLine(s, { cls: 't-status', text: p.tool === 'Codex' ? 'codex' : 'claude --session-id ' + p.sid + '… ' });
+      pushLine(s, { cls: 't-status', text: 'claude --session-id ' + p.sid + '… ' });
       await clock.wait(1100);
       // the session takes its name (its Pokémon was there from the start)
       s.titleKey = null; s.title = p.title; updateRow(s);
@@ -1118,7 +1118,7 @@
     (async function () { for (;;) { await cycle(); } })();
   })();
 
-  // ------------------------------------------------------------------ Claude Code and Codex: limits and sessions, ticking
+  // ------------------------------------------------------------------ 사용량과 컨텍스트: limits and sessions, ticking
 
   (function () {
     var limits = document.getElementById('toolLimits');
@@ -1127,16 +1127,14 @@
     var clock = sectionClock(limits.parentNode);
     var L = [
       { key: 'app.usage5h', v: 42, reset: '15:40' },
-      { key: 'app.usageWeek', v: 58, reset: '11/17' },
-      { key: 'app.codex5h', v: 17, reset: '16:05' },
-      { key: 'app.codexWeek', v: 71, reset: '11/15' }
+      { key: 'app.usageWeek', v: 58, reset: '11/17' }
     ];
     L.forEach(function (x) { x.el = makeLimit(x.key, x.v, x.reset); x.start = x.v; limits.appendChild(x.el); });
     var list = [
-      { title: 'header-copy', project: 'spawn-site', branch: 'main', model: 'Opus', dex: 5, lv: 17, mood: 'working', hp: 72, ctx: 200000, claude: true },
-      { title: 'rank-api', project: 'server', branch: 'feat/rank', tool: 'Codex', model: 'gpt-5-codex', dex: 25, lv: 10, mood: 'working', hp: 64, ctx: 272000 },
-      { title: 'readme-ja', project: 'spawn', branch: 'docs/ja', tool: 'Codex', model: 'gpt-5-codex', dex: 148, lv: 30, mood: 'idle', hp: 47, ctx: 272000 },
-      { title: 'migrate-db', project: 'server', branch: 'chore/db', model: 'Sonnet', dex: 143, lv: 23, mood: 'needs-you', hp: 12, ctx: 200000, claude: true, low: true }
+      { title: 'header-copy', project: 'spawn-site', branch: 'main', model: 'Opus', dex: 5, lv: 17, mood: 'working', hp: 72, ctx: 200000 },
+      { title: 'rank-api', project: 'server', branch: 'feat/rank', model: 'Sonnet', dex: 25, lv: 10, mood: 'working', hp: 64, ctx: 200000 },
+      { title: 'readme-ja', project: 'spawn', branch: 'docs/ja', model: 'Opus', dex: 148, lv: 30, mood: 'idle', hp: 47, ctx: 200000 },
+      { title: 'migrate-db', project: 'server', branch: 'chore/db', model: 'Sonnet', dex: 143, lv: 23, mood: 'needs-you', hp: 12, ctx: 200000, low: true }
     ];
     list.forEach(function (s) {
       s.chosen = false; s.start = s.hp;
@@ -1154,9 +1152,8 @@
         who.hp = who.hp - 3;
         if (who.hp < 22) who.hp = 100; // as after /clear: the context is empty again
         updateRow(who);
-        var lim = who.claude ? [L[0], L[1]] : [L[2], L[3]];
-        lim[0].v += 1.2; lim[1].v += 0.3;
-        lim.forEach(function (x) { if (x.v > 94) x.v = x.start; setLimit(x.el, x.v); });
+        L[0].v += 1.2; L[1].v += 0.3;
+        L.forEach(function (x) { if (x.v > 94) x.v = x.start; setLimit(x.el, x.v); });
       }
     })();
   })();
