@@ -34,6 +34,7 @@ import { existsSync, readFileSync, rmSync, statSync, writeFileSync, readdirSync 
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { signManifest, signingKeyPath } from './signing.mjs'
+import { writeManifest } from './manifest.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
@@ -153,10 +154,10 @@ const unsigned = {
   full: { file: fullZip, size: statSync(join(out, fullZip)).size },
 }
 // Signed when the key is on this PC (always, for --publish: preflight). An
-// unsigned build still serves the local update channel.
-const manifest = hasKey ? signManifest(unsigned) : unsigned
+// unsigned build still serves the local update channel. Windows' manifest is
+// latest.json (scripts/manifest.mjs).
+const { manifest } = writeManifest('win32', 'x64', unsigned, { dir: out, sign: hasKey ? signManifest : null })
 if (!hasKey) console.warn('latest.json is NOT signed (no signing key): installed apps would refuse it from GitHub')
-writeFileSync(join(out, 'latest.json'), JSON.stringify(manifest, null, 2))
 const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`
 console.log(`\napp update ${appZip} ${mb(manifest.app.size)} · full ${fullZip} ${mb(manifest.full.size)} · electron ${electronVersion}`)
 

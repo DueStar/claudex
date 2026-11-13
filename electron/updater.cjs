@@ -8,6 +8,8 @@
  *   latest.json              { version, electron, notes, app: { file, sha256, size }, full }
  *   claudex-app-<v>.zip    the resources/app folder (the old name, which 1.3.35 and older
  *                          require; spawn-app-<v>.zip is accepted too, for a later switch)
+ * A Mac reads its own pair instead: latest-mac-<arch>.json and
+ * spawn-app-<v>-mac-<arch>.zip (manifestName, appFilePattern).
  * They are read from https://github.com/<repo>/releases/latest/download/, a
  * plain download (no API rate limit, no token: the repository is public).
  * When that path fails (it answered 504 for every repository on 2026-11-08
@@ -22,12 +24,19 @@ const os = require('os')
 const path = require('path')
 const crypto = require('crypto')
 const https = require('https')
-const { spawn } = require('child_process')
+const childProcess = require('child_process')
 const { t } = require('./i18n.cjs')
 const { pendingFile: runnerPendingFile } = require('./updateRunner.cjs')
+const { isMac } = require('./platform.cjs')
 
 const REPO = 'DueStar/spawn'
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
+
+/** The manifest this platform reads: latest.json on Windows (as always), latest-mac-<arch>.json on a Mac */
+const manifestName = (platform = process.platform, arch = process.arch) => (isMac(platform) ? `latest-mac-${arch}.json` : 'latest.json')
+
+/** The app zips this platform takes: Windows' rule as it always was, and a Mac only its own */
+const appFilePattern = (platform = process.platform) => (isMac(platform) ? /^spawn-app-[\w.-]+-mac-(arm64|x64)\.zip$/ : /^(spawn|claudex)-app-[\w.-]+\.zip$/)
 
 /** a > b for dotted versions ("0.10.0" > "0.9.3") */
 function newer(a, b) {
@@ -103,16 +112,17 @@ function get(url, { onProgress, maxBytes = 300 * 1024 * 1024, headers = {} } = {
 /**
  * A local channel for whoever builds spawn on this PC: when
  * ~/.spawn/update-dir (or SPAWN_UPDATE_DIR) names a folder, the update
- * comes from that folder's latest.json and zip (what scripts/release.mjs leaves
- * in release/), checked every minute, and a build counts as newer by its date
- * even when the version number is the same. No GitHub release is needed.
+ * comes from that folder's manifest (`name`: latest.json, or a Mac's own) and
+ * zip (what scripts/release.mjs leaves in release/), checked every minute, and
+ * a build counts as newer by its date even when the version number is the
+ * same. No GitHub release is needed.
  */
-function localUpdateDir() {
+function localUpdateDir(name = manifestName()) {
   if (process.env.SPAWN_UPDATE_DIR) return process.env.SPAWN_UPDATE_DIR
   try {
     const home = require('../server/runtime-dir.cjs').runtimeDir()
     const dir = fs.readFileSync(path.join(home, 'update-dir'), 'utf8').trim()
-    return dir && fs.existsSync(path.join(dir, 'latest.json')) ? dir : null
+    return dir && fs.existsSync(path.join(dir, name)) ? dir : null
   } catch { return null }
 }
 
@@ -121,7 +131,19 @@ function ownBuildDate(app) {
   try { return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'build-info.json'), 'utf8')).date ?? null } catch { return null }
 }
 
-function createUpdater({ app, send, isPackaged }) {
+/**
+ * platform, arch, fetch, spawn and localDir are this process's own unless a
+ * test hands in others (the Mac paths are tested on Windows that way).
+ */
+function createUpdater({
+  app, send, isPackaged,
+  platform = process.platform,
+  arch = process.arch,
+  fetch = get,
+  spawn = childProcess.spawn,
+  localDir = localUpdateDir,
+}) {
+  const manifestFile = manifestName(platform, arch)
   let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', notesEn: '', notesJa: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
   let manifest = null
   let workFolder = null
@@ -134,10 +156,10 @@ function createUpdater({ app, send, isPackaged }) {
   async function check() {
     if (state.status === 'downloading' || state.status === 'ready') return state
     try {
-      const local = localUpdateDir()
+      const local = localDir(manifestFile)
       const m = local
-        ? { ...JSON.parse(fs.readFileSync(path.join(local, 'latest.json'), 'utf8')), localDir: local }
-        : JSON.parse((await releaseFile('latest', 'latest.json', { maxBytes: 64 * 1024 })).toString('utf8'))
+        ? { ...JSON.parse(fs.readFileSync(path.join(local, manifestFile), 'utf8')), localDir: local }
+        : JSON.parse((await releaseFile('latest', manifestFile, { maxBytes: 64 * 1024 }, fetch)).toString('utf8'))
       if (!m || typeof m.version !== 'string') throw new Error('bad manifest')
       // GitHub's manifest must carry the release key's signature. The local
       // channel is a folder on this PC that the user pointed the app at, so
@@ -164,12 +186,12 @@ function createUpdater({ app, send, isPackaged }) {
     if (state.needsFull) return state
     if (!isPackaged) { publish({ error: t('개발 실행에서는 업데이트하지 않아요') }); return state }
     const appFile = String(manifest.app?.file ?? '')
-    if (!/^(spawn|claudex)-app-[\w.-]+\.zip$/.test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
+    if (!appFilePattern(platform).test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
     publish({ status: 'downloading', progress: 0, error: null })
     try {
       const zip = manifest.localDir
         ? fs.readFileSync(path.join(manifest.localDir, appFile))
-        : await releaseFile(`v${manifest.version}`, appFile, { onProgress: (p) => publish({ progress: p }) })
+        : await releaseFile(`v${manifest.version}`, appFile, { onProgress: (p) => publish({ progress: p }) }, fetch)
       const sha = crypto.createHash('sha256').update(zip).digest('hex')
       if (sha !== String(manifest.app?.sha256 ?? '').toLowerCase()) throw new Error('checksum mismatch')
 
@@ -211,9 +233,9 @@ function createUpdater({ app, send, isPackaged }) {
   }
 
   // workDir: the spawn-update-* folder this run is downloading or unpacking into, or has staged (kept by the stale-folder cleanup)
-  return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir(), workDir: () => workFolder }
+  return { check, install, restart, getState: () => state, usesLocal: () => !!localDir(manifestFile), workDir: () => workFolder }
 }
 
 const pendingFile = (app) => runnerPendingFile(app.getPath('userData'))
 
-module.exports = { createUpdater, newer, verifyManifest, releaseFile, REPO }
+module.exports = { createUpdater, newer, verifyManifest, releaseFile, manifestName, appFilePattern, localUpdateDir, REPO }
