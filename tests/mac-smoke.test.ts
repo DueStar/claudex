@@ -85,14 +85,19 @@ describe('helpers', () => {
     expect(STEPS).toEqual(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'quit'])
   })
 
-  it("the terminal's font: a monospace cell (0.5–0.7 em) and the shell's output on screen", () => {
-    const m = { fontSize: 13, cellWidth: 7.83, text: 'spawn-42', faces: [{ face: 'Monaspace Neon Var', present: false }, { face: 'Menlo', present: true }] }
-    expect(fontVerdict(m)).toEqual({ ok: true, ratio: 0.602, reason: null })
+  it("the terminal's font: the bundled Monaspace loaded, its cell (0.55–0.68 em), the shell's output on screen", () => {
+    const mona = { face: 'Monaspace Neon Var', present: true, status: 'loaded' }
+    const menlo = { face: 'Menlo', present: true, status: null }
+    const m = { fontFamily: "'Monaspace Neon Var', Menlo", fontSize: 13, cellWidth: 8, text: 'spawn-42', faces: [mona, menlo] }
+    expect(fontVerdict(m)).toEqual({ ok: true, ratio: 0.615, reason: null })
     // CI run 2: Apple SD Gothic Neo first, a cell as wide as its W
-    const wide = fontVerdict({ ...m, cellWidth: 12.4, faces: [{ face: 'Apple SD Gothic Neo', present: true }] })
+    const wide = fontVerdict({ ...m, cellWidth: 12.4, faces: [mona, { face: 'Apple SD Gothic Neo', present: true, status: null }] })
     expect(wide.ok).toBe(false)
-    expect(wide.reason).toMatch(/0\.954 of the font size .*first face there: Apple SD Gothic Neo/)
-    expect(fontVerdict({ ...m, cellWidth: 5 }).ok).toBe(false)
+    expect(wide.reason).toMatch(/0\.954 of the font size/)
+    // CI run 3: no bundled font yet, Menlo measured 7 px at 13 px
+    expect(fontVerdict({ ...m, cellWidth: 7, faces: [{ ...mona, present: false, status: 'error' }, menlo] }).reason).toMatch(/bundled Monaspace Neon Var is not loaded \(status error\)/)
+    expect(fontVerdict({ ...m, cellWidth: 7 }).reason).toMatch(/0\.538 of the font size/)
+    expect(fontVerdict({ ...m, faces: [menlo] }).reason).toMatch(/not in the terminal's stack/)
     expect(fontVerdict({ ...m, cellWidth: null }).reason).toMatch(/no cell size/)
     expect(fontVerdict(null).ok).toBe(false)
     expect(fontVerdict({ ...m, text: '' }).reason).toMatch(/not replayed/)
@@ -107,7 +112,7 @@ describe('helpers', () => {
 
 // A fake Electron: the app (paths, quit), one window per mode, terminals whose
 // output says spawn-42 once the echo is typed
-function fakeElectron({ shellError = null as string | null, windowShows = true, cellWidth = 7.8, fullscreenFilled = true, restoreTo = null as null | { x: number, y: number, width: number, height: number } } = {}) {
+function fakeElectron({ shellError = null as string | null, windowShows = true, cellWidth = 8, fullscreenFilled = true, restoreTo = null as null | { x: number, y: number, width: number, height: number } } = {}) {
   const app = Object.assign(new EventEmitter(), {
     setPath: vi.fn(),
     getPath: vi.fn(() => '/fake/userData'),
@@ -129,7 +134,10 @@ function fakeElectron({ shellError = null as string | null, windowShows = true, 
       return { id: 'term-1', tool: 'shell', toolName: 'zsh', cwd: '/Users/runner' }
     }
     if (js.includes('spawnTermMetrics')) {
-      return [{ id: 'term-1', fontFamily: "'Monaspace Neon Var', Menlo, monospace", fontSize: 13, cellWidth, cellHeight: 15, cols: 100, rows: 30, faces: [{ face: 'Monaspace Neon Var', check: true, present: false }, { face: 'Menlo', check: true, present: true }], text: output }]
+      return [{ id: 'term-1', fontFamily: "'Monaspace Neon Var', Menlo, monospace", fontSize: 13, cellWidth, cellHeight: 15, cols: 100, rows: 30, faces: [{ face: 'Monaspace Neon Var', check: true, present: true, status: 'loaded' }, { face: 'Menlo', check: true, present: true, status: null }], text: output }]
+    }
+    if (js.includes('spawnFontStatus')) {
+      return [{ face: 'Monaspace Neon Var', status: 'loaded', text: 'W0', supplied: true }, { face: 'W Uncut', status: 'loaded', text: 'Pokédex', supplied: true }, { face: 'W Pretendard', status: 'loaded', text: '가', supplied: true }]
     }
     if (js.includes('terminals.write')) {
       if (js.includes('40+2')) output += 'echo spawn-$((40+2))\r\nspawn-42\r\nuser@mac ~ % '
@@ -211,7 +219,8 @@ describe('a smoke run (fake app)', () => {
     }
     expect(r.steps.find((x: { name: string }) => x.name === 'capture-fullscreen').detail).toMatchObject({ filled: true, fitsWorkArea: true, replayed: true })
     expect(r.steps.find((x: { name: string }) => x.name === 'capture-window').detail.replayed).toBe(true)
-    expect(r.terminalFont).toMatchObject({ ratio: 0.6, fontSize: 13, cellWidth: 7.8, firstPresent: 'Menlo' })
+    expect(r.terminalFont).toMatchObject({ ratio: 0.615, measured: 'Monaspace Neon Var', fontSize: 13, cellWidth: 8 })
+    expect(r.fonts.map((f: { face: string, status: string }) => `${f.face}:${f.status}`)).toEqual(['Monaspace Neon Var:loaded', 'W Uncut:loaded', 'W Pretendard:loaded'])
     expect(r.steps.find((x: { name: string }) => x.name === 'restore-window').detail).toEqual({ bounds: { x: 100, y: 100, width: 800, height: 600 }, filled: false })
     expect(typeof r.totalMs).toBe('number')
     s.stop()

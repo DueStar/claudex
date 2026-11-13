@@ -20,10 +20,13 @@
  *                       readout that fails does not fail the run)
  *   capture-window      a PNG of each mode (webContents.capturePage), once the
  *                       terminal in the page shows the shell's output again
- *   terminal-font       the terminal's cell, measured by xterm, is a monospace
- *                       one: 0.5–0.7 of the font size (a proportional or CJK
- *                       face first in the stack made it far wider: CI run 2);
- *                       and the new window replayed the shell's output
+ *   terminal-font       the terminal draws with the bundled Monaspace Neon (its
+ *                       @font-face loaded, public/fonts/fonts.css), its cell is
+ *                       0.55–0.68 of the font size (Monaspace about 0.615; a
+ *                       proportional or CJK face first made it far wider, CI
+ *                       run 2; Menlo measured 0.538 in run 3), and the new
+ *                       window replayed the shell's output. The page's other
+ *                       bundled faces (W Uncut, W Pretendard) are recorded
  *   capture-widget
  *   capture-fullscreen  the window fills the work area (macWindow.cjs's fill,
  *                       and the bounds equal the work area as it is now)
@@ -43,8 +46,10 @@ const path = require('path')
 
 const SMOKE_FLAG = '--smoke-test'
 const STEPS = Object.freeze(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'quit'])
-/** A monospace Latin cell is about 0.6 em: outside this the stack's first face is not monospace */
-const CELL_RATIO = Object.freeze({ min: 0.5, max: 0.7 })
+/** Monaspace Neon's cell is about 0.615 em (Menlo's measured 0.538 on the runner): outside this it is not the face drawing */
+const CELL_RATIO = Object.freeze({ min: 0.55, max: 0.68 })
+/** The terminal's face, shipped with the app */
+const TERMINAL_FACE = 'Monaspace Neon Var'
 const OPTIONAL = new Set(['shell-env'])
 /** [step, mode, picture] */
 const CAPTURES = Object.freeze([['capture-window', 'window', 'window.png'], ['capture-widget', 'widget', 'widget.png'], ['capture-fullscreen', 'fullscreen', 'fullscreen.png']])
@@ -125,6 +130,9 @@ function verdict(result) {
 function fontVerdict(m, seen = ECHO_SEEN) {
   if (!m) return { ok: false, ratio: null, reason: 'the page has no metrics for the terminal (not on screen?)' }
   const ratio = m.cellWidth > 0 && m.fontSize > 0 ? Math.round((m.cellWidth / m.fontSize) * 1000) / 1000 : null
+  const mono = (m.faces ?? []).find(f => f.face === TERMINAL_FACE)
+  if (!mono) return { ok: false, ratio, reason: `${TERMINAL_FACE} is not in the terminal's stack (${m.fontFamily})` }
+  if (mono.status !== 'loaded') return { ok: false, ratio, reason: `the bundled ${TERMINAL_FACE} is not loaded (status ${mono.status})` }
   if (ratio === null) return { ok: false, ratio, reason: `no cell size measured (cellWidth ${m.cellWidth}, fontSize ${m.fontSize})` }
   if (ratio < CELL_RATIO.min || ratio > CELL_RATIO.max) {
     const firstPresent = (m.faces ?? []).find(f => f.present)?.face ?? null
@@ -359,7 +367,12 @@ function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = cons
               await waitFor(async () => { m = await pageMetrics(); return fontVerdict(m).ok }, 8_000, "the terminal's font")
             } catch (err) { if (ended) throw err }
             const v = fontVerdict(m)
-            const detail = m ? { ratio: v.ratio, fontFamily: m.fontFamily, fontSize: m.fontSize, cellWidth: m.cellWidth, cellHeight: m.cellHeight, cols: m.cols, rows: m.rows, faces: m.faces, firstPresent: (m.faces ?? []).find(f => f.present)?.face ?? null } : null
+            // The page's bundled faces: loaded, and each drawing its own sample (é of Pokédex in Uncut Sans)
+            let fonts = null
+            try { fonts = await win().webContents.executeJavaScript('window.spawnFontStatus ? window.spawnFontStatus() : null', true) } catch { fonts = null }
+            result.fonts = fonts
+            const measured = (m?.faces ?? []).find(f => f.status === 'loaded' || f.present)?.face ?? null
+            const detail = m ? { ratio: v.ratio, measured, fontFamily: m.fontFamily, fontSize: m.fontSize, cellWidth: m.cellWidth, cellHeight: m.cellHeight, cols: m.cols, rows: m.rows, faces: m.faces, firstPresent: (m.faces ?? []).find(f => f.present)?.face ?? null, pageFonts: fonts } : null
             result.terminalFont = detail
             if (!v.ok) throw new Error(v.reason)
             return detail
@@ -398,4 +411,4 @@ function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = cons
   return { dirs, result, run, fail, stop }
 }
 
-module.exports = { SMOKE_FLAG, DEFAULT_TIMEOUT_MS, QUIT_TIMEOUT_MS, smokeTimeoutMs, CELL_RATIO, fontVerdict, sameRect, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }
+module.exports = { SMOKE_FLAG, DEFAULT_TIMEOUT_MS, QUIT_TIMEOUT_MS, smokeTimeoutMs, CELL_RATIO, TERMINAL_FACE, fontVerdict, sameRect, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }

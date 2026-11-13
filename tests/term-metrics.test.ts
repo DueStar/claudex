@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { facePresent, stackFaces, termMetrics, trackTermMetrics, type TermMetrics } from '../src/termMetrics'
+import { BUNDLED_CHECKS, facePresent, faceStatus, faceSupplies, fontStatus, stackFaces, termMetrics, trackTermMetrics, type TermMetrics } from '../src/termMetrics'
 
 const m = (id: string): TermMetrics => ({ id, fontFamily: 'Menlo, monospace', fontSize: 13, cellWidth: 7.8, cellHeight: 15, cols: 80, rows: 24, faces: [], text: '' })
 
@@ -25,5 +25,13 @@ describe('termMetrics', () => {
   it('a generic family is always there; without a page nothing else is', () => {
     expect(facePresent('monospace')).toBe(true)
     expect(facePresent('Menlo')).toBe(false) // no document here
+    expect(faceStatus('W Uncut')).toBe(null)
+    expect(faceSupplies('W Uncut', 'é')).toBe(false)
+  })
+
+  it('the page font status covers the three bundled faces, each with a sample of its own script', () => {
+    expect(BUNDLED_CHECKS.map(c => c.face)).toEqual(['Monaspace Neon Var', 'W Uncut', 'W Pretendard'])
+    expect(BUNDLED_CHECKS.find(c => c.face === 'W Uncut')!.text).toContain('é')
+    expect(fontStatus().map(f => [f.face, f.status, f.supplied])).toEqual([['Monaspace Neon Var', null, false], ['W Uncut', null, false], ['W Pretendard', null, false]])
   })
 })

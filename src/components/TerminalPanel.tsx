@@ -10,7 +10,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
 import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont, termFontStack } from '../termFont'
-import { facePresent, stackFaces, trackTermMetrics } from '../termMetrics'
+import { facePresent, faceStatus, stackFaces, trackTermMetrics } from '../termMetrics'
 import { getSettings, useSettings } from '../settingsStore'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, onTerminalData, type PastSession, type TerminalInfo } from '../desktop'
@@ -98,7 +98,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
         id: term.id, fontFamily, fontSize,
         cellWidth: dims?.width ?? null, cellHeight: dims?.height ?? null,
         cols: xterm.cols, rows: xterm.rows,
-        faces: stackFaces(fontFamily).map(face => ({ face, check: document.fonts.check(`${fontSize}px "${face}"`), present: facePresent(face) })),
+        faces: stackFaces(fontFamily).map(face => ({ face, check: document.fonts.check(`${fontSize}px "${face}"`), present: facePresent(face), status: faceStatus(face) })),
         text: lines.join('\n').trimEnd(),
       }
     })
