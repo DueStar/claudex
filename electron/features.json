@@ -1,0 +1,4 @@
+{
+  "//": "Other AI tools (Codex CLI and any tool other than Claude Code) were hidden on 2026-11-13 at the owner's request. Set otherTools to true to bring them back. Read by electron/features.cjs (main process) and src/features.ts (the page).",
+  "otherTools": false
+}

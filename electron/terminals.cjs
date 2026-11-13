@@ -23,6 +23,7 @@ const os = require('os')
 const crypto = require('crypto')
 const { adapterFor, createActivity } = require('./adapters.cjs')
 const { createCodexWatch } = require('./codexWatch.cjs')
+const { OTHER_TOOLS } = require('./features.cjs')
 
 const MAX_BUFFER = 200_000 // characters of scrollback kept for a tab opened later
 const OUTPUT_BATCH_MS = 16 // a session's output goes to the window at most once a frame
@@ -185,14 +186,20 @@ function linkedConversation(userDataDir, sessionId) {
 /**
  * `tools()`: the trainer's other AI tools (설정 › 세션). `emit(event)`: a server
  * event for a session whose tool has no hooks (main posts it to /event).
+ * `otherTools` (features.cjs): off, every session is Claude Code or the shell.
  */
-function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {}, postStatus = () => {}, pty: ptyModule = null, killTree = killTreeNow, codexWatch = createCodexWatch, exitGraceMs = 5000 }) {
+function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd, extraArgs = () => [], titles = { get: () => null, set: () => {} }, tools = () => [], emit = () => {}, postStatus = () => {}, pty: ptyModule = null, killTree = killTreeNow, codexWatch = createCodexWatch, exitGraceMs = 5000, otherTools = OTHER_TOOLS }) {
   const terms = new Map() // id -> { id, sessionId, cwd, pty, buffer, status, createdAt, exitCode }
   let settingsFile = null
   // The sessions open when the app last closed (open-sessions.json): what the
   // next start may reopen. Read once at start, before this run writes over it.
   const openFile = path.join(userDataDir, 'open-sessions.json')
   let restorable = readOpenSessions(openFile)
+  // Other tools switched off: their tabs (Codex…) are not reopened, as Claude or otherwise, but stay
+  // in the list this run writes, so they come back when the switch is flipped on again
+  const held = otherTools ? [] : restorable.filter(s => s.tool !== 'claude' && s.tool !== 'shell')
+  if (held.length) restorable = restorable.filter(s => !held.includes(s))
+  const toolList = () => (otherTools ? tools() : [])
   let frozen = false // quitting: the sessions killed on the way out stay listed
 
   try { fs.mkdirSync(path.join(userDataDir, 'session-links'), { recursive: true }) } catch {}
@@ -231,7 +238,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   function rememberOpen() {
     if (exitTimer) { clearTimeout(exitTimer); exitTimer = null }
     if (frozen) return
-    const open = [...terms.values()].filter(t => t.status !== 'exited').map(t => ({ sessionId: t.sessionId, cwd: t.cwd, tool: t.adapter.id }))
+    const open = [...terms.values()].filter(t => t.status !== 'exited').map(t => ({ sessionId: t.sessionId, cwd: t.cwd, tool: t.adapter.id })).concat(held)
     try { fs.writeFileSync(openFile, JSON.stringify(open)) } catch {}
   }
 
@@ -250,7 +257,7 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   function list() { return [...terms.values()].map(info) }
 
   function create({ cwd, resume, sessionId: wanted, tool } = {}) {
-    const adapter = adapterFor(tool, tools())
+    const adapter = adapterFor(tool, toolList())
     // A tab reopened keeps its id (and so its Pokémon) even when its tool cannot resume
     // (only a real session id: it names files under session-links)
     const reopened = typeof resume === 'string' && UUID.test(resume) ? resume : undefined
