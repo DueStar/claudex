@@ -6,9 +6,14 @@
  * so only the build showed it).
  *
  *   missingPageCss(indexJs, assetNames) → ['Toast-x.css', …] (empty when all is well)
+ *
+ * Also the app's bundled fonts (public/fonts, copied into dist/fonts): the
+ * stylesheet, every file it names, and the licences that must ship with them.
+ *
+ *   missingFonts(distDir) → ['fonts/X.woff2', …] (empty when all is well)
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 export function missingPageCss(indexJs, assetNames) {
@@ -25,8 +30,32 @@ export function missingPageCss(indexJs, assetNames) {
   return missing
 }
 
-/** Throws when dist/ has a page that would load without its CSS */
+/** The OFL licence texts that ship beside the fonts (public/fonts) */
+export const FONT_LICENCES = ['LICENSE-Monaspace.txt', 'LICENSE-Pretendard.txt', 'LICENSE-UncutSans.txt']
+
+/** The font files a fonts.css names in its url(...) sources, each once */
+export function fontUrls(css) {
+  return [...new Set([...css.matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g)].map(m => m[1]))]
+}
+
+/** What dist/fonts lacks: fonts.css, a font file it names (or one suspiciously small), a licence */
+export function missingFonts(distDir) {
+  const dir = join(distDir, 'fonts')
+  const css = join(dir, 'fonts.css')
+  if (!existsSync(css)) return ['fonts/fonts.css']
+  const missing = []
+  for (const file of fontUrls(readFileSync(css, 'utf8'))) {
+    const at = join(dir, file)
+    if (!existsSync(at) || statSync(at).size < 10_000) missing.push(`fonts/${file}`)
+  }
+  for (const file of FONT_LICENCES) if (!existsSync(join(dir, file))) missing.push(`fonts/${file}`)
+  return missing
+}
+
+/** Throws when dist/ has a page that would load without its CSS, or lacks the bundled fonts */
 export function checkDist(distDir) {
+  const fonts = missingFonts(distDir)
+  if (fonts.length) throw new Error(`dist-check: the build lacks the app's fonts: ${fonts.join(', ')}`)
   const assets = readdirSync(join(distDir, 'assets'))
   const index = assets.find(n => /^index-.*\.js$/.test(n))
   if (!index) throw new Error('dist-check: no index-*.js in dist/assets')

@@ -2,8 +2,11 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' file:; font-src file:; script-src 'unsafe-inline'">
 <title>spawn</title>
+<!-- The app's typefaces, the same file the app's pages load: dist/fonts beside electron/ in the
+     packaged app (resources/app); in a checkout before `vite build` the installed fonts stand in -->
+<link rel="stylesheet" href="../dist/fonts/fonts.css">
 <style>
   /* Just the words, on a see-through window; a soft shadow keeps them readable on any background */
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }

@@ -2,9 +2,8 @@
    The window is transparent: Pokémon float in the open "sky" above a bento of
    separate cards, and the desktop shows through the gaps between them. */
 
-/* Installed fonts: Latin from Uncut Sans, Hangul falls through to Pretendard */
-@font-face { font-family: 'W Uncut'; src: local('Uncut Sans Variable'), local('UncutSans-Variable'); font-weight: 100 900; }
-@font-face { font-family: 'W Pretendard'; src: local('Pretendard Variable'), local('PretendardVariable'); font-weight: 45 920; }
+/* Latin from Uncut Sans ('W Uncut'), Hangul falls through to Pretendard ('W Pretendard'):
+   both faces ship with the app, declared in public/fonts/fonts.css (loaded by index.html) */
 
 html.widget-mode, html.widget-mode body, html.widget-mode #root {
   margin: 0;
