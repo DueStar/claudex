@@ -204,7 +204,11 @@ describe('cleanupStaleUpdates', () => {
     const tmp = join(root, 'tmp'); mkdirSync(tmp)
     // claudex-update-*: left by 1.3.35 and older (the update into spawn among them)
     for (const d of ['spawn-update-a', 'spawn-update-b', 'claudex-update-c', 'other']) mkdirSync(join(tmp, d))
-    await expect(cleanupStaleUpdates({ tmpdir: tmp, keep: join(tmp, 'spawn-update-b'), minAgeMs: 0 })).resolves.toBe(2)
+    // Seen an hour on, so every folder is old: a file's birth time is finer than Date.now()'s whole
+    // milliseconds and can read a fraction after it, so with minAgeMs 0 and the real clock a folder
+    // made in the same millisecond still counted as new (macOS CI, run 3: 0 removed, not 2)
+    const later = Date.now() + 60 * 60_000
+    await expect(cleanupStaleUpdates({ tmpdir: tmp, keep: join(tmp, 'spawn-update-b'), now: () => later })).resolves.toBe(2)
     expect(readdirSync(tmp).sort()).toEqual(['other', 'spawn-update-b'])
   })
 
