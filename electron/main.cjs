@@ -42,6 +42,7 @@ const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cj
 const { createLog, teeConsole } = require('./logs.cjs')
 const { t, useLanguage } = require('./i18n.cjs')
 const { menuTemplate } = require('./menu.cjs')
+const { resolveRef, vscodeUrl } = require('./links.cjs')
 const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 const { migrateUserData } = require('./userDataMigration.cjs')
 const { refreshShortcutIcons } = require('./shortcutIcon.cjs')
@@ -1127,7 +1128,8 @@ function registerTerminalIpc() {
       if (u.protocol === 'http:' || u.protocol === 'https:') shell.openExternal(u.toString())
     } catch {}
   }))
-  // A file named in a session's output (Ctrl+click): resolved against that session's folder, and
+  // A file named in a session's output (Ctrl+click): resolved against that session's folder (on
+  // macOS ~/ is the home folder: electron/links.cjs), and
   // only a file that exists. It opens at its line in VS Code or Cursor through their own
   // vscode:// / cursor:// links (no command line, so nothing in the path is ever run), else
   // with the file's default app. A page, PDF or picture named without a line goes to its
@@ -1136,7 +1138,7 @@ function registerTerminalIpc() {
   ipcMain.handle('terminals:open-path', guard(async ({ id, file, line, col } = {}) => {
     const term = terminals.list().find(t => t.id === String(id))
     if (!term || typeof file !== 'string' || file.length > 1024) return false
-    const abs = path.resolve(term.cwd, file)
+    const abs = resolveRef(term.cwd, file)
     try { if (!fs.statSync(abs).isFile()) return false } catch { return false }
     if (!(Number(line) > 0) && VIEW_IN_DEFAULT_APP.has(path.extname(abs).toLowerCase())) {
       return (await shell.openPath(abs)) === ''
@@ -1144,7 +1146,7 @@ function registerTerminalIpc() {
     const at = `${Number(line) > 0 ? `:${Math.floor(Number(line))}` : ''}${Number(line) > 0 && Number(col) > 0 ? `:${Math.floor(Number(col))}` : ''}`
     for (const scheme of ['vscode', 'cursor']) {
       if (app.getApplicationNameForProtocol(`${scheme}://`)) {
-        await shell.openExternal(`${scheme}://file/${abs.split(path.sep).map(encodeURIComponent).join('/').replace(/^([A-Za-z])%3A/, '$1:')}${at}`)
+        await shell.openExternal(`${vscodeUrl(abs, { scheme })}${at}`)
         return true
       }
     }

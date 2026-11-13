@@ -17,6 +17,7 @@ import { createReplayGate } from '../terminalReplay'
 import { t } from '../i18n'
 import { appShortcut, clipboardAction, keptFromPty, wheelFontStep } from '../keys'
 import { isMac } from '../platform'
+import { fileRefPattern } from '../fileRef'
 
 const THEME = {
   background: '#101218',
@@ -80,7 +81,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     xterm.loadAddon(search)
     searchRef.current = search
     const offResults = search.onDidChangeResults(({ resultIndex, resultCount }) => setFound({ index: resultIndex, count: resultCount }))
-    // A file path in the output (src/app.ts:42:7, C:\x\y.py:3) opens in the code editor at that
+    // A file path in the output (src/app.ts:42:7, C:\x\y.py:3; /Users/me/a.ts and ~/a.ts on
+    // macOS: src/fileRef.ts) opens in the code editor at that
     // line with Ctrl+click, as a link does
     const offPaths = xterm.registerLinkProvider({
       provideLinks(y, callback) {
@@ -95,7 +97,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
           for (const c of ch) { text += c; cellOf.push(x) }
         }
         const links: { range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: (e: MouseEvent) => void; decorations: { underline: boolean; pointerCursor: boolean } }[] = []
-        for (const m of text.matchAll(FILE_REF)) {
+        for (const m of text.matchAll(fileRefPattern())) {
           const at = m.index ?? 0
           const ref = m[0]
           const start = cellOf[at], end = cellOf[at + ref.length - 1]
@@ -388,12 +390,6 @@ const SEARCH_MARKS = {
   matchBackground: '#4a3f14', matchBorder: '#4a3f14', matchOverviewRuler: '#a8892b',
   activeMatchBackground: '#f2c94c', activeMatchBorder: '#f2c94c', activeMatchColorOverviewRuler: '#f2c94c',
 }
-
-/**
- * A file reference in output: a path with a folder part or a drive (src/app.ts, ./x.js,
- * C:\a\b.py) or a bare file name followed by a line (app.ts:12), then :line and :column
- */
-const FILE_REF = /(?<![\w/\:.@-])((?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|[\w@.-]+[\\/])[\w@.\-\\/]*\.[A-Za-z0-9]{1,8}|[\w@.-]+\.[A-Za-z0-9]{1,8}(?=:\d))(?::(\d+))?(?::(\d+))?/g
 
 function ago(ms: number): string {
   const m = Math.round((Date.now() - ms) / 60000)
