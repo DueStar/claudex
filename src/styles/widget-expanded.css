@@ -324,6 +324,15 @@
    28px from the window's left edge, as in the 56px rail, at the same height */
 .widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 18px; padding-right: 16px; }
 
+/* ---------- macOS: the native traffic lights at the window's top-left (x 14, y 14) ---------- */
+/* They minimize, zoom and close, so the page's own three go; the widget toggle and the
+   text size stay. Whatever is at the top-left moves out of their way: the panel's header
+   starts 78px in; folded, the rail's logo drops below them and the tab bar starts 78px in */
+.is-mac .w-win-controls { display: none; }
+.is-mac .widget.mode-window .w-side .w-head, .is-mac .widget.mode-fullscreen .w-side .w-head { padding-left: 78px; }
+.is-mac .widget.expanded.side-hidden .w-rail { padding-top: 30px; }
+.is-mac .widget.expanded.side-hidden .w-term-tabs { padding-left: 22px; }
+
 /* ---------- 설정: categories on the left, items on the right; stacks in the narrow widget ---------- */
 .set-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: 16px; }
 .set-modal {

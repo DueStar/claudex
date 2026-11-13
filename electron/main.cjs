@@ -46,6 +46,7 @@ const { resolveRef, vscodeUrl } = require('./links.cjs')
 const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 const { migrateUserData } = require('./userDataMigration.cjs')
 const { refreshShortcutIcons } = require('./shortcutIcon.cjs')
+const { macWindowOptions, fillWorkArea, isFilled, restore: restoreFilled, applyMode: applyMacMode, dockFor } = require('./macWindow.cjs')
 // Settings made under the old name (CLAUDEX_PORT=…) keep working; the server and terminals inherit them
 adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
@@ -634,6 +635,11 @@ function boundsFor(kind, near) {
   return clampBounds({ x: right - size.width, y: workArea.y + 16, ...size }, workArea, WINDOW_MIN)
 }
 
+// Windows shutting down, restarting or logging off ends the sessions' processes before
+// it kills the app, and the app's own quit never runs: keep the reopen list as it is now
+// (macOS: its shutdown and logout, from powerMonitor, come here too)
+const keepSessions = () => { try { terminals?.freeze?.(); console.log('[main] Windows is ending the session: open sessions kept for the next start') } catch {} }
+
 /** Build the app's window for `mode`; it shows itself once painted unless `hidden`. */
 function buildAppWindow(mode, { hidden = false, near = null } = {}) {
   const url = pageWith(`widget&mode=${mode}`)
@@ -647,7 +653,8 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     title: 'spawn',
     // The window's own icon (the Poké Ball), so the taskbar shows it whatever exe runs the app
     icon: APP_ICON,
-    frame: false,
+    // macOS: the window gets the traffic lights, the widget none (macWindow.cjs)
+    ...(process.platform === 'darwin' ? macWindowOptions(mode) : { frame: false }),
     transparent: isWidget,
     hasShadow: !isWidget,
     resizable: true,
@@ -664,6 +671,8 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     try { win.setAppDetails({ appIconPath: APP_ICON, appIconIndex: 0, relaunchCommand: `"${process.execPath}"`, relaunchDisplayName: 'spawn' }) } catch {}
   }
   if (isWidget && appSettings().app.widgetOnTop) win.setAlwaysOnTop(true, 'floating')
+  // macOS: the widget stays in view on every Space (the Dock icon is left to dockFor)
+  if (process.platform === 'darwin' && isWidget) win.setVisibleOnAllWorkspaces(true, { skipTransformProcessType: true })
   win.webContents.on('will-navigate', (event) => event.preventDefault())
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   win.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
@@ -682,13 +691,12 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     maybeCaptureScreenshot()
   })
   win.on('show', refreshMenus)
-  // Windows shutting down, restarting or logging off ends the sessions' processes before
-  // it kills the app, and the app's own quit never runs: keep the reopen list as it is now
-  const keepSessions = () => { try { terminals?.freeze?.(); console.log('[main] Windows is ending the session: open sessions kept for the next start') } catch {} }
   win.on('query-session-end', keepSessions)
   win.on('session-end', keepSessions)
   win.on('hide', refreshMenus)
   const remember = () => {
+    // macOS: a window filling the work area (fullscreen) keeps the place it had before
+    if (process.platform === 'darwin' && isFilled(win)) return
     if (win.isDestroyed() || win !== widgetWin || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return
     const b = win.getBounds()
     if (win.spawnKind === 'window') {
@@ -707,6 +715,16 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     win.on('maximize', () => { if (win === widgetWin) setModeQuietly('fullscreen') })
     win.on('unmaximize', () => { if (win === widgetWin) setModeQuietly('window') })
   }
+  if (process.platform === 'darwin' && !isWidget) {
+    // The green traffic light's own full screen is the fullscreen mode too; leaving it is
+    // the window mode (a window that filled the work area before goes back to its place)
+    win.on('enter-full-screen', () => { if (win === widgetWin) setModeQuietly('fullscreen') })
+    win.on('leave-full-screen', () => {
+      if (win !== widgetWin) return
+      if (isFilled(win)) restoreFilled(win)
+      setModeQuietly('window')
+    })
+  }
   win.on('close', (event) => {
     if (quitting || win !== widgetWin) return
     event.preventDefault()
@@ -719,7 +737,10 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
   if (!hidden) {
     win.once('ready-to-show', () => {
       if (win.isDestroyed() || win !== widgetWin) return
-      if (mode === 'fullscreen') win.maximize()
+      if (mode === 'fullscreen') {
+        if (process.platform === 'darwin') fillWorkArea(win, screen)
+        else win.maximize()
+      }
       win.show()
     })
   }
@@ -733,6 +754,8 @@ function createWidgetWindow({ hidden = false } = {}) {
   if (quitting) return null
   if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
   widgetWin = buildAppWindow(modeNow(), { hidden })
+  // macOS: no Dock icon while the app is the widget
+  if (process.platform === 'darwin' && widgetWin) dockFor(modeNow(), app.dock)
   return widgetWin
 }
 
@@ -789,13 +812,19 @@ function swapAppWindow(mode) {
     const next = buildAppWindow(mode, { hidden: true, near: old ? old.getBounds() : null })
     if (!next) return
     widgetWin = next
+    // macOS: the Dock icon goes with the widget and comes back with the window, before
+    // the new one is shown and focused
+    if (process.platform === 'darwin') dockFor(mode, app.dock)
     await painted(next)
     // A moment for the terminals' scrollback to land in the new page
     await new Promise((r) => setTimeout(r, 120))
     if (next.isDestroyed()) return
     if (!wasVisible) { if (old && !old.isDestroyed()) old.destroy(); return }
     next.setOpacity(0)
-    if (mode === 'fullscreen') next.maximize()
+    if (mode === 'fullscreen') {
+      if (process.platform === 'darwin') fillWorkArea(next, screen)
+      else next.maximize()
+    }
     next.show()
     next.focus()
     await Promise.all([fadeWindow(old, 1, 0, 140), fadeWindow(next, 0, 1, 200)])
@@ -823,8 +852,13 @@ function setWidgetMode(mode) {
   // The same window: maximize or restore it (its events tell the page too)
   state.widgetMode = mode
   state.widgetExpanded = mode !== 'widget'
-  if (mode === 'fullscreen' && !w.isMaximized()) w.maximize()
-  if (mode === 'window' && w.isMaximized()) w.unmaximize()
+  if (process.platform === 'darwin') {
+    // macOS: fill the work area or go back (macWindow.cjs); macOS's own maximize is a zoom
+    applyMacMode(w, mode, screen)
+  } else {
+    if (mode === 'fullscreen' && !w.isMaximized()) w.maximize()
+    if (mode === 'window' && w.isMaximized()) w.unmaximize()
+  }
   if (!w.isVisible()) w.show()
   w.focus()
   w.webContents.send('widget:mode', mode)
@@ -882,7 +916,9 @@ function ensureToastWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD, autoplayPolicy: 'no-user-gesture-required' },
   })
   toastWin.setAlwaysOnTop(true, 'screen-saver')
-  toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  // macOS: on every Space, over full-screen apps too, without touching the Dock icon
+  if (process.platform === 'darwin') toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+  else toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   toastWin.webContents.on('will-navigate', (event) => event.preventDefault())
   toastWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   toastWin.on('closed', () => { toastWin = null; toastReady = false })
@@ -1267,6 +1303,9 @@ if (lockWaits < 0) {
     // Started from Finder the app has launchd's bare PATH: take the login shell's PATH and
     // LANG once, before the server and the terminals are started (both read process.env)
     if (process.platform === 'darwin') {
+      // A shutdown, restart or logout ends the sessions as Windows' does: keep the reopen list
+      // (required here: powerMonitor is usable only once the app is ready)
+      require('electron').powerMonitor.on('shutdown', () => { console.log('[main] macOS is shutting down or logging out'); keepSessions() })
       const merged = await mergeLoginEnv({ env: process.env })
       process.env.PATH = merged.PATH
       if (merged.LANG) process.env.LANG = merged.LANG
@@ -1345,7 +1384,10 @@ if (lockWaits < 0) {
       timer.mark('sessions-ended', `stuck=${stuck ?? 0}`)
       if (stuck) console.warn(`[main] quit: ${stuck} session(s) did not exit`)
     })()
-    quitSequence = Promise.all([tellServer, endSessions])
+    const ending = Promise.all([tellServer, endSessions])
+    // macOS: a logout or shutdown waits on the quit and gives up on it (the logout is
+    // cancelled) if it takes long: 2 s at most there, then the server is stopped anyway
+    quitSequence = (process.platform === 'darwin' ? Promise.race([ending, sleep(2000)]) : ending)
       .catch((err) => console.error('[main] quit sequence:', err?.message ?? err))
       .finally(() => {
         try { if (tray) { tray.dispose(); tray = null } } catch {}
