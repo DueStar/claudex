@@ -18,7 +18,7 @@ var SITE_LINKS = {
 };
 
 /* The latest release (shown under the closing download button; update with each release) */
-var LATEST_VERSION = '1.3.49'; // the fallback: loading.js asks GitHub for the newest
+var LATEST_VERSION = '1.3.50'; // the fallback: loading.js asks GitHub for the newest
 
 var STRINGS = {
   ko: {
