@@ -4,6 +4,7 @@
  *   node scripts/release.mjs [--publish]          notes from CHANGELOG.md "### <version>"
  *   node scripts/release.mjs "notes…"            build into release/, publish nothing
  *   node scripts/release.mjs "notes…" --publish  also create the GitHub release v<version>
+ *   node scripts/release.mjs --publish --with-mac  the Windows release, then the Macs (below)
  *   node scripts/release.mjs --mac-only <version> only the Mac part (below), for v<version> already out
  *
  * Files (release/):
@@ -27,12 +28,13 @@
  * (tools/import-balls.mjs: releases are built on a PC that has it), and the
  * signing key.
  *
- * After the Windows release is out, --publish adds the Macs to it: CI builds
- * them and scripts/release-mac.mjs checks, signs and uploads them (zips, then
- * latest-mac-<arch>.json). A Mac failure leaves the Windows release as it is;
- * the Mac part is retried with --mac-only <version>. A test build (no
- * --publish) is Windows only. --mac-allow-unsmoked releases a Mac build whose
- * smoke launch did not pass.
+ * The Macs are off unless asked for: --publish alone is the Windows release,
+ * exactly as it was before the Macs (no CI started, nothing waited for). With
+ * --with-mac, after the Windows release is out, CI builds the Macs on the
+ * release's tag and scripts/release-mac.mjs checks, signs and uploads them
+ * (zips, then latest-mac-<arch>.json). A Mac failure leaves the Windows release
+ * as it is; the Mac part is retried with --mac-only <version>. A test build (no
+ * --publish) is Windows only.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -50,7 +52,7 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const version = pkg.version
 // --mac-only <v>: none of the Windows steps below, only the Mac part for the release v<v>
 const cli = releaseArgsOrExit(process.argv.slice(2))
-if (cli.macOnly) process.exit(await runMacRelease({ root, version: cli.macOnly, allowUnsmoked: cli.allowUnsmoked, windowsOut: false }))
+if (cli.macOnly) process.exit(await runMacRelease({ root, version: cli.macOnly, windowsOut: false }))
 const given = process.argv.slice(2).filter(a => !a.startsWith('--')).join(' ').trim()
 // Without notes on the command line, the release says what CHANGELOG.md says
 // under "### <version>" (read here as UTF-8: notes piped through a Windows
@@ -177,9 +179,12 @@ if (publish) {
   // DueStar's login was checked in preflight (the gh CLI's active login, never its token)
   run('gh', ['release', 'create', `v${version}`, '--repo', 'DueStar/spawn', '--title', `spawn ${version}`, '--notes', notes || `spawn ${version}`,
     join(out, 'latest.json'), join(out, appZip), join(out, fullZip)], { shell: false })
-  // Then the Macs, with the notes and date latest.json went out with; a failure there leaves the Windows release as it is
-  const macCode = await runMacRelease({ root, version, notes: { notes, notesEn, notesJa, date: builtAt }, allowUnsmoked: cli.allowUnsmoked, windowsOut: true })
-  if (macCode) process.exit(macCode)
+  // Then the Macs, only with --with-mac, with the notes and date latest.json went out with; a failure
+  // there leaves the Windows release as it is
+  if (cli.mac) {
+    const macCode = await runMacRelease({ root, version, notes: { notes, notesEn, notesJa, date: builtAt }, windowsOut: true })
+    if (macCode) process.exit(macCode)
+  }
 } else {
   console.log('Not published. Add --publish to create the GitHub release.')
 }

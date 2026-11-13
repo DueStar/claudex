@@ -52,7 +52,8 @@ const SMOKE_KILL_MARGIN_MS = 10_000
 export function smokeKillMs(env = process.env) {
   return smokeTimeoutMs(env) + QUIT_TIMEOUT_MS + SMOKE_KILL_MARGIN_MS
 }
-const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
+/** A release version (1.4.0, 0.0.0-test): the one rule mac-build and release-mac share */
+export const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
 
 /** The names one arch's build goes by: the CI artifact and the two zips */
 export function macArtifactNames(version, arch) {

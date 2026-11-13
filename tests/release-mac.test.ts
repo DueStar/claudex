@@ -61,20 +61,22 @@ function writeArtifact(dir: string, arch: Arch, s: ArchSetup) {
 }
 
 /** A fake `run` that answers as gh and git would, and records every call */
-function fakeRun(setup: Partial<Record<Arch, ArchSetup>> = {}, { headSha = SHA, watchFails = false, publishedNotes = NOTES, assets = [] as string[], failOn = (_a: string) => false } = {}) {
+function fakeRun(setup: Partial<Record<Arch, ArchSetup>> = {}, { headSha = SHA, watchFails = false, publishedNotes = NOTES, assets = [] as string[], failOn = (_a: string) => false, otherRun = false } = {}) {
   let lists = 0
   return async (cmd: string, args: string[]) => {
     calls.push([cmd, ...args])
     const a = args.join(' ')
-    if (cmd === 'git' && a === 'rev-parse --abbrev-ref HEAD') return 'main'
     if (cmd !== 'gh') throw new Error(`unexpected ${cmd} ${a}`)
     if (failOn(a)) throw new Error(`gh ${args[0]} ${args[1]} failed`)
     if (a.startsWith(`api repos/${REPO}/commits/v${V}`)) return SHA
     if (a.startsWith('run list')) {
       lists++
       const old = { databaseId: 100, headSha: 'old', headBranch: 'main', event: 'workflow_dispatch', createdAt: '2026-11-12T00:00:00Z' }
+      // Someone else's run on main, started meanwhile: never taken for ours (another head sha)
+      const other = { databaseId: 102, headSha: 'e'.repeat(40), headBranch: 'main', event: 'workflow_dispatch', createdAt: '2026-11-13T01:00:01Z' }
       // The new run shows up on the third look
-      return JSON.stringify(lists >= 3 ? [{ databaseId: 101, headSha, headBranch: 'main', event: 'workflow_dispatch', createdAt: '2026-11-13T01:00:00Z' }, old] : [old])
+      const mine = { databaseId: 101, headSha, headBranch: `v${V}`, event: 'workflow_dispatch', createdAt: '2026-11-13T01:00:00Z' }
+      return JSON.stringify(lists >= 3 ? [...(otherRun ? [other] : []), mine, old] : [old])
     }
     if (a.startsWith('workflow run')) return ''
     if (a.startsWith('run watch')) { if (watchFails) throw new Error('exit 1'); return '' }
@@ -125,17 +127,20 @@ const uploads = () => gh().filter(c => c[0] === 'release' && c[1] === 'upload')
 const outDir = () => join(root, 'release', 'mac', V)
 
 describe('releaseMac', () => {
-  it('runs CI on the current branch, waits for it, downloads both archs and uploads zips then manifests', async () => {
+  it('runs CI on the release tag, finds the run by its commit, downloads both archs and uploads zips then manifests', async () => {
     const result = await releaseMac(V, deps())
     expect(result).toMatchObject({ ok: true, released: ['arm64', 'x64'], failed: [] })
     const seq = gh()
     const dir = outDir()
+    // no git: the tag names what CI builds, whatever branch this PC is on
+    expect(calls.some(c => c[0] === 'git')).toBe(false)
+    const list = ['run', 'list', '--repo', REPO, '--workflow', 'mac.yml', '--event', 'workflow_dispatch', '--limit', '20', '--json', 'databaseId,headSha,headBranch,event,createdAt']
     expect(seq).toEqual([
       ['api', `repos/${REPO}/commits/v${V}`, '--jq', '.sha'],
-      ['run', 'list', '--repo', REPO, '--workflow', 'mac.yml', '--event', 'workflow_dispatch', '--branch', 'main', '--limit', '20', '--json', 'databaseId,headSha,headBranch,event,createdAt'],
-      ['workflow', 'run', 'mac.yml', '--repo', REPO, '--ref', 'main', '-f', `version=${V}`],
-      ['run', 'list', '--repo', REPO, '--workflow', 'mac.yml', '--event', 'workflow_dispatch', '--branch', 'main', '--limit', '20', '--json', 'databaseId,headSha,headBranch,event,createdAt'],
-      ['run', 'list', '--repo', REPO, '--workflow', 'mac.yml', '--event', 'workflow_dispatch', '--branch', 'main', '--limit', '20', '--json', 'databaseId,headSha,headBranch,event,createdAt'],
+      list,
+      ['workflow', 'run', 'mac.yml', '--repo', REPO, '--ref', `v${V}`, '-f', `version=${V}`],
+      list,
+      list,
       ['run', 'watch', '101', '--repo', REPO, '--exit-status'],
       ['run', 'view', '101', '--repo', REPO, '--json', 'jobs'],
       ['run', 'download', '101', '--repo', REPO, '-n', 'mac-arm64', '-D', join(dir, 'mac-arm64')],
@@ -217,23 +222,21 @@ describe('releaseMac', () => {
     expect(missing).toMatchObject({ ok: false, released: ['arm64'] })
   })
 
-  it('--mac-allow-unsmoked releases it anyway, with a loud warning', async () => {
-    const result = await releaseMac(V, deps({ run: fakeRun({ arm64: { smoke: 'failed' } }), allowUnsmoked: true }))
-    expect(result).toMatchObject({ ok: true, released: ['arm64', 'x64'] })
-    expect(logs.some(l => l.startsWith('WARN') && /arm64/.test(l) && /smoke/i.test(l))).toBe(true)
-  })
-
-  it('--mac-allow-unsmoked does not cover any other failed step: the tests failing still fails the arch', async () => {
-    const tests = await releaseMac(V, deps({ run: fakeRun({ arm64: { failedSteps: ['Tests passed'] } }, { watchFails: true }), allowUnsmoked: true }))
+  it('a failed smoke step, a failed test gate or a cancelled job fails that arch: there is no override', async () => {
+    const smoke = await releaseMac(V, deps({ run: fakeRun({ arm64: { smoke: 'failed' } }, { watchFails: true }), allowUnsmoked: true }))
+    expect(smoke).toMatchObject({ ok: false, released: ['x64'] })
+    expect(smoke.failed[0].reason).toMatch(new RegExp(SMOKE_STEP))
+    calls = []
+    const tests = await releaseMac(V, deps({ run: fakeRun({ arm64: { failedSteps: ['Tests passed'] } }, { watchFails: true }) }))
     expect(tests).toMatchObject({ ok: false, released: ['x64'] })
-    expect(tests.failed[0]).toMatchObject({ arch: 'arm64' })
     expect(tests.failed[0].reason).toMatch(/Tests passed/)
     calls = []
-    const both = await releaseMac(V, deps({ run: fakeRun({ x64: { smoke: 'failed', failedSteps: [SMOKE_STEP, 'Tests passed'] } }, { watchFails: true }), allowUnsmoked: true }))
-    expect(both).toMatchObject({ ok: false, released: ['arm64'] })
-    calls = []
-    const cancelled = await releaseMac(V, deps({ run: fakeRun({ x64: { job: 'cancelled' } }), allowUnsmoked: true }))
+    const cancelled = await releaseMac(V, deps({ run: fakeRun({ x64: { job: 'cancelled' } }) }))
     expect(cancelled).toMatchObject({ ok: false, released: ['arm64'] })
+  })
+
+  it('--mac-allow-unsmoked is gone from the scripts', () => {
+    for (const f of ['release-mac.mjs', 'release.mjs']) expect(readFileSync(join(__dirname, '..', 'scripts', f), 'utf8')).not.toMatch(/allow-unsmoked|allowUnsmoked/)
   })
 
   it("the smoke step's name is mac.yml's", () => {
@@ -303,14 +306,20 @@ describe('releaseMac', () => {
   it('CI built another commit than the release tag: nothing is uploaded', async () => {
     const result = await releaseMac(V, deps({ run: fakeRun({}, { headSha: 'f'.repeat(40) }) }))
     expect(result.ok).toBe(false)
+    expect(result.failed[0].reason).toMatch(/builds fffffff but v9\.9\.9 is c0ffee0/)
     expect(uploads()).toEqual([])
     expect(gh().some(c => c[0] === 'run' && c[1] === 'download')).toBe(false)
+  })
+
+  it("another run started meanwhile (newer, another commit) is not taken for the release's", async () => {
+    const result = await releaseMac(V, deps({ run: fakeRun({}, { otherRun: true }) }))
+    expect(result.ok).toBe(true)
+    expect(gh().find(c => c[1] === 'watch')).toEqual(['run', 'watch', '101', '--repo', REPO, '--exit-status'])
   })
 
   it('gives up when the triggered run never shows up', async () => {
     const run = async (cmd: string, args: string[]) => {
       calls.push([cmd, ...args])
-      if (cmd === 'git') return 'main'
       if (args[0] === 'api') return SHA
       if (args[0] === 'run' && args[1] === 'list') return '[]'
       return ''
@@ -344,14 +353,29 @@ describe('parseReleaseArgs', () => {
     expect(parseReleaseArgs(['some notes'])).toMatchObject({ windows: true, mac: false })
   })
 
-  it('--publish releases Windows, then the Macs', () => {
-    expect(parseReleaseArgs(['--publish'])).toMatchObject({ windows: true, mac: true, macOnly: null, allowUnsmoked: false })
-    expect(parseReleaseArgs(['notes', '--publish', '--mac-allow-unsmoked'])).toMatchObject({ windows: true, mac: true, allowUnsmoked: true })
+  it('--publish alone is the Windows release exactly as before: no Macs', () => {
+    expect(parseReleaseArgs(['--publish'])).toEqual({ windows: true, mac: false, macOnly: null, publish: true })
+    expect(parseReleaseArgs(['notes', '--publish'])).toMatchObject({ windows: true, mac: false })
+  })
+
+  it('--publish --with-mac releases Windows, then the Macs', () => {
+    expect(parseReleaseArgs(['--publish', '--with-mac'])).toEqual({ windows: true, mac: true, macOnly: null, publish: true })
+    expect(parseReleaseArgs(['notes', '--with-mac', '--publish'])).toMatchObject({ windows: true, mac: true })
+  })
+
+  it('--with-mac without --publish is an error (a test build is Windows only)', () => {
+    expect(() => parseReleaseArgs(['--with-mac'])).toThrow(/--with-mac goes with --publish/)
   })
 
   it('--mac-only <version> skips every Windows step', () => {
     expect(parseReleaseArgs(['--mac-only', '1.3.49'])).toMatchObject({ windows: false, mac: true, macOnly: '1.3.49' })
-    expect(parseReleaseArgs(['--mac-only', '1.3.49', '--mac-allow-unsmoked'])).toMatchObject({ windows: false, mac: true, allowUnsmoked: true })
+  })
+
+  it('release.mjs starts the Mac part after --publish only when asked (cli.mac)', () => {
+    const src = readFileSync(join(__dirname, '..', 'scripts', 'release.mjs'), 'utf8')
+    const calls = src.split('runMacRelease(').length - 1
+    expect(calls).toBe(2) // --mac-only, and after the Windows release
+    expect(src).toMatch(/if \(cli\.mac\) \{\n\s+const macCode = await runMacRelease\(/)
   })
 
   it('--mac-only needs a version', () => {
@@ -373,7 +397,8 @@ describe('releaseArgsOrExit', () => {
   })
 
   it('good arguments pass through', () => {
-    expect(releaseArgsOrExit(['--publish'], { exit: () => { throw new Error('no exit') } })).toMatchObject({ mac: true })
+    expect(releaseArgsOrExit(['--publish'], { exit: () => { throw new Error('no exit') } })).toMatchObject({ mac: false })
+    expect(releaseArgsOrExit(['--publish', '--with-mac'], { exit: () => { throw new Error('no exit') } })).toMatchObject({ mac: true })
   })
 })
 
