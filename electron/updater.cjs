@@ -26,7 +26,7 @@ const crypto = require('crypto')
 const https = require('https')
 const childProcess = require('child_process')
 const { t } = require('./i18n.cjs')
-const { pendingFile: runnerPendingFile, bundlePath } = require('./updateRunner.cjs')
+const { pendingFile: runnerPendingFile, bundlePath, macFailedFile } = require('./updateRunner.cjs')
 const { isMac } = require('./platform.cjs')
 
 const REPO = 'DueStar/spawn'
@@ -127,19 +127,27 @@ function localUpdateDir(name = manifestName()) {
 }
 
 /**
- * True when a Mac update can go into this app: not translocated (macOS runs an
- * app opened from Downloads from a read-only copy under /private/var/folders)
- * and the bundle and its Contents/Resources/app writable by this user.
+ * Why a Mac update cannot go into this app, or null when it can: 'translocated'
+ * (macOS runs an app opened from Downloads from a read-only copy under
+ * /private/var/folders) or 'not-writable' (the bundle or its
+ * Contents/Resources/app not writable by this user).
  */
-function macBundleWritable(resourcesPath, fsx = fs) {
+function macUpdateBlock(resourcesPath, fsx = fs) {
   const bundle = bundlePath(resourcesPath)
-  if (bundle.startsWith('/private/var/folders/')) return false
+  if (bundle.startsWith('/private/var/folders/')) return 'translocated'
   try {
     fsx.accessSync(bundle, fs.constants.W_OK)
     fsx.accessSync(path.posix.join(resourcesPath, 'app'), fs.constants.W_OK)
-    return true
-  } catch { return false }
+    return null
+  } catch { return 'not-writable' }
 }
+
+/** What a Mac is told when it gets the full download instead of the patch */
+const MAC_FULL_REASON = Object.freeze({
+  translocated: '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요',
+  'not-writable': '맥: 이 위치의 앱은 직접 업데이트할 수 없어요. 새 버전을 받아 주세요',
+  failed: '맥: 업데이트를 적용하지 못했어요. 새 버전을 받아 주세요',
+})
 
 /** When this copy of the app was built (scripts/release.mjs writes build-info.json) */
 function ownBuildDate(app) {
@@ -147,9 +155,9 @@ function ownBuildDate(app) {
 }
 
 /**
- * platform, arch, fetch, spawn, localDir, resourcesPath and fsx (the
- * writable check) are this process's own unless a test hands in others (the
- * Mac paths are tested on Windows that way).
+ * platform, arch, fetch, spawn, localDir, resourcesPath, fsx (the writable
+ * check) and userData (where a failed Mac update is noted) are this process's
+ * own unless a test hands in others (the Mac paths are tested on Windows that way).
  */
 function createUpdater({
   app, send, isPackaged,
@@ -160,6 +168,7 @@ function createUpdater({
   localDir = localUpdateDir,
   resourcesPath = process.resourcesPath,
   fsx = fs,
+  userData = null,
 }) {
   const manifestFile = manifestName(platform, arch)
   let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', notesEn: '', notesJa: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
@@ -170,6 +179,29 @@ function createUpdater({
   const builtAt = ownBuildDate(app)
   /** Newer by version, or the same version built later (local builds) */
   const isNewer = (m) => newer(m.version, state.current) || (m.version === state.current && !!m.date && !!builtAt && Date.parse(m.date) > Date.parse(builtAt))
+
+  /**
+   * A Mac only: why the update `m` has to be the full download, or null. The bundle
+   * cannot be written (translocated, or not this user's), or this very version's
+   * patch failed to go in before (updateRunner.cjs noted it). That note goes once a
+   * newer build runs (this one is that version or later) or a newer version than the
+   * failed one is out: its patch is tried again.
+   */
+  function macFullReason(m) {
+    if (!isMac(platform)) return null
+    const block = macUpdateBlock(resourcesPath, fsx)
+    if (block) return block
+    const dir = userData ?? (() => { try { return app.getPath('userData') } catch { return null } })()
+    if (!dir) return null
+    let failed = null
+    try { failed = JSON.parse(fs.readFileSync(macFailedFile(dir), 'utf8')) } catch { return null }
+    const v = String(failed?.version ?? '')
+    if (!v || !newer(v, state.current) || newer(m.version, v)) {
+      try { fs.rmSync(macFailedFile(dir), { force: true }) } catch {}
+      return null
+    }
+    return 'failed'
+  }
 
   async function check() {
     if (state.status === 'downloading' || state.status === 'ready') return state
@@ -185,11 +217,14 @@ function createUpdater({
       if (!local && !verifyManifest(m)) throw new Error('unsigned or tampered manifest')
       if (!isNewer(m)) { publish({ status: 'current', latest: m.version, error: null }); return state }
       manifest = m
+      // A Mac that cannot take the patch is told so at every check, not only once it clicks
+      const full = macFullReason(m)
       publish({
         status: 'available', latest: m.version, notes: String(m.notes ?? '').slice(0, 2000),
         // English and Japanese notes (1.3.21+ manifests); the page picks by its language
-        notesEn: String(m.notesEn ?? '').slice(0, 2000), notesJa: String(m.notesJa ?? '').slice(0, 2000), error: null,
-        needsFull: !!m.electron && m.electron !== process.versions.electron,
+        notesEn: String(m.notesEn ?? '').slice(0, 2000), notesJa: String(m.notesJa ?? '').slice(0, 2000),
+        error: full ? t(MAC_FULL_REASON[full]) : null,
+        needsFull: (!!m.electron && m.electron !== process.versions.electron) || !!full,
       })
     } catch (err) {
       // Offline, or no public release yet: quietly stay as we are
@@ -207,8 +242,9 @@ function createUpdater({
     if (!appFilePattern(platform).test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
     // A Mac app the update could not write into (run from Downloads, or put in
     // Applications by another user) is sent to the full download, before any of it is fetched
-    if (isMac(platform) && !macBundleWritable(resourcesPath, fsx)) {
-      publish({ status: 'available', error: t('맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요'), needsFull: true })
+    const block = isMac(platform) ? macUpdateBlock(resourcesPath, fsx) : null
+    if (block) {
+      publish({ status: 'available', error: t(MAC_FULL_REASON[block]), needsFull: true })
       return state
     }
     publish({ status: 'downloading', progress: 0, error: null })

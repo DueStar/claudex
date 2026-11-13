@@ -140,7 +140,7 @@ describe('install on a Mac takes only a Mac zip', () => {
   it('refuses the Windows zip', async () => {
     const dir = localRelease('latest-mac-arm64.json', 'claudex-app-9.9.9.zip')
     const spawn = vi.fn()
-    const updater = createUpdater({ app: fakeApp(), send: () => {}, isPackaged: true, platform: 'darwin', arch: 'arm64', localDir: () => dir, spawn })
+    const updater = createUpdater({ app: fakeApp(), send: () => {}, isPackaged: true, platform: 'darwin', arch: 'arm64', localDir: () => dir, spawn, resourcesPath: '/Applications/spawn.app/Contents/Resources', fsx: { ...fs, accessSync: () => {} } })
     await updater.check()
     expect(await updater.install()).toMatchObject({ status: 'available', error: 'bad manifest' })
     expect(spawn).not.toHaveBeenCalled()
@@ -149,6 +149,8 @@ describe('install on a Mac takes only a Mac zip', () => {
 
 describe('install on a Mac', () => {
   const MOVE_FIRST = '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요'
+  const NOT_WRITABLE = '맥: 이 위치의 앱은 직접 업데이트할 수 없어요. 새 버전을 받아 주세요'
+  const FAILED = '맥: 업데이트를 적용하지 못했어요. 새 버전을 받아 주세요'
 
   async function macInstall(resourcesPath: string, accessSync: (p: string, mode?: number) => void = () => {}) {
     const dir = localRelease('latest-mac-arm64.json', 'spawn-app-9.9.9-mac-arm64.zip')
@@ -176,12 +178,67 @@ describe('install on a Mac', () => {
     expect(spawn).not.toHaveBeenCalled()
   })
 
-  it('an app this user cannot write to is told the same', async () => {
+  it('an app this user cannot write to is told it cannot update where it is (not to move it)', async () => {
     const { st, spawn, sent, access } = await macInstall('/Applications/spawn.app/Contents/Resources', () => { throw Object.assign(new Error('denied'), { code: 'EACCES' }) })
     expect(access).toHaveBeenCalledWith('/Applications/spawn.app', fs.constants.W_OK)
-    expect(st).toMatchObject({ status: 'available', error: MOVE_FIRST, needsFull: true })
+    expect(st).toMatchObject({ status: 'available', error: NOT_WRITABLE, needsFull: true })
     expect(sent.some(s => s.status === 'downloading')).toBe(false)
     expect(spawn).not.toHaveBeenCalled()
+  })
+
+  /** An updater on a Mac whose bundle is at `resourcesPath`, with its userData in the test root */
+  function macUpdater(resourcesPath: string, { accessSync = () => {}, version = '1.0.0', manifestVersion = '9.9.9' }: { accessSync?: () => void, version?: string, manifestVersion?: string } = {}) {
+    const dir = localRelease('latest-mac-arm64.json', 'spawn-app-9.9.9-mac-arm64.zip')
+    if (manifestVersion !== '9.9.9') {
+      const m = JSON.parse(readFileSync(join(dir, 'latest-mac-arm64.json'), 'utf8'))
+      writeFileSync(join(dir, 'latest-mac-arm64.json'), JSON.stringify({ ...m, version: manifestVersion }))
+    }
+    const userData = join(root, 'userData'); mkdirSync(userData, { recursive: true })
+    const app = { ...fakeApp(), getVersion: () => version }
+    return createUpdater({ app, send: () => {}, isPackaged: true, platform: 'darwin', arch: 'arm64', localDir: () => dir, resourcesPath, fsx: { ...fs, accessSync }, userData })
+  }
+
+  it('check() already says a translocated or unwritable app needs the full download, and every later check says it again', async () => {
+    const moved = macUpdater('/private/var/folders/x1/abc/T/AppTranslocation/1234/d/spawn.app/Contents/Resources')
+    expect(await moved.check()).toMatchObject({ status: 'available', needsFull: true, error: MOVE_FIRST })
+    // the periodic check does not flip it back
+    expect(await moved.check()).toMatchObject({ status: 'available', needsFull: true, error: MOVE_FIRST })
+    const locked = macUpdater('/Applications/spawn.app/Contents/Resources', { accessSync: () => { throw new Error('EACCES') } })
+    expect(await locked.check()).toMatchObject({ needsFull: true, error: NOT_WRITABLE })
+    expect(await locked.check()).toMatchObject({ needsFull: true, error: NOT_WRITABLE })
+    const fine = macUpdater('/Applications/spawn.app/Contents/Resources')
+    expect(await fine.check()).toMatchObject({ status: 'available', needsFull: false, error: null })
+  })
+
+  it('a patch that failed to go in (updateRunner noted it) is offered as the full download, not again and again', async () => {
+    const marker = join(root, 'userData', 'mac-update-failed.json')
+    const u = macUpdater('/Applications/spawn.app/Contents/Resources')
+    writeFileSync(marker, JSON.stringify({ version: '9.9.9' }))
+    expect(await u.check()).toMatchObject({ status: 'available', needsFull: true, error: FAILED })
+    expect(await u.install()).toMatchObject({ needsFull: true }) // nothing fetched: the full download is the way
+    expect(fs.existsSync(marker)).toBe(true)
+  })
+
+  it('the failed-patch note goes when a newer version than the failed one is out, or a newer build runs', async () => {
+    const marker = join(root, 'userData', 'mac-update-failed.json')
+    const newerOut = macUpdater('/Applications/spawn.app/Contents/Resources', { manifestVersion: '9.9.10' })
+    writeFileSync(marker, JSON.stringify({ version: '9.9.9' }))
+    expect(await newerOut.check()).toMatchObject({ status: 'available', latest: '9.9.10', needsFull: false, error: null })
+    expect(fs.existsSync(marker)).toBe(false)
+    // the failed version (or a later one) now runs: the note is old news
+    const running = macUpdater('/Applications/spawn.app/Contents/Resources', { version: '9.9.9', manifestVersion: '9.9.10' })
+    writeFileSync(marker, JSON.stringify({ version: '9.9.9' }))
+    await running.check()
+    expect(fs.existsSync(marker)).toBe(false)
+  })
+
+  it('Windows never reads the note (Windows unchanged)', async () => {
+    const dir = localRelease('latest.json', 'claudex-app-9.9.9.zip')
+    mkdirSync(join(root, 'userData'), { recursive: true })
+    writeFileSync(join(root, 'userData', 'mac-update-failed.json'), JSON.stringify({ version: '9.9.9' }))
+    const win = createUpdater({ app: fakeApp(), send: () => {}, isPackaged: true, platform: 'win32', arch: 'x64', localDir: () => dir, userData: join(root, 'userData') })
+    expect(await win.check()).toMatchObject({ status: 'available', needsFull: false, error: null })
+    expect(fs.existsSync(join(root, 'userData', 'mac-update-failed.json'))).toBe(true)
   })
 
   it('unpacks with ditto into the staged folder', async () => {

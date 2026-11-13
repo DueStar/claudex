@@ -4,7 +4,7 @@
  * behind the "updating" card, never loop, leave the staged folder for later.
  */
 import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -279,6 +279,23 @@ describe('runPendingUpdate on macOS', () => {
     expect(order).toEqual(['mirror', 'codesign', 'open'])
     expect(f.timer.mark).toHaveBeenCalledWith('mirror-end', 'error=EACCES nope')
     expect(f.app.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failed copy leaves a note, so the next check offers the full download instead of the same patch', async () => {
+    writeMarker()
+    const { runMac } = macFakes({}, Object.assign(new Error('nope'), { code: 'EACCES' }))
+    await runMac()
+    const note = join(userData, 'mac-update-failed.json')
+    expect(JSON.parse(readFileSync(note, 'utf8'))).toMatchObject({ version: '9.9.9' })
+  })
+
+  it('a copy that went in leaves no note; neither does Windows', async () => {
+    writeMarker()
+    await macFakes().runMac()
+    expect(existsSync(join(userData, 'mac-update-failed.json'))).toBe(false)
+    writeMarker()
+    await run(fakes(8)) // robocopy failed on Windows: the flow there is as it was
+    expect(existsSync(join(userData, 'mac-update-failed.json'))).toBe(false)
   })
 
   it('when open fails, Electron starts the app instead (never left closed)', async () => {

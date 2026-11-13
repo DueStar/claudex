@@ -98,6 +98,16 @@ async function applyOnMac({ staged, resourcesPath, version, spawn, mirror, timer
   return result
 }
 
+/**
+ * A Mac update that could not be put into the bundle (the mirror failed) leaves
+ * userData/mac-update-failed.json { version }: the next check (updater.cjs) then
+ * offers the full download of that version instead of the same patch again.
+ */
+const macFailedFile = (userData) => path.join(userData, 'mac-update-failed.json')
+function writeMacFailed(userData, version) {
+  try { fs.writeFileSync(macFailedFile(userData), JSON.stringify({ version: String(version ?? ''), at: new Date().toISOString() })) } catch { /* the next check offers the patch again */ }
+}
+
 async function runPendingUpdate({
   app,
   isPackaged,
@@ -147,6 +157,7 @@ async function runPendingUpdate({
     } catch { /* no card: the copy still runs */ }
     if (isMac(platform)) {
       result = await applyOnMac({ staged, resourcesPath, version: pending.version, spawn, mirror, timer })
+      if (!result.ok) writeMacFailed(userData, pending.version)
     } else {
       timer.mark('robocopy-start', `version=${pending.version ?? '?'}`)
       const code = await robocopy(spawn, staged, path.join(resourcesPath, 'app'))
@@ -198,4 +209,4 @@ async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm, m
   return removed
 }
 
-module.exports = { UPDATED_FLAG, LEGACY_UPDATED_FLAG, isUpdatedRun, pendingFile, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates, bundlePath }
+module.exports = { UPDATED_FLAG, LEGACY_UPDATED_FLAG, isUpdatedRun, pendingFile, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates, bundlePath, macFailedFile, writeMacFailed }
