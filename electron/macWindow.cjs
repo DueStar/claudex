@@ -52,6 +52,18 @@ function restore(win, platform = process.platform) {
 const isFilled = (win) => before.has(win)
 
 /**
+ * The display's work area changed (the Dock shown or hidden, moved, resized; the display
+ * rearranged) while `win` is filled: fill the new one. Leaving widget mode shows the Dock
+ * icon again after the window was filled, and the fill was a few pixels off (CI run 2).
+ * The bounds from before the first fill stay, for restore.
+ */
+function refillOnWorkAreaChange(win, changedMetrics, screen, platform = process.platform) {
+  if (!isMac(platform) || !win || win.isDestroyed?.() || !isFilled(win)) return false
+  if (!Array.isArray(changedMetrics) || !changedMetrics.includes('workArea')) return false
+  return fillWorkArea(win, screen, platform)
+}
+
+/**
  * Switch one window between the fullscreen and the window mode. macOS's own full screen
  * (the green button) already is the fullscreen mode; the window mode leaves it. A window
  * zoomed by macOS (a double-click on the title area, Window › Zoom) is unzoomed.
@@ -97,4 +109,4 @@ function quitCapMs({ platform = process.platform, systemShutdown = false } = {})
   return isMac(platform) && systemShutdown ? 2000 : null
 }
 
-module.exports = { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, noteMode, dockFor, quitCapMs }
+module.exports = { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, noteMode, dockFor, quitCapMs, refillOnWorkAreaChange }

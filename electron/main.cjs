@@ -46,7 +46,7 @@ const { resolveRef, vscodeUrl } = require('./links.cjs')
 const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 const { migrateUserData } = require('./userDataMigration.cjs')
 const { refreshShortcutIcons } = require('./shortcutIcon.cjs')
-const { macWindowOptions, fillWorkArea, isFilled, restore: restoreFilled, applyMode: applyMacMode, noteMode, dockFor, quitCapMs } = require('./macWindow.cjs')
+const { macWindowOptions, fillWorkArea, isFilled, restore: restoreFilled, applyMode: applyMacMode, noteMode, dockFor, quitCapMs, refillOnWorkAreaChange } = require('./macWindow.cjs')
 // Settings made under the old name (CLAUDEX_PORT=…) keep working; the server and terminals inherit them
 adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
@@ -1314,6 +1314,9 @@ if (lockWaits < 0) {
       // A shutdown, restart or logout ends the sessions as Windows' does: keep the reopen list
       // (required here: powerMonitor is usable only once the app is ready)
       require('electron').powerMonitor.on('shutdown', () => { macSystemEnding = true; console.log('[main] macOS is shutting down or logging out'); keepSessions() })
+      // Full screen is the work area filled: when the work area changes (the Dock shown again on
+      // leaving the widget, moved, resized), the filled window follows it (macWindow.cjs)
+      screen.on('display-metrics-changed', (_event, _display, changed) => { refillOnWorkAreaChange(widgetWin, changed, screen) })
       const merged = await mergeLoginEnv({ env: process.env })
       process.env.PATH = merged.PATH
       if (merged.LANG) process.env.LANG = merged.LANG
@@ -1341,6 +1344,7 @@ if (lockWaits < 0) {
       setMode: (mode) => { setWidgetMode(mode); return swapping },
       terminals: () => terminals,
       workArea: (win) => screen.getDisplayMatching(win.getBounds()).workArea,
+      isFilled: (win) => isFilled(win),
       quit: quitApp,
     })
     return open()

@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, noteMode, dockFor, quitCapMs } = require('../electron/macWindow.cjs')
+const { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, noteMode, dockFor, quitCapMs, refillOnWorkAreaChange } = require('../electron/macWindow.cjs')
 const ROOT = join(__dirname, '..')
 
 type Bounds = { x: number, y: number, width: number, height: number }
@@ -144,6 +144,33 @@ describe('a fill left by another route (macOS zoom toggled off â†’ unmaximize â†
   })
 })
 
+describe('refillOnWorkAreaChange (the Dock shown or hidden after a fill: CI run 2)', () => {
+  it('a filled window takes the new work area; its bounds from before the fill stay for restore', () => {
+    const win = fakeWindow({ x: 100, y: 100, width: 800, height: 600 })
+    let work = { x: 0, y: 25, width: 1024, height: 681 }
+    const screen = { getDisplayMatching: vi.fn(() => ({ workArea: { ...work } })) }
+    fillWorkArea(win, screen, 'darwin')
+    expect(win.getBounds()).toEqual(work)
+    work = { x: 0, y: 25, width: 1024, height: 684 }
+    expect(refillOnWorkAreaChange(win, ['workArea'], screen, 'darwin')).toBe(true)
+    expect(win.getBounds()).toEqual(work)
+    restore(win, 'darwin')
+    expect(win.getBounds()).toEqual({ x: 100, y: 100, width: 800, height: 600 })
+  })
+
+  it('leaves alone a window not filled, a change that is not the work area, a gone window, and Windows', () => {
+    const screen = fakeScreen()
+    const win = fakeWindow({ x: 100, y: 100, width: 800, height: 600 })
+    expect(refillOnWorkAreaChange(win, ['workArea'], screen, 'darwin')).toBe(false)
+    fillWorkArea(win, screen, 'darwin')
+    expect(refillOnWorkAreaChange(win, ['scaleFactor'], screen, 'darwin')).toBe(false)
+    expect(refillOnWorkAreaChange(null, ['workArea'], screen, 'darwin')).toBe(false)
+    expect(refillOnWorkAreaChange({ ...win, isDestroyed: () => true }, ['workArea'], screen, 'darwin')).toBe(false)
+    expect(refillOnWorkAreaChange(win, ['workArea'], screen, 'win32')).toBe(false)
+    expect(refillOnWorkAreaChange(win, undefined, screen, 'darwin')).toBe(false)
+  })
+})
+
 describe('quitCapMs', () => {
   it('2 s only while macOS shuts down or logs out', () => {
     expect(quitCapMs({ platform: 'darwin', systemShutdown: true })).toBe(2000)
@@ -183,6 +210,12 @@ describe('the wiring (main.cjs, the page)', () => {
     expect(main).toContain("win.on('query-session-end', keepSessions)")
     expect(main).toContain("win.on('session-end', keepSessions)")
     expect(main).toContain("toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })")
+  })
+
+  it('macOS: a filled window follows its work area (registered in the darwin start block only)', () => {
+    const block = main.slice(main.indexOf("if (process.platform === 'darwin') {\n      // A shutdown"), main.indexOf('registerTerminalIpc()\n'))
+    expect(block).toContain("screen.on('display-metrics-changed', (_event, _display, changed) => { refillOnWorkAreaChange(widgetWin, changed, screen) })")
+    expect(main.split("screen.on('display-metrics-changed'").length).toBe(2)
   })
 
   it('macOS: native full screen keeps the mode, the widget and toast on all Spaces, the Dock follows the mode', () => {
