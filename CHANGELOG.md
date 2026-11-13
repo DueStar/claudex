@@ -2,6 +2,10 @@
 
 ## spawn
 
+### 1.3.49
+- 알림이 하나만 떠도 "+1"이 붙던 문제를 고쳤어요.
+- "위젯으로 작게" 버튼이 글자 크기 버튼 왼쪽으로 옮겨졌어요.
+
 ### 1.3.48
 - 도감과 박스에서 포켓몬 뒤 칸이 한 단계 더 어두워졌어요. 배경보다 아주 조금만 밝아서 눈이 덜 피로해요.
 - 박스 칸의 테두리가 도감 칸처럼 옅어졌어요.
@@ -339,6 +343,10 @@
 
 ## spawn (English)
 
+### 1.3.49
+- A single notification no longer shows "+1".
+- The "shrink to widget" button now sits to the left of the text size buttons.
+
 ### 1.3.48
 - The boxes behind Pokémon in the Pokédex and the box are a shade darker again, only just lighter than the background, easier on the eyes.
 - Box cells now have the same faint edge as Pokédex cells.
@@ -539,6 +547,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.49
+- 通知が1件だけでも「+1」が付く問題を直しました。
+- 「ウィジェットで小さく」ボタンが文字サイズボタンの左に移りました。
 
 ### 1.3.48
 - 図鑑とボックスで、ポケモンの後ろのマスがもう一段暗くなりました。背景よりほんの少しだけ明るく、目が疲れにくくなりました。
