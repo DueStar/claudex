@@ -150,9 +150,13 @@ describe('UI fonts on a Mac (.is-mac rules)', () => {
     return /font-family:\s*([^;]+);/.exec(sheet.slice(at, sheet.indexOf('}', at)))![1].split(',').map(s => s.trim().replace(/^'|'$/g, ''))
   }
 
-  it('the app text: the system face before any CJK face, so Latin never falls to Apple SD Gothic Neo', () => {
+  it('the app text: the same bundled faces first as on Windows; behind them the system face before any CJK face', () => {
     const mac = familyOf(css('widget.css'), '.is-mac .widget')
+    const win = familyOf(css('widget.css'), '.widget')
+    // the faces the owner chose (shipped in public/fonts): first, in the same order, on both
     expect(mac.slice(0, 4)).toEqual(['W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable'])
+    expect(mac.slice(0, 4)).toEqual(win.slice(0, 4))
+    expect(mac.indexOf('system-ui')).toBeGreaterThan(3)
     expect(mac.indexOf('system-ui')).toBeLessThan(mac.indexOf('Apple SD Gothic Neo'))
     expect(mac.indexOf('-apple-system')).toBeLessThan(mac.indexOf('Apple SD Gothic Neo'))
     // Windows' own rule is as it was

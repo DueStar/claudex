@@ -28,13 +28,14 @@ export const TERM_FONT_STACKS: Record<TerminalFont, string> = {
   d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
 }
 /**
- * The same choices on a Mac. xterm measures one cell for every character from the
- * first face that is there, so after the chosen font (when installed) comes Menlo,
- * which every Mac has, before any proportional or CJK face: with Pretendard or Apple
- * SD Gothic Neo first, a cell was as wide as their W and the text stood spaced out
- * (CI run 2). Korean and Japanese still fall through to Pretendard / Apple SD Gothic
- * Neo, glyph by glyph. The stored value 'consolas' is Menlo here (Consolas is not on
- * macOS); SF Mono is not a system font (it lives inside Terminal.app), Monaco is.
+ * The same choices on a Mac, on the same principle: the chosen face (Monaspace ships
+ * with the app; Cascadia and D2Coding when installed), then Menlo and Monaco, which
+ * every Mac has, before any proportional or CJK face. Should a face not be there, the
+ * cell is still a monospace one: with Pretendard or Apple SD Gothic Neo first it was as
+ * wide as their W and the text stood spaced out (CI run 2). Korean and Japanese still
+ * fall through to Pretendard / Apple SD Gothic Neo, glyph by glyph. The stored value
+ * 'consolas' is Menlo here (Consolas is not on macOS); SF Mono is not a system font
+ * (it lives inside Terminal.app).
  */
 export const MAC_TERM_FONT_STACKS: Record<TerminalFont, string> = {
   default: "'Monaspace Neon Var', 'Monaspace Neon', Menlo, Monaco, 'SF Mono', 'Pretendard Variable', 'Apple SD Gothic Neo', monospace",

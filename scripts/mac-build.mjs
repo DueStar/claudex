@@ -4,7 +4,9 @@
  *
  *   node scripts/mac-build.mjs prune <arch>   the Windows node-pty binaries out of the bundle
  *                                             (electron-builder copies them: see below)
- *   node scripts/mac-build.mjs stamp <arch>   build-info.json into the bundle's app
+ *   node scripts/mac-build.mjs stamp <arch>   checks the bundle has the app's fonts
+ *                                             (dist/fonts, scripts/dist-check.mjs), then
+ *                                             build-info.json into the bundle's app
  *                                             folder (before the ad-hoc signing:
  *                                             a file added after it breaks the seal)
  *   node scripts/mac-build.mjs pack <arch>    the zips, their sha256s and the
@@ -34,6 +36,7 @@ import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { missingFonts } from './dist-check.mjs'
 
 const { smokeTimeoutMs, QUIT_TIMEOUT_MS } = createRequire(import.meta.url)('../electron/smoke.cjs')
 
@@ -99,6 +102,11 @@ export function spawnHelperProblems(appPath) {
   return problems
 }
 
+/** What the bundle lacks of the app's fonts (dist/fonts: the stylesheet, the files, the licences) */
+export function bundleMissingFonts(appPath) {
+  return missingFonts(join(appDirOf(appPath), 'dist'))
+}
+
 /** node-pty's Windows binaries, under node_modules/node-pty: none of them runs on a Mac (~60 MB) */
 export const OTHER_PLATFORM_PATHS = Object.freeze(['prebuilds/win32-*', 'third_party/conpty', 'build/Release/conpty'])
 
@@ -150,6 +158,8 @@ function main(argv) {
   }
 
   if (command === 'stamp') {
+    const fonts = bundleMissingFonts(app)
+    if (fonts.length) throw new Error(`the bundle lacks the app's fonts: ${fonts.join(', ')}`)
     // As scripts/release.mjs does for Windows: the app tells a newer local build of the same version by it
     writeFileSync(join(appDir, 'build-info.json'), JSON.stringify({ version, date: new Date().toISOString() }))
     console.log(`stamped ${app} (${version})`)

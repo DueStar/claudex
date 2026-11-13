@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { TERM_FONT_STACKS } from '../src/termFont'
+import { MAC_TERM_FONT_STACKS, TERM_FONT_STACKS } from '../src/termFont'
 // @ts-expect-error plain ESM script without types
 import { FONT_LICENCES, fontUrls, missingFonts } from '../scripts/dist-check.mjs'
 
@@ -34,6 +34,9 @@ const families = (stack: string) => stack.split(',').map(s => s.trim().replace(/
 const MONO = /^(Monaspace Neon( Var)?|Consolas|Cascadia (Mono|Code)|D2Coding( ligature)?|monospace)$/
 // On every Windows PC (Consolas) or shipped with the app
 const ALWAYS_MONO = (f: string) => f === 'Consolas' || (bundled.has(f) && /^Monaspace/.test(f))
+// A Mac's: Menlo and Monaco are on every Mac (SF Mono is not a system font); the others as above
+const MAC_MONO = /^(Monaspace Neon( Var)?|Menlo|Monaco|SF Mono|Cascadia (Mono|Code)|D2Coding( ligature)?|monospace)$/
+const MAC_ALWAYS_MONO = (f: string) => f === 'Menlo' || f === 'Monaco' || (bundled.has(f) && /^Monaspace/.test(f))
 
 describe('bundled fonts', () => {
   it('the font files are there, real woff2 and not tiny', () => {
@@ -77,6 +80,8 @@ describe('bundled fonts', () => {
 
   it('the default terminal font is bundled; the optional ones stay installed-only', () => {
     expect(bundled.has(families(TERM_FONT_STACKS.default)[0])).toBe(true)
+    // the same face on a Mac
+    expect(families(MAC_TERM_FONT_STACKS.default)[0]).toBe(families(TERM_FONT_STACKS.default)[0])
     for (const name of ['Consolas', 'Cascadia Mono', 'Cascadia Code', 'D2Coding']) expect(bundled.has(name), name).toBe(false)
   })
 
@@ -86,6 +91,21 @@ describe('bundled fonts', () => {
       const first = list.findIndex(ALWAYS_MONO)
       expect(first, choice).toBeGreaterThanOrEqual(0)
       for (const f of list.slice(0, first + 1)) expect(f, `${choice}: ${f}`).toMatch(MONO)
+      // Korean still has a face after it
+      expect(list.slice(first), choice).toContain('Pretendard Variable')
+    }
+  })
+
+  it('on a Mac too: a monospace face that is always there (bundled Monaspace, Menlo, Monaco) comes before any proportional or CJK face', () => {
+    for (const [choice, stack] of Object.entries(MAC_TERM_FONT_STACKS)) {
+      const list = families(stack)
+      const first = list.findIndex(MAC_ALWAYS_MONO)
+      expect(first, choice).toBeGreaterThanOrEqual(0)
+      for (const f of list.slice(0, first + 1)) expect(f, `${choice}: ${f}`).toMatch(MAC_MONO)
+      // and Menlo, should the bundled face ever fail to load, before the proportional ones too
+      const menlo = list.indexOf('Menlo')
+      expect(menlo, choice).toBeGreaterThanOrEqual(0)
+      for (const f of list.slice(0, menlo)) expect(f, `${choice}: ${f}`).toMatch(MAC_MONO)
       // Korean still has a face after it
       expect(list.slice(first), choice).toContain('Pretendard Variable')
     }

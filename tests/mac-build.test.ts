@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 // @ts-expect-error plain ESM script without types
-import { macArtifactNames, findMacApps, pickMacApp, appDirOf, spawnHelperProblems, sha256Lines, smokeKillMs, pruneOtherPlatforms, OTHER_PLATFORM_PATHS } from '../scripts/mac-build.mjs'
+import { macArtifactNames, findMacApps, pickMacApp, appDirOf, spawnHelperProblems, sha256Lines, smokeKillMs, pruneOtherPlatforms, OTHER_PLATFORM_PATHS, bundleMissingFonts } from '../scripts/mac-build.mjs'
 
 const require = createRequire(import.meta.url)
 const { appFilePattern } = require('../electron/updater.cjs')
@@ -89,6 +89,27 @@ describe('the built app', () => {
     // again: nothing left to remove
     expect(pruneOtherPlatforms(app)).toEqual([])
     expect(OTHER_PLATFORM_PATHS).toContain('prebuilds/win32-*')
+  })
+
+  it('the bundled fonts: missing is reported, a copy of public/fonts passes, and prune never touches them', () => {
+    const app = makeApp('mac-arm64')
+    expect(bundleMissingFonts(app)).toContain('fonts/fonts.css')
+    const fonts = join(appDirOf(app), 'dist', 'fonts')
+    mkdirSync(fonts, { recursive: true })
+    for (const f of readdirSync(join(ROOT, 'public', 'fonts'))) writeFileSync(join(fonts, f), readFileSync(join(ROOT, 'public', 'fonts', f)))
+    expect(bundleMissingFonts(app)).toEqual([])
+    pruneOtherPlatforms(app)
+    expect(bundleMissingFonts(app)).toEqual([])
+    for (const p of OTHER_PLATFORM_PATHS) expect(p.startsWith('dist')).toBe(false)
+  })
+
+  it('the status card finds the fonts from inside the bundle (../dist/fonts from app/electron)', () => {
+    const card = readFileSync(join(ROOT, 'electron', 'status-card.html'), 'utf8')
+    const href = /<link rel="stylesheet" href="([^"]+)">/.exec(card)![1]
+    const resolved = join('/r/mac-arm64/spawn.app/Contents/Resources/app/electron', href).replace(/\\/g, '/')
+    expect(resolved).toMatch(/\/spawn\.app\/Contents\/Resources\/app\/dist\/fonts\/fonts\.css$/)
+    // the files list ships dist/** whole: the fonts with it
+    expect(pkg.build.files).toContain('dist/**')
   })
 
   it('the app folder inside the bundle (what the update zip holds)', () => {
