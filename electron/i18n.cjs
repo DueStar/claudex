@@ -27,6 +27,7 @@ const en = {
   '포켓몬이 일할 폴더 선택': 'Choose a folder for your Pokémon to work in',
   'spawn 디자인 QA': 'spawn Design QA',
   '개발 실행에서는 업데이트하지 않아요': "Updates are off in a development run",
+  '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요': 'Mac: move the app to the Applications folder, then update',
 }
 
 const ja = {
@@ -50,6 +51,7 @@ const ja = {
   '포켓몬이 일할 폴더 선택': 'ポケモンが作業するフォルダを選択',
   'spawn 디자인 QA': 'spawn デザイン QA',
   '개발 실행에서는 업데이트하지 않아요': '開発版ではアップデートしません',
+  '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요': 'Mac: アプリを「アプリケーション」フォルダに移してからアップデートしてください',
 }
 
 const DICTS = { en, ja }

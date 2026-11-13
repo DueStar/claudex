@@ -10,6 +10,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import * as fs from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error plain ESM script without types
 import { writeManifest } from '../scripts/manifest.mjs'
@@ -143,6 +144,57 @@ describe('install on a Mac takes only a Mac zip', () => {
     await updater.check()
     expect(await updater.install()).toMatchObject({ status: 'available', error: 'bad manifest' })
     expect(spawn).not.toHaveBeenCalled()
+  })
+})
+
+describe('install on a Mac', () => {
+  const MOVE_FIRST = '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요'
+
+  async function macInstall(resourcesPath: string, accessSync: (p: string, mode?: number) => void = () => {}) {
+    const dir = localRelease('latest-mac-arm64.json', 'spawn-app-9.9.9-mac-arm64.zip')
+    const sent: Array<{ status: string }> = []
+    const spawn = vi.fn((_cmd: string, args: string[]) => {
+      const child = new EventEmitter()
+      writeFileSync(join(args[3], 'package.json'), '{}')
+      setTimeout(() => child.emit('exit', 0), 0)
+      return child
+    })
+    const access = vi.fn(accessSync)
+    const updater = createUpdater({
+      app: fakeApp(), send: (_c: string, s: { status: string }) => sent.push({ ...s }), isPackaged: true,
+      platform: 'darwin', arch: 'arm64', localDir: () => dir, spawn, resourcesPath, fsx: { ...fs, accessSync: access },
+    })
+    await updater.check()
+    const st = await updater.install()
+    return { st, spawn, sent, access }
+  }
+
+  it('a translocated app (run from Downloads) is told to move first, and nothing is downloaded', async () => {
+    const { st, spawn, sent } = await macInstall('/private/var/folders/x1/abc/T/AppTranslocation/1234/d/spawn.app/Contents/Resources')
+    expect(st).toMatchObject({ status: 'available', error: MOVE_FIRST, needsFull: true })
+    expect(sent.some(s => s.status === 'downloading')).toBe(false)
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('an app this user cannot write to is told the same', async () => {
+    const { st, spawn, sent, access } = await macInstall('/Applications/spawn.app/Contents/Resources', () => { throw Object.assign(new Error('denied'), { code: 'EACCES' }) })
+    expect(access).toHaveBeenCalledWith('/Applications/spawn.app', fs.constants.W_OK)
+    expect(st).toMatchObject({ status: 'available', error: MOVE_FIRST, needsFull: true })
+    expect(sent.some(s => s.status === 'downloading')).toBe(false)
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('unpacks with ditto into the staged folder', async () => {
+    const { st, spawn, access } = await macInstall('/Applications/spawn.app/Contents/Resources')
+    expect(access).toHaveBeenCalledWith('/Applications/spawn.app', fs.constants.W_OK)
+    expect(access).toHaveBeenCalledWith('/Applications/spawn.app/Contents/Resources/app', fs.constants.W_OK)
+    expect(st).toMatchObject({ status: 'ready', error: null })
+    const [cmd, args] = spawn.mock.calls[0] as unknown as [string, string[]]
+    expect(cmd).toBe('ditto')
+    expect(args.slice(0, 2)).toEqual(['-x', '-k'])
+    expect(args[2].endsWith('spawn-app-9.9.9-mac-arm64.zip')).toBe(true)
+    expect(args[3].endsWith('app')).toBe(true)
+    rmSync(join(args[3], '..'), { recursive: true, force: true })
   })
 })
 

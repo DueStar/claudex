@@ -216,3 +216,85 @@ describe('cleanupStaleUpdates', () => {
     await expect(cleanupStaleUpdates({ tmpdir: tmp, now: () => Date.now() + 10 * 60_000 + 1000 })).resolves.toBe(1)
   })
 })
+
+describe('runPendingUpdate on macOS', () => {
+  const bundle = '/Applications/spawn.app'
+  const macResources = `${bundle}/Contents/Resources`
+
+  /** spawn and mirror fakes that log the order things happen in; `codes` per command */
+  function macFakes(codes: Record<string, number> = {}, mirrorError: Error | null = null) {
+    const f = fakes()
+    const order: string[] = []
+    f.spawn.mockImplementation(((cmd: string) => {
+      order.push(cmd)
+      const child = new EventEmitter()
+      setTimeout(() => child.emit('exit', codes[cmd] ?? 0), 0)
+      return child
+    }) as any)
+    const mirror = vi.fn((_from: string, _to: string) => { order.push('mirror'); if (mirrorError) throw mirrorError })
+    const runMac = () => runPendingUpdate({
+      app: f.app, isPackaged: true, resourcesPath: macResources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer,
+      argv: ['/Applications/spawn.app/Contents/MacOS/spawn', '--some-flag'], platform: 'darwin', mirror,
+    })
+    return { f, order, mirror, runMac }
+  }
+
+  it('mirrors the update into the bundle, re-signs it ad hoc and opens it again', async () => {
+    writeMarker()
+    const { f, order, mirror, runMac } = macFakes()
+    await expect(runMac()).resolves.toEqual({ ok: true })
+    expect(order).toEqual(['mirror', 'codesign', 'open'])
+    expect(mirror).toHaveBeenCalledWith(staged, `${macResources}/app`)
+    const calls = f.spawn.mock.calls as unknown as Array<[string, string[], any]>
+    expect(calls[0].slice(0, 2)).toEqual(['codesign', ['--force', '--deep', '--sign', '-', bundle]])
+    expect(calls[1].slice(0, 2)).toEqual(['open', ['-n', bundle, '--args', '--spawn-updated']])
+    expect(f.app.relaunch).not.toHaveBeenCalled()
+    expect(f.app.exit).toHaveBeenCalledWith(0)
+    expect(existsSync(marker())).toBe(false)
+    expect(existsSync(staged)).toBe(true)
+    expect(f.card.close).toHaveBeenCalled()
+    expect(f.steps).toEqual(['p2-start', 'mirror-start', 'mirror-end', 'codesign-start', 'codesign-end', 'relaunch'])
+  })
+
+  it('a failed re-sign still opens the updated app, and the update log says so', async () => {
+    writeMarker()
+    const { f, order, runMac } = macFakes({ codesign: 1 })
+    const r = await runMac()
+    expect(order).toEqual(['mirror', 'codesign', 'open'])
+    expect(r.ok).toBe(true)
+    expect(f.timer.mark).toHaveBeenCalledWith('codesign-end', 'code=1')
+    expect(f.app.exit).toHaveBeenCalledWith(0)
+  })
+
+  it('a failed copy is logged, the bundle is signed again all the same, and the app opens', async () => {
+    writeMarker()
+    const { f, order, runMac } = macFakes({}, Object.assign(new Error('nope'), { code: 'EACCES' }))
+    const r = await runMac()
+    expect(r).toEqual({ ok: false, reason: 'mirror EACCES' })
+    expect(order).toEqual(['mirror', 'codesign', 'open'])
+    expect(f.timer.mark).toHaveBeenCalledWith('mirror-end', 'error=EACCES nope')
+    expect(f.app.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('when open fails, Electron starts the app instead (never left closed)', async () => {
+    writeMarker()
+    const { f, runMac } = macFakes({ open: 1 })
+    await runMac()
+    expect(f.app.relaunch).toHaveBeenCalledWith({ args: ['--spawn-updated'] })
+    expect(f.app.exit).toHaveBeenCalledWith(0)
+  })
+
+  it('a marker pointing at nothing touches nothing and opens the app', async () => {
+    writeMarker(join(root, 'gone', 'app'))
+    const { f, order, runMac } = macFakes()
+    await expect(runMac()).resolves.toEqual({ ok: false, reason: 'no staged app' })
+    expect(order).toEqual(['open'])
+    expect(f.app.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('bundlePath is the .app two levels above Contents/Resources', () => {
+    const { bundlePath } = require('../electron/updateRunner.cjs')
+    expect(bundlePath('/Applications/spawn.app/Contents/Resources')).toBe('/Applications/spawn.app')
+    expect(bundlePath('/Users/me/Apps/spawn.app/Contents/Resources/')).toBe('/Users/me/Apps/spawn.app')
+  })
+})

@@ -11,6 +11,10 @@
  * the app once more on the new code, flagged --spawn-updated so that run
  * times its start in update.log.
  *
+ * On a Mac the copy is mirrorDir (mirrorDir.cjs) into the bundle's
+ * Contents/Resources/app; the bundle is then signed again ad hoc (the copy
+ * changed what its signature seals) and opened with `open -n`.
+ *
  * The marker is removed before trying, so a bad update can never loop: a
  * failed copy starts the old code once. The staged folder is not deleted here
  * (9,000 files, ~2 s): the new app removes it in the background
@@ -21,6 +25,8 @@ const fs = require('fs')
 const path = require('path')
 const childProcess = require('child_process')
 const { createStepTimer } = require('./updateTiming.cjs')
+const { mirrorDir } = require('./mirrorDir.cjs')
+const { isMac } = require('./platform.cjs')
 
 const UPDATED_FLAG = '--spawn-updated'
 /** The same flag from when the app was Claudex (1.3.35 and older run the copy step of the update into spawn) */
@@ -49,6 +55,49 @@ function robocopy(spawn, from, to) {
   })
 }
 
+/** The .app folder of a Mac app: two levels above its Contents/Resources */
+const bundlePath = (resourcesPath) => path.posix.dirname(path.posix.dirname(String(resourcesPath).replace(/\/+$/, '')))
+
+/**
+ * A command's exit code, -1 when it could not run or did not end within
+ * `timeoutMs` (the run must always get to starting the app again). Its output
+ * is not read.
+ */
+function runCommand(spawn, cmd, args, timeoutMs) {
+  return new Promise((resolve) => {
+    let child
+    try { child = spawn(cmd, args, { stdio: 'ignore' }) } catch { resolve(-1); return }
+    const timer = setTimeout(() => resolve(-1), timeoutMs)
+    const done = (code) => { clearTimeout(timer); resolve(code) }
+    child.on('error', () => done(-1))
+    child.on('exit', (code) => done(typeof code === 'number' ? code : -1))
+  })
+}
+
+/**
+ * A Mac's copy: mirror the staged app into the bundle, then sign the bundle
+ * again ad hoc whatever the copy did (a copy that failed halfway through its
+ * removals has changed it too). A failed signing is only noted in update.log:
+ * an updated app with a bad signature is mended by a full download, while an
+ * app that never opens again is not.
+ */
+async function applyOnMac({ staged, resourcesPath, version, spawn, mirror, timer }) {
+  let result
+  timer.mark('mirror-start', `version=${version ?? '?'}`)
+  try {
+    mirror(staged, path.posix.join(resourcesPath, 'app'))
+    timer.mark('mirror-end')
+    result = { ok: true }
+  } catch (err) {
+    timer.mark('mirror-end', `error=${err?.code ? `${err.code} ` : ''}${err?.message ?? err}`)
+    result = { ok: false, reason: `mirror ${err?.code ?? 'failed'}` }
+  }
+  timer.mark('codesign-start')
+  const signed = await runCommand(spawn, 'codesign', ['--force', '--deep', '--sign', '-', bundlePath(resourcesPath)], 120_000)
+  timer.mark('codesign-end', `code=${signed}`)
+  return result
+}
+
 async function runPendingUpdate({
   app,
   isPackaged,
@@ -63,6 +112,8 @@ async function runPendingUpdate({
   removeMarker = (file) => fs.rmSync(file, { force: true }),
   setAsideMarker = (file) => fs.renameSync(file, `${file}.stuck-${Date.now()}`),
   readyTimeoutMs = 5000,
+  platform = process.platform,
+  mirror = mirrorDir,
 }) {
   timer.mark('p2-start', `boot=${Math.max(0, Date.now() - Math.round(process.getCreationTime?.() ?? Date.now()))}ms`)
   const file = pendingFile(userData)
@@ -94,15 +145,29 @@ async function runPendingUpdate({
         card = openCard({ near: pending.card?.near ?? readNear(), step: 'updating', lang: pending.card?.lang ?? getLang() })
       }
     } catch { /* no card: the copy still runs */ }
-    timer.mark('robocopy-start', `version=${pending.version ?? '?'}`)
-    const code = await robocopy(spawn, staged, path.join(resourcesPath, 'app'))
-    timer.mark('robocopy-end', `code=${code}`)
-    result = code >= 0 && code < 8 ? { ok: true } : { ok: false, reason: `robocopy ${code}` }
+    if (isMac(platform)) {
+      result = await applyOnMac({ staged, resourcesPath, version: pending.version, spawn, mirror, timer })
+    } else {
+      timer.mark('robocopy-start', `version=${pending.version ?? '?'}`)
+      const code = await robocopy(spawn, staged, path.join(resourcesPath, 'app'))
+      timer.mark('robocopy-end', `code=${code}`)
+      result = code >= 0 && code < 8 ? { ok: true } : { ok: false, reason: `robocopy ${code}` }
+    }
     try { card?.close() } catch {}
   }
 
   timer.mark('relaunch', result.ok ? '' : `reason=${result.reason}`)
-  app.relaunch({ args: [...argv.slice(1).filter(a => a !== UPDATED_FLAG && a !== LEGACY_UPDATED_FLAG), UPDATED_FLAG] })
+  if (isMac(platform)) {
+    // Through Launch Services, so the bundle as signed now is what opens; should
+    // that fail, Electron starts the app itself as it does on Windows
+    const opened = await runCommand(spawn, 'open', ['-n', bundlePath(resourcesPath), '--args', UPDATED_FLAG], 30_000)
+    if (opened !== 0) {
+      timer.mark('open-failed', `code=${opened}`)
+      app.relaunch({ args: [UPDATED_FLAG] })
+    }
+  } else {
+    app.relaunch({ args: [...argv.slice(1).filter(a => a !== UPDATED_FLAG && a !== LEGACY_UPDATED_FLAG), UPDATED_FLAG] })
+  }
   app.exit(0)
   return result
 }
@@ -133,4 +198,4 @@ async function cleanupStaleUpdates({ tmpdir, keep = null, rm = fs.promises.rm, m
   return removed
 }
 
-module.exports = { UPDATED_FLAG, LEGACY_UPDATED_FLAG, isUpdatedRun, pendingFile, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates }
+module.exports = { UPDATED_FLAG, LEGACY_UPDATED_FLAG, isUpdatedRun, pendingFile, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates, bundlePath }

@@ -26,7 +26,7 @@ const crypto = require('crypto')
 const https = require('https')
 const childProcess = require('child_process')
 const { t } = require('./i18n.cjs')
-const { pendingFile: runnerPendingFile } = require('./updateRunner.cjs')
+const { pendingFile: runnerPendingFile, bundlePath } = require('./updateRunner.cjs')
 const { isMac } = require('./platform.cjs')
 
 const REPO = 'DueStar/spawn'
@@ -126,14 +126,30 @@ function localUpdateDir(name = manifestName()) {
   } catch { return null }
 }
 
+/**
+ * True when a Mac update can go into this app: not translocated (macOS runs an
+ * app opened from Downloads from a read-only copy under /private/var/folders)
+ * and the bundle and its Contents/Resources/app writable by this user.
+ */
+function macBundleWritable(resourcesPath, fsx = fs) {
+  const bundle = bundlePath(resourcesPath)
+  if (bundle.startsWith('/private/var/folders/')) return false
+  try {
+    fsx.accessSync(bundle, fs.constants.W_OK)
+    fsx.accessSync(path.posix.join(resourcesPath, 'app'), fs.constants.W_OK)
+    return true
+  } catch { return false }
+}
+
 /** When this copy of the app was built (scripts/release.mjs writes build-info.json) */
 function ownBuildDate(app) {
   try { return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'build-info.json'), 'utf8')).date ?? null } catch { return null }
 }
 
 /**
- * platform, arch, fetch, spawn and localDir are this process's own unless a
- * test hands in others (the Mac paths are tested on Windows that way).
+ * platform, arch, fetch, spawn, localDir, resourcesPath and fsx (the
+ * writable check) are this process's own unless a test hands in others (the
+ * Mac paths are tested on Windows that way).
  */
 function createUpdater({
   app, send, isPackaged,
@@ -142,6 +158,8 @@ function createUpdater({
   fetch = get,
   spawn = childProcess.spawn,
   localDir = localUpdateDir,
+  resourcesPath = process.resourcesPath,
+  fsx = fs,
 }) {
   const manifestFile = manifestName(platform, arch)
   let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', notesEn: '', notesJa: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
@@ -187,6 +205,12 @@ function createUpdater({
     if (!isPackaged) { publish({ error: t('개발 실행에서는 업데이트하지 않아요') }); return state }
     const appFile = String(manifest.app?.file ?? '')
     if (!appFilePattern(platform).test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
+    // A Mac app the update could not write into (run from Downloads, or put in
+    // Applications by another user) is sent to the full download, before any of it is fetched
+    if (isMac(platform) && !macBundleWritable(resourcesPath, fsx)) {
+      publish({ status: 'available', error: t('맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요'), needsFull: true })
+      return state
+    }
     publish({ status: 'downloading', progress: 0, error: null })
     try {
       const zip = manifest.localDir
@@ -201,13 +225,22 @@ function createUpdater({
       fs.writeFileSync(zipPath, zip)
       const staged = path.join(work, 'app')
       fs.mkdirSync(staged)
-      // Windows 10+ ships bsdtar, which reads zip
-      await new Promise((resolve, reject) => {
-        const tar = path.join(process.env.SystemRoot || 'C:/Windows', 'System32', 'tar.exe')
-        const t = spawn(tar, ['-xf', zipPath, '-C', staged], { windowsHide: true })
-        t.on('error', reject)
-        t.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`unpack failed (${code})`))))
-      })
+      if (isMac(platform)) {
+        // macOS's own unzip, which keeps modes and links
+        await new Promise((resolve, reject) => {
+          const d = spawn('ditto', ['-x', '-k', zipPath, staged], { stdio: 'ignore' })
+          d.on('error', reject)
+          d.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`unpack failed (${code})`))))
+        })
+      } else {
+        // Windows 10+ ships bsdtar, which reads zip
+        await new Promise((resolve, reject) => {
+          const tar = path.join(process.env.SystemRoot || 'C:/Windows', 'System32', 'tar.exe')
+          const t = spawn(tar, ['-xf', zipPath, '-C', staged], { windowsHide: true })
+          t.on('error', reject)
+          t.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`unpack failed (${code})`))))
+        })
+      }
       if (!fs.existsSync(path.join(staged, 'package.json'))) throw new Error('package.json missing in update')
       manifest.staged = staged
       publish({ status: 'ready', progress: 1 })
