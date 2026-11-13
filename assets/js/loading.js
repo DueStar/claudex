@@ -43,6 +43,7 @@
     .then(function (j) {
       if (!j || typeof j.tag_name !== 'string') return;
       window.spawnLatest(j.tag_name.replace(/^v/, ''));
+      if (window.spawnMacAssets) window.spawnMacAssets(j.assets); // does this release carry the Mac zips yet?
       document.querySelectorAll('[data-version], #startZip').forEach(function (el) { el.textContent = window.spawnVersionText(el); });
     })
     .catch(function () {});

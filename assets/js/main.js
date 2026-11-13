@@ -71,12 +71,105 @@
   // The version line and the first-install zip name, from LATEST_VERSION. loading.js asks GitHub for the
   // newest release and sets it through spawnLatest; until then these stand as skeletons
   function versionText(el) {
-    return el.id === 'startZip' ? PRODUCT_NAME + '-' + LATEST_VERSION + '-win-x64.zip' : t('cta.version', { v: LATEST_VERSION });
+    if (el.id === 'startZip') return platState() === 'mac-soon' ? t('dl.soon') : zipName(platState() === 'win' ? 'win-x64' : 'mac-arm64');
+    return t('cta.version', { v: LATEST_VERSION });
   }
   window.spawnVersionText = versionText;
   window.spawnLatest = function (v) {
-    if (!/^d+.d+.d+$/.test(v)) return;
+    if (!/^\d+\.\d+\.\d+$/.test(v)) return;
     LATEST_VERSION = v;
+  };
+
+  // ------------------------------------------------------------------ Mac: which download each button offers
+  // os: 'win' (today's behaviour, untouched) or 'mac'. arm / intel: the latest release carries that Mac zip
+  // (loading.js reads the GitHub assets list; with no answer, none is assumed and a Mac visitor sees "coming soon").
+  // ?os=mac / ?os=win overrides the detection (for testing).
+  function detectOS() {
+    var m = /[?&]os=(mac|win)(?:&|#|$)/.exec(location.search);
+    if (m) return m[1];
+    var uad = navigator.userAgentData, ua = navigator.userAgent || '';
+    if (uad && uad.platform) return uad.platform === 'macOS' ? 'mac' : 'win';
+    if (/iPhone|iPad|iPod/.test(ua)) return 'win';
+    if (/Mac/i.test(navigator.platform || '') || /Macintosh|Mac OS X/.test(ua)) return navigator.maxTouchPoints > 1 ? 'win' : 'mac'; // iPadOS says Macintosh, with a touch screen
+    return 'win';
+  }
+  var PLATFORM = { os: detectOS(), arm: false, intel: false, locked: false };
+  function platState() { return PLATFORM.os !== 'mac' ? 'win' : (PLATFORM.arm ? 'mac-ready' : 'mac-soon'); }
+  function zipName(kind) { return PRODUCT_NAME + '-' + LATEST_VERSION + '-' + kind + '.zip'; }
+  function macUrl(arch) { return SITE_LINKS.repo + '/releases/download/v' + LATEST_VERSION + '/' + zipName('mac-' + arch); }
+  // the same text with the Mac wording where there is one (hero note, unzip step, the Mac FAQ answer)
+  function platKey(key) {
+    if (key === 'faq.a9') return PLATFORM.arm ? 'faq.a9.ready' : key;
+    if (PLATFORM.os !== 'mac') return key;
+    if (key === 'faq.a3') return 'faq.a3.mac';
+    if (key === 'start.s1.p') return PLATFORM.arm ? key : 'start.s1.p.soon';
+    if (key === 'hero.note' || key === 'start.s2.p') return key + '.mac';
+    return key;
+  }
+  function exeText() { return PLATFORM.os === 'mac' ? PRODUCT_NAME + '.app' : 'win-unpacked\\' + PRODUCT_NAME + '.exe'; }
+
+  function applyPlatform() {
+    var state = platState(), mac = PLATFORM.os === 'mac';
+    document.documentElement.setAttribute('data-plat', state);
+    // back to the Windows baseline first, so switching platforms leaves nothing behind
+    document.querySelectorAll('[data-dl]').forEach(function (a) {
+      a.href = SITE_LINKS.releases;
+      a.removeAttribute('aria-disabled');
+      a.classList.remove('is-soon');
+      if (a.hasAttribute('data-was-primary')) { a.classList.remove('btn-ghost'); a.classList.add('btn-primary'); a.removeAttribute('data-was-primary'); }
+      var label = a.querySelector('[data-i18n]');
+      if (label) label.textContent = t(label.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n'), pk = platKey(k);
+      if (pk !== k) el.textContent = t(pk);
+    });
+    document.querySelectorAll('[data-win-only]').forEach(function (d) { d.hidden = mac; }); // the SmartScreen question is for Windows
+    var exe = document.getElementById('startExe');
+    if (exe) exe.textContent = exeText();
+    var zip = document.getElementById('startZip');
+    if (zip) zip.textContent = versionText(zip);
+    var note = document.querySelector('[data-mac-note]');
+    if (note) { note.hidden = !mac; note.textContent = mac ? t('start.s2.note.mac') : ''; }
+    // the quiet second link: Intel Mac when the Mac build is out, Windows while it is not
+    document.querySelectorAll('[data-dl-alt]').forEach(function (p) {
+      var a = p.querySelector('a');
+      var show = mac && (state === 'mac-soon' || PLATFORM.intel);
+      p.hidden = !show;
+      if (!show) { a.textContent = ''; a.removeAttribute('href'); return; }
+      a.textContent = t(state === 'mac-soon' ? 'dl.win' : 'dl.intel');
+      a.href = state === 'mac-soon' ? SITE_LINKS.releases : macUrl('x64');
+      a.rel = 'noopener';
+    });
+    if (!mac) return;
+    document.querySelectorAll('[data-dl]').forEach(function (a) {
+      var kind = a.getAttribute('data-dl'), label = a.querySelector('[data-i18n]');
+      if (state === 'mac-ready') {
+        a.href = macUrl('arm64');
+        if (kind === 'cta' && label) label.textContent = t('cta.download.mac');
+        return;
+      }
+      // coming soon: a calm ghost button that goes nowhere
+      a.removeAttribute('href');
+      a.setAttribute('aria-disabled', 'true');
+      a.classList.add('is-soon');
+      if (a.classList.contains('btn-primary')) { a.classList.remove('btn-primary'); a.classList.add('btn-ghost'); a.setAttribute('data-was-primary', ''); }
+      var ico = a.querySelector('.ext-ico'); if (ico) ico.remove();
+      if (label) label.textContent = t(kind === 'nav' ? 'nav.soon' : 'cta.soon');
+    });
+  }
+  // loading.js hands over the release's asset list; lab tools may pin the state (locked) to compare the two
+  window.spawnMacAssets = function (assets) {
+    if (PLATFORM.locked) return;
+    var names = (assets || []).map(function (a) { return a && a.name; });
+    var was = PLATFORM.arm + '/' + PLATFORM.intel;
+    PLATFORM.arm = names.some(function (n) { return /-mac-arm64\.zip$/.test(n); });
+    PLATFORM.intel = names.some(function (n) { return /-mac-x64\.zip$/.test(n); });
+    if (was !== PLATFORM.arm + '/' + PLATFORM.intel) window.spawnReapply();
+  };
+  window.spawnSetPlatform = function (o) {
+    for (var k in o) PLATFORM[k] = o[k];
+    window.spawnReapply();
   };
 
   function applyStatic() {
@@ -94,6 +187,7 @@
       var href = SITE_LINKS[el.getAttribute('data-link')];
       if (href) { el.href = href; el.rel = 'noopener'; }
     });
+    applyPlatform();
     document.querySelectorAll('.lang-seg button').forEach(function (b) {
       var on = b.getAttribute('data-lang') === lang;
       b.classList.toggle('on', on);
@@ -117,6 +211,8 @@
     // the fresh text gets its line breaks by meaning again (wrap.js; not there yet on the first run)
     if (window.spawnRewrap) window.spawnRewrap(true);
   }
+
+  window.spawnReapply = applyStatic;
 
   function setLang(next) {
     if (LANGS.indexOf(next) < 0 || next === lang) return;
@@ -1091,7 +1187,7 @@
     var zip = document.getElementById('startZip');
     if (zip) onLang(function () { zip.textContent = versionText(zip); });
     var exe = document.getElementById('startExe');
-    if (exe) exe.textContent = 'win-unpacked\\' + PRODUCT_NAME + '.exe';
+    if (exe) exe.textContent = exeText();
     var slot = document.getElementById('startCatch');
     if (!slot) return;
     onLang(function () {

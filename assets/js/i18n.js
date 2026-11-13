@@ -18,7 +18,7 @@ var SITE_LINKS = {
 };
 
 /* The latest release (shown under the closing download button; update with each release) */
-var LATEST_VERSION = '1.3.48'; // the fallback: loading.js asks GitHub for the newest
+var LATEST_VERSION = '1.3.49'; // the fallback: loading.js asks GitHub for the newest
 
 var STRINGS = {
   ko: {
@@ -192,10 +192,26 @@ var STRINGS = {
     'faq.a5': '아니요. 도구 호출 훅은 비동기라 Claude가 기다리지 않아요.',
     'faq.q6': '다른 터미널에서 연 세션도 세나요?',
     'faq.a6': '아니요. 앱의 터미널에서 연 세션만 걸음과 포획이 쌓여요.',
-    'faq.q7': 'Mac이나 Linux에서도 되나요?',
-    'faq.a7': '지금은 Windows 앱만 있어요.',
+    'faq.q7': 'Linux에서도 되나요?',
+    'faq.a7': '아직 Linux 버전은 없어요.',
     'faq.q8': '여러 PC에서 이어서 할 수 있나요?',
     'faq.a8': '구글로 로그인하면 도감이 클라우드에 저장되고, 두 PC에서 잡은 포켓몬도 합쳐져요.',
+
+    /* mac (platform variants; see main.js applyPlatform) */
+    'cta.download.mac': 'Mac용 다운로드',
+    'cta.soon': 'macOS 버전 준비 중',
+    'nav.soon': '준비 중',
+    'dl.intel': 'Intel Mac용 받기',
+    'dl.win': 'Windows용 받기',
+    'dl.soon': 'macOS 버전 준비 중',
+    'hero.note.mac': '무료 · macOS · 비영리 팬 프로젝트',
+    'start.s1.p.soon': 'macOS 버전이 나오면 GitHub Releases에서 받을 수 있어요.',
+    'start.s2.p.mac': '압축을 풀고 {name}.app을 응용 프로그램 폴더로 옮겨 열어요.',
+    'start.s2.note.mac': '처음엔 시스템 설정 › 개인정보 보호 및 보안에서 “그래도 열기”를 눌러 주세요.',
+    'faq.a3.mac': '로그인된 Claude Code가 필요해요. Git은 있으면 좋지만 macOS에서는 꼭 필요하진 않아요. 없으면 앱이 바로 알려줘요. Python 같은 건 필요 없어요.',
+    'faq.q9': '맥에서도 쓸 수 있나요?',
+    'faq.a9': 'macOS 버전을 준비하고 있어요. Apple Silicon과 Intel 모두 지원할 예정이고, 아직 Apple 개발자 계정으로 서명하지 않아서 처음 한 번은 “그래도 열기”를 눌러야 해요.',
+    'faq.a9.ready': '네, Apple Silicon과 Intel Mac 모두 받을 수 있어요. 아직 Apple 개발자 계정으로 서명하지 않아서, 처음 한 번은 “그래도 열기”를 눌러야 해요.',
 
     /* footer */
     'foot.tag': 'Claude Code와 Codex 세션을 포켓몬과 함께.',
@@ -375,10 +391,26 @@ var STRINGS = {
     'faq.a5': 'No. The tool-call hooks are async, so Claude never waits for them.',
     'faq.q6': 'Do sessions in other terminals count?',
     'faq.a6': 'No. Only sessions opened in the app’s terminal earn steps and catches.',
-    'faq.q7': 'Does it run on Mac or Linux?',
-    'faq.a7': 'Not for now. It is a Windows app.',
+    'faq.q7': 'Does it run on Linux?',
+    'faq.a7': 'Not for now. There is no Linux version yet.',
     'faq.q8': 'Can I play on more than one PC?',
     'faq.a8': 'Sign in with Google and your Pokédex is saved to the cloud. Catches from two PCs are merged.',
+
+    /* mac (platform variants; see main.js applyPlatform) */
+    'cta.download.mac': 'Download for Mac',
+    'cta.soon': 'macOS version coming soon',
+    'nav.soon': 'Coming soon',
+    'dl.intel': 'Download for Intel Mac',
+    'dl.win': 'Get it for Windows',
+    'dl.soon': 'macOS version coming soon',
+    'hero.note.mac': 'Free · macOS · Non-commercial fan project',
+    'start.s1.p.soon': 'When the macOS version is out, you will get it from GitHub Releases.',
+    'start.s2.p.mac': 'Unzip it, move {name}.app to your Applications folder and open it.',
+    'start.s2.note.mac': 'On first launch, open System Settings › Privacy & Security and press “Open Anyway”.',
+    'faq.a3.mac': 'Claude Code, signed in. Git is nice to have but not required on macOS. If something is missing, the app tells you. Nothing else, like Python, is needed.',
+    'faq.q9': 'Does it work on a Mac?',
+    'faq.a9': 'We are preparing the macOS version, for Apple Silicon and Intel. The app is not signed with an Apple developer account yet, so the first launch will need “Open Anyway” once.',
+    'faq.a9.ready': 'Yes, for both Apple Silicon and Intel Macs. The app is not signed with an Apple developer account yet, so the first launch needs “Open Anyway” once.',
 
     'foot.tag': 'Claude Code and Codex sessions, with Pokémon.',
     'foot.legal': 'A personal, non-commercial fan project. Not affiliated with or endorsed by Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company or Anthropic. Pokémon and all related names and art are trademarks and © of their respective owners.',
@@ -557,10 +589,26 @@ var STRINGS = {
     'faq.a5': 'なりません。ツール呼び出しのフックは非同期なので、Claudeは待ちません。',
     'faq.q6': 'ほかのターミナルで開いたセッションも数えますか？',
     'faq.a6': 'いいえ。アプリのターミナルで開いたセッションだけが歩数と捕獲につながります。',
-    'faq.q7': 'MacやLinuxでも使えますか？',
-    'faq.a7': 'いまはWindowsアプリだけです。',
+    'faq.q7': 'Linuxでも使えますか？',
+    'faq.a7': 'いまのところLinux版はありません。',
     'faq.q8': '複数のPCで続けられますか？',
     'faq.a8': 'Googleでログインすると図鑑がクラウドに保存され、2台のPCで捕まえたポケモンもまとめられます。',
+
+    /* mac (platform variants; see main.js applyPlatform) */
+    'cta.download.mac': 'Mac版をダウンロード',
+    'cta.soon': 'macOS版は準備中',
+    'nav.soon': '準備中',
+    'dl.intel': 'Intel Mac用をダウンロード',
+    'dl.win': 'Windows版を入手',
+    'dl.soon': 'macOS版は準備中',
+    'hero.note.mac': '無料 · macOS · 非営利のファンプロジェクト',
+    'start.s1.p.soon': 'macOS版が出たら、GitHub Releasesから取得できます。',
+    'start.s2.p.mac': '解凍して、{name}.appをアプリケーションフォルダに移して開きます。',
+    'start.s2.note.mac': '初回はシステム設定 › プライバシーとセキュリティで「このまま開く」を押してください。',
+    'faq.a3.mac': 'ログイン済みのClaude Codeが必要です。Gitはあると便利ですが、macOSでは必須ではありません。足りなければアプリが教えてくれます。Pythonなどは必要ありません。',
+    'faq.q9': 'Macでも使えますか？',
+    'faq.a9': 'macOS版を準備しています。Apple SiliconとIntelの両方に対応する予定です。まだApple Developerアカウントで署名していないため、初回だけ「このまま開く」が必要です。',
+    'faq.a9.ready': 'はい、Apple SiliconとIntel Macの両方で使えます。まだApple Developerアカウントで署名していないため、初回だけ「このまま開く」が必要です。',
 
     'foot.tag': 'Claude CodeとCodexのセッションを、ポケモンと一緒に。',
     'foot.legal': '個人による非営利のファンプロジェクトです。Nintendo、Creatures Inc.、GAME FREAK inc.、株式会社ポケモン、Anthropicとは関係がなく、承認も受けていません。ポケモンに関する名前とイラストの権利は、それぞれの権利者にあります。',

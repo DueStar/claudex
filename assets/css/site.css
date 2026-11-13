@@ -178,15 +178,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .nav-dl > * { position: relative; top: 1px; }
 .brand-name { transition: font-size 0.35s cubic-bezier(.2, .8, .2, 1); font-family: 'W Uncut', 'Uncut Sans', 'Uncut Sans Variable', 'Pretendard Variable', system-ui, sans-serif; font-weight: 570; font-size: 21px; line-height: 1; letter-spacing: -0.03em; }
 .nav-links { display: flex; gap: 2px; margin-left: 8px; margin-right: auto; }
-.nav-links a { font-size: 14px; color: var(--ink-2); text-decoration: none; padding: 6px 10px; border-radius: 8px; transition: color 0.15s; }
+.nav-links a { font-size: 14px; color: rgba(255, 255, 255, 0.66); text-decoration: none; padding: 6px 10px; border-radius: 8px; transition: color 0.15s; }
 .nav-links a:hover { color: var(--ink); }
 .lang-seg { display: flex; align-items: center; flex: none; }
 .lang-seg button {
-  font: 600 13px/1 var(--font-ui); letter-spacing: 0.02em; color: var(--ink-3);
+  font: 600 13px/1 var(--font-ui); letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.45);
   background: none; border: 0; padding: 8px 2px; cursor: pointer; transition: color 0.15s;
 }
-.lang-seg button + button::before { content: '·'; display: inline-block; margin: 0 8px; color: var(--ink-3); font-weight: 400; }
-.lang-seg button:hover { color: var(--ink-2); }
+.lang-seg button + button::before { content: '·'; display: inline-block; margin: 0 8px; color: rgba(255, 255, 255, 0.28); font-weight: 400; }
+.lang-seg button:hover { color: var(--ink); }
 .lang-seg button.on { color: var(--ink); }
 @media (max-width: 900px) { .nav-links { display: none; } .lang-seg { margin-left: auto; } }
 @media (max-width: 420px) {
@@ -327,3 +327,21 @@ input, textarea { cursor: text; }
   /* the field fades out at its top and bottom edges: no hard line where the section starts or ends */
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); }
 .sv-field .sv-hidden { position: absolute; width: 72px; height: 67px; opacity: 0; transition: opacity 0.25s ease-out; will-change: opacity; } /* unseen until the pointer comes near (field.js) */
+
+/* ---------- Mac download: the quiet second link, the "coming soon" button, the first-launch note ---------- */
+.dl-alt { font-size: var(--step--1); line-height: 1.5; color: var(--ink-3); }
+.dl-alt[hidden], .step-note[hidden] { display: none; }
+.dl-alt a { color: var(--ink-3); }
+.hero-head .dl-alt { margin-top: -10px; }
+.closing .dl-alt { margin-top: -14px; }
+.closing .dl-alt:not([hidden]) + .fine { margin-top: -22px; }
+.faq details[hidden] { display: none; }
+.steps4 .step-note { font-size: var(--step--1); color: var(--ink-3); line-height: 1.55; }
+.btn.is-soon { cursor: default; color: var(--ink-2); }
+.btn.is-soon:hover { background: transparent; border-color: var(--line-strong); }
+.btn.is-soon:active { transform: none; }
+.btn.is-soon .ico { display: none; }
+[data-plat="mac-soon"] .rel-tag { display: none; }
+[data-plat="mac-soon"] .rel-row { cursor: default; }
+.nav .btn.is-soon { color: rgba(255, 255, 255, 0.66); }
+.nav .btn.is-soon:hover { color: var(--ink); }
