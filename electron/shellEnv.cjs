@@ -7,7 +7,7 @@
  * Mac only: anywhere else the environment is returned as it is.
  */
 
-const { execFile } = require('node:child_process')
+const childProcess = require('node:child_process')
 const path = require('node:path')
 
 const SHELL_VARS = ['LANG', 'LC_ALL', 'LC_CTYPE']
@@ -38,9 +38,35 @@ function mergePath(...lists) {
   return dirs.join(':')
 }
 
-function runShell(shell, args, timeoutMs) {
+/** How the login shell is started: no stdin (an rc file that asks something reads end of file and goes on), stdout read, stderr dropped */
+const SHELL_STDIO = Object.freeze(['ignore', 'pipe', 'ignore'])
+const MAX_OUTPUT = 4 * 1024 * 1024
+
+/**
+ * Run the login shell once and resolve to what it printed. Past timeoutMs it is
+ * killed with SIGKILL (an rc file that hangs or prompts must not outlive the read),
+ * and so is one that prints more than MAX_OUTPUT.
+ */
+function runShell(shell, args, timeoutMs, spawn = childProcess.spawn) {
   return new Promise((resolve, reject) => {
-    execFile(shell, args, { timeout: timeoutMs, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => (err ? reject(err) : resolve(stdout)))
+    let child
+    try { child = spawn(shell, args, { stdio: SHELL_STDIO }) } catch (err) { reject(err); return }
+    let out = ''
+    let done = false
+    const finish = (err, value) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      if (err) { try { child.kill('SIGKILL') } catch {} reject(err) } else resolve(value)
+    }
+    const timer = setTimeout(() => finish(new Error('login shell timed out')), timeoutMs)
+    child.stdout?.setEncoding?.('utf8')
+    child.stdout?.on('data', (chunk) => {
+      out += chunk
+      if (out.length > MAX_OUTPUT) finish(new Error('login shell printed too much'))
+    })
+    child.on('error', (err) => finish(err))
+    child.on('close', (code) => (code === 0 ? finish(null, out) : finish(new Error(`login shell exited ${code}`))))
   })
 }
 
@@ -71,4 +97,4 @@ async function mergeLoginEnv({ env = process.env, run = runShell, timeoutMs = 30
   return merged
 }
 
-module.exports = { parseEnv, mergeLoginEnv }
+module.exports = { parseEnv, mergeLoginEnv, runShell, SHELL_STDIO }
