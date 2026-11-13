@@ -10,6 +10,8 @@ import { useSettings, changeSettings } from '../settingsStore'
 import { cloudErrorText, useCloud } from '../cloudStore'
 import { CloseIcon } from './Icons'
 import { t, locale } from '../i18n'
+import { isMac } from '../platform'
+import { termFontLabel } from '../termFont'
 
 type Section = 'notify' | 'privacy' | 'session' | 'tools' | 'app' | 'data'
 
@@ -193,8 +195,8 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback
             <Toggle label={t('Windows 시작 시 실행')} on={s.app.openAtLogin} onChange={v => set('app', { openAtLogin: v })} />
             <Toggle label={t('시작 시 트레이로 최소화')} hint={t('창을 띄우지 않고 시작해요. 작업 표시줄 트레이의 몬스터볼로 열 수 있어요')} on={s.app.startHidden} onChange={v => set('app', { startHidden: v })} />
             <Toggle label={t('위젯 항상 위에 표시')} hint={t('위젯 모드에서 다른 창 위에 고정돼요')} on={s.app.widgetOnTop} onChange={v => set('app', { widgetOnTop: v })} />
-            <Choice label={t('터미널 글꼴')} hint={t('열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요')} value={s.terminal.font}
-              options={[['default', 'Monaspace'], ['consolas', 'Consolas'], ['cascadia', 'Cascadia'], ['d2coding', 'D2Coding']]} onChange={v => set('terminal', { font: v })} />
+            <Choice label={t('터미널 글꼴')} hint={t(isMac() ? '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Menlo로 보여요' : '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요')} value={s.terminal.font}
+              options={[['default', 'Monaspace'], ['consolas', termFontLabel('consolas')], ['cascadia', 'Cascadia'], ['d2coding', 'D2Coding']]} onChange={v => set('terminal', { font: v })} />
             <Choice label={t('스크롤 기록')} hint={t('터미널마다 위로 올려 볼 수 있는 줄 수예요. 많을수록 메모리를 더 써요')} value={String(s.terminal.scrollback)}
               options={SCROLLBACKS.map(n => [String(n), t('{n}줄', { n: n.toLocaleString(locale()) })])} onChange={v => set('terminal', { scrollback: Number(v) as AppSettings['terminal']['scrollback'] })} />
             {onFeedback && (

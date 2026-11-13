@@ -295,7 +295,7 @@
 .w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
 /* the widget toggle sits left of the text size: 6px on either side of the text size */
 .w-view-switch.w-font-switch { margin: 0 2px 0 6px; }
-.w-font-switch button { font-family: 'W Uncut', 'Uncut Sans Variable', system-ui, sans-serif; letter-spacing: -0.02em; }
+.w-font-switch button { font-family: 'W Uncut', 'Uncut Sans Variable', system-ui, 'Apple SD Gothic Neo', 'Hiragino Sans', sans-serif; letter-spacing: -0.02em; }
 
 /* ---------- Patch notes after an update (PatchNotes.tsx) ---------- */
 .w-notes-body { overflow-y: auto; padding: 4px 16px 8px; line-height: 1.55; font-size: 13px; }
@@ -374,7 +374,7 @@
 .set-btn.primary:hover { filter: brightness(1.06); }
 .set-btn:disabled { opacity: 0.5; cursor: default; }
 /* 설정 › AI 도구 */
-.set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', monospace; }
+.set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace; }
 .set-tag { font-size: 11px; color: var(--ink-3); padding: 6px 4px; }
 .set-tool-add { flex-direction: column; align-items: stretch; gap: 10px; }
 .set-presets { display: flex; gap: 6px; margin-top: 6px; }

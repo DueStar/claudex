@@ -86,3 +86,29 @@ describe('settings', () => {
     expect(createSettingsStore(file).get()).toEqual(DEFAULTS)
   })
 })
+
+describe('terminal font per platform', () => {
+  it('keeps the stored value consolas but shows and renders Menlo on a Mac', async () => {
+    const { termFontStack, termFontLabel, TERM_FONT_STACKS } = await import('../src/termFont')
+    expect(termFontLabel('consolas', true)).toBe('Menlo')
+    expect(termFontLabel('consolas', false)).toBe('Consolas')
+    expect(termFontStack('consolas', true).startsWith("Menlo, 'SF Mono', ")).toBe(true)
+    expect(termFontStack('consolas', true)).not.toContain('Consolas')
+    // Windows: unchanged choice, still led by Consolas
+    expect(termFontStack('consolas', false)).toBe(TERM_FONT_STACKS.consolas)
+    expect(TERM_FONT_STACKS.consolas.startsWith("Consolas, 'Pretendard Variable', 'Malgun Gothic', ")).toBe(true)
+    // the other fonts are the same on both platforms
+    for (const f of ['default', 'cascadia', 'd2coding'] as const) {
+      expect(termFontStack(f, true)).toBe(termFontStack(f, false))
+      expect(termFontLabel(f, true)).toBe(termFontLabel(f, false))
+    }
+  })
+
+  it('appends the macOS faces after the Windows ones, never before', async () => {
+    const { TERM_FONT_STACKS } = await import('../src/termFont')
+    for (const s of Object.values(TERM_FONT_STACKS)) {
+      expect(s.indexOf("'Apple SD Gothic Neo'")).toBeGreaterThan(s.indexOf("'Malgun Gothic'"))
+      expect(s.endsWith(", monospace")).toBe(true)
+    }
+  })
+})

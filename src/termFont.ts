@@ -5,6 +5,7 @@
 
 import { useSyncExternalStore } from 'react'
 import type { TerminalFont } from './desktop'
+import { isMac } from './platform'
 
 /**
  * The terminal font choices (설정 › 앱 › 터미널 글꼴), each a CSS font stack.
@@ -14,12 +15,20 @@ import type { TerminalFont } from './desktop'
  * monospace), and Hangul to Pretendard.
  */
 export const TERM_FONT_STACKS: Record<TerminalFont, string> = {
-  default: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', Consolas, monospace",
-  consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
-  cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
-  d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', monospace",
+  default: "'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', Consolas, 'SF Mono', Menlo, monospace",
+  consolas: "Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
+  cascadia: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
+  d2coding: "D2Coding, 'D2Coding ligature', Consolas, 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace",
 }
-export const termFontStack = (font: TerminalFont | undefined): string => TERM_FONT_STACKS[font ?? 'default'] ?? TERM_FONT_STACKS.default
+/** The stack to render. On a Mac the stored value 'consolas' shows Menlo, as Consolas is not on macOS. */
+export const termFontStack = (font: TerminalFont | undefined, mac: boolean = isMac()): string =>
+  mac && font === 'consolas'
+    ? "Menlo, 'SF Mono', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', monospace"
+    : TERM_FONT_STACKS[font ?? 'default'] ?? TERM_FONT_STACKS.default
+
+/** The settings label of a font choice: the stored value consolas reads Menlo on a Mac. */
+export const termFontLabel = (font: TerminalFont, mac: boolean = isMac()): string =>
+  font === 'consolas' && mac ? 'Menlo' : { default: 'Monaspace', consolas: 'Consolas', cascadia: 'Cascadia', d2coding: 'D2Coding' }[font]
 
 export const FONT_PRESETS = [
   { label: '소', size: 13 },
