@@ -27,6 +27,14 @@ export interface TabRow {
   shell?: boolean
 }
 
+/**
+ * The shell a shell tab runs, as main names it (the adapter's toolName: PowerShell, or the
+ * login shell's basename on a Mac); before any shell tab is open, the platform's usual one
+ */
+export function shellLabel(rows: Pick<TabRow, 'shell' | 'terminal'>[], mac: boolean = isMac()): string {
+  return rows.find(r => r.shell && r.terminal?.toolName)?.terminal?.toolName ?? t(platformWord('shell', mac))
+}
+
 export const SessionTabs: React.FC<{
   rows: TabRow[]
   shownId?: string
@@ -100,7 +108,7 @@ export const SessionTabs: React.FC<{
       <button className="w-sess-new" onClick={onNew} title={t('새로운 세션 시작하기 (문서 폴더)')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={14} /></button>
       </div>
       {/* The shell button stays at the right end, outside the scrolling tabs */}
-      {onNewShell && <button className="w-sess-shell-btn" onClick={onNewShell} title={t('셸 탭 열기 (포켓몬 없이 {shell})', { shell: t(platformWord('shell', isMac())) })} aria-label={t('셸 탭 열기')}>&gt;_</button>}
+      {onNewShell && <button className="w-sess-shell-btn" onClick={onNewShell} title={t('셸 탭 열기 (포켓몬 없이 {shell})', { shell: shellLabel(rows) })} aria-label={t('셸 탭 열기')}>&gt;_</button>}
     </div>
   )
 }

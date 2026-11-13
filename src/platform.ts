@@ -31,13 +31,13 @@ export function modCombo(key: string): string {
 /**
  * The words that differ per platform, as translation keys (Korean text, run
  * through t()). The shell on a Mac is the login shell, which main labels with
- * its basename; zsh is the macOS default, so it names the word here.
+ * its basename (a shell tab's toolName, used where one is open); zsh, the macOS
+ * default, stands in only while that name is not known yet.
  */
-export function platformWord(key: 'tray' | 'startup' | 'taskbar' | 'shell', mac: boolean): string {
+export function platformWord(key: 'tray' | 'startup' | 'shell', mac: boolean): string {
   const words = {
     tray: ['트레이', '메뉴 막대'],
     startup: ['Windows 시작 시 실행', '로그인 시 실행'],
-    taskbar: ['작업 표시줄 깜빡이기', 'Dock 아이콘 튀기기'],
     shell: ['PowerShell', 'zsh'],
   } as const
   return words[key][mac ? 1 : 0]

@@ -17,6 +17,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # the job never pushes: no token left behind in .git/config
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:

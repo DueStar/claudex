@@ -100,6 +100,14 @@ describe('FILE_REF on macOS', () => {
     expect(first('/usr/bin/env')).toBe(null)
   })
 
+  it('the Mac pattern is the Windows one with ~/ and / roots: made from it, the same as it was written before', () => {
+    const MAC_BEFORE = /(?<![\w/\:.@~-])((?:[A-Za-z]:[\\/]|~\/|\/|\.{1,2}[\\/]|[\w@.-]+[\\/])[\w@.\-\\/]*\.[A-Za-z0-9]{1,8}|[\w@.-]+\.[A-Za-z0-9]{1,8}(?=:\d))(?::(\d+))?(?::(\d+))?/g
+    expect(FILE_REF.source).toBe(MAC_BEFORE.source)
+    expect(FILE_REF.flags).toBe('g')
+    setPlatformForTest('win')
+    expect(fileRefPattern().source).toBe(BEFORE.source)
+  })
+
   it('FILE_REF itself is the pattern that knows both', () => {
     expect([...'/Users/me/a.ts:12'.matchAll(FILE_REF)][0][1]).toBe('/Users/me/a.ts')
     expect([...'~/proj/a.ts'.matchAll(FILE_REF)][0][1]).toBe('~/proj/a.ts')

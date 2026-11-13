@@ -212,6 +212,11 @@ describe('the wiring (main.cjs, the page)', () => {
     expect(main).toContain("toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })")
   })
 
+  it("a session end on shutdown: Windows' log line byte for byte, a neutral one on a Mac", () => {
+    expect(main).toContain("else console.log('[main] Windows is ending the session: open sessions kept for the next start')")
+    expect(main).toContain("if (process.platform === 'darwin') console.log('[main] the system is ending the session: open sessions kept for the next start')")
+  })
+
   it('macOS: a filled window follows its work area (registered in the darwin start block only)', () => {
     const block = main.slice(main.indexOf("if (process.platform === 'darwin') {\n      // A shutdown"), main.indexOf('registerTerminalIpc()\n'))
     expect(block).toContain("screen.on('display-metrics-changed', (_event, _display, changed) => { refillOnWorkAreaChange(widgetWin, changed, screen) })")

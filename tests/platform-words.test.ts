@@ -25,7 +25,6 @@ describe('platformWord', () => {
   it('names the Mac words in ko / en / ja', () => {
     expect(['ko', 'en', 'ja'].map(l => say(l as 'ko', 'tray', true))).toEqual(['메뉴 막대', 'menu bar', 'メニューバー'])
     expect(['ko', 'en', 'ja'].map(l => say(l as 'ko', 'startup', true))).toEqual(['로그인 시 실행', 'Open at login', 'ログイン時に起動'])
-    expect(['ko', 'en', 'ja'].map(l => say(l as 'ko', 'taskbar', true))).toEqual(['Dock 아이콘 튀기기', 'bounce the Dock icon', 'Dockアイコンを弾ませる'])
     expect(['ko', 'en', 'ja'].map(l => say(l as 'ko', 'shell', true))).toEqual(['zsh', 'zsh', 'zsh'])
   })
 
@@ -33,7 +32,6 @@ describe('platformWord', () => {
     expect(['ko', 'en', 'ja'].map(l => say(l as 'ko', 'startup', false))).toEqual(['Windows 시작 시 실행', 'Launch at Windows startup', 'Windows 起動時に開く'])
     expect(['ko', 'en', 'ja'].map(l => say(l as 'ko', 'shell', false))).toEqual(['PowerShell', 'PowerShell', 'PowerShell'])
     expect(say('en', 'tray', false)).toBe('tray')
-    expect(say('en', 'taskbar', false)).toBe('flash the taskbar')
   })
 })
 
@@ -71,5 +69,26 @@ describe('sentences that name the platform', () => {
     expect(sentence('en', 'Git')).toBe('Git')
     expect(sentence('en', '선택 사항이에요')).toBe('Optional')
     expect(sentence('ja', '선택 사항이에요')).toBe('任意です')
+  })
+})
+
+describe('the shell tab button names the shell main runs', () => {
+  it("an open shell tab's toolName (main's name for it), else the platform's usual shell", async () => {
+    const { shellLabel } = await import('../src/components/SessionTabs')
+    setLang('en')
+    expect(shellLabel([{ shell: true, terminal: { toolName: 'bash' } as never }], true)).toBe('bash')
+    expect(shellLabel([{ shell: false, terminal: { toolName: 'Codex CLI' } as never }], true)).toBe('zsh')
+    expect(shellLabel([], true)).toBe('zsh')
+    // Windows: PowerShell either way, as before
+    expect(shellLabel([], false)).toBe('PowerShell')
+    expect(shellLabel([{ shell: true, terminal: { toolName: 'PowerShell' } as never }], false)).toBe('PowerShell')
+  })
+
+  it('the taskbar word is gone (nothing used it)', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const locales = readFileSync(join(__dirname, '..', 'src', 'locales', 'settings.ts'), 'utf8')
+    expect(locales).not.toContain('작업 표시줄 깜빡이기')
+    expect(locales).not.toContain('Dock 아이콘 튀기기')
   })
 })

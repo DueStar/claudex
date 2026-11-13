@@ -159,7 +159,8 @@ describe('UI fonts on a Mac (.is-mac rules)', () => {
     expect(mac.indexOf('system-ui')).toBeGreaterThan(3)
     expect(mac.indexOf('system-ui')).toBeLessThan(mac.indexOf('Apple SD Gothic Neo'))
     expect(mac.indexOf('-apple-system')).toBeLessThan(mac.indexOf('Apple SD Gothic Neo'))
-    // Windows' own rule is as it was
+    // the shared rule (what Windows draws with): main's faces, then the Mac's fallbacks after Malgun Gothic,
+    // which Windows does not have, so it draws as before
     expect(css('widget.css')).toContain("font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Hiragino Sans', system-ui, sans-serif;")
   })
 

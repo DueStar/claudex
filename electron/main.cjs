@@ -646,7 +646,13 @@ function boundsFor(kind, near) {
 // Windows shutting down, restarting or logging off ends the sessions' processes before
 // it kills the app, and the app's own quit never runs: keep the reopen list as it is now
 // (macOS: its shutdown and logout, from powerMonitor, come here too)
-const keepSessions = () => { try { terminals?.freeze?.(); console.log('[main] Windows is ending the session: open sessions kept for the next start') } catch {} }
+const keepSessions = () => {
+  try {
+    terminals?.freeze?.()
+    if (process.platform === 'darwin') console.log('[main] the system is ending the session: open sessions kept for the next start')
+    else console.log('[main] Windows is ending the session: open sessions kept for the next start')
+  } catch {}
+}
 
 /** Build the app's window for `mode`; it shows itself once painted unless `hidden`. */
 function buildAppWindow(mode, { hidden = false, near = null } = {}) {

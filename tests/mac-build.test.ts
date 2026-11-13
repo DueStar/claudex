@@ -211,6 +211,28 @@ describe('workflows', () => {
     expect(steps.at(-1)?.if).toBe(`always() && steps.${test.id}.outcome == 'failure'`)
   })
 
+  it('both workflows check out without leaving the token in .git/config', () => {
+    for (const wf of [mac, ci]) {
+      for (const job of Object.values(wf.jobs) as Array<{ steps: Array<{ uses?: string, with?: Record<string, unknown> }> }>) {
+        const checkout = job.steps.find(s => String(s.uses ?? '').startsWith('actions/checkout'))
+        expect(checkout?.with?.['persist-credentials']).toBe(false)
+      }
+    }
+  })
+
+  it('js-yaml (read here) is declared, at the version the lock already has', () => {
+    const lock = JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8'))
+    expect(pkg.devDependencies['js-yaml']).toBe('^4.1.1')
+    expect(lock.packages[''].devDependencies['js-yaml']).toBe('^4.1.1')
+    expect(lock.packages['node_modules/js-yaml'].version).toBe('4.1.1')
+  })
+
+  it('one version rule: release-mac.mjs takes the one in mac-build.mjs', () => {
+    const rel = readFileSync(join(ROOT, 'scripts', 'release-mac.mjs'), 'utf8')
+    expect(rel).toContain("import { macArtifactNames, VERSION } from './mac-build.mjs'")
+    expect(rel).not.toMatch(/const VERSION\s*=/)
+  })
+
   it('ci.yml: macOS joins the test matrix; its triggers are as they were', () => {
     expect(ci.jobs.test.strategy.matrix.os).toEqual(['windows-latest', 'ubuntu-latest', 'macos-latest'])
     expect(ci.on).toEqual({ push: { branches: ['main'] }, pull_request: null })
