@@ -1,0 +1,152 @@
+name: Mac build
+
+# spawn.app for Apple Silicon (arm64) and Intel (x64): tests, the build, an ad-hoc
+# signature (no Apple Developer ID yet), one launch of the built app with
+# --smoke-test (scripts/smoke-mac.mjs: a shell session must print spawn-42, then a
+# picture of the window, widget and full-screen modes), and the zips as artifacts
+# (scripts/mac-build.mjs). Nothing is published here.
+
+on:
+  push:
+    branches: [mac-port]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (empty: the one in package.json)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: mac-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # A runner label is one edit here
+          - arch: arm64
+            runner: macos-14
+          - arch: x64
+            runner: macos-13
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Runner
+        run: |
+          echo "uname -m: $(uname -m) · node: $(node -p process.arch) · macOS $(sw_vers -productVersion)"
+          if [ "$(node -p process.arch)" != "${{ matrix.arch }}" ]; then
+            echo "::warning::this runner is $(node -p process.arch), the build is ${{ matrix.arch }}: the smoke launch runs under translation"
+          fi
+
+      # With the Electron binary: the smoke launch needs it (ci.yml skips it)
+      - name: Install
+        run: npm ci
+
+      # Before the tests: tests/dist-check.test.ts checks the built page
+      - name: Build the page
+        run: |
+          npx vite build
+          node -e "import('./scripts/dist-check.mjs').then(m => m.checkDist('dist'))"
+
+      # A failed test does not stop the build and the smoke launch (their results are
+      # wanted either way); the last step fails the job for it
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: npx vitest run
+
+      - name: Type-check
+        run: npx tsc --noEmit -p .
+
+      - name: Version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            if ! [[ "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::not a version: $INPUT_VERSION"; exit 1
+            fi
+            npm pkg set version="$INPUT_VERSION"
+          fi
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "Building $(node -p "require('./package.json').version")"
+
+      # build/icon.png is 512×512, so the 1024 slot (512@2x) is it scaled up for now
+      - name: Icon
+        run: |
+          if [ ! -f build/icon.icns ]; then
+            set_dir="$RUNNER_TEMP/icon.iconset"
+            mkdir -p "$set_dir"
+            for s in 16 32 128 256 512; do
+              sips -z $s $s build/icon.png --out "$set_dir/icon_${s}x${s}.png" >/dev/null
+              d=$((s * 2))
+              sips -z $d $d build/icon.png --out "$set_dir/icon_${s}x${s}@2x.png" >/dev/null
+            done
+            iconutil -c icns "$set_dir" -o build/icon.icns
+          fi
+          ls -l build/icon.icns
+
+      # node-pty starts every shell through spawn-helper: it must keep its exec bit
+      - name: spawn-helper
+        run: |
+          chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper
+          ls -l node_modules/node-pty/prebuilds/darwin-*/spawn-helper
+
+      - name: Package
+        env:
+          # no signing identity is looked for (build.mac.identity is null too)
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --mac dir --${{ matrix.arch }}
+
+      - name: Stamp
+        run: node scripts/mac-build.mjs stamp ${{ matrix.arch }}
+
+      - name: Sign (ad hoc)
+        run: |
+          app=$(ls -d release/mac*/spawn.app | head -1)
+          codesign --force --deep --sign - "$app"
+          if codesign --verify --deep --strict --verbose=2 "$app"; then
+            echo "codesign --verify: ok"
+          else
+            echo "::warning::codesign --verify --deep --strict failed for $app (reported, the job goes on)"
+          fi
+          codesign -dv "$app" 2>&1 | head -20 || true
+
+      - name: Smoke launch
+        env:
+          SPAWN_SMOKE_DIR: ${{ github.workspace }}/release/upload/smoke
+        run: node scripts/smoke-mac.mjs ${{ matrix.arch }}
+
+      - name: Zip
+        run: node scripts/mac-build.mjs pack ${{ matrix.arch }}
+
+      # Always: a failed smoke launch leaves its smoke.json and pictures to look at
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-${{ matrix.arch }}
+          path: release/upload
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Tests passed
+        if: always() && steps.test.outcome == 'failure'
+        run: |
+          echo "::error::npx vitest run failed on ${{ matrix.runner }} (see the Test step)"
+          exit 1

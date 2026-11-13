@@ -52,6 +52,9 @@ adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'spawn-dev'))
+// The Mac CI's smoke launch (scripts/smoke-mac.mjs): --smoke-test gives the run its own
+// userData and SPAWN_HOME and drives it from electron/smoke.cjs, loaded only with the flag
+const smoke = process.argv.includes('--smoke-test') ? require('./smoke.cjs').prepare({ app, dialog }) : null
 // The app was called Claudex until 1.3.35: its folder (%APPDATA%/Claudex, or Claudex-dev)
 // is copied to the new name once, before anything reads it (userDataMigration.cjs)
 const userDataCopy = migrateUserData({ from: path.join(app.getPath('appData'), app.isPackaged ? 'Claudex' : 'Claudex-dev'), to: app.getPath('userData') })
@@ -1277,7 +1280,8 @@ function takeInstanceLock() {
   return -1
 }
 
-const lockWaits = app.isPackaged ? takeInstanceLock() : 0
+// (a smoke run has its own userData, so the installed app's lock is not its to wait for)
+const lockWaits = app.isPackaged && !smoke ? takeInstanceLock() : 0
 if (lockWaits < 0) {
   app.quit()
 } else {
@@ -1320,13 +1324,25 @@ if (lockWaits < 0) {
     // (a small file: latest.json is a plain download, no API rate limit). The app
     // stays open for days, so 6 hours meant a release went unseen until the next morning.
     updater = createUpdater({ app, isPackaged: app.isPackaged, send: (channel, payload) => sendToWindows(channel, payload) })
-    setTimeout(() => updater.check(), 15_000)
-    setInterval(() => updater.check(), 30 * 60 * 1000).unref?.()
-    // A local build folder (the developer's own PC) is looked at every minute
-    setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
+    // (a smoke run never looks for an update)
+    if (!smoke) {
+      setTimeout(() => updater.check(), 15_000)
+      setInterval(() => updater.check(), 30 * 60 * 1000).unref?.()
+      // A local build folder (the developer's own PC) is looked at every minute
+      setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
+    }
     // The Desktop / Start menu shortcuts show the icon that comes with updates (spawn.exe's
     // own icon never changes after the first install); a moment after start, off the start path
     setTimeout(() => { try { refreshShortcutIcons({ app, shell }) } catch (err) { console.error('[main] Shortcut icon:', err.message) } }, 5000).unref?.()
+    // A smoke run: its steps wait for the window open() makes (electron/smoke.cjs)
+    smoke?.run({
+      getWindow: () => widgetWin,
+      mode: modeNow,
+      setMode: (mode) => { setWidgetMode(mode); return swapping },
+      terminals: () => terminals,
+      workArea: (win) => screen.getDisplayMatching(win.getBounds()).workArea,
+      quit: quitApp,
+    })
     return open()
   })
 

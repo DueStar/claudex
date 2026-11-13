@@ -10,9 +10,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # spawn is a Windows app; Linux keeps the Unix-only checks (file
-        # modes, symlinks) running, which skip on Windows
-        os: [windows-latest, ubuntu-latest]
+        # Windows and macOS are the app's platforms; Linux keeps the Unix-only
+        # checks (file modes, symlinks) running, which skip on Windows. The Mac
+        # app itself is built and launched by mac.yml
+        os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

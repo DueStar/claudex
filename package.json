@@ -78,6 +78,19 @@
       "target": [
         "dir"
       ]
+    },
+    "mac": {
+      "target": [
+        "dir"
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "hardenedRuntime": false,
+      "files": [
+        "!node_modules/node-pty/prebuilds/win32-*/**",
+        "!node_modules/node-pty/third_party/conpty/**"
+      ]
     }
   },
   "allowScripts": {
