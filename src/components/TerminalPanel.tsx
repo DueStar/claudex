@@ -15,6 +15,7 @@ import '@xterm/xterm/css/xterm.css'
 import { bridge, onTerminalData, type PastSession, type TerminalInfo } from '../desktop'
 import { createReplayGate } from '../terminalReplay'
 import { t } from '../i18n'
+import { isWorkModeKey } from '../workMode'
 
 const THEME = {
   background: '#101218',
@@ -192,6 +193,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       // session, Ctrl+Shift+T a new one, Ctrl+Shift+W close (Ctrl+T and Ctrl+W stay Claude Code's)
       if (e.ctrlKey && !e.altKey && e.key === 'Tab') return false
       if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.code === 'KeyW')) return false
+      // Ctrl+Shift+H: 업무 모드 on and off (the app's, src/workMode.ts), never the session's
+      if (isWorkModeKey(e)) return false
       // Ctrl+F: find in the output
       if (e.ctrlKey && !e.shiftKey && !e.altKey && e.code === 'KeyF') { openSearchRef.current(); return false }
       // Ctrl+= / Ctrl+- / Ctrl+0: text size

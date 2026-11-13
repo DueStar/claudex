@@ -164,3 +164,20 @@ export function formatClockTime(epochSeconds: number): string {
   const d = new Date(epochSeconds * 1000)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
+
+/**
+ * When a longer limit (weekly) resets, short: on the day it resets only the time (HH:MM),
+ * on any other day only the date (M/D). The full "M/D HH:MM" stays in the tooltip.
+ */
+export function formatResetDay(epochSeconds: number, now = Date.now()): string {
+  const d = new Date(epochSeconds * 1000)
+  const n = new Date(now)
+  const today = d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
+  return today ? formatClockTime(epochSeconds) : `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+/** The whole moment of a reset, for a tooltip: M/D HH:MM */
+export function formatResetFull(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000)
+  return `${d.getMonth() + 1}/${d.getDate()} ${formatClockTime(epochSeconds)}`
+}

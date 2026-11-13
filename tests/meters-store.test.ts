@@ -104,3 +104,18 @@ describe('presentation', () => {
     expect(formatClockTime(at)).toBe('09:05')
   })
 })
+
+describe('formatResetDay: when a weekly limit resets', () => {
+  it('shows only the date on any other day, only the time on the day itself', async () => {
+    const { formatResetDay, formatResetFull } = await import('../src/meters')
+    const at = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m - 1, d, h, min).getTime()
+    const reset = at(2026, 11, 17, 17, 0) / 1000
+    expect(formatResetDay(reset, at(2026, 11, 13, 9, 0))).toBe('11/17')
+    expect(formatResetDay(reset, at(2026, 11, 16, 23, 59))).toBe('11/17')
+    expect(formatResetDay(reset, at(2026, 11, 17, 0, 0))).toBe('17:00')
+    expect(formatResetDay(reset, at(2026, 11, 17, 16, 59))).toBe('17:00')
+    // the same day number in another month is not "today"
+    expect(formatResetDay(reset, at(2026, 10, 17, 12, 0))).toBe('11/17')
+    expect(formatResetFull(reset)).toBe('11/17 17:00')
+  })
+})

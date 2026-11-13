@@ -14,7 +14,7 @@ import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
-import { dispatchMeters, useMeters, formatClockTime, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
+import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
 import { sessionTools, shownCodexLimits } from './features'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
@@ -24,7 +24,8 @@ import { dispatchPokedex, usePokedex, useViewed, levelOf, freePartyCount, freeSe
 import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
 import SettingsView from './components/SettingsView'
 import FeedbackPin from './components/FeedbackPin'
-import { useSettings } from './settingsStore'
+import { changeSettings, useSettings, useWorkMode } from './settingsStore'
+import { autoPartner, isWorkModeKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews, VIEWS, type View } from './workMode'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { useDragOrder } from './useDragOrder'
@@ -119,11 +120,8 @@ function modelLabel(display?: string, id?: string): string {
   return (id ?? '').slice(0, 16)
 }
 
-/** A reset a day or more away: M/D HH:MM */
-function resetText(epochSeconds: number): string {
-  const d = new Date(epochSeconds * 1000)
-  return `${d.getMonth() + 1}/${d.getDate()} ${formatClockTime(epochSeconds)}`
-}
+/** A reset a day or more away: the date, or on its own day the time (meters.ts formatResetDay) */
+const resetText = (epochSeconds: number): string => formatResetDay(epochSeconds)
 
 /** A token count, short: 124K, 1.2M */
 function tokens(n: number): string {
@@ -137,12 +135,12 @@ function pct(n: number | null | undefined): string {
 }
 
 /** One limit row: label, bar, percent, when it resets */
-const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null }> = ({ label, value, reset }) => (
+const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null; resetAt?: number | null }> = ({ label, value, reset, resetAt }) => (
   <div className={`w-limit tone-${contextTone(value)}${typeof value === 'number' ? '' : ' loading'}`}>
     <span className="w-label">{label}</span>
     <div className="w-bar" aria-hidden="true"><span style={{ width: `${typeof value === 'number' ? Math.max(2, Math.min(100, value)) : 0}%` }} /></div>
     <span className="w-limit-pct">{typeof value === 'number' ? <>{pct(value)}<small>%</small></> : <span className="w-limit-wait" />}</span>
-    <span className="w-limit-reset" title={t('리셋 시각')}>{reset ? `↻ ${reset}` : ''}</span>
+    <span className="w-limit-reset" title={resetAt ? `${t('리셋 시각')} ${formatResetFull(resetAt)}` : t('리셋 시각')}>{reset ? `↻ ${reset}` : ''}</span>
   </div>
 )
 
@@ -184,9 +182,14 @@ const Widget: React.FC = () => {
   const closeFeedback = useCallback(() => setFeedbackOpen(false), [])
   // Read here so a settings change redraws the whole page (the privacy setting reaches every catch story)
   const settings = useSettings()
+  // 업무 모드 (src/workMode.ts): nothing Pokémon on screen; the game goes on underneath
+  const workMode = useWorkMode()
+  const workModeRef = useRef(workMode)
+  workModeRef.current = workMode
   useEffect(() => bridge?.settings?.onOpen(() => setSettingsOpen(true)), [])
   // A clicked notification: the Pokédex at that species (carried, since opening the window may swap pages)
   useEffect(() => bridge?.widget.onOpenDex(id => {
+    if (workModeRef.current) return // no Pokédex in 업무 모드
     writeCarry({ dexPick: { id, at: Date.now() }, dexScroll: undefined })
     window.dispatchEvent(new CustomEvent('spawn:dex-pick', { detail: id }))
     setView('dex')
@@ -195,9 +198,15 @@ const Widget: React.FC = () => {
   // Ctrl+1–5: 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
   // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
   // Ctrl+Tab, Ctrl+Shift+Tab / T / W: sessions (below)
+  // Ctrl+Shift+H: 업무 모드 on and off (in 업무 모드 only the sessions view opens)
   useEffect(() => {
-    const views = ['terminal', 'dex', 'box', 'today', 'rank'] as const
+    const views = visibleViews(workMode)
     const onKey = (e: KeyboardEvent) => {
+      if (isWorkModeKey(e)) {
+        e.preventDefault(); e.stopPropagation()
+        if (!e.repeat) void changeSettings({ app: { workMode: !workMode } })
+        return
+      }
       if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         // Stopped here so the terminal and the dex grid do not also take the arrow
         e.preventDefault()
@@ -226,7 +235,9 @@ const Widget: React.FC = () => {
       }
       if (!e.ctrlKey || e.altKey || e.shiftKey || !/^[1-5]$/.test(e.key)) return
       e.preventDefault()
-      setView(views[Number(e.key) - 1])
+      const want = VIEWS[Number(e.key) - 1]
+      if (!views.includes(want)) return // 업무 모드: Ctrl+2–5 do nothing
+      setView(want)
       setExpanded(true)
     }
     window.addEventListener('keydown', onKey, true)
@@ -237,16 +248,21 @@ const Widget: React.FC = () => {
   const termFont = useTermFont()
   const [mode, setModeState] = useState<WidgetMode>(modeFromUrl)
   const expanded = mode !== 'widget'
-  const [view, setViewState] = useState<'terminal' | 'dex' | 'box' | 'today' | 'rank'>(() => readCarry().view ?? 'terminal')
+  const [viewState, setViewState] = useState<View>(() => readCarry().view ?? 'terminal')
+  // 업무 모드 shows only the sessions: a hidden view gives way at once (no frame of it), and
+  // is left for the sessions view for good (turning the mode off does not bring it back)
+  const view = viewIn(viewState, workMode)
   // Noted for the carry at once: opening the window from the widget swaps pages before React re-renders
-  const setView = (v: typeof view) => { carried.current = { ...carried.current, view: v }; setViewState(v) }
+  const setView = (v: View) => { carried.current = { ...carried.current, view: v }; setViewState(v) }
+  useEffect(() => { if (view !== viewState) setView(view) }, [view, viewState]) // eslint-disable-line react-hooks/exhaustive-deps
   const { state: dex, lastEvent } = usePokedex()
   const { isNew } = useViewed()
   const hasNew = Object.keys(dex?.caught ?? {}).some(id => isNew(Number(id)))
   // Catches, escapes, evolutions and level-ups pop up above every window (the ?toast window)
   useEffect(() => {
     if (!lastEvent || !bridge) return
-    if (lastEvent.kind === 'catch' || lastEvent.kind === 'flee' || lastEvent.kind === 'evolve' || lastEvent.kind === 'levelup') bridge.toast.show(lastEvent)
+    // (none in 업무 모드: the catch is in the Pokédex and the log, and is not replayed later)
+    if (shouldToast(lastEvent, workModeRef.current)) bridge.toast.show(lastEvent)
   }, [lastEvent])
   useEffect(() => {
     bridge?.widget.getMode().then(setModeState).catch(() => {})
@@ -308,11 +324,12 @@ const Widget: React.FC = () => {
       const before = lastMood.current.get(r.sessionId)
       lastMood.current.set(r.sessionId, r.mood)
       if (!before || before === r.mood || !settings.notify.sessions || !r.terminal || r.shell) continue
-      const name = r.title ?? r.name
+      // 업무 모드: named by the session or its folder, never its Pokémon
+      const name = sessionLabel(r, workMode) ?? t('새 세션')
       if (r.mood === 'needs-you') bridge?.widget.alert(name, t('확인이 필요해요'))
       else if (before === 'working' && r.mood === 'idle') bridge?.widget.alert(name, t('일을 마쳤어요'))
     }
-  }, [rows, settings.notify.sessions])
+  }, [rows, settings.notify.sessions, workMode])
 
   // The left panel's rows reorder by dragging, like the tabs (the same order: terminals.move)
   const rowById = new Map(rows.map(r => [r.sessionId, r]))
@@ -468,7 +485,22 @@ const Widget: React.FC = () => {
       if (!chosenDir) return
       cwd = chosenDir
     }
-    setThrowing({ cwd })
+    sendOut({ cwd })
+  }
+
+  /**
+   * Who goes with a new or resumed session: the trainer picks (ThrowPicker), or in 업무 모드
+   * the app picks as a restored session does, with no Pokémon on screen (src/workMode.ts)
+   */
+  const sendOut = (where: { cwd?: string; resume?: PastSession }) => {
+    if (workMode && dex) {
+      const uid = autoPartner(dex, where.resume ? dex.remembered?.[where.resume.id] : null)
+      if (!uid) { setNote(FULL_NOTE); return }
+      const tool = where.resume ? undefined : sessionTools(settings.session).defaultTool
+      void throwBall(uid, { ...where, ...(tool && tool !== 'claude' ? { tool } : {}) })
+      return
+    }
+    setThrowing(where)
   }
 
   /** The chosen party Pokémon goes out with a new (or resumed) session */
@@ -482,7 +514,8 @@ const Widget: React.FC = () => {
     const r = await bridge.terminals.create(where.resume ? { cwd: where.resume.cwd, resume: where.resume.id, ...(where.tool ? { tool: where.tool } : {}) } : { sessionId, ...(where.cwd ? { cwd: where.cwd } : {}), ...(where.tool ? { tool: where.tool } : {}) })
     if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return }
     const thrown = await bridge.game.throw(r.sessionId, uid)
-    if (!thrown.ok) setNote(thrown.reason === 'busy' ? t('세션은 열렸어요. 고른 파트너가 다른 세션에서 일하고 있어서 다른 파트너가 함께해요.') : thrown.reason === 'no-token' ? t('세션은 열렸어요. 서버와 연결되는 중이라 파트너는 잠시 뒤에 배정돼요.') : t('세션은 열렸지만 파트너를 배정하지 못했어요 ({reason})', { reason: thrown.reason ?? t('알 수 없는 이유') }))
+    // (업무 모드: the session is open, which is all it needs to say; these speak of the partner)
+    if (!thrown.ok && !workModeRef.current) setNote(thrown.reason === 'busy' ? t('세션은 열렸어요. 고른 파트너가 다른 세션에서 일하고 있어서 다른 파트너가 함께해요.') : thrown.reason === 'no-token' ? t('세션은 열렸어요. 서버와 연결되는 중이라 파트너는 잠시 뒤에 배정돼요.') : t('세션은 열렸지만 파트너를 배정하지 못했어요 ({reason})', { reason: thrown.reason ?? t('알 수 없는 이유') }))
     setTarget(r.sessionId)
     if (where.resume && !quiet) { setView('terminal'); setExpanded(true) }
   }
@@ -508,7 +541,7 @@ const Widget: React.FC = () => {
     // The Pokémon that worked this session comes back with it, if it is resting in the party
     const remembered = dex?.remembered?.[past.id]
     if (remembered && dex?.party.includes(remembered) && !busyUids.has(remembered)) { await throwBall(remembered, { resume: past }); return }
-    setThrowing({ resume: past })
+    sendOut({ resume: past })
   }
 
   // The sessions open when the app last closed come back at start (설정 › 세션),
@@ -551,7 +584,7 @@ const Widget: React.FC = () => {
   const send = async () => {
     if (!bridge || !chosen?.terminal || !text.trim()) return
     if (chosen.mood === 'needs-you') {
-      setNote(t("'{name}' 세션이 확인을 기다리고 있어요. 터미널에서 먼저 답해 주세요.", { name: chosen.title ?? chosen.name }))
+      setNote(t("'{name}' 세션이 확인을 기다리고 있어요. 터미널에서 먼저 답해 주세요.", { name: sessionLabel(chosen, workMode) ?? t('새 세션') }))
       return
     }
     const r = await bridge.terminals.send(chosen.terminal.id, text)
@@ -586,16 +619,28 @@ const Widget: React.FC = () => {
     }
   }, [swapFor, dex])
 
+  // The header's profile (or 로그인): right of the logo, or in 업무 모드 in the logo's place
+  const accountButton = cloud?.enabled && (cloud.user ? (
+    <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${t('{time} 동기화', { time: new Date(cloud.lastSyncAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) })}` : ''}`}>
+      {cloud.user.avatar ? <img src={cloud.user.avatar} alt="" referrerPolicy="no-referrer" /> : <span>{(cloud.user.name ?? cloud.user.email ?? '?').slice(0, 1)}</span>}
+    </button>
+  ) : (
+    <button className="w-signin" onClick={signIn} title={workMode ? t('Google로 로그인') : t('Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요')}>{t('로그인')}</button>
+  ))
+
   return (
     <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}`}>
       {/* The left panel folded: only the essentials, in one column (logo, new session,
           folder, resume, the open sessions, usage, settings) */}
       {expanded && sideHidden && (
         <nav className="w-rail" aria-label={t('왼쪽 패널 (접힘)')}>
-          <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
-            <PokeBall size={20} />
-            <span className={`w-rail-conn${connected ? '' : ' off'}`} />
-          </button>
+          {/* 업무 모드: no ball; the unfold button takes the top slot (CSS) */}
+          {!workMode && (
+            <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
+              <PokeBall size={20} />
+              <span className={`w-rail-conn${connected ? '' : ' off'}`} />
+            </button>
+          )}
           {/* The panel's own fold button: here to unfold it, in the panel's header to fold it */}
           <button className="w-rail-btn w-side-toggle" onClick={toggleSide} title={t('왼쪽 패널 펼치기')} aria-label={t('왼쪽 패널 펼치기')} aria-pressed={false}><SidePanelIcon size={15} /></button>
           {update && (update.status === 'available' || update.status === 'ready') && (
@@ -613,7 +658,9 @@ const Widget: React.FC = () => {
                 className={`w-rail-btn w-rail-session mood-${r.mood}${shown?.sessionId === r.sessionId && view === 'terminal' ? ' on' : ''}`}
                 onClick={() => { setTarget(r.sessionId); setView('terminal') }}
                 title={`${r.title ?? t('새 세션')} · ${t(MOOD_LABEL[r.mood])}`} aria-label={r.title ?? t('새 세션')}>
-                {r.shell ? <span className="w-rail-shell" aria-hidden="true">&gt;_</span> : <img src={r.sprite} alt="" draggable={false} />}
+                {r.shell ? <span className="w-rail-shell" aria-hidden="true">&gt;_</span>
+                  : workMode ? <span className="w-rail-glyph" aria-hidden="true"><TerminalIcon size={18} /></span>
+                  : <img src={r.sprite} alt="" draggable={false} />}
                 <span className="w-rail-dot" />
               </button>
             ))}
@@ -643,7 +690,7 @@ const Widget: React.FC = () => {
               <span className="w-account">{cloud.user.avatar ? <img src={cloud.user.avatar} alt="" referrerPolicy="no-referrer" /> : (cloud.user.name ?? cloud.user.email ?? '?').slice(0, 1)}</span>
             </button>
           ) : (
-            <button className="w-rail-btn w-rail-signin" onClick={signIn} title={t('Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요')}>{t('로그인')}</button>
+            <button className="w-rail-btn w-rail-signin" onClick={signIn} title={workMode ? t('Google로 로그인') : t('Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요')}>{t('로그인')}</button>
           ))}
         </nav>
       )}
@@ -652,15 +699,12 @@ const Widget: React.FC = () => {
           <header className="w-card w-head">
             {/* The ball, the same size and spot as the folded rail's so the logo stays put when the
                 panel folds, and the wordmark beside it; it opens the patch notes */}
-            <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })} aria-label={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}><PokeBall size={20} /><span className="w-brand-name">spawn</span></button>
+            {/* 업무 모드: no ball and no wordmark; the profile takes their place on the left and the
+                connection dot follows it (on a Mac the window's traffic lights would sit in this corner) */}
+            {!workMode && <button className="w-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })} aria-label={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}><PokeBall size={20} /><span className="w-brand-name">spawn</span></button>}
+            {workMode && accountButton}
             <span className={`w-conn${connected ? '' : ' off'}`} title={connected ? t('연결됨') : t('서버 연결 끊김')} />
-            {cloud?.enabled && (cloud.user ? (
-              <button className="w-account" onClick={() => setAccountOpen(!accountOpen)} title={`${cloud.user.email ?? ''}${cloud.lastSyncAt ? ` · ${t('{time} 동기화', { time: new Date(cloud.lastSyncAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) })}` : ''}`}>
-                {cloud.user.avatar ? <img src={cloud.user.avatar} alt="" referrerPolicy="no-referrer" /> : <span>{(cloud.user.name ?? cloud.user.email ?? '?').slice(0, 1)}</span>}
-              </button>
-            ) : (
-              <button className="w-signin" onClick={signIn} title={t('Google 계정으로 로그인하면 여러 PC에서 도감이 동기화돼요')}>{t('로그인')}</button>
-            ))}
+            {!workMode && accountButton}
             {update && (update.status === 'available' || update.status === 'downloading' || update.status === 'ready') && (
               <button
                 className={`w-update ${update.status}${update.status === 'available' && update.error ? ' failed' : ''}`}
@@ -690,13 +734,13 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>
             )}
             {/* As a window the right side has its own minimize and close */}
-            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title={t('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')} aria-label={t('숨기기')}>–</button>}
+            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title={workMode ? t('숨기기 (트레이 아이콘을 누르면 다시 열려요)') : t('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')} aria-label={t('숨기기')}>–</button>}
           </header>
 
           {accountOpen && cloud?.user && (
             <section className="w-card w-account-card">
               <div className="w-account-who">
-                <b>{cloud.user.name ?? t('트레이너')}</b>
+                <b>{cloud.user.name ?? (workMode ? t('계정') : t('트레이너'))}</b>
                 <span>{cloud.user.email}</span>
               </div>
               <div className="w-account-sync">
@@ -740,8 +784,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
           ) : (
             <section className="w-card w-limits">
               {showClaudeLimits && <>
-                <Limit label={t('5시간')} value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} />
-                <Limit label={t('주간')} value={sevenDay} reset={sevenReset ? resetText(sevenReset) : null} />
+                <Limit label={t('5시간')} value={fiveHour} reset={fiveReset ? formatClockTime(fiveReset) : null} resetAt={fiveReset} />
+                <Limit label={t('주간')} value={sevenDay} reset={sevenReset ? resetText(sevenReset) : null} resetAt={sevenReset} />
               </>}
               {codexRows.map(r => <Limit key={r.key} label={r.label} value={r.value} reset={r.reset} />)}
             </section>
@@ -755,7 +799,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             <button className="w-launch-alt" onClick={() => setPicking(true)} title={t('예전 세션 골라서 이어하기')} aria-label={t('예전 세션 이어하기')}><SessionsIcon /></button>
           </section>
 
-          <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title={t('도감 열기')}>
+          {/* 업무 모드: no Pokédex card and no party (not drawn, so no pictures are fetched) */}
+          {!workMode && <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title={t('도감 열기')}>
             <span className="w-label">{t('도감')}</span>
             {hasNew && <span className="w-new-dot corner" aria-label={t('새로 잡은 포켓몬')} />}
             <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span></span>
@@ -764,10 +809,10 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 <img key={`${e.at}-${i}`} src={iconUrl(e.id)} alt={nameOf(pokemonById(e.id))} title={`${e.shiny ? '✨ ' : ''}${nameOf(pokemonById(e.id))}`} />
               ))}
             </span>
-          </button>
+          </button>}
 
           <section className="w-card w-party">
-            <div className="w-party-head">
+            {!workMode && <div className="w-party-head">
               <span className="w-label">{t('파티')}</span>
               {/* A resting one, clicked, goes to work in the chosen session in place of its Pokémon */}
               <span className="w-party-slots">
@@ -790,9 +835,14 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   )
                 })}
               </span>
-            </div>
+            </div>}
             {rows.length === 0 && <div className="w-empty">{t('새 세션을 열면 여기 나타나요')}</div>}
-            {rowOrder.shown.map((sid, i) => { const r = rowById.get(sid)!; const drag = rowOrder.bind(sid, i, !!r.terminal); return (
+            {rowOrder.shown.map((sid, i) => {
+              const r = rowById.get(sid)!
+              const drag = rowOrder.bind(sid, i, !!r.terminal)
+              const mon = monOf(r.sessionId)
+              const parts = sessionRowParts({ title: r.title, name: r.name, project: r.project, level: mon ? levelOf(mon) : null, helpers: (dex?.helpers?.[r.sessionId] ?? []).length, helperSession: isHelperSession(dex, r.sessionId), shell: r.shell }, workMode)
+              return (
               <div
                 key={r.sessionId}
                 ref={drag.ref}
@@ -810,7 +860,9 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     branch (the branch gives way first), helpers at the end. The buttons float over
                     line 2's end on hover instead of holding space the name needs */}
                 <div className="w-row-head">
-                  {r.shell ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span> : <img className="w-row-mon" src={r.sprite} alt="" />}
+                  {parts.picture === 'shell' ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span>
+                    : parts.picture === 'glyph' ? <span className="w-row-mon w-row-glyph" aria-hidden="true"><TerminalIcon size={18} /></span>
+                    : <img className="w-row-mon" src={r.sprite} alt="" />}
                   <div className="w-row-line1">
                     {renaming === r.sessionId ? (
                       <input
@@ -840,19 +892,19 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     )}
                   </div>
                   <div className="w-row-line2">
-                    {monOf(r.sessionId) && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{levelOf(monOf(r.sessionId))}</span>}
+                    {parts.level !== null && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{parts.level}</span>}
                     <span className="w-row-meta">
-                      <span className="w-row-project">{r.name}</span>
+                      {parts.label && <span className="w-row-project">{parts.label}</span>}
                       {r.terminal?.tool && r.terminal.tool !== 'claude' && <span className="w-row-tool" title={t('이 세션에서 도는 AI 도구')}>{r.terminal.toolName}</span>}
                       {r.branch && <span className="w-row-branch" title={t('git 브랜치')}>{r.branch}</span>}
                     </span>
-                    {(dex?.helpers?.[r.sessionId] ?? []).length > 0 && (
+                    {parts.helpers && (
                       <span className="w-row-helpers" title={t('서브에이전트를 돕는 조력자 (박스에서 나와요)')}>
                         {dex!.helpers![r.sessionId].slice(0, 3).map(uid => { const h = dex!.mons[uid]; return h ? <img key={uid} src={iconUrl(h.dex)} alt={nameOf(pokemonById(h.dex))} title={`${t('조력자')} · ${nameOf(pokemonById(h.dex))} Lv.${levelOf(h)}`} /> : null })}
                         {dex!.helpers![r.sessionId].length > 3 && <small>+{dex!.helpers![r.sessionId].length - 3}</small>}
                       </span>
                     )}
-                    {isHelperSession(dex, r.sessionId) && (
+                    {parts.helperMark && (
                       <span className="w-row-helper" role="img" aria-label={t('조력자')} title={`${t('조력자')} · ${t('파티가 모두 일하는 중이라 박스의 포켓몬이 이 세션을 맡았어요')}`}><HelperIcon size={12} /></span>
                     )}
                     {(r.terminal || monOf(r.sessionId)) && (
@@ -860,7 +912,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                         {r.terminal && renaming !== r.sessionId && (
                           <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
                         )}
-                        {monOf(r.sessionId) && (
+                        {parts.swap && (
                           <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('교체: 이 세션에서 일할 포켓몬을 바꿔요 (파티나 박스에서)')} aria-label={t('교체')}><SwapIcon size={13} /></button>
                         )}
                         {r.terminal && (
@@ -878,7 +930,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 {!r.shell && <div className="w-row-bottom">
                   {(() => {
                     // The context window as the session's HP: what is left, draining like a Pokémon's
-                    // (green, yellow under half, red under a fifth); the number is the tokens left
+                    // (green, yellow under half, red under a fifth); the number is the tokens left.
+                    // 업무 모드: the same bar, labelled 컨텍스트
                     const used = r.meter?.context.used
                     const size = r.meter?.context.size ?? null
                     const left = typeof used === 'number' ? Math.max(0, Math.min(100, 100 - used)) : null
@@ -888,7 +941,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                       : t('남은 컨텍스트 {pct}%', { pct: Math.round(left) })
                     const m = modelLabel(r.meter?.model, r.session?.model)
                     return <>
-                      <span className="w-hp-label" aria-hidden="true">HP</span>
+                      <span className="w-hp-label" aria-hidden="true">{parts.barLabel === 'HP' ? 'HP' : t(parts.barLabel)}</span>
                       <div className={`w-ctx w-hp ${left === null ? 'hp-full' : left <= 20 ? 'hp-red' : left <= 50 ? 'hp-yellow' : 'hp-green'}`} title={tip} role="meter" aria-valuenow={left ?? 100} aria-valuemin={0} aria-valuemax={100} aria-label={tip}>
                         <span style={{ width: `${left ?? 100}%` }} />
                       </div>
@@ -932,7 +985,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             <section className="w-card w-ask" role="alert">
               <div className="w-ask-head">
                 <span className="w-ask-dot" />
-                <b>{askRow.title ?? askRow.name}</b>
+                <b>{sessionLabel(askRow, workMode) ?? t('새 세션')}</b>
                 <span>{t('의 확인이 필요해요')}</span>
                 <button className="w-ask-open" onClick={() => { setTarget(askRow.sessionId); setView('terminal'); setMode('window') }} title={t('창 모드로 펼쳐서 보기')}>{t('펼치기')}</button>
               </div>
@@ -948,7 +1001,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             <div className="w-input">
               <textarea
                 value={text}
-                placeholder={chosen ? askLine(chosen.name, askPick) : t('새 세션을 열면 지시할 수 있어요')}
+                placeholder={chosen ? (workMode ? t('지시하기…') : askLine(chosen.name, askPick)) : t('새 세션을 열면 지시할 수 있어요')}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() }
@@ -970,10 +1023,13 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
             <div className={`w-view-switch w-view-tabs${viewsCompact ? ' w-view-icons' : ''}`}>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
+              {/* 업무 모드: the sessions view alone (src/workMode.ts visibleViews) */}
+              {!workMode && <>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')} aria-label={t('박스')}><BoxIcon size={14} />{!viewsCompact && t('박스')}</button>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')} aria-label={t('기록')}><TodayIcon size={14} />{!viewsCompact && t('기록')}</button>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')} aria-label={t('랭킹')}><RankIcon size={14} />{!viewsCompact && t('랭킹')}</button>
+              </>}
             </div>
             <span className="w-term-spacer" />
             {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size */}
@@ -1007,6 +1063,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               onClose={id => { const r = withTerminal.find(x => x.sessionId === id); if (r) closeSession(r) }}
               closing={closing}
               onCloseCancel={() => setClosing(null)}
+              workMode={workMode}
             />
           )}
           <Suspense fallback={null}>
@@ -1032,17 +1089,19 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
         </section>
       )}
 
-      {swapFor && dex && (
+      {/* 업무 모드: no "who goes?" pickers (sendOut picks), no Pokémon beside past sessions, and
+          the after-update notes wait until it is off (they may speak of the game) */}
+      {swapFor && dex && !workMode && (
         <SwapPicker dex={dex} currentDex={monOf(swapFor)?.dex ?? 0} helper={isHelperSession(dex, swapFor)} onPick={uid => doSwap(swapFor, uid)} onClose={() => setSwapFor(null)} />
       )}
       {picking && <Suspense fallback={null}><ResumePicker onPick={resume} onClose={() => setPicking(false)} openIds={openIds}
-        monFor={(sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: nameOf(pokemonById(m.dex)) } : null }} /></Suspense>}
-      {throwing && dex && (
+        monFor={workMode ? undefined : (sid) => { const uid = dex?.remembered?.[sid]; const m = uid ? dex?.mons?.[uid] : undefined; return m ? { src: spriteUrl(m.dex, m.shiny), name: nameOf(pokemonById(m.dex)) } : null }} /></Suspense>}
+      {throwing && dex && !workMode && (
         <ThrowPicker dex={dex} resume={!!throwing.resume} tools={throwing.resume ? [] : sessionTools(settings.session).tools} defaultTool={sessionTools(settings.session).defaultTool}
           onPick={(uid, tool) => throwBall(uid, { ...throwing, ...(tool && tool !== 'claude' ? { tool } : {}) })} onClose={() => setThrowing(null)} />
       )}
-      <PatchNotes />
-      {notesOpen && <PatchNotesHistory onClose={() => setNotesOpen(false)} />}
+      {!workMode && <PatchNotes />}
+      {notesOpen && !workMode && <PatchNotesHistory onClose={() => setNotesOpen(false)} />}
       {feedbackOpen && <FeedbackPin view={expanded ? view : 'widget'} onClose={closeFeedback} />}
       {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} version={update?.current} onFeedback={() => { setSettingsOpen(false); setFeedbackOpen(true) }} />}
       {mode === 'widget' && <ResizeGrip />}
