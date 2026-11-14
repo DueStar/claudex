@@ -25,7 +25,7 @@ import PatchNotes, { PatchNotesHistory } from './components/PatchNotes'
 import SettingsView from './components/SettingsView'
 import FeedbackPin from './components/FeedbackPin'
 import { changeSettings, useSettings, useWorkMode } from './settingsStore'
-import { autoPartner, isWorkModeKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews, VIEWS, type View } from './workMode'
+import { autoPartner, hideTitleKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews, VIEWS, type View } from './workMode'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionTabs } from './components/SessionTabs'
 import { useDragOrder } from './useDragOrder'
@@ -53,6 +53,8 @@ function preloadViews() {
 import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
+import { appShortcut } from './keys'
+import { isMac, modCombo, modLabel, platformWord } from './platform'
 
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
@@ -195,48 +197,50 @@ const Widget: React.FC = () => {
     setView('dex')
     setExpanded(true)
   }), [])
-  // Ctrl+1–5: 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
-  // Ctrl+Alt+←/→: the previous / next one (from the widget: opens the current one)
-  // Ctrl+Tab, Ctrl+Shift+Tab / T / W: sessions (below)
-  // Ctrl+Shift+H: 업무 모드 on and off (in 업무 모드 only the sessions view opens)
+  // Ctrl+1–5 (⌘1–5 on macOS): 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
+  // Ctrl+Alt+←/→ (⌘⌥←/→): the previous / next one (from the widget: opens the current one)
+  // Ctrl+Tab, Ctrl+Shift+Tab / T / W (⌘⇧[ / ⌘⇧] / ⌘T / ⌘W): sessions (below). The map is src/keys.ts
+  // Ctrl+Shift+H (⌘⇧H): 업무 모드 on and off (in 업무 모드 only the sessions view opens)
   useEffect(() => {
     const views = visibleViews(workMode)
     const onKey = (e: KeyboardEvent) => {
-      if (isWorkModeKey(e)) {
+      const action = appShortcut(e)
+      if (action === 'workMode') {
         e.preventDefault(); e.stopPropagation()
         if (!e.repeat) void changeSettings({ app: { workMode: !workMode } })
         return
       }
-      if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      if (action === 'prevView' || action === 'nextView') {
         // Stopped here so the terminal and the dex grid do not also take the arrow
         e.preventDefault()
         e.stopPropagation()
-        const step = !expanded ? 0 : e.key === 'ArrowRight' ? 1 : -1
+        const step = !expanded ? 0 : action === 'nextView' ? 1 : -1
         setView(views[(views.indexOf(view) + step + views.length) % views.length])
         setExpanded(true)
         return
       }
       // Sessions, as in Windows Terminal: Ctrl+Tab / Ctrl+Shift+Tab next and previous, Ctrl+Shift+T
       // a new one, Ctrl+Shift+W close the one in view (Ctrl+T and Ctrl+W stay Claude Code's)
-      if (e.ctrlKey && !e.altKey && e.key === 'Tab') {
+      if (action === 'prevTab' || action === 'nextTab') {
         e.preventDefault(); e.stopPropagation()
         const list = withTerminal.filter(r => r.terminal)
         if (!list.length) return
         const at = Math.max(0, list.findIndex(r => r.sessionId === shown?.sessionId))
-        setTarget(list[(at + (e.shiftKey ? -1 : 1) + list.length) % list.length].sessionId)
+        setTarget(list[(at + (action === 'prevTab' ? -1 : 1) + list.length) % list.length].sessionId)
         setView('terminal'); setExpanded(true)
         return
       }
-      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.code === 'KeyW')) {
+      if (action === 'newTab' || action === 'closeTab') {
         e.preventDefault(); e.stopPropagation()
-        if (e.code === 'KeyT') void launch(false)
+        if (action === 'newTab') void launch(false)
         else if (shown?.terminal) closeSession(shown)
         return
       }
-      if (!e.ctrlKey || e.altKey || e.shiftKey || !/^[1-5]$/.test(e.key)) return
+      const n = ['view1', 'view2', 'view3', 'view4', 'view5'].indexOf(action ?? '')
+      if (n < 0) return
       e.preventDefault()
-      const want = VIEWS[Number(e.key) - 1]
-      if (!views.includes(want)) return // 업무 모드: Ctrl+2–5 do nothing
+      const want = VIEWS[n]
+      if (!views.includes(want)) return // 업무 모드: Ctrl+2–5 (⌘2–5) do nothing
       setView(want)
       setExpanded(true)
     }
@@ -734,7 +738,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로 펼쳐서 터미널 보기')} aria-label={t('펼치기')}>⇤</button>
             )}
             {/* As a window the right side has its own minimize and close */}
-            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title={workMode ? t('숨기기 (트레이 아이콘을 누르면 다시 열려요)') : t('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')} aria-label={t('숨기기')}>–</button>}
+            {!expanded && <button className="w-icon" onClick={() => bridge?.widget.hide()} title={t(hideTitleKey(workMode, isMac()), isMac() ? { tray: t(platformWord('tray', true)) } : undefined)} aria-label={t('숨기기')}>–</button>}
           </header>
 
           {accountOpen && cloud?.user && (
@@ -763,8 +767,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 {t('세션을 열려면 아래 프로그램이 필요해요. 설치한 뒤 {again}을 눌러주세요.').split('{again}').flatMap((s, i) => i ? [<b key={i}>{t('다시 확인')}</b>, s] : [s])}</p>
               {missing.map(([key]) => (
                 <div key={key} className="w-setup-row">
-                  <span className="w-setup-name">{PREREQ_LABEL[key].name}</span>
-                  <span className="w-setup-why">{t(PREREQ_LABEL[key].why)}</span>
+                  <span className="w-setup-name">{key === 'git' && isMac() ? 'Git' : PREREQ_LABEL[key].name}</span>
+                  <span className="w-setup-why">{key === 'git' && isMac() ? t('선택 사항이에요') : t(PREREQ_LABEL[key].why)}</span>
                   <button className="w-setup-go" onClick={() => bridge?.env.openLink(key)}>{t('설치 페이지')}</button>
                 </div>
               ))}
@@ -1022,20 +1026,20 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
           <div className="w-term-tabs" ref={viewBarRef}>
             {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
             <div className={`w-view-switch w-view-tabs${viewsCompact ? ' w-view-icons' : ''}`}>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 (Ctrl+1)')} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 ({key})', { key: modCombo('1') })} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
               {/* 업무 모드: the sessions view alone (src/workMode.ts visibleViews) */}
               {!workMode && <>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 (Ctrl+2)')} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 (Ctrl+3)')} aria-label={t('박스')}><BoxIcon size={14} />{!viewsCompact && t('박스')}</button>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 (Ctrl+4)')} aria-label={t('기록')}><TodayIcon size={14} />{!viewsCompact && t('기록')}</button>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 (Ctrl+5)')} aria-label={t('랭킹')}><RankIcon size={14} />{!viewsCompact && t('랭킹')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 ({key})', { key: modCombo('2') })} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'box' ? ' on' : ''}`} onClick={() => setView('box')} title={t('박스 ({key})', { key: modCombo('3') })} aria-label={t('박스')}><BoxIcon size={14} />{!viewsCompact && t('박스')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')} title={t('기록 ({key})', { key: modCombo('4') })} aria-label={t('기록')}><TodayIcon size={14} />{!viewsCompact && t('기록')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'rank' ? ' on' : ''}`} onClick={() => setView('rank')} title={t('랭킹 ({key})', { key: modCombo('5') })} aria-label={t('랭킹')}><RankIcon size={14} />{!viewsCompact && t('랭킹')}</button>
               </>}
             </div>
             <span className="w-term-spacer" />
             {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size */}
             <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
             {view === 'terminal' && (
-              <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 (Ctrl+휠로도 바꿀 수 있어요)')} title={t('글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-')}>
+              <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 ({mod}+휠로도 바꿀 수 있어요)', { mod: modLabel() })} title={t('글자 크기 · {mod}+휠, {mod}+= / {mod}+-', { mod: modLabel() })}>
                 {FONT_PRESETS.map(p => (
                   <button key={p.label} className={termFont === p.size ? 'on' : ''} onClick={() => setTermFont(p.size)} style={{ fontSize: 9 + FONT_PRESETS.indexOf(p) * 2 }} title={t('글자 {size}', { size: t(p.label) })} aria-label={t('글자 크기 {size}', { size: t(p.label) })}>Aa</button>
                 ))}
@@ -1047,7 +1051,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               {mode === 'fullscreen'
                 ? <button className="w-icon" onClick={() => setMode('window')} title={t('창 모드로')} aria-label={t('창 모드로')}><RestoreIcon size={14} /></button>
                 : <button className="w-icon" onClick={() => setMode('fullscreen')} title={t('전체화면')} aria-label={t('전체화면')}><MaximizeIcon size={14} /></button>}
-              <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
+              <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={isMac() ? t('닫기 ({tray} 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)', { tray: t(platformWord('tray', true)) }) : t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>
           {/* The sessions: their own row of tabs under the view bar, reordered by dragging */}

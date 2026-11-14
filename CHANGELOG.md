@@ -2,6 +2,10 @@
 
 ## spawn
 
+### 1.3.52
+- 업무 모드가 생겼어요. 설정 › 앱에서 켜거나 Ctrl+Shift+H를 누르면 포켓몬 그림과 이름, 로고, 도감·박스 탭, 포획 알림이 모두 숨겨져요. 걸음과 포획은 뒤에서 계속되고, 끄면 그대로 돌아와요.
+- 주간 사용량이 다시 차는 때를 날짜만 보여줘요. 그날이 되면 시간만 보여요. 전체 날짜와 시간은 마우스를 올리면 나와요.
+
 ### 1.3.51
 - 다른 AI 도구(Codex CLI 등) 기능을 잠시 숨겼어요. 지금은 Claude Code 세션에 집중해요. 저장해 둔 설정은 그대로 남아 있어요.
 
@@ -350,6 +354,10 @@
 
 ## spawn (English)
 
+### 1.3.52
+- Work mode: turn it on under Settings › App or press Ctrl+Shift+H, and the Pokémon pictures and names, the logo, the Pokédex and box tabs and the catch notifications are all hidden. Steps and catches go on underneath; turn it off and everything is back.
+- The weekly limit now shows only the date it resets, and on that day only the time. Hover for the full date and time.
+
 ### 1.3.51
 - The other AI tools feature (Codex CLI and so on) is hidden for now; spawn focuses on Claude Code sessions. Your saved settings are kept.
 
@@ -561,6 +569,10 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### 1.3.52
+- 仕事モードができました。設定 › アプリでオンにするか Ctrl+Shift+H を押すと、ポケモンの絵と名前、ロゴ、図鑑・ボックスのタブ、ゲットの通知がすべて隠れます。歩数やゲットは裏で続き、オフにすると元に戻ります。
+- 週間の上限がリセットされる時は日付だけを表示します。その日になると時刻だけを表示します。日付と時刻はマウスを乗せると見られます。
 
 ### 1.3.51
 - ほかのAIツール(Codex CLIなど)の機能をいったん隠しました。今はClaude Codeのセッションに集中します。保存した設定はそのまま残っています。

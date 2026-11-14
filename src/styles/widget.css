@@ -32,7 +32,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   display: flex;
   flex-direction: column;
   color: var(--ink);
-  font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', system-ui, sans-serif;
+  font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Hiragino Sans', system-ui, sans-serif;
   font-size: 12px;
   font-feature-settings: 'tnum' 1;
   -webkit-font-smoothing: antialiased;
@@ -276,5 +276,10 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-ctx.hp-red span { background: var(--danger); }
 .w-ctx.hp-full span { opacity: 0.35; }
 /* The session folder's git branch, after the project: quiet, cut short when the row is narrow */
-.w-row-branch { flex: 0 1 auto; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ink-3); padding: 0 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.05); font-family: 'Monaspace Neon Var', Consolas, monospace; }
+.w-row-branch { flex: 0 1 auto; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ink-3); padding: 0 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.05); font-family: 'Monaspace Neon Var', Consolas, 'SF Mono', Menlo, monospace; }
 .w-row-branch::before { content: '⎇ '; opacity: 0.7; }
+/* A Mac: the same bundled faces first as on Windows (public/fonts/fonts.css); only the
+   fallbacks behind them differ: should a bundled file fail to load, Latin goes to the system
+   face (SF) before any CJK face, which would draw it otherwise (Apple SD Gothic Neo: the odd é
+   of Pokédex, CI run 2, before the fonts shipped); Hangul and kana fall through glyph by glyph */
+.is-mac .widget { font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', -apple-system, system-ui, 'Apple SD Gothic Neo', 'Hiragino Sans', sans-serif; }

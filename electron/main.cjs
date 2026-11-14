@@ -31,6 +31,8 @@ const { createTray } = require('./tray.cjs')
 const { createTerminalManager, gitBranch } = require('./terminals.cjs')
 const { listHistory } = require('./history.cjs')
 const { checkPrereqs, LINKS: PREREQ_LINKS } = require('./prereqs.cjs')
+const { mergeLoginEnv } = require('./shellEnv.cjs')
+const { createStartGate } = require('./startGate.cjs')
 const { createUpdater } = require('./updater.cjs')
 const { isUpdatedRun, hasPendingUpdate, runPendingUpdate, cleanupStaleUpdates } = require('./updateRunner.cjs')
 const { openStatusCard, cardLang } = require('./statusCard.cjs')
@@ -40,14 +42,22 @@ const { startQuitWatchdog } = require('./quitWatchdog.cjs')
 const { createSettingsStore, toastAllowed, claudeArgs } = require('./settings.cjs')
 const { createLog, teeConsole } = require('./logs.cjs')
 const { t, useLanguage } = require('./i18n.cjs')
+const { menuTemplate } = require('./menu.cjs')
+const { resolveRef, vscodeUrl } = require('./links.cjs')
 const { envVar, adoptLegacyEnv, migrateRuntimeDir } = require('../server/runtime-dir.cjs')
 const { migrateUserData } = require('./userDataMigration.cjs')
 const { refreshShortcutIcons } = require('./shortcutIcon.cjs')
+const { macWindowOptions, fillWorkArea, isFilled, restore: restoreFilled, applyMode: applyMacMode, noteMode, dockFor, quitCapMs, refillOnWorkAreaChange } = require('./macWindow.cjs')
 // Settings made under the old name (CLAUDEX_PORT=…) keep working; the server and terminals inherit them
 adoptLegacyEnv(process.env)
 // A dev run (`electron .`) keeps its own window state, session names and page
 // storage, so trying a change never touches the installed app's
 if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'spawn-dev'))
+// The Mac CI's smoke launch (scripts/smoke-mac.mjs): --smoke-test on a Mac with SPAWN_SMOKE_DIR set
+// gives the run its own userData and SPAWN_HOME and drives it from electron/smoke.cjs; anywhere
+// else the flag is ignored (isSmokeRun)
+const { isSmokeRun, prepare: prepareSmoke } = require('./smoke.cjs')
+const smoke = isSmokeRun() ? prepareSmoke({ app, dialog }) : null
 // The app was called Claudex until 1.3.35: its folder (%APPDATA%/Claudex, or Claudex-dev)
 // is copied to the new name once, before anything reads it (userDataMigration.cjs)
 const userDataCopy = migrateUserData({ from: path.join(app.getPath('appData'), app.isPackaged ? 'Claudex' : 'Claudex-dev'), to: app.getPath('userData') })
@@ -155,6 +165,8 @@ let tray = null
 // The server child this app spawned (helpers.cjs childSlot): the one stopServer stops
 const server = childSlot()
 let quitting = false
+// macOS is shutting down or logging out (powerMonitor): the quit then has 2 s at most
+let macSystemEnding = false
 
 // Window state: the app window's place, sizes and mode, and the trainer's
 // session names, in userData/window-state.json.
@@ -475,29 +487,7 @@ async function exportBackup() {
 const menuActions = { toggleWidget, openSettings, quit: quitApp, ...(showQa ? { openQa } : {}), checkUpdate: checkUpdateNow, openLogs }
 
 function applicationMenuTemplate() {
-  const isMac = process.platform === 'darwin'
-  return [
-    ...(isMac ? [{ role: 'appMenu' }] : []),
-    {
-      label: APP_NAME,
-      submenu: [
-        { label: t('보이기/숨기기'), click: toggleWidget },
-        { type: 'separator' },
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
-        ...(isMac ? [] : [{ type: 'separator' }, { role: 'quit' }]),
-      ],
-    },
-    // The edit menu's shortcuts are not registered (registerAccelerator: false): registered,
-    // they caught Ctrl+X / Ctrl+Z / Ctrl+A before the terminal, so Claude Code never got them
-    // (Ctrl+X starts its chords). Text fields still cut, undo and select all by themselves;
-    // the terminal copies and pastes in its own key handler (TerminalPanel).
-    {
-      label: t('편집'),
-      submenu: ['undo', 'redo', 'separator', 'cut', 'copy', 'paste', 'separator', 'selectAll']
-        .map(role => (role === 'separator' ? { type: 'separator' } : { role, registerAccelerator: false })),
-    },
-  ]
+  return menuTemplate({ appName: APP_NAME, t, toggleWidget })
 }
 
 function refreshMenus() {
@@ -661,9 +651,21 @@ function boundsFor(kind, near) {
   return clampBounds({ x: right - size.width, y: workArea.y + 16, ...size }, workArea, WINDOW_MIN)
 }
 
+// Windows shutting down, restarting or logging off ends the sessions' processes before
+// it kills the app, and the app's own quit never runs: keep the reopen list as it is now
+// (macOS: its shutdown and logout, from powerMonitor, come here too)
+const keepSessions = () => {
+  try {
+    terminals?.freeze?.()
+    if (process.platform === 'darwin') console.log('[main] the system is ending the session: open sessions kept for the next start')
+    else console.log('[main] Windows is ending the session: open sessions kept for the next start')
+  } catch {}
+}
+
 /** Build the app's window for `mode`; it shows itself once painted unless `hidden`. */
 function buildAppWindow(mode, { hidden = false, near = null } = {}) {
-  const url = pageWith(`widget&mode=${mode}`)
+  // (a smoke run's page also offers its terminal and font readings: src/termMetrics.ts)
+  const url = pageWith(`widget&mode=${mode}${smoke ? '&smoke' : ''}`)
   if (!url) return null
   const kind = kindOf(mode)
   const isWidget = kind === 'widget'
@@ -674,7 +676,8 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     title: 'spawn',
     // The window's own icon (the Poké Ball), so the taskbar shows it whatever exe runs the app
     icon: APP_ICON,
-    frame: false,
+    // macOS: the window gets the traffic lights, the widget none (macWindow.cjs)
+    ...(process.platform === 'darwin' ? macWindowOptions(mode) : { frame: false }),
     transparent: isWidget,
     hasShadow: !isWidget,
     resizable: true,
@@ -691,6 +694,8 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     try { win.setAppDetails({ appIconPath: APP_ICON, appIconIndex: 0, relaunchCommand: `"${process.execPath}"`, relaunchDisplayName: 'spawn' }) } catch {}
   }
   if (isWidget && appSettings().app.widgetOnTop) win.setAlwaysOnTop(true, 'floating')
+  // macOS: the widget stays in view on every Space (the Dock icon is left to dockFor)
+  if (process.platform === 'darwin' && isWidget) win.setVisibleOnAllWorkspaces(true, { skipTransformProcessType: true })
   win.webContents.on('will-navigate', (event) => event.preventDefault())
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   win.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
@@ -709,13 +714,12 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     maybeCaptureScreenshot()
   })
   win.on('show', refreshMenus)
-  // Windows shutting down, restarting or logging off ends the sessions' processes before
-  // it kills the app, and the app's own quit never runs: keep the reopen list as it is now
-  const keepSessions = () => { try { terminals?.freeze?.(); console.log('[main] Windows is ending the session: open sessions kept for the next start') } catch {} }
   win.on('query-session-end', keepSessions)
   win.on('session-end', keepSessions)
   win.on('hide', refreshMenus)
   const remember = () => {
+    // macOS: a window filling the work area (fullscreen) keeps the place it had before
+    if (process.platform === 'darwin' && isFilled(win)) return
     if (win.isDestroyed() || win !== widgetWin || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return
     const b = win.getBounds()
     if (win.spawnKind === 'window') {
@@ -734,6 +738,16 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
     win.on('maximize', () => { if (win === widgetWin) setModeQuietly('fullscreen') })
     win.on('unmaximize', () => { if (win === widgetWin) setModeQuietly('window') })
   }
+  if (process.platform === 'darwin' && !isWidget) {
+    // The green traffic light's own full screen is the fullscreen mode too; leaving it is
+    // the window mode (a window that filled the work area before goes back to its place)
+    win.on('enter-full-screen', () => { if (win === widgetWin) setModeQuietly('fullscreen') })
+    win.on('leave-full-screen', () => {
+      if (win !== widgetWin) return
+      if (isFilled(win)) restoreFilled(win)
+      setModeQuietly('window')
+    })
+  }
   win.on('close', (event) => {
     if (quitting || win !== widgetWin) return
     event.preventDefault()
@@ -746,7 +760,10 @@ function buildAppWindow(mode, { hidden = false, near = null } = {}) {
   if (!hidden) {
     win.once('ready-to-show', () => {
       if (win.isDestroyed() || win !== widgetWin) return
-      if (mode === 'fullscreen') win.maximize()
+      if (mode === 'fullscreen') {
+        if (process.platform === 'darwin') fillWorkArea(win, screen)
+        else win.maximize()
+      }
       win.show()
     })
   }
@@ -760,11 +777,15 @@ function createWidgetWindow({ hidden = false } = {}) {
   if (quitting) return null
   if (widgetWin && !widgetWin.isDestroyed()) return widgetWin
   widgetWin = buildAppWindow(modeNow(), { hidden })
+  // macOS: no Dock icon while the app is the widget
+  if (process.platform === 'darwin' && widgetWin) dockFor(modeNow(), app.dock)
   return widgetWin
 }
 
 /** The page shows `mode`; the window is already right (moved by hand, maximized). */
 function setModeQuietly(mode) {
+  // macOS: the window mode reached without restore (a zoom toggled off) ends a fill
+  if (process.platform === 'darwin' && widgetWin && !widgetWin.isDestroyed()) noteMode(widgetWin, mode)
   if (state.widgetMode === mode) return
   state.widgetMode = mode
   state.widgetExpanded = mode !== 'widget'
@@ -816,13 +837,19 @@ function swapAppWindow(mode) {
     const next = buildAppWindow(mode, { hidden: true, near: old ? old.getBounds() : null })
     if (!next) return
     widgetWin = next
+    // macOS: the Dock icon goes with the widget and comes back with the window, before
+    // the new one is shown and focused
+    if (process.platform === 'darwin') dockFor(mode, app.dock)
     await painted(next)
     // A moment for the terminals' scrollback to land in the new page
     await new Promise((r) => setTimeout(r, 120))
     if (next.isDestroyed()) return
     if (!wasVisible) { if (old && !old.isDestroyed()) old.destroy(); return }
     next.setOpacity(0)
-    if (mode === 'fullscreen') next.maximize()
+    if (mode === 'fullscreen') {
+      if (process.platform === 'darwin') fillWorkArea(next, screen)
+      else next.maximize()
+    }
     next.show()
     next.focus()
     await Promise.all([fadeWindow(old, 1, 0, 140), fadeWindow(next, 0, 1, 200)])
@@ -850,8 +877,13 @@ function setWidgetMode(mode) {
   // The same window: maximize or restore it (its events tell the page too)
   state.widgetMode = mode
   state.widgetExpanded = mode !== 'widget'
-  if (mode === 'fullscreen' && !w.isMaximized()) w.maximize()
-  if (mode === 'window' && w.isMaximized()) w.unmaximize()
+  if (process.platform === 'darwin') {
+    // macOS: fill the work area or go back (macWindow.cjs); macOS's own maximize is a zoom
+    applyMacMode(w, mode, screen)
+  } else {
+    if (mode === 'fullscreen' && !w.isMaximized()) w.maximize()
+    if (mode === 'window' && w.isMaximized()) w.unmaximize()
+  }
   if (!w.isVisible()) w.show()
   w.focus()
   w.webContents.send('widget:mode', mode)
@@ -909,7 +941,9 @@ function ensureToastWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PRELOAD, autoplayPolicy: 'no-user-gesture-required' },
   })
   toastWin.setAlwaysOnTop(true, 'screen-saver')
-  toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  // macOS: on every Space, over full-screen apps too, without touching the Dock icon
+  if (process.platform === 'darwin') toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+  else toastWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   toastWin.webContents.on('will-navigate', (event) => event.preventDefault())
   toastWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   toastWin.on('closed', () => { toastWin = null; toastReady = false })
@@ -1156,7 +1190,8 @@ function registerTerminalIpc() {
       if (u.protocol === 'http:' || u.protocol === 'https:') shell.openExternal(u.toString())
     } catch {}
   }))
-  // A file named in a session's output (Ctrl+click): resolved against that session's folder, and
+  // A file named in a session's output (Ctrl+click): resolved against that session's folder (on
+  // macOS ~/ is the home folder: electron/links.cjs), and
   // only a file that exists. It opens at its line in VS Code or Cursor through their own
   // vscode:// / cursor:// links (no command line, so nothing in the path is ever run), else
   // with the file's default app. A page, PDF or picture named without a line goes to its
@@ -1165,7 +1200,7 @@ function registerTerminalIpc() {
   ipcMain.handle('terminals:open-path', guard(async ({ id, file, line, col } = {}) => {
     const term = terminals.list().find(t => t.id === String(id))
     if (!term || typeof file !== 'string' || file.length > 1024) return false
-    const abs = path.resolve(term.cwd, file)
+    const abs = resolveRef(term.cwd, file)
     try { if (!fs.statSync(abs).isFile()) return false } catch { return false }
     if (!(Number(line) > 0) && VIEW_IN_DEFAULT_APP.has(path.extname(abs).toLowerCase())) {
       return (await shell.openPath(abs)) === ''
@@ -1173,7 +1208,7 @@ function registerTerminalIpc() {
     const at = `${Number(line) > 0 ? `:${Math.floor(Number(line))}` : ''}${Number(line) > 0 && Number(col) > 0 ? `:${Math.floor(Number(col))}` : ''}`
     for (const scheme of ['vscode', 'cursor']) {
       if (app.getApplicationNameForProtocol(`${scheme}://`)) {
-        await shell.openExternal(`${scheme}://file/${abs.split(path.sep).map(encodeURIComponent).join('/').replace(/^([A-Za-z])%3A/, '$1:')}${at}`)
+        await shell.openExternal(`${vscodeUrl(abs, { scheme })}${at}`)
         return true
       }
     }
@@ -1264,7 +1299,8 @@ function takeInstanceLock() {
   return -1
 }
 
-const lockWaits = app.isPackaged ? takeInstanceLock() : 0
+// (a smoke run has its own userData, so the installed app's lock is not its to wait for)
+const lockWaits = app.isPackaged && !smoke ? takeInstanceLock() : 0
 if (lockWaits < 0) {
   app.quit()
 } else {
@@ -1273,7 +1309,10 @@ if (lockWaits < 0) {
   // takes seconds; one run at a time, so a Dock click or a second launch in
   // the meantime cannot spawn a second server and open a second window
   const startOnce = singleFlight(startApp)
-  const open = () => startOnce().catch((err) => console.error('[main] Could not start the app:', err))
+  // macOS: nothing opens before the login shell's PATH and LANG are in (a Dock click or a second
+  // launch during that read waits for it too); Windows: the start runs at once, as before
+  const envGate = createStartGate()
+  const open = () => envGate.run(() => startOnce()).catch((err) => console.error('[main] Could not start the app:', err))
 
   // Opened again (a Dock click, a second launch): wait for a startup in
   // progress, else show the window, else make one
@@ -1290,19 +1329,50 @@ if (lockWaits < 0) {
 
   app.on('second-instance', reopen)
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    // Started from Finder the app has launchd's bare PATH: take the login shell's PATH and
+    // LANG once, before the server and the terminals are started (both read process.env)
+    if (process.platform === 'darwin') {
+      // A shutdown, restart or logout ends the sessions as Windows' does: keep the reopen list
+      // (required here: powerMonitor is usable only once the app is ready)
+      require('electron').powerMonitor.on('shutdown', () => { macSystemEnding = true; console.log('[main] macOS is shutting down or logging out'); keepSessions() })
+      // Full screen is the work area filled: when the work area changes (the Dock shown again on
+      // leaving the widget, moved, resized), the filled window follows it (macWindow.cjs)
+      screen.on('display-metrics-changed', (_event, _display, changed) => { refillOnWorkAreaChange(widgetWin, changed, screen) })
+      try {
+        const merged = await mergeLoginEnv({ env: process.env })
+        process.env.PATH = merged.PATH
+        if (merged.LANG) process.env.LANG = merged.LANG
+        for (const k of ['LC_ALL', 'LC_CTYPE']) if (merged[k]) process.env[k] = merged[k]
+      } finally {
+        envGate.open()
+      }
+    }
     registerTerminalIpc()
     // Updates: a look at GitHub Releases shortly after start, then every 30 minutes
     // (a small file: latest.json is a plain download, no API rate limit). The app
     // stays open for days, so 6 hours meant a release went unseen until the next morning.
     updater = createUpdater({ app, isPackaged: app.isPackaged, send: (channel, payload) => sendToWindows(channel, payload) })
-    setTimeout(() => updater.check(), 15_000)
-    setInterval(() => updater.check(), 30 * 60 * 1000).unref?.()
-    // A local build folder (the developer's own PC) is looked at every minute
-    setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
+    // (a smoke run never looks for an update)
+    if (!smoke) {
+      setTimeout(() => updater.check(), 15_000)
+      setInterval(() => updater.check(), 30 * 60 * 1000).unref?.()
+      // A local build folder (the developer's own PC) is looked at every minute
+      setInterval(() => { if (updater.usesLocal()) updater.check() }, 60 * 1000).unref?.()
+    }
     // The Desktop / Start menu shortcuts show the icon that comes with updates (spawn.exe's
     // own icon never changes after the first install); a moment after start, off the start path
     setTimeout(() => { try { refreshShortcutIcons({ app, shell }) } catch (err) { console.error('[main] Shortcut icon:', err.message) } }, 5000).unref?.()
+    // A smoke run: its steps wait for the window open() makes (electron/smoke.cjs)
+    smoke?.run({
+      getWindow: () => widgetWin,
+      mode: modeNow,
+      setMode: (mode) => { setWidgetMode(mode); return swapping },
+      terminals: () => terminals,
+      workArea: (win) => screen.getDisplayMatching(win.getBounds()).workArea,
+      isFilled: (win) => isFilled(win),
+      quit: quitApp,
+    })
     return open()
   })
 
@@ -1364,7 +1434,12 @@ if (lockWaits < 0) {
       timer.mark('sessions-ended', `stuck=${stuck ?? 0}`)
       if (stuck) console.warn(`[main] quit: ${stuck} session(s) did not exit`)
     })()
-    quitSequence = Promise.all([tellServer, endSessions])
+    const ending = Promise.all([tellServer, endSessions])
+    // macOS shutting down or logging out gives up on an app whose quit takes long (the
+    // logout is cancelled): 2 s at most then, and the server is stopped anyway. Any other
+    // quit, on a Mac too, waits for the whole sequence (quitCapMs)
+    const cap = quitCapMs({ platform: process.platform, systemShutdown: macSystemEnding })
+    quitSequence = (cap ? Promise.race([ending, sleep(cap)]) : ending)
       .catch((err) => console.error('[main] quit sequence:', err?.message ?? err))
       .finally(() => {
         try { if (tray) { tray.dispose(); tray = null } } catch {}

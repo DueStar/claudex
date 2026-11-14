@@ -1,5 +1,5 @@
 /**
- * workMode — 업무 모드 (설정 › 앱, Ctrl+Shift+H): one switch that hides
+ * workMode — 업무 모드 (설정 › 앱, Ctrl+Shift+H / ⌘⇧H): one switch that hides
  * everything Pokémon, so the app looks like a plain session tool at the office
  * or in public. The game keeps running underneath (steps, levels, encounters,
  * catches, the Pokédex, cloud sync, ranking); turning it off shows it all again.
@@ -11,19 +11,21 @@
  * in small functions the tests can call.
  */
 
+import { isMac } from './platform'
+
 /** On the document element of every page while the mode is on */
 export const WORK_MODE_CLASS = 'work-mode'
 
 /**
- * The shortcut. Free on Windows, in Chromium and in the app; Claude Code has
- * nothing on it either (a terminal can't tell Ctrl+Shift+H from Ctrl+H, which
- * is backspace there). The app takes it before the terminal, so the pty never
- * gets it.
+ * The shortcut: Ctrl+Shift+H on Windows, ⌘⇧H on macOS. It is read in src/keys.ts
+ * (appShortcut → 'workMode'), where the app's other keys are. Free on Windows, in
+ * Chromium and in the app; Claude Code has nothing on it either (a terminal can't tell
+ * Ctrl+Shift+H from Ctrl+H, which is backspace there). On a Mac the menu has ⌘H and ⌥⌘H,
+ * not ⌘⇧H. The app takes it before the terminal, so the pty never gets it. Named as
+ * the platform names keys (src/platform.ts modCombo: Ctrl+1 / ⌘1; ⇧ on a Mac as in its menus).
  */
-export const WORK_MODE_KEY = 'Ctrl+Shift+H'
-export function isWorkModeKey(e: { ctrlKey: boolean; shiftKey: boolean; altKey: boolean; metaKey?: boolean; code: string }): boolean {
-  // By the key's place (code), so it works with the Korean or Japanese input on
-  return e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && e.code === 'KeyH'
+export function workModeKeyLabel(mac: boolean = isMac()): string {
+  return mac ? '⌘⇧H' : 'Ctrl+Shift+H'
 }
 
 /** The app's views, in their Ctrl+1–5 order */
@@ -129,6 +131,15 @@ export function autoPartner(dex: PartnerDex, prefer?: string | null): string | n
 }
 
 /**
+ * The widget's hide button's tooltip, as its Korean key (t() fills {tray} with the
+ * platform's word on a Mac): in work mode the tray icon, not the Poké Ball
+ */
+export function hideTitleKey(workMode: boolean, mac: boolean): string {
+  if (mac) return workMode ? '숨기기 ({tray} 아이콘을 누르면 다시 열려요)' : '숨기기 ({tray}의 몬스터볼을 누르면 다시 열려요)'
+  return workMode ? '숨기기 (트레이 아이콘을 누르면 다시 열려요)' : '숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)'
+}
+
+/**
  * The words the session UI shows only in work mode (Korean keys; en / ja in
  * src/locales/workMode.ts). None of them may name the game.
  */
@@ -136,6 +147,7 @@ export const WORK_MODE_UI_TEXT = [
   '컨텍스트',
   '지시하기…',
   '숨기기 (트레이 아이콘을 누르면 다시 열려요)',
+  '숨기기 ({tray} 아이콘을 누르면 다시 열려요)',
 ] as const
 
 /** The switch in 설정 › 앱 (settings may speak of the game: a passer-by does not open them) */

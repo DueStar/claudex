@@ -7,6 +7,7 @@ const en: Record<string, string> = {
   '컨텍스트': 'Context',
   '지시하기…': 'Give an instruction…',
   '숨기기 (트레이 아이콘을 누르면 다시 열려요)': 'Hide (click the tray icon to open it again)',
+  '숨기기 ({tray} 아이콘을 누르면 다시 열려요)': 'Hide (click the {tray} icon to open it again)',
 }
 
 const ja: Record<string, string> = {
@@ -17,6 +18,7 @@ const ja: Record<string, string> = {
   '컨텍스트': 'コンテキスト',
   '지시하기…': '指示する…',
   '숨기기 (트레이 아이콘을 누르면 다시 열려요)': '隠す (トレイのアイコンを押すとまた開きます)',
+  '숨기기 ({tray} 아이콘을 누르면 다시 열려요)': '隠す ({tray}のアイコンを押すとまた開きます)',
 }
 
 export default { en, ja }

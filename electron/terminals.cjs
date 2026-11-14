@@ -36,13 +36,21 @@ function loadPty() {
 /**
  * End a session's whole process tree at once (Claude Code and whatever it
  * started); resolves when taskkill is done. node-pty's own kill finds the
- * console's processes later, in a forked helper.
+ * console's processes later, in a forked helper. Off Windows a session's pty
+ * is a process group leader, so the whole group gets SIGKILL (the process
+ * alone when there is no such group). `spawn` runs taskkill (execFile's shape).
  */
-function killTreeNow(pid) {
+function killTreeNow(pid, { platform = process.platform, kill = (p, sig) => process.kill(p, sig), spawn = require('child_process').execFile } = {}) {
   return new Promise((resolve) => {
     if (!Number.isInteger(pid) || pid <= 0) return resolve()
+    if (platform !== 'win32') {
+      try { kill(-pid, 'SIGKILL') } catch {
+        try { kill(pid, 'SIGKILL') } catch { /* the process is gone already */ }
+      }
+      return resolve()
+    }
     try {
-      require('child_process').execFile('taskkill', ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, () => resolve())
+      spawn('taskkill', ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, () => resolve())
     } catch { resolve() /* the process is gone already */ }
   })
 }
@@ -471,4 +479,4 @@ function createTerminalManager({ repoRoot, userDataDir, send, onExit, defaultCwd
   return { create, write, sendInstruction, resize, buffer, list, rename, close, move, shutdown, freeze, takeRestorable }
 }
 
-module.exports = { createTerminalManager, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch, HOOK_EVENTS }
+module.exports = { createTerminalManager, killTreeNow, writeSessionSettings, cleanEnv, readOpenSessions, hasTranscript, linkedConversation, gitBranch, HOOK_EVENTS }

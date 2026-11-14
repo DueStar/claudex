@@ -357,7 +357,8 @@ describe('app lifecycle', () => {
     const main = readFileSync(join(ROOT, 'electron/main.cjs'), 'utf8')
     const loads = [...main.matchAll(/\.loadURL\(([^)]*)\)/g)].map(m => m[1])
     expect(loads).toEqual(['url', 'url', 'url'])
-    expect(main).toContain("pageWith(`widget&mode=${mode}`)")
+    // (&smoke only in the Mac CI's smoke run: smoke is null on every other start, Windows always)
+    expect(main).toContain("pageWith(`widget&mode=${mode}${smoke ? '&smoke' : ''}`)")
     expect(main).toContain("pageWith('toast')")
     expect(main).toContain("pageWith('qa')")
   })
@@ -384,5 +385,53 @@ describe('serverProofMatches after the rename', () => {
     expect(serverProofMatches(token, challenge, proof('claudex-health:'))).toBe(true)
     expect(serverProofMatches(token, challenge, proof('other-health:'))).toBe(false)
     expect(serverProofMatches('b'.repeat(64), challenge, proof('spawn-health:'))).toBe(false)
+  })
+})
+
+describe('killTreeNow', () => {
+  const { killTreeNow } = require('../electron/terminals.cjs')
+
+  it('win32: taskkill with the same arguments', async () => {
+    const spawn = vi.fn((_f: string, _a: string[], _o: object, cb: () => void) => cb())
+    const kill = vi.fn()
+    await killTreeNow(1234, { platform: 'win32', kill, spawn })
+    expect(spawn).toHaveBeenCalledWith('taskkill', ['/T', '/F', '/PID', '1234'], { windowsHide: true }, expect.any(Function))
+    expect(kill).not.toHaveBeenCalled()
+  })
+
+  it('posix: kills the whole process group', async () => {
+    const kill = vi.fn()
+    const spawn = vi.fn()
+    await killTreeNow(1234, { platform: 'darwin', kill, spawn })
+    expect(kill).toHaveBeenCalledTimes(1)
+    expect(kill).toHaveBeenCalledWith(-1234, 'SIGKILL')
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('posix: falls back to the process itself when there is no group', async () => {
+    const kill = vi.fn((pid: number) => { if (pid < 0) throw new Error('ESRCH') })
+    await killTreeNow(1234, { platform: 'linux', kill })
+    expect(kill).toHaveBeenNthCalledWith(1, -1234, 'SIGKILL')
+    expect(kill).toHaveBeenNthCalledWith(2, 1234, 'SIGKILL')
+  })
+
+  it('posix: a process that is gone already is fine; a bad pid does nothing', async () => {
+    const kill = vi.fn(() => { throw new Error('ESRCH') })
+    await expect(killTreeNow(1234, { platform: 'darwin', kill })).resolves.toBeUndefined()
+    kill.mockClear()
+    await killTreeNow(0, { platform: 'darwin', kill })
+    expect(kill).not.toHaveBeenCalled()
+  })
+})
+
+describe('history temp folders', () => {
+  const { isTempCwd } = require('../electron/history.cjs')
+
+  it('skips Windows and macOS temp folders, keeps real projects', () => {
+    expect(isTempCwd('C:\\Users\\a\\AppData\\Local\\Temp\\x')).toBe(true)
+    expect(isTempCwd('/var/folders/ab/cd/T/x')).toBe(true)
+    expect(isTempCwd('/private/var/folders/ab/cd/T/x')).toBe(true)
+    expect(isTempCwd('/Users/a/code/app')).toBe(false)
+    expect(isTempCwd('/home/a/var/folders-notes')).toBe(false)
   })
 })

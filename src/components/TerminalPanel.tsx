@@ -10,12 +10,15 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
 import { getTermFont, resetTermFont, stepTermFont, subscribeTermFont, termFontStack } from '../termFont'
+import { facePresent, faceStatus, stackFaces, trackTermMetrics } from '../termMetrics'
 import { getSettings, useSettings } from '../settingsStore'
 import '@xterm/xterm/css/xterm.css'
 import { bridge, onTerminalData, type PastSession, type TerminalInfo } from '../desktop'
 import { createReplayGate } from '../terminalReplay'
 import { t } from '../i18n'
-import { isWorkModeKey } from '../workMode'
+import { appShortcut, clipboardAction, keptFromPty, wheelFontStep } from '../keys'
+import { isMac } from '../platform'
+import { fileRefPattern } from '../fileRef'
 
 const THEME = {
   background: '#101218',
@@ -83,6 +86,22 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     xterm.loadAddon(fit)
     xterm.open(hostRef.current)
     xtermRef.current = xterm
+    // Its font and cell size, for the Mac CI's smoke launch to check (src/termMetrics.ts)
+    const offMetrics = trackTermMetrics(term.id, () => {
+      const dims = (xterm as unknown as { _core?: { _renderService?: { dimensions?: { css?: { cell?: { width?: number; height?: number } } } } } })._core?._renderService?.dimensions?.css?.cell
+      const fontFamily = String(xterm.options.fontFamily ?? '')
+      const fontSize = Number(xterm.options.fontSize)
+      const buf = xterm.buffer.active
+      const lines: string[] = []
+      for (let y = Math.max(0, buf.length - 80); y < buf.length; y++) lines.push(buf.getLine(y)?.translateToString(true) ?? '')
+      return {
+        id: term.id, fontFamily, fontSize,
+        cellWidth: dims?.width ?? null, cellHeight: dims?.height ?? null,
+        cols: xterm.cols, rows: xterm.rows,
+        faces: stackFaces(fontFamily).map(face => ({ face, check: document.fonts.check(`${fontSize}px "${face}"`), present: facePresent(face), status: faceStatus(face) })),
+        text: lines.join('\n').trimEnd(),
+      }
+    })
     fitRef.current = fit
     // Links open with Ctrl+click, as in Windows Terminal (a plain click selects text)
     xterm.loadAddon(new WebLinksAddon((event, uri) => {
@@ -93,7 +112,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     xterm.loadAddon(search)
     searchRef.current = search
     const offResults = search.onDidChangeResults(({ resultIndex, resultCount }) => setFound({ index: resultIndex, count: resultCount }))
-    // A file path in the output (src/app.ts:42:7, C:\x\y.py:3) opens in the code editor at that
+    // A file path in the output (src/app.ts:42:7, C:\x\y.py:3; /Users/me/a.ts and ~/a.ts on
+    // macOS: src/fileRef.ts) opens in the code editor at that
     // line with Ctrl+click, as a link does
     const offPaths = xterm.registerLinkProvider({
       provideLinks(y, callback) {
@@ -108,7 +128,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
           for (const c of ch) { text += c; cellOf.push(x) }
         }
         const links: { range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: (e: MouseEvent) => void; decorations: { underline: boolean; pointerCursor: boolean } }[] = []
-        for (const m of text.matchAll(FILE_REF)) {
+        for (const m of text.matchAll(fileRefPattern())) {
           const at = m.index ?? 0
           const ref = m[0]
           const start = cellOf[at], end = cellOf[at + ref.length - 1]
@@ -136,11 +156,15 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     }
     host.addEventListener('dragover', onDragOver)
     host.addEventListener('drop', onDrop)
-    // Ctrl+wheel: bigger or smaller text, in every terminal at once
+    // Ctrl+wheel (⌘+wheel or a trackpad pinch on macOS): bigger or smaller text, in every
+    // terminal at once (src/keys.ts)
+    let lastPinchAt = 0
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return
+      const size = wheelFontStep(e, Date.now(), lastPinchAt)
+      if (!size) return
       e.preventDefault()
-      stepTermFont(e.deltaY < 0 ? 1 : -1)
+      lastPinchAt = size.pinchAt
+      if (size.step) stepTermFont(size.step)
     }
     host.addEventListener('wheel', onWheel, { passive: false })
 
@@ -153,7 +177,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
     const input = xterm.onData((data) => bridge!.terminals.write(term.id, data))
     // When a Shift/Ctrl+Enter that ended an IME composition queued its newline
     let imeEnterAt = 0
-    // Ctrl+V pastes, Ctrl+C copies when there is a selection (else it is ^C for Claude)
+    // Ctrl+V pastes, Ctrl+C copies when there is a selection (else it is ^C for Claude);
+    // ⌘V / ⌘C on macOS, where Ctrl+C is always ^C
     xterm.attachCustomKeyEventHandler((e) => {
       // Shift+Enter / Ctrl+Enter: a new line in the prompt instead of sending it (Claude Code
       // reads ESC+CR as a newline). Blocked on every event type: stopping keydown alone left
@@ -187,33 +212,41 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
         return false
       }
       if (e.type !== 'keydown') return true
-      // Ctrl+1–5 switch the app's views (터미널/도감/박스/기록/랭킹): not for the terminal
-      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-5]$/.test(e.key)) return false
-      // The app's session keys, as in a terminal app: Ctrl+Tab / Ctrl+Shift+Tab next and previous
-      // session, Ctrl+Shift+T a new one, Ctrl+Shift+W close (Ctrl+T and Ctrl+W stay Claude Code's)
-      if (e.ctrlKey && !e.altKey && e.key === 'Tab') return false
-      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.code === 'KeyW')) return false
-      // Ctrl+Shift+H: 업무 모드 on and off (the app's, src/workMode.ts), never the session's
-      if (isWorkModeKey(e)) return false
-      // Ctrl+F: find in the output
-      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.code === 'KeyF') { openSearchRef.current(); return false }
-      // Ctrl+= / Ctrl+- / Ctrl+0: text size
-      if (e.ctrlKey && !e.altKey && (e.key === '=' || e.key === '+')) { stepTermFont(1); return false }
-      if (e.ctrlKey && !e.altKey && e.key === '-') { stepTermFont(-1); return false }
-      if (e.ctrlKey && !e.altKey && e.key === '0') { resetTermFont(); return false }
+      // The app's keys (src/keys.ts; ⌘ instead of Ctrl on macOS)
+      switch (appShortcut(e)) {
+        // Ctrl+1–5 switch the app's views (터미널/도감/박스/기록/랭킹): not for the terminal.
+        // The app's session keys, as in a terminal app: Ctrl+Tab / Ctrl+Shift+Tab next and previous
+        // session, Ctrl+Shift+T a new one, Ctrl+Shift+W close (Ctrl+T and Ctrl+W stay Claude Code's)
+        case 'view1': case 'view2': case 'view3': case 'view4': case 'view5':
+        case 'prevTab': case 'nextTab': case 'newTab': case 'closeTab':
+        // Ctrl+Shift+H (⌘⇧H): 업무 모드 on and off (the app's, src/workMode.ts), never the session's
+        case 'workMode':
+          return false
+        // Ctrl+F: find in the output
+        case 'find': openSearchRef.current(); return false
+        // Ctrl+= / Ctrl+- / Ctrl+0: text size
+        case 'fontUp': stepTermFont(1); return false
+        case 'fontDown': stepTermFont(-1); return false
+        case 'fontReset': resetTermFont(); return false
+      }
+      const clip = clipboardAction(e, xterm.hasSelection())
+      // On macOS the Edit menu would paste or copy the same key again: the key is taken here
+      if (clip && isMac()) e.preventDefault()
       // Ctrl+V: text is pasted here; anything else (a screenshot) goes to Claude Code as the key
       // itself, and Claude Code reads the image from the clipboard
-      if (e.ctrlKey && !e.shiftKey && (e.key === 'v' || e.key === 'V')) {
+      if (clip === 'paste') {
         navigator.clipboard.readText()
           .then((t) => { if (t) xterm.paste(t); else bridge!.terminals.write(term.id, '\x16') })
           .catch(() => bridge!.terminals.write(term.id, '\x16'))
         return false
       }
-      if (e.ctrlKey && (e.key === 'c' || e.key === 'C') && xterm.hasSelection()) {
+      if (clip === 'copy') {
         navigator.clipboard.writeText(xterm.getSelection()).catch(() => {})
         xterm.clearSelection()
         return false
       }
+      // ⌘ keys on macOS are the app's and the menu's, never the session's
+      if (keptFromPty(e)) return false
       return true
     })
 
@@ -279,6 +312,7 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
       host.removeEventListener('wheel', onWheel)
       offResults.dispose()
       offPaths.dispose()
+      offMetrics()
       offFont()
       document.fonts.removeEventListener('loadingdone', refont)
       document.removeEventListener('visibilitychange', fitNow)
@@ -393,12 +427,6 @@ const SEARCH_MARKS = {
   matchBackground: '#4a3f14', matchBorder: '#4a3f14', matchOverviewRuler: '#a8892b',
   activeMatchBackground: '#f2c94c', activeMatchBorder: '#f2c94c', activeMatchColorOverviewRuler: '#f2c94c',
 }
-
-/**
- * A file reference in output: a path with a folder part or a drive (src/app.ts, ./x.js,
- * C:\a\b.py) or a bare file name followed by a line (app.ts:12), then :line and :column
- */
-const FILE_REF = /(?<![\w/\:.@-])((?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|[\w@.-]+[\\/])[\w@.\-\\/]*\.[A-Za-z0-9]{1,8}|[\w@.-]+\.[A-Za-z0-9]{1,8}(?=:\d))(?::(\d+))?(?::(\d+))?/g
 
 function ago(ms: number): string {
   const m = Math.round((Date.now() - ms) / 60000)

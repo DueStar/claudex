@@ -4,18 +4,23 @@
  * the shortcut and the words used while it is on.
  */
 
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { describe, expect, it } from 'vitest'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
-  VIEWS, WORK_MODE_KEY, WORK_MODE_SETTING_TEXT, WORK_MODE_UI_TEXT,
-  autoPartner, isWorkModeKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews,
+  VIEWS, WORK_MODE_SETTING_TEXT, WORK_MODE_UI_TEXT,
+  autoPartner, hideTitleKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews, workModeKeyLabel,
 } from '../src/workMode'
+import { appShortcut, keptFromPty } from '../src/keys'
+import { setPlatformForTest } from '../src/platform'
 import DICTS from '../src/locales'
 import part from '../src/locales/workMode'
 
 const require = createRequire(import.meta.url)
 const { DEFAULTS, sanitize, applyPatch, toastAllowed } = require('../electron/settings.cjs')
 const { translator } = require('../electron/i18n.cjs')
+const { macWindowOptions } = require('../electron/macWindow.cjs')
 
 const noon = new Date(2026, 10, 13, 12)
 const ROW = { title: null, name: '모래두지', project: 'todo-cli', level: 17, helpers: 2, helperSession: true }
@@ -113,20 +118,101 @@ describe('a new session in work mode (no picker)', () => {
   })
 })
 
-describe('the shortcut', () => {
-  const key = (o: Partial<{ ctrlKey: boolean; shiftKey: boolean; altKey: boolean; metaKey: boolean; code: string }>) =>
-    ({ ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, code: '', ...o })
+describe('the shortcut (src/keys.ts appShortcut → workMode)', () => {
+  afterEach(() => setPlatformForTest(null))
+  const key = (o: Partial<{ key: string; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; metaKey: boolean; code: string }>) =>
+    ({ key: 'H', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, code: '', ...o }) as KeyboardEvent
+  const isWorkModeKey = (e: KeyboardEvent) => appShortcut(e) === 'workMode'
 
-  it('is Ctrl+Shift+H, by the key (with any input language)', () => {
-    expect(WORK_MODE_KEY).toBe('Ctrl+Shift+H')
+  it('Windows: Ctrl+Shift+H, by the key (with any input language), named as before', () => {
+    setPlatformForTest('win')
+    expect(workModeKeyLabel(false)).toBe('Ctrl+Shift+H')
+    expect(workModeKeyLabel()).toBe('Ctrl+Shift+H')
     expect(isWorkModeKey(key({ ctrlKey: true, shiftKey: true, code: 'KeyH' }))).toBe(true)
+    expect(isWorkModeKey(key({ key: 'ㅗ', ctrlKey: true, shiftKey: true, code: 'KeyH' }))).toBe(true)
   })
 
-  it('not Ctrl+H (backspace in a terminal), Ctrl+Alt+Shift+H, or the app\'s other keys', () => {
+  it("Windows: not Ctrl+H (backspace in a terminal), Ctrl+Alt+Shift+H, with ⊞, or the app's other keys", () => {
+    setPlatformForTest('win')
     expect(isWorkModeKey(key({ ctrlKey: true, code: 'KeyH' }))).toBe(false)
     expect(isWorkModeKey(key({ ctrlKey: true, shiftKey: true, altKey: true, code: 'KeyH' }))).toBe(false)
     expect(isWorkModeKey(key({ ctrlKey: true, shiftKey: true, metaKey: true, code: 'KeyH' }))).toBe(false)
+    expect(isWorkModeKey(key({ metaKey: true, shiftKey: true, code: 'KeyH' }))).toBe(false)
     for (const code of ['KeyT', 'KeyW', 'KeyC', 'KeyV']) expect(isWorkModeKey(key({ ctrlKey: true, shiftKey: true, code }))).toBe(false)
+  })
+
+  it("macOS: ⌘⇧H, never ⌘H (the menu's Hide) or Ctrl+Shift+H (the session's); kept from the pty", () => {
+    setPlatformForTest('mac')
+    expect(workModeKeyLabel(true)).toBe('⌘⇧H')
+    expect(workModeKeyLabel()).toBe('⌘⇧H')
+    const cmdShiftH = key({ metaKey: true, shiftKey: true, code: 'KeyH' })
+    expect(isWorkModeKey(cmdShiftH)).toBe(true)
+    expect(keptFromPty(cmdShiftH)).toBe(true)
+    expect(isWorkModeKey(key({ key: 'ㅗ', metaKey: true, shiftKey: true, code: 'KeyH' }))).toBe(true)
+    expect(isWorkModeKey(key({ key: 'h', metaKey: true, code: 'KeyH' }))).toBe(false)
+    expect(isWorkModeKey(key({ key: 'h', metaKey: true, altKey: true, code: 'KeyH' }))).toBe(false)
+    expect(isWorkModeKey(key({ ctrlKey: true, shiftKey: true, code: 'KeyH' }))).toBe(false)
+    expect(isWorkModeKey(key({ ctrlKey: true, metaKey: true, shiftKey: true, code: 'KeyH' }))).toBe(false)
+  })
+
+  it("the setting's words name the platform's key; Windows reads exactly as 1.3.52", () => {
+    const fill = (str: string, vars: Record<string, string>) => str.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m)
+    const [, hint, title] = WORK_MODE_SETTING_TEXT
+    expect(fill(DICTS.en[hint], { key: workModeKeyLabel(false) })).toMatch(/Shortcut: Ctrl\+Shift\+H$/)
+    expect(fill(title, { key: workModeKeyLabel(false) })).toBe('업무 모드 켜고 끄기 (Ctrl+Shift+H)')
+    expect(fill(DICTS.en[title], { key: workModeKeyLabel(true) })).toBe('Turn work mode on or off (⌘⇧H)')
+  })
+
+  it('both window handlers go through appShortcut (no key test of their own)', () => {
+    const src = (f: string) => readFileSync(join(__dirname, '..', 'src', f), 'utf8')
+    expect(src('Widget.tsx')).toContain("if (action === 'workMode') {")
+    expect(src('components/TerminalPanel.tsx')).toContain("case 'workMode':")
+    expect(src('workMode.ts')).not.toContain('isWorkModeKey')
+  })
+})
+
+describe('on a Mac (the platform passed explicitly)', () => {
+  afterEach(() => setPlatformForTest(null))
+
+  it("the widget's hide button names the menu bar icon, not the Poké Ball, in work mode", () => {
+    expect(hideTitleKey(true, true)).toBe('숨기기 ({tray} 아이콘을 누르면 다시 열려요)')
+    expect(hideTitleKey(false, true)).toBe('숨기기 ({tray}의 몬스터볼을 누르면 다시 열려요)')
+    // Windows as 1.3.52
+    expect(hideTitleKey(true, false)).toBe('숨기기 (트레이 아이콘을 누르면 다시 열려요)')
+    expect(hideTitleKey(false, false)).toBe('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')
+    expect(DICTS.en[hideTitleKey(true, true)].replace('{tray}', 'menu bar')).toBe('Hide (click the menu bar icon to open it again)')
+  })
+
+  it("the profile takes the logo's place right of the traffic lights: the 78px room stays in work mode", () => {
+    const css = readFileSync(join(__dirname, '..', 'src', 'styles', 'widget-expanded.css'), 'utf8')
+    // The window and full screen keep the left room whatever the mode (the rule has no work-mode condition)
+    expect(css).toContain('.is-mac .widget.mode-window .w-side .w-head, .is-mac .widget.mode-fullscreen .w-side .w-head { padding-left: 78px; }')
+    expect(css).toContain('.is-mac .widget.expanded.side-hidden .w-rail { padding-top: 30px; }')
+    // and no work-mode rule moves the header's start or the rail's top back under them
+    const workRules = css.split('}').filter(r => r.includes('.work-mode'))
+    expect(workRules.length).toBeGreaterThan(0)
+    for (const r of workRules) {
+      expect(r, r).not.toMatch(/padding(-left|-top)?\s*:|margin-left\s*:|position\s*:\s*(absolute|fixed)|(^|[\s;{])left\s*:|(^|[\s;{])top\s*:/)
+      expect(r, r).not.toContain('.is-mac')
+    }
+    // The widget (frameless, no traffic lights) has no Mac header rule: it lays out as on Windows
+    expect(css).not.toMatch(/\.is-mac [^{]*mode-widget/)
+    expect(macWindowOptions('widget', 'darwin')).toEqual({ frame: false })
+    expect(macWindowOptions('window', 'darwin')).toMatchObject({ trafficLightPosition: { x: 14, y: 14 } })
+  })
+
+  it('the sessions view only: ⌘1 opens it and ⌘2–5 open nothing, as Ctrl+1–5 on Windows', () => {
+    for (const p of ['mac', 'win']) {
+      setPlatformForTest(p)
+      const mod = p === 'mac' ? { metaKey: true } : { ctrlKey: true }
+      const views = visibleViews(true)
+      for (const n of [1, 2, 3, 4, 5]) {
+        const action = appShortcut({ key: String(n), code: `Digit${n}`, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mod } as KeyboardEvent)
+        expect(action).toBe(`view${n}`)
+        // Widget opens VIEWS[n - 1] only when it is visible
+        expect(views.includes(VIEWS[n - 1])).toBe(n === 1)
+      }
+    }
   })
 })
 

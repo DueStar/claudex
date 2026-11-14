@@ -35,10 +35,28 @@ const CLAUDE_ASKING = /Do you trust|trust (the files in )?this folder|Do you wan
  */
 const GENERIC_ASKING = /\[y\/n\]|\(y\/n\)|\[Y\/n\]|\[y\/N\]|Would you like to (run|make|grant|approve)|needs your approval|Do you want to (approve|proceed|allow)|Apply this change\?|Allow (once|always|for this session|execution of)|Yes, proceed|Proceed\?|press enter to confirm/i
 
-function claudeCommand() {
-  if (process.platform !== 'win32') return 'claude'
-  const local = path.join(os.homedir(), '.local', 'bin', 'claude.exe')
-  return fs.existsSync(local) ? local : 'claude.exe'
+function claudeCommand({ platform = process.platform, home = os.homedir(), exists = fs.existsSync } = {}) {
+  if (platform === 'darwin') {
+    const local = path.posix.join(home, '.local', 'bin', 'claude')
+    return exists(local) ? local : 'claude'
+  }
+  if (platform !== 'win32') return 'claude'
+  const local = path.join(home, '.local', 'bin', 'claude.exe')
+  return exists(local) ? local : 'claude.exe'
+}
+
+/** The shell a shell tab runs: PowerShell on Windows, the login shell ($SHELL, else zsh) on the Mac */
+function shellLaunch({ platform = process.platform, env = process.env } = {}) {
+  if (platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] }
+  if (platform === 'darwin') return { file: env.SHELL || '/bin/zsh', args: ['-l'] }
+  return { file: env.SHELL || '/bin/bash', args: ['-l'] }
+}
+
+/** What the shell tab is called: PowerShell, or the shell's own name (zsh) on the Mac */
+function shellName({ platform = process.platform, env = process.env } = {}) {
+  if (platform === 'win32') return 'PowerShell'
+  if (platform === 'darwin') return path.posix.basename(shellLaunch({ platform, env }).file)
+  return 'Shell'
 }
 
 /**
@@ -64,17 +82,20 @@ function splitCommand(line) {
  * On Windows a bare name like `codex` or `gemini` is usually an npm shim
  * (codex.cmd), which ConPTY cannot start directly: it goes through cmd.exe.
  * A path to an .exe, or a name found as an .exe on PATH, starts as it is.
+ * Elsewhere the program starts as it is (node-pty looks it up on PATH).
  */
-function spawnable(program, args, env = process.env) {
-  if (process.platform !== 'win32') return { file: program, args }
-  if (/\.(exe|com)$/i.test(program) && (path.isAbsolute(program) || onPath(program, env))) return { file: program, args }
-  if (!path.extname(program) && onPath(`${program}.exe`, env)) return { file: `${program}.exe`, args }
-  return { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', program, ...args] }
+function spawnable(program, args, env = process.env, platform = process.platform) {
+  if (platform !== 'win32') return { file: program, args }
+  const p = path.win32
+  if (/\.(exe|com)$/i.test(program) && (p.isAbsolute(program) || onPath(program, env))) return { file: program, args }
+  if (!p.extname(program) && onPath(`${program}.exe`, env)) return { file: `${program}.exe`, args }
+  return { file: env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', program, ...args] }
 }
 
+/** `name` in one of PATH's folders (Windows' PATH: `;` between folders) */
 function onPath(name, env) {
-  const dirs = String(env.PATH ?? env.Path ?? '').split(path.delimiter).filter(Boolean)
-  return dirs.some(d => { try { return fs.statSync(path.join(d, name)).isFile() } catch { return false } })
+  const dirs = String(env.PATH ?? env.Path ?? '').split(path.win32.delimiter).filter(Boolean)
+  return dirs.some(d => { try { return fs.statSync(path.win32.join(d, name)).isFile() } catch { return false } })
 }
 
 /** Claude Code: hooks report everything, the session id is chosen up front, it resumes */
@@ -94,13 +115,12 @@ const CLAUDE = Object.freeze({
 /** A plain shell: nothing reported, so no Pokémon goes with it */
 const SHELL = Object.freeze({
   id: 'shell',
-  name: process.platform === 'win32' ? 'PowerShell' : 'Shell',
+  name: shellName(),
   events: 'none',
   canResume: false,
   asking: /(?!)/,
   launch() {
-    if (process.platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] }
-    return { file: process.env.SHELL || '/bin/bash', args: ['-l'] }
+    return shellLaunch()
   },
 })
 
@@ -119,7 +139,7 @@ function validTool(t) {
  * source. Codex CLI is told from its session log as well (codexWatch.cjs:
  * kind 'codex'), which also gives it a thread to resume (`codex resume <id>`).
  */
-function terminalAdapter(tool) {
+function terminalAdapter(tool, { platform = process.platform, env = process.env } = {}) {
   const codex = codexTool(tool)
   return Object.freeze({
     id: tool.id,
@@ -130,17 +150,20 @@ function terminalAdapter(tool) {
     asking: GENERIC_ASKING,
     launch({ resume } = {}) {
       const [program, ...args] = splitCommand(tool.command)
-      return spawnable(program, codex && resume ? [...args, 'resume', resume] : args)
+      return spawnable(program, codex && resume ? [...args, 'resume', resume] : args, env, platform)
     },
   })
 }
 
-/** The adapter for a tool id: Claude Code, or one from the list (unknown ids fall back to Claude Code) */
-function adapterFor(id, tools = []) {
+/**
+ * The adapter for a tool id: Claude Code, or one from the list (unknown ids fall back to
+ * Claude Code). `opts` ({ platform, env }) is how a listed tool is started; tests set it.
+ */
+function adapterFor(id, tools = [], opts = {}) {
   if (!id || id === 'claude') return CLAUDE
   if (id === 'shell') return SHELL
   const tool = (Array.isArray(tools) ? tools : []).find(t => validTool(t) && t.id === id)
-  return tool ? terminalAdapter(tool) : CLAUDE
+  return tool ? terminalAdapter(tool, opts) : CLAUDE
 }
 
 /**
@@ -194,4 +217,4 @@ function createActivity({ sessionId, tool, cwd, emit, now = () => Date.now(), se
   return { output, input, stop, mute }
 }
 
-module.exports = { CLAUDE, adapterFor, validTool, terminalAdapter, splitCommand, spawnable, createActivity, STEP_MS, QUIET_MS, CLAUDE_ASKING, GENERIC_ASKING }
+module.exports = { claudeCommand, shellLaunch, shellName, CLAUDE, adapterFor, validTool, terminalAdapter, splitCommand, spawnable, createActivity, STEP_MS, QUIET_MS, CLAUDE_ASKING, GENERIC_ASKING }

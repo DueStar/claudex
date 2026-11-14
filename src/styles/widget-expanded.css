@@ -295,7 +295,7 @@
 .w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
 /* the widget toggle sits left of the text size: 6px on either side of the text size */
 .w-view-switch.w-font-switch { margin: 0 2px 0 6px; }
-.w-font-switch button { font-family: 'W Uncut', 'Uncut Sans Variable', system-ui, sans-serif; letter-spacing: -0.02em; }
+.w-font-switch button { font-family: 'W Uncut', 'Uncut Sans Variable', system-ui, 'Apple SD Gothic Neo', 'Hiragino Sans', sans-serif; letter-spacing: -0.02em; }
 
 /* ---------- Patch notes after an update (PatchNotes.tsx) ---------- */
 .w-notes-body { overflow-y: auto; padding: 4px 16px 8px; line-height: 1.55; font-size: 13px; }
@@ -323,6 +323,15 @@
 /* The logo keeps its place when the left panel folds: the header's symbol is centred
    28px from the window's left edge, as in the 56px rail, at the same height */
 .widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 18px; padding-right: 16px; }
+
+/* ---------- macOS: the native traffic lights at the window's top-left (x 14, y 14) ---------- */
+/* They minimize, zoom and close, so the page's own three go; the widget toggle and the
+   text size stay. Whatever is at the top-left moves out of their way: the panel's header
+   starts 78px in; folded, the rail's logo drops below them and the tab bar starts 78px in */
+.is-mac .w-win-controls { display: none; }
+.is-mac .widget.mode-window .w-side .w-head, .is-mac .widget.mode-fullscreen .w-side .w-head { padding-left: 78px; }
+.is-mac .widget.expanded.side-hidden .w-rail { padding-top: 30px; }
+.is-mac .widget.expanded.side-hidden .w-term-tabs { padding-left: 22px; }
 
 /* ---------- 설정: categories on the left, items on the right; stacks in the narrow widget ---------- */
 .set-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: 16px; }
@@ -374,7 +383,9 @@
 .set-btn.primary:hover { filter: brightness(1.06); }
 .set-btn:disabled { opacity: 0.5; cursor: default; }
 /* 설정 › AI 도구 */
-.set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', monospace; }
+.set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace; }
+/* A Mac: Menlo (on every Mac) before the proportional faces, as in the terminal (src/termFont.ts) */
+.is-mac .set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', Menlo, Monaco, 'Pretendard Variable', 'Apple SD Gothic Neo', monospace; }
 .set-tag { font-size: 11px; color: var(--ink-3); padding: 6px 4px; }
 .set-tool-add { flex-direction: column; align-items: stretch; gap: 10px; }
 .set-presets { display: flex; gap: 6px; margin-top: 6px; }

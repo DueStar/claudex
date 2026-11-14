@@ -10,12 +10,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # spawn is a Windows app; Linux keeps the Unix-only checks (file
-        # modes, symlinks) running, which skip on Windows
-        os: [windows-latest, ubuntu-latest]
+        # Windows and macOS are the app's platforms; Linux keeps the Unix-only
+        # checks (file modes, symlinks) running, which skip on Windows. The Mac
+        # app itself is built and launched by mac.yml
+        os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # the job never pushes: no token left behind in .git/config
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -31,8 +35,9 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit -p .
 
-      - name: Test
-        run: npm test
-
+      # Before the tests: tests/dist-check.test.ts checks the built page in dist/
       - name: Build
         run: npx vite build
+
+      - name: Test
+        run: npm test

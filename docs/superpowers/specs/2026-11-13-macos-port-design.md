@@ -50,3 +50,9 @@ The user wants a macOS build of spawn that does everything the Windows build doe
 
 ## Left to the builder
 - Exact `trafficLightPosition` and brand offset, menu contents, the smoke-test flag's name, CI runner labels, whether the Mac full download is zip or dmg first (zip first is fine).
+
+## Changes after review (2026-11-13)
+- **No in-app full-screen button on a Mac.** This is the owner's decision. The page's own window buttons, the full-screen one among them, give way to the traffic lights. The work area is filled from the saved mode: macOS's zoom or its green-button full screen is taken as the fullscreen mode.
+- **Fonts are bundled** (main 1.3.50: Monaspace Neon, Pretendard, Uncut Sans in `public/fonts`). A Mac renders the same faces as Windows. Its terminal stacks keep Menlo and Monaco ahead of any proportional face, in case a bundled file fails to load.
+- **The Mac release is opt-in and ships as 1.4.0.** `release.mjs --publish` alone is the Windows release, as before. The Macs go out only with `--publish --with-mac`, or later with `--mac-only <version>`. CI is started on the release's tag and its run is found by the tag's commit. The first Mac release will be version 1.4.0.
+- **`--mac-allow-unsmoked` is removed.** A failed or missing smoke launch always fails that arch. With mac.yml as it is, a failed smoke launch also skips the Zip step, so the flag could not have worked anyway.
