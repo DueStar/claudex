@@ -245,6 +245,14 @@ const FLOWS = {
         if (!(await page.locator('.w-sess-bar .w-sess-head').count())) bad('no session header')
         // 간략 rows are one line: no second line, no bottom line
         if (label === '간략' && await page.locator('.w-row .w-row-line2, .w-row .w-row-bottom').count()) bad('a 간략 row has a second or bottom line')
+        if (label === '간략') {
+          // The status is a plain dot (확인 필요 too: hovered, the × takes its place, so no button there)
+          if (await page.locator('.w-rows.compact button.w-pill').count()) bad('a 간략 row draws its status as a button')
+          // The name has no tooltip of its own (it would hide the row's); the row's says how to rename
+          if (await page.locator('.w-rows.compact .w-row-name[title]').count()) bad("a 간략 row's name has its own tooltip")
+          const tip = await rows.nth(0).getAttribute('title')
+          if (!tip?.includes('\n더블클릭해서 세션 이름 바꾸기')) bad(`the 간략 row's tooltip does not say how to rename: ${JSON.stringify(tip)}`)
+        }
         await closeAsksThenCloses(page, rows.nth(1), rows.nth(1).locator('.w-row-close'), shot.terminals[1].id, bad)
         // Double-click row 1's name: exactly one field, in that row; Enter renames once
         await rows.nth(0).locator('.w-row-name').dblclick()
@@ -291,6 +299,18 @@ const FLOWS = {
       await page.keyboard.press('Control+Shift+Tab')
       await page.keyboard.press('Control+Shift+Tab')
       if (await name() !== titles[0]) bad(`Ctrl+Shift+Tab twice: the header reads "${await name()}", not "${titles[0]}"`)
+      // The header's rename field open, then another session shown: the field goes and does not come
+      // back with the first session (the rename state is cleared, nothing renamed)
+      const renamesBefore = (await calls(page)).filter(c => c.fn === 'rename').length
+      await head.locator('.w-sess-head-name').dblclick()
+      if (!(await head.locator('input.w-sess-head-rename').count())) bad('double-click on the header name opened no field')
+      await page.keyboard.press('Control+Tab')
+      await sleep(80)
+      if (await page.locator('input.w-sess-head-rename, input.w-row-rename').count()) bad('a rename field is open after Ctrl+Tab to another session')
+      await page.keyboard.press('Control+Shift+Tab')
+      await sleep(80)
+      if (await page.locator('input.w-sess-head-rename, input.w-row-rename').count()) bad('the header rename field came back with the first session (stale rename state)')
+      if ((await calls(page)).filter(c => c.fn === 'rename').length !== renamesBefore) bad('switching away from an open rename field renamed the session')
       await page.locator('.w-rail .w-rail-newshell').click()
       await sleep(100)
       const shells = (await calls(page)).filter(c => c.fn === 'create')
@@ -306,6 +326,28 @@ const FLOWS = {
         return row ? row.top >= list.top - 0.5 && row.bottom <= list.bottom + 0.5 : null
       })
       if (seen !== true) bad(`the chosen row (the last of ${shot.terminals.length}) is ${seen === null ? 'missing' : 'out of sight'} after Ctrl+Shift+Tab`)
+    })
+    // The same picked with the panel folded: unfolding it brings the chosen row into sight
+    await run('12개 접힘', { twelve: true, size: [1100, 720], local: { 'spawn-side-hidden': '1' } }, async ({ page, shot }, bad) => {
+      await page.keyboard.press('Control+Shift+Tab')
+      await sleep(200)
+      await page.locator('.w-rail .w-side-toggle').click()
+      await sleep(300)
+      const seen = await page.evaluate(() => {
+        const list = document.querySelector('.w-party').getBoundingClientRect()
+        const row = document.querySelector('.w-row.chosen')?.getBoundingClientRect()
+        return row ? row.top >= list.top - 0.5 && row.bottom <= list.bottom + 0.5 : null
+      })
+      if (seen !== true) bad(`unfolded: the chosen row (the last of ${shot.terminals.length}) is ${seen === null ? 'missing' : 'out of sight'}`)
+    })
+    // 간략 in the widget: a click on a session waiting on you opens its terminal (the 확인 필요 button's job in 상세)
+    await run('간략 위젯', { mode: 'widget', size: [340, 820], local: { 'spawn-list-mode': 'compact' } }, async ({ page }, bad) => {
+      const row = page.locator('.w-rows.compact .w-row.mood-needs-you').first()
+      if (!(await row.count())) { bad('no needs-you row in the fixture'); return }
+      await row.locator('.w-row-name').click()
+      await sleep(200)
+      if (!(await page.locator('.widget.mode-window').count())) bad('a click on the needs-you row did not open the window')
+      else if (!(await page.locator('.w-sess-bar .w-sess-head').count())) bad('the window opened, but not on the sessions view')
     })
     // 업무 모드, folded: the header shows a glyph, no picture
     await run('업무 모드', { work: true, local: { 'spawn-side-hidden': '1' } }, async ({ page }, bad) => {
@@ -724,9 +766,9 @@ async function renameOnce(page, field, terminalId, value, bad) {
 const flowPageErrors = []
 
 /** The app with the fixture in a page of its own, for a flow (window mode) */
-async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false } = {}) {
+async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false, mode = 'window' } = {}) {
   const shot = {
-    mode: 'window', workMode: work, version: VERSION,
+    mode, workMode: work, version: VERSION,
     terminals: twelve ? fixture.terminals12 : fixture.terminals,
     board: fixture.board, branches: fixture.branches, history: fixture.history,
     transcript: fixture.transcript, shellTranscript: fixture.shellTranscript,
@@ -754,9 +796,9 @@ async function openApp(browser, { local = {}, twelve = false, size = [1440, 900]
       ws.onMessage(send)
     })
     // &smoke: the page offers window.spawnTermMetrics() (src/termMetrics.ts): each terminal's font size and columns
-    await page.goto(`${BASE}/?widget&mode=window${smoke ? '&smoke' : ''}`)
+    await page.goto(`${BASE}/?widget&mode=${mode}${smoke ? '&smoke' : ''}`)
     await page.waitForFunction(n => document.querySelectorAll('.w-party .w-row').length === n, shot.terminals.length, { timeout: 15_000 })
-    await page.waitForSelector('.w-sess-head', { timeout: 15_000 })
+    if (mode !== 'widget') await page.waitForSelector('.w-sess-head', { timeout: 15_000 })
     return { ctx, page, shot }
   } catch (err) {
     await ctx.close()

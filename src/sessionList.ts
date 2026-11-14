@@ -73,14 +73,16 @@ export function shellLabel(rows: { shell?: boolean; terminal?: { toolName?: stri
  * A 간략 row's tooltip: what its second line and bottom line said in 상세 —
  * "<name or 새 세션> · <status> · <HP|컨텍스트> <n>%" (the last part only once the context is known).
  * `mood` is the status word's Korean key; every word goes through `tr` (t() in the app).
+ * renamable: a second line says how to rename it (the name has no tooltip of its own in 간략,
+ * where it spans most of the row and would hide this one).
  */
 export function rowTooltip(
-  p: { title: string | null; mood: string; left: number | null; barLabel: 'HP' | '컨텍스트' },
+  p: { title: string | null; mood: string; left: number | null; barLabel: 'HP' | '컨텍스트'; renamable?: boolean },
   tr: (ko: string, vars?: Record<string, string | number>) => string,
 ): string {
   const parts = [p.title ?? tr('새 세션'), tr(p.mood)]
   if (p.left !== null) parts.push(`${tr(p.barLabel)} ${Math.round(p.left)}%`)
-  return parts.join(' · ')
+  return parts.join(' · ') + (p.renamable ? `\n${tr('더블클릭해서 세션 이름 바꾸기')}` : '')
 }
 
 export interface SessionHeaderParts {

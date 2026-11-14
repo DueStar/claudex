@@ -562,9 +562,16 @@ const Widget: React.FC = () => {
   const listMode = useListMode()
   const compact = listMode === 'compact'
   const rowEls = useRef(new Map<string, HTMLElement>())
+  // (also when the panel unfolds: a row picked from the rail while it was folded comes into sight)
   useEffect(() => {
-    if (shown?.sessionId) rowEls.current.get(shown.sessionId)?.scrollIntoView({ block: 'nearest' })
-  }, [shown?.sessionId, listMode])
+    if (shown?.sessionId && !(expanded && sideHidden)) rowEls.current.get(shown.sessionId)?.scrollIntoView({ block: 'nearest' })
+  }, [shown?.sessionId, listMode, sideHidden, expanded])
+  // The header's rename field belongs to the session it opened on: another session shown (Ctrl+Tab,
+  // the rail, a close) drops it, so it cannot come back stale with the first one
+  useEffect(() => {
+    const cur = renamingRef.current
+    if (cur?.at === 'header' && cur.id !== shown?.sessionId) { renamingRef.current = null; setRenaming(null) }
+  }, [shown?.sessionId])
   // In widget mode, the first session waiting on a question (its own output, or the hooks' needs-you)
   const askRow = expanded ? undefined : withTerminal.find(r => r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you'))
 
@@ -1008,11 +1015,14 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               ) : (
                 <span
                   className="w-row-name"
-                  title={r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
+                  title={!compact && r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
                   onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); startRename(r.sessionId, 'row') }}
                 >{r.title ?? t('새 세션')}</span>
               )
-              const pill = r.mood === 'needs-you' && r.terminal && !r.shell ? (
+              // 확인 필요 is a button in 상세 (it opens the terminal); in 간략 a plain dot like the other
+              // moods (hovered, the × takes its place, so a button there could not be pressed): the row's
+              // own click opens the terminal instead
+              const pill = r.mood === 'needs-you' && r.terminal && !r.shell && !compact ? (
                 <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}><i className="w-pill-dot" /><span className="w-pill-text">{t('확인 필요')}</span></button>
               ) : (
                 <span className={`w-pill mood-${r.mood}`}><i className="w-pill-dot" /><span className="w-pill-text">{t(MOOD_LABEL[r.mood])}</span></span>
@@ -1036,8 +1046,14 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 onPointerUp={drag.onPointerUp}
                 onPointerCancel={drag.onPointerCancel}
                 className={`w-row${rowOrder.stateClass(sid)} mood-${r.mood}${r.terminal?.status === 'running' && r.terminal.asking ? ' asking' : ''}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
-                onClick={rowOrder.click(() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') })}
-                title={compact ? rowTooltip({ title: r.title, mood: MOOD_LABEL[r.mood], left: ctxLeft, barLabel: parts.barLabel }, t) : r.terminal ? t('눌러서 이 세션 열기') : undefined}
+                onClick={rowOrder.click(() => {
+                  if (!r.terminal) return
+                  setTarget(r.sessionId)
+                  if (expanded) setView('terminal')
+                  // 간략 in the widget: a session waiting on you opens its terminal, as 상세's 확인 필요 button does
+                  else if (compact && r.mood === 'needs-you' && !r.shell) { setView('terminal'); setExpanded(true) }
+                })}
+                title={compact ? rowTooltip({ title: r.title, mood: MOOD_LABEL[r.mood], left: ctxLeft, barLabel: parts.barLabel, renamable: !!r.terminal }, t) : r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
                 {compact ? (
                   // 간략: one line — picture, name, the context tick (colour only), the status dot;

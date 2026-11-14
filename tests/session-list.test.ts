@@ -48,6 +48,18 @@ describe("a 간략 row's tooltip", () => {
     const en: Record<string, string> = { '새 세션': 'New session', '쉬는 중': 'Idle', '컨텍스트': 'Context' }
     expect(rowTooltip({ title: null, mood: '쉬는 중', left: 40, barLabel: '컨텍스트' }, k => en[k] ?? k)).toBe('New session · Idle · Context 40%')
   })
+
+  it("a row that can be renamed says how on its own line (the name has no tooltip of its own in 간략: it would hide the row's)", () => {
+    expect(rowTooltip({ title: '타입 정리', mood: '쉬는 중', left: 100, barLabel: 'HP', renamable: true }, k => k)).toBe('타입 정리 · 쉬는 중 · HP 100%\n더블클릭해서 세션 이름 바꾸기')
+    expect(rowTooltip({ title: '타입 정리', mood: '쉬는 중', left: 100, barLabel: 'HP', renamable: false }, k => k)).toBe('타입 정리 · 쉬는 중 · HP 100%')
+    expect(rowTooltip({ title: null, mood: '쉬는 중', left: null, barLabel: 'HP', renamable: true }, k => DICTS.en[k] ?? k)).toBe('New session · Resting\nDouble-click to rename the session')
+  })
+
+  it('the 간략 row draws no own title on its name, and the row passes renamable (source check)', () => {
+    const w = readFileSync(join(__dirname, '..', 'src', 'Widget.tsx'), 'utf8')
+    expect(w).toContain("title={!compact && r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}")
+    expect(w).toMatch(/rowTooltip\(\{[^}]*renamable: !!r\.terminal[^}]*\}, t\)/)
+  })
 })
 
 describe('the session header', () => {
