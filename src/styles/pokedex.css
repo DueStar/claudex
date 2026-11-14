@@ -8,7 +8,7 @@
 .w-toast-tier { color: var(--tier); font-weight: 700; }
 
 /* ---------- Modern artwork (Pokémon HOME): smooth scaling, not pixel art ---------- */
-.dex-cell img, .dex-card-art img, .w-sess-tab img,
+.dex-cell img, .dex-card-art img,
 .w-dex-recent img, .w-party-slots img, .w-swap-item img, .w-row img {
   image-rendering: auto !important;
 }
@@ -70,7 +70,6 @@
 .w-font-switch button.on { background: var(--accent-soft); color: var(--accent); }
 .w-font-switch button.on:hover { filter: brightness(1.12); }
 .w-dex-body { flex: 1; min-height: 0; display: flex; }
-.w-sess-tab img { object-fit: contain; }
 
 /* ---------- "New": a caught Pokémon whose entry was never opened ---------- */
 .dex-new, .w-new-dot {

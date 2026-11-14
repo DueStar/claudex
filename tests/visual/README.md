@@ -5,6 +5,7 @@ Shots of the real built UI (`dist/`) with fixture sessions, to compare each rest
     npx vite build
     node tests/visual/shots.mjs --out <dir> [--only session,dex] [--size 1100x720] [--check fit --check work]
     node tests/visual/shots.mjs --sheet session --out <dir>     # before | lab | after → <dir>/sheet-session.png
+    node tests/visual/shots.mjs --flow tabs-gone                # close / rename / drag / switch without the tab row
     node tests/visual/shots.mjs --help                          # every option and surface id
 
 - `fixture.mjs` — the four lab sessions + a shell (and a twelve-session set), usage 46 % / 82 %, the game.

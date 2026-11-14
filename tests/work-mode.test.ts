@@ -13,6 +13,7 @@ import {
   autoPartner, hideTitleKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews, workModeKeyLabel,
 } from '../src/workMode'
 import { appShortcut, keptFromPty } from '../src/keys'
+import { rowTooltip, sessionHeaderParts } from '../src/sessionList'
 import { setPlatformForTest } from '../src/platform'
 import DICTS from '../src/locales'
 import part from '../src/locales/workMode'
@@ -248,6 +249,18 @@ describe('the words', () => {
       const title = translator(lang)('세션 폴더 선택')
       expect(title).not.toMatch(GAME)
       if (lang !== 'ko') expect(title).not.toBe('세션 폴더 선택')
+    }
+  })
+
+  it("the session header and a 간략 row's tooltip name no Pokémon", () => {
+    const head = JSON.stringify(sessionHeaderParts({ title: null, name: '모래두지', project: 'todo-cli', branch: 'main' }, true))
+    expect(head).not.toMatch(GAME)
+    expect(head).not.toContain('모래두지')
+    expect(head).not.toContain('pokemon')
+    for (const lang of ['ko', 'en', 'ja'] as const) {
+      const tr = (k: string) => (lang === 'ko' ? k : DICTS[lang][k] ?? k)
+      const tip = rowTooltip({ title: null, mood: '쉬는 중', left: 40, barLabel: sessionRowParts({ ...ROW, shell: false }, true).barLabel }, tr)
+      expect(tip, tip).not.toMatch(GAME)
     }
   })
 

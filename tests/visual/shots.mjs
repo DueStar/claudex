@@ -54,13 +54,16 @@ Before: npx vite build   (the harness reads dist/, it never builds)
                    left and width as in the same surface without 업무 모드 (shot too if needed)
                    (both checks may be given: --check fit --check work, or --check fit,work;
                    --check work refuses a run with no -work surface in it)
-  --flow <name>    an interaction flow (none yet; tabs-gone arrives with the session header)
+  --flow <name>    an interaction flow (exits non-zero when it finds a problem):
+                   tabs-gone  close / rename / drag in 상세, 간략 and folded, the list header's
+                              >_ + 간략 상세, the rail's >_, switching by rail and Ctrl+Tab, the
+                              chosen row in sight among twelve, 업무 모드's header
   --sheet <s>      no shots: writes <out>/sheet-<s>[-WxH].png = before (<out>/../00-before/),
                    the lab reference, after (<out>), side by side or stacked
   --help           this
 
 Surfaces (each at 1440x900 and 1100x720 unless noted):
-  session session-compact session-12 size-small size-xlarge dex box log rank settings rail
+  session session-compact session-12 session-12-compact size-small size-xlarge dex box log rank settings rail
   widget widget-xlarge (340x820)   toast qa (full page, 1440 wide)   status-card (300x96)
   -work: session-work session-compact-work rail-work widget-work settings-work
   -mac:  session-mac rail-mac
@@ -84,6 +87,7 @@ const SURFACES = {
   session: { view: 'terminal' },
   'session-compact': { view: 'terminal', local: { 'spawn-list-mode': 'compact' } },
   'session-12': { view: 'terminal', twelve: true },
+  'session-12-compact': { view: 'terminal', twelve: true, local: { 'spawn-list-mode': 'compact' } },
   // spawn-text-size arrives in Task 7 (harmless before); spawn-term-font is today's terminal size
   // and the key the step migrates from, so the before set shows the terminal at that size too
   'size-small': { view: 'terminal', local: { 'spawn-text-size': 'small', 'spawn-term-font': '12' } },
@@ -118,12 +122,12 @@ function parseId(id) {
 
 /** The lab picture a surface is compared with (docs/superpowers/plans/2026-11-14-calm-style-2.md) */
 const LAB_REF = {
-  session: 's2-session-terminal.png', 'session-compact': 's2-chat-compact.png', 'session-work': 's2-work-terminal.png',
+  session: 's2-session-terminal.png', 'session-compact': 's2-chat-compact.png', 'session-12-compact': 's2-chat-compact.png', 'session-work': 's2-work-terminal.png',
   'size-small': 's2-size-smallest-terminal.png', 'size-xlarge': 's2-size-largest-terminal.png',
   dex: 'dex-calm2.png', box: 'box-calm2.png', log: 'log-calm2.png', rank: 'rank-calm2.png', settings: 'settings-calm2.png', toast: 'toast-calm2.png',
   widget: 'widget-calm2.png', 'widget-work': 'widget-calm2-work.png', rail: 'rail-calm2.png', 'rail-work': 'rail-calm2-work.png',
 }
-const LAB_1100 = new Set(['session', 'session-compact', 'session-12', 'session-mac'])
+const LAB_1100 = new Set(['session', 'session-compact', 'session-12', 'session-12-compact', 'session-mac'])
 function labRef(surface, size) {
   if (size === '1100x720' && LAB_1100.has(surface)) return 's2-chat-1100.png'
   return LAB_REF[surface] ?? LAB_REF[surface.replace(/-mac$/, '')] ?? null
@@ -148,7 +152,7 @@ function parseArgs(argv) {
   for (const c of o.checks) if (c !== 'fit' && c !== 'work') fail(`unknown check "${c}": fit or work`)
   if (o.size && !/^\d+x\d+$/.test(o.size)) fail(`--size wants WxH, e.g. 1100x720`)
   for (const id of [...(o.only ?? []), ...o.sheets]) if (!parseId(id)) fail(`unknown surface "${id}". Surfaces: ${ALL_IDS.join(' ')}`)
-  for (const f of o.flows) if (!FLOWS[f]) fail(`unknown flow "${f}"${f === 'tabs-gone' ? ' (it arrives with Task 5 of the calm-style plan)' : ''}. Flows: ${Object.keys(FLOWS).join(' ') || 'none yet'}`)
+  for (const f of o.flows) if (!FLOWS[f]) fail(`unknown flow "${f}". Flows: ${Object.keys(FLOWS).join(' ')}`)
   return o
 }
 
@@ -173,8 +177,180 @@ function fail(msg) {
 
 // ---------------------------------------------------------------- flows
 
-/** name -> async (ctx) => string[] (problems); Task 5 adds tabs-gone */
-const FLOWS = {}
+/** name -> async (ctx) => string[] (problems) */
+const FLOWS = {
+  /**
+   * The session tab row is gone (calm-style plan, Task 5): every job it did still has a home.
+   * In 상세, in 간략 and with the left panel folded: × asks 닫기 once, the ask clears when the
+   * mouse leaves, a second click closes (one terminals.close with that row's terminal); rename
+   * opens exactly one field and Enter sends one terminals.rename; a drag sends one
+   * terminals.move. Also: the list header's >_ / + / 간략·상세, the rail's >_, switching by the
+   * rail and by Ctrl+Tab / Ctrl+Shift+Tab (the header follows), the chosen row kept in sight
+   * among twelve, and 업무 모드's header with no picture.
+   */
+  'tabs-gone': async ({ browser }) => {
+    const problems = []
+    const run = async (label, setup, steps) => {
+      let app
+      try {
+        app = await openApp(browser, setup)
+        await steps(app, m => problems.push(`${label}: ${m}`))
+      } catch (err) {
+        problems.push(`${label}: ${String(err.message).split('\n')[0]}`)
+      } finally {
+        if (app) await app.ctx.close()
+      }
+    }
+    for (const [label, local] of [['상세', {}], ['간략', { 'spawn-list-mode': 'compact' }]]) {
+      await run(label, { local }, async ({ page, shot }, bad) => {
+        const rows = page.locator('.w-party .w-row')
+        const compact = await page.locator('.w-rows.compact').count()
+        if (!!compact !== (label === '간략')) bad(`.w-rows.compact is ${compact ? 'there' : 'missing'}`)
+        if (await page.locator('.w-sess-tabs, .w-sess-tab').count()) bad('a session tab row is still drawn')
+        if (!(await page.locator('.w-sess-bar .w-sess-head').count())) bad('no session header')
+        // 간략 rows are one line: no second line, no bottom line
+        if (label === '간략' && await page.locator('.w-row .w-row-line2, .w-row .w-row-bottom').count()) bad('a 간략 row has a second or bottom line')
+        await closeAsksThenCloses(page, rows.nth(1), rows.nth(1).locator('.w-row-close'), shot.terminals[1].id, bad)
+        // Double-click row 1's name: exactly one field, in that row; Enter renames once
+        await rows.nth(0).locator('.w-row-name').dblclick()
+        await renameOnce(page, rows.nth(0).locator('input.w-row-rename'), shot.terminals[0].id, '새 이름', bad)
+        // Drag row 1 below row 2: one terminals.move with row 1's terminal
+        const b1 = await rows.nth(0).boundingBox(), b2 = await rows.nth(1).boundingBox()
+        const x = b1.x + 70, y = b1.y + b1.height / 2
+        await page.mouse.move(x, y)
+        await page.mouse.down()
+        for (let k = 1; k <= 12; k++) await page.mouse.move(x, y + ((b2.height + 6) * k) / 12)
+        await page.mouse.up()
+        await sleep(150)
+        const moves = (await calls(page)).filter(c => c.fn === 'move')
+        if (moves.length !== 1 || moves[0].args[0] !== shot.terminals[0].id) bad(`drag: expected one move of ${shot.terminals[0].id}, got ${JSON.stringify(moves)}`)
+        if (label !== '상세') return
+        // The list header: >_ opens a shell, + asks who goes (the picker), 간략 / 상세 switch and are kept
+        await page.locator('.w-list-head .w-list-shell').click()
+        await sleep(100)
+        const shells = (await calls(page)).filter(c => c.fn === 'create')
+        if (shells.length !== 1 || shells[0].args[0]?.tool !== 'shell') bad(`>_: expected one create { tool: 'shell' }, got ${JSON.stringify(shells)}`)
+        await page.locator('.w-list-head .w-list-btn:not(.w-list-shell)').click()
+        if (!(await page.locator('.resume-modal[role="dialog"]').count())) bad('+ did not open the "who goes?" picker')
+        else await page.locator('.resume-backdrop').click({ position: { x: 4, y: 4 } })
+        await page.locator('.w-list-mode button', { hasText: '간략' }).click()
+        const kept = await page.evaluate(() => localStorage.getItem('spawn-list-mode'))
+        if (!(await page.locator('.w-rows.compact').count()) || kept !== 'compact') bad(`간략 did not switch the list (stored ${kept})`)
+        if (await page.locator('.w-list-mode button[aria-pressed="true"]').textContent() !== '간략') bad('간략 is not the pressed button')
+        await page.locator('.w-list-mode button', { hasText: '상세' }).click()
+        if (await page.locator('.w-rows.compact').count()) bad('상세 did not switch the list back')
+      })
+    }
+    // The left panel folded: the header and the rail do it all
+    await run('접힘', { local: { 'spawn-side-hidden': '1' } }, async ({ page, shot }, bad) => {
+      const head = page.locator('.w-sess-head')
+      await closeAsksThenCloses(page, head, head.locator('.w-sess-head-close'), shot.terminals[0].id, bad)
+      await head.locator('.w-sess-head-name').dblclick()
+      await renameOnce(page, head.locator('input.w-sess-head-rename'), shot.terminals[0].id, '새 이름', bad)
+      const name = () => head.locator('.w-sess-head-name').textContent()
+      const titles = shot.terminals.map(t => t.title ?? '새 세션')
+      await page.locator('.w-rail-session').nth(1).click()
+      if (await name() !== titles[1]) bad(`the rail's 2nd session: the header reads "${await name()}", not "${titles[1]}"`)
+      await page.keyboard.press('Control+Tab')
+      if (await name() !== titles[2]) bad(`Ctrl+Tab: the header reads "${await name()}", not "${titles[2]}"`)
+      await page.keyboard.press('Control+Shift+Tab')
+      await page.keyboard.press('Control+Shift+Tab')
+      if (await name() !== titles[0]) bad(`Ctrl+Shift+Tab twice: the header reads "${await name()}", not "${titles[0]}"`)
+      await page.locator('.w-rail .w-rail-newshell').click()
+      await sleep(100)
+      const shells = (await calls(page)).filter(c => c.fn === 'create')
+      if (shells.length !== 1 || shells[0].args[0]?.tool !== 'shell') bad(`the rail's >_: expected one create { tool: 'shell' }, got ${JSON.stringify(shells)}`)
+    })
+    // Twelve sessions in a small window: the chosen row is scrolled into sight
+    await run('12개', { twelve: true, size: [1100, 720] }, async ({ page, shot }, bad) => {
+      await page.keyboard.press('Control+Shift+Tab')
+      await sleep(300)
+      const seen = await page.evaluate(() => {
+        const list = document.querySelector('.w-party').getBoundingClientRect()
+        const row = document.querySelector('.w-row.chosen')?.getBoundingClientRect()
+        return row ? row.top >= list.top - 0.5 && row.bottom <= list.bottom + 0.5 : null
+      })
+      if (seen !== true) bad(`the chosen row (the last of ${shot.terminals.length}) is ${seen === null ? 'missing' : 'out of sight'} after Ctrl+Shift+Tab`)
+    })
+    // 업무 모드, folded: the header shows a glyph, no picture
+    await run('업무 모드', { work: true, local: { 'spawn-side-hidden': '1' } }, async ({ page }, bad) => {
+      if (await page.locator('.w-sess-head img').count()) bad('a picture in the session header')
+      if (!(await page.locator('.w-sess-head .w-sess-head-glyph').count())) bad('no glyph in the session header')
+    })
+    return problems
+  },
+}
+
+/** The bridge calls the page made so far (fake-bridge.js) */
+const calls = page => page.evaluate(() => window.__CALLS__)
+
+/** ×: the first click asks (닫기, nothing closed), leaving clears it, two clicks close it once */
+async function closeAsksThenCloses(page, hoverOn, x, terminalId, bad) {
+  await hoverOn.hover()
+  await x.click()
+  if ((await x.textContent()).trim() !== '닫기') bad(`× after one click reads "${(await x.textContent()).trim()}", not 닫기`)
+  if ((await calls(page)).some(c => c.fn === 'close')) bad('× closed at once, without asking')
+  await page.mouse.move(2, 2)
+  await sleep(80)
+  if ((await x.textContent()).trim() !== '×') bad('the 닫기 ask stayed after the mouse left')
+  await hoverOn.hover()
+  await x.click()
+  await x.click()
+  await sleep(80)
+  const closes = (await calls(page)).filter(c => c.fn === 'close')
+  if (closes.length !== 1 || closes[0].args[0] !== terminalId) bad(`× twice: expected one close of ${terminalId}, got ${JSON.stringify(closes)}`)
+}
+
+/** A rename field is open: exactly one in the page, the expected one; Enter sends one rename */
+async function renameOnce(page, field, terminalId, value, bad) {
+  const all = await page.locator('input.w-row-rename, input.w-sess-head-rename').count()
+  if (all !== 1 || (await field.count()) !== 1) bad(`double-click: ${all} rename field(s) in the page, ${await field.count()} where expected`)
+  if (!(await field.count())) return
+  await field.fill(value)
+  await field.press('Enter')
+  await sleep(80)
+  const renames = (await calls(page)).filter(c => c.fn === 'rename')
+  if (renames.length !== 1 || renames[0].args[0] !== terminalId || renames[0].args[1] !== value) bad(`Enter: expected one rename of ${terminalId} to "${value}", got ${JSON.stringify(renames)}`)
+  if (await page.locator('input.w-row-rename, input.w-sess-head-rename').count()) bad('the rename field stayed open after Enter')
+}
+
+/** The app with the fixture in a page of its own, for a flow (window mode) */
+async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false } = {}) {
+  const shot = {
+    mode: 'window', workMode: work, version: VERSION,
+    terminals: twelve ? fixture.terminals12 : fixture.terminals,
+    board: fixture.board, branches: fixture.branches,
+    transcript: fixture.transcript, shellTranscript: fixture.shellTranscript,
+  }
+  const snapshot = twelve ? fixture.snapshot12 : fixture.snapshot
+  const all = {
+    'spawn-carry': JSON.stringify({ view: 'terminal', target: shot.terminals[0].sessionId }),
+    'spawn-side-hidden': '0', 'spawn-seen-version': VERSION, 'spawn-dex-viewed': JSON.stringify(fixture.VIEWED),
+    ...local,
+  }
+  const ctx = await browser.newContext({
+    viewport: { width: size[0], height: size[1] }, deviceScaleFactor: 1, locale: 'ko-KR', timezoneId: 'Asia/Seoul',
+    colorScheme: 'dark', bypassCSP: true,
+  })
+  try {
+    await ctx.clock.setFixedTime(fixture.NOW)
+    const page = await ctx.newPage()
+    await page.addInitScript(pageSetup, { shot, local: all, mac: false, origin: BASE })
+    await page.addInitScript({ path: join(HERE, 'fake-bridge.js') })
+    await page.routeWebSocket(/\/ws$/, ws => {
+      const send = () => ws.send(JSON.stringify(snapshot))
+      send()
+      ws.onMessage(send)
+    })
+    await page.goto(`${BASE}/?widget&mode=window`)
+    await page.waitForFunction(n => document.querySelectorAll('.w-party .w-row').length === n, shot.terminals.length, { timeout: 15_000 })
+    await page.waitForSelector('.w-sess-head', { timeout: 15_000 })
+    return { ctx, page, shot }
+  } catch (err) {
+    await ctx.close()
+    throw err
+  }
+}
 
 // ---------------------------------------------------------------- small helpers
 
@@ -550,7 +726,8 @@ async function main() {
 
   // Which shots: the asked surfaces (all by default), each at its sizes; --check work also
   // needs each -work surface's plain twin to compare the first row with
-  const ids = new Set(opts.only ?? ALL_IDS)
+  // --flow alone (no --only, no --check) runs the flow without taking every shot first
+  const ids = new Set(opts.only ?? (opts.flows.length && !opts.checks.size ? [] : ALL_IDS))
   if (opts.checks.has('work')) for (const id of [...ids]) if (parseId(id).work) ids.add(id.replace(/-work(-mac)?$/, '$1'))
   const jobs = []
   for (const id of ids) {

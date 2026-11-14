@@ -91,8 +91,28 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--row-gap);
 }
+/* The list's header: 세션 n, then 간략 / 상세, a new shell, a new session */
+.w-list-head { display: flex; align-items: center; gap: 4px; margin: 2px 0 6px; font-size: var(--t-meta); color: var(--ink-3); min-width: 0; }
+.w-list-count { margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.w-list-mode { flex: none; display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-s); padding: 1px; margin-right: 2px; }
+.w-list-mode button {
+  position: relative; font: inherit; font-size: var(--t-micro); line-height: 1.4; color: var(--ink-3);
+  padding: 1px 7px; border: 0; border-radius: calc(var(--r-s) - 1px); background: none; cursor: pointer; white-space: nowrap;
+}
+/* the hit area reaches 22px tall, the box stays small */
+.w-list-mode button::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 22px; transform: translateY(-50%); }
+.w-list-mode button:hover { color: var(--ink-2); }
+.w-list-mode button.on { background: var(--sel-bg); color: var(--ink); }
+.w-list-btn {
+  flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0;
+  border: 0; border-radius: var(--r-s); background: none; color: var(--ink-3); cursor: pointer;
+  font: 500 var(--t-micro)/1 'Monaspace Neon Var', Consolas, monospace;
+}
+.w-list-btn:hover { background: var(--hover); color: var(--ink); }
+.w-list-btn.full { opacity: 0.45; }
+.w-list-mode button:focus-visible, .w-list-btn:focus-visible, .w-sess-head-close:focus-visible { outline: 2px solid var(--ink-2); outline-offset: 1px; }
+.w-rows { display: flex; flex-direction: column; gap: var(--row-gap); }
 /* Session rows: no fill and no ring; hovered a faint grey, the chosen one a little lighter with a
    2px yellow bar at the panel's left edge. They reach 8px into the card's side padding (the
    sections pad 16px), so the bar sits at the edge itself */
@@ -234,6 +254,29 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row-edit { font: inherit; font-size: var(--t-meta); color: var(--ink-3); background: transparent; border: 0; border-radius: var(--r-s); padding: 2px 5px; cursor: pointer; }
 .w-row-edit:hover { color: var(--ink); }
 .w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink); background: var(--card); border: 1px solid var(--ink-3); border-radius: var(--r-s); padding: 2px 7px; outline: none; }
+
+/* ---------- 간략: one line each — picture, name, the context tick (colour only), the status dot ---------- */
+.w-rows.compact { gap: var(--row-gap-compact); }
+.w-rows.compact .w-row { padding: 5px 8px 5px 10px; gap: 0; }
+.w-rows.compact .w-row.chosen::before { top: 6px; bottom: 6px; }
+.w-rows.compact .w-row-head { grid-template-columns: var(--row-mon-compact) minmax(0, 1fr); column-gap: 8px; }
+.w-rows.compact .w-row-head > .w-row-mon { grid-row: auto; width: var(--row-mon-compact); height: var(--row-mon-compact); }
+.w-rows.compact .w-row-line1 { gap: 8px; min-height: 20px; }
+.w-row-tick { flex: none; width: 12px; height: 3px; border-radius: 2px; background: var(--hp); }
+.w-row-tick.hp-yellow { background: var(--hp-warn); }
+.w-row-tick.hp-red { background: var(--hp-low); }
+.w-row-tick.hp-full { opacity: 0.35; }
+.w-row-state { flex: none; display: inline-grid; place-items: center; min-width: 14px; }
+.w-rows.compact .w-pill-text { display: none; }
+.w-rows.compact .w-pill-dot { width: 7px; height: 7px; }
+/* hovered, the × takes the dot's place (as the old tabs did); it stays while it asks 닫기 */
+.w-row-state > .w-row-close { display: none; }
+.w-rows.compact .w-row:hover .w-row-state > .w-pill, .w-row-state:has(> .w-row-close.confirm) > .w-pill { display: none; }
+.w-rows.compact .w-row:hover .w-row-state > .w-row-close, .w-row-state > .w-row-close.confirm { display: inline-grid; place-items: center; }
+.w-rows.compact .w-row.dragging .w-row-state > .w-row-close { display: none; }
+.w-rows.compact .w-row.dragging .w-row-state > .w-pill { display: inline-flex; }
+.w-rows.compact .w-row-close { padding: 0 4px; min-width: 18px; height: 18px; }
+.w-rows.compact .w-row-close.confirm { padding: 0 6px; }
 
 /* ---------- Limits while nothing has reported yet: a quiet shimmer, same widths ---------- */
 /* while a session starts, the bar fills the row */

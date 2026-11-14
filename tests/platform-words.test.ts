@@ -38,13 +38,13 @@ describe('platformWord', () => {
 describe('sentences that name the platform', () => {
   const sentence = (lang: 'ko' | 'en' | 'ja', ko: string, vars?: Record<string, string>) => { setLang(lang); return t(ko, vars) }
 
-  it('shell tab tooltip: PowerShell on Windows as before, the shell on Mac', () => {
-    const k = '셸 탭 열기 (포켓몬 없이 {shell})'
-    expect(sentence('ko', k, { shell: 'PowerShell' })).toBe('셸 탭 열기 (포켓몬 없이 PowerShell)')
-    expect(sentence('en', k, { shell: 'PowerShell' })).toBe('Open a shell tab (PowerShell, no Pokémon)')
-    expect(sentence('ja', k, { shell: 'PowerShell' })).toBe('シェルタブを開く(ポケモンなしのPowerShell)')
-    expect(sentence('en', k, { shell: 'zsh' })).toBe('Open a shell tab (zsh, no Pokémon)')
-    expect(sentence('ja', k, { shell: 'zsh' })).toBe('シェルタブを開く(ポケモンなしのzsh)')
+  it('new-shell tooltip: PowerShell on Windows as before, the shell on Mac', () => {
+    const k = '셸 열기 (포켓몬 없이 {shell})'
+    expect(sentence('ko', k, { shell: 'PowerShell' })).toBe('셸 열기 (포켓몬 없이 PowerShell)')
+    expect(sentence('en', k, { shell: 'PowerShell' })).toBe('Open a shell (PowerShell, no Pokémon)')
+    expect(sentence('ja', k, { shell: 'PowerShell' })).toBe('シェルを開く(ポケモンなしのPowerShell)')
+    expect(sentence('en', k, { shell: 'zsh' })).toBe('Open a shell (zsh, no Pokémon)')
+    expect(sentence('ja', k, { shell: 'zsh' })).toBe('シェルを開く(ポケモンなしのzsh)')
   })
 
   it('has a Mac sentence in every language for the tray and Dock wording', () => {
@@ -72,9 +72,9 @@ describe('sentences that name the platform', () => {
   })
 })
 
-describe('the shell tab button names the shell main runs', () => {
+describe('the new-shell button names the shell main runs', () => {
   it("an open shell tab's toolName (main's name for it), else the platform's usual shell", async () => {
-    const { shellLabel } = await import('../src/components/SessionTabs')
+    const { shellLabel } = await import('../src/sessionList')
     setLang('en')
     expect(shellLabel([{ shell: true, terminal: { toolName: 'bash' } as never }], true)).toBe('bash')
     expect(shellLabel([{ shell: false, terminal: { toolName: 'Codex CLI' } as never }], true)).toBe('zsh')

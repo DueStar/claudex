@@ -17,7 +17,7 @@ import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
 import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, usageTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
-import { hpTone } from './sessionList'
+import { hpTone, rowTooltip, sessionHeaderParts, setListMode, shellLabel, useListMode } from './sessionList'
 import { sessionTools, shownCodexLimits } from './features'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
@@ -30,7 +30,7 @@ import FeedbackPin from './components/FeedbackPin'
 import { changeSettings, useSettings, useWorkMode } from './settingsStore'
 import { autoPartner, hideTitleKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews, VIEWS, type View } from './workMode'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
-import { SessionTabs } from './components/SessionTabs'
+import { SessionHeader } from './components/SessionHeader'
 import { useDragOrder } from './useDragOrder'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, MaximizeIcon, RestoreIcon, CloseIcon, FolderIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon } from './components/Icons'
@@ -180,7 +180,10 @@ const Widget: React.FC = () => {
     bridge?.update.get().then(setUpdate).catch(() => {})
     return bridge?.update.onState(setUpdate)
   }, [])
-  const [renaming, setRenaming] = useState<string | null>(null)
+  // The one rename field open: in a list row or in the session header (never both)
+  const [renaming, setRenaming] = useState<{ id: string; at: 'row' | 'header' } | null>(null)
+  const renamingRef = useRef(renaming)
+  const startRename = (id: string, at: 'row' | 'header') => { renamingRef.current = { id, at }; setRenaming({ id, at }) }
   const [notesOpen, setNotesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -362,6 +365,17 @@ const Widget: React.FC = () => {
       if (name && isFree(r)) { pendingRename.current.delete(r.terminal!.id); bridge?.terminals.send(r.terminal!.id, `/rename ${name}`) }
     }
   })
+  /**
+   * Closes the rename field: with a value it commits (Enter, or the field losing focus), without
+   * one it cancels (Esc). Once only: the field's blur as it goes away finds it already closed.
+   */
+  const endRename = (r: Row | undefined, value?: string) => {
+    const cur = renamingRef.current
+    if (!cur) return
+    renamingRef.current = null
+    setRenaming(null)
+    if (r && value !== undefined && cur.id === r.sessionId) commitRename(r, value)
+  }
   const withTerminal = rows.filter(r => r.terminal)
   const [target, setTarget] = useState<string | null>(() => readCarry().target ?? null)
   const [text, setText] = useState(() => readCarry().text ?? '')
@@ -444,6 +458,13 @@ const Widget: React.FC = () => {
   // One line per chosen session, picked at random (not on every render)
   const askPick = useMemo(() => Math.floor(Math.random() * ASK_LINES.length), [chosen?.sessionId])
   const shown = withTerminal.find(r => r.sessionId === target) ?? chosen ?? withTerminal[0]
+  // The left list: 상세 or 간략 (src/sessionList.ts), and the open session's row kept in sight
+  const listMode = useListMode()
+  const compact = listMode === 'compact'
+  const rowEls = useRef(new Map<string, HTMLElement>())
+  useEffect(() => {
+    if (shown?.sessionId) rowEls.current.get(shown.sessionId)?.scrollIntoView({ block: 'nearest' })
+  }, [shown?.sessionId, listMode])
   // In widget mode, the first session waiting on a question (its own output, or the hooks' needs-you)
   const askRow = expanded ? undefined : withTerminal.find(r => r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you'))
 
@@ -532,7 +553,7 @@ const Widget: React.FC = () => {
   const openShell = async () => {
     if (!bridge) return
     if (terminals.filter(tm => tm.tool === 'shell' && tm.status === 'running').length >= MAX_SHELLS) {
-      setNote(t('셸 탭은 {n}개까지 열 수 있어요.', { n: MAX_SHELLS }))
+      setNote(t('셸은 {n}개까지 열 수 있어요.', { n: MAX_SHELLS }))
       return
     }
     const r = await bridge.terminals.create({ tool: 'shell' })
@@ -658,6 +679,8 @@ const Widget: React.FC = () => {
           <button className={`w-rail-btn${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('새로운 세션 시작하기')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={16} /></button>
           <button className="w-rail-btn" onClick={() => launch(true)} title={t('다른 폴더에서 새 세션')} aria-label={t('다른 폴더에서 새 세션')}><FolderIcon /></button>
           <button className="w-rail-btn" onClick={() => setPicking(true)} title={t('예전 세션 골라서 이어하기')} aria-label={t('예전 세션 이어하기')}><SessionsIcon /></button>
+          {/* A new shell, as the list header's >_ does while the panel is open */}
+          <button className="w-rail-btn w-rail-newshell" onClick={() => { void openShell() }} title={t('셸 열기')} aria-label={t('셸 열기')}>&gt;_</button>
           <span className="w-rail-sep" />
           <div className="w-rail-sessions">
             {withTerminal.map(r => (
@@ -843,16 +866,69 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 })}
               </span>
             </div>}
+            {/* The list's header: how many, 간략 / 상세, a new shell, a new session */}
+            <div className="w-list-head">
+              <span className="w-list-count">{t('세션 {n}', { n: rows.length })}</span>
+              <span className="w-list-mode" role="group" aria-label={t('목록 보기')}>
+                <button className={compact ? 'on' : ''} aria-pressed={compact} onClick={() => setListMode('compact')} title={t('한 줄씩 (많이 보기)')}>{t('간략')}</button>
+                <button className={compact ? '' : 'on'} aria-pressed={!compact} onClick={() => setListMode('detail')} title={t('이름·상태·컨텍스트·모델까지')}>{t('상세')}</button>
+              </span>
+              <button className="w-list-btn w-list-shell" onClick={async () => { await openShell(); setExpanded(true) }}
+                title={workMode ? t('셸 열기') : t('셸 열기 (포켓몬 없이 {shell})', { shell: shellLabel(rows) })} aria-label={t('셸 열기')}>&gt;_</button>
+              <button className={`w-list-btn${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('새로운 세션 시작하기')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={13} /></button>
+            </div>
             {rows.length === 0 && <div className="w-empty">{t('새 세션을 열면 여기 나타나요')}</div>}
+            <div className={`w-rows${compact ? ' compact' : ''}`}>
             {rowOrder.shown.map((sid, i) => {
               const r = rowById.get(sid)!
               const drag = rowOrder.bind(sid, i, !!r.terminal)
               const mon = monOf(r.sessionId)
               const parts = sessionRowParts({ title: r.title, name: r.name, project: r.project, level: mon ? levelOf(mon) : null, helpers: (dex?.helpers?.[r.sessionId] ?? []).length, helperSession: isHelperSession(dex, r.sessionId), shell: r.shell }, workMode)
+              // What is left of the context window (the tick and the tooltip in 간략)
+              const ctxUsed = r.meter?.context.used
+              const ctxLeft = r.shell || typeof ctxUsed !== 'number' ? null : Math.max(0, Math.min(100, 100 - ctxUsed))
+              const picture = parts.picture === 'shell' ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span>
+                : parts.picture === 'glyph' ? <span className="w-row-mon w-row-glyph" aria-hidden="true"><TerminalIcon size={compact ? 14 : 18} /></span>
+                : <img className="w-row-mon" src={r.sprite} alt="" />
+              const nameEl = renaming?.id === r.sessionId && renaming.at === 'row' ? (
+                <input
+                  className="w-row-rename"
+                  autoFocus
+                  defaultValue={r.title ?? ''}
+                  placeholder={t('새 세션')}
+                  maxLength={40}
+                  onClick={e => e.stopPropagation()}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) endRename(r, e.currentTarget.value)
+                    if (e.key === 'Escape') endRename(r)
+                  }}
+                  onBlur={e => endRename(r, e.currentTarget.value)}
+                />
+              ) : (
+                <span
+                  className="w-row-name"
+                  title={r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
+                  onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); startRename(r.sessionId, 'row') }}
+                >{r.title ?? t('새 세션')}</span>
+              )
+              const pill = r.mood === 'needs-you' && r.terminal && !r.shell ? (
+                <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}><i className="w-pill-dot" /><span className="w-pill-text">{t('확인 필요')}</span></button>
+              ) : (
+                <span className={`w-pill mood-${r.mood}`}><i className="w-pill-dot" /><span className="w-pill-text">{t(MOOD_LABEL[r.mood])}</span></span>
+              )
+              const closeBtn = r.terminal && (
+                <button
+                  className={`w-row-close${closing === r.sessionId ? ' confirm' : ''}`}
+                  onClick={e => { e.stopPropagation(); closeSession(r) }}
+                  onMouseLeave={() => closing === r.sessionId && setClosing(null)}
+                  title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
+                  aria-label={t('세션 닫기')}
+                >{closing === r.sessionId ? t('닫기') : '×'}</button>
+              )
               return (
               <div
                 key={r.sessionId}
-                ref={drag.ref}
+                ref={el => { drag.ref(el); if (el) rowEls.current.set(sid, el); else rowEls.current.delete(sid) }}
                 style={rowOrder.style(sid, i)}
                 onPointerDown={drag.onPointerDown}
                 onPointerMove={drag.onPointerMove}
@@ -860,42 +936,28 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 onPointerCancel={drag.onPointerCancel}
                 className={`w-row${rowOrder.stateClass(sid)} mood-${r.mood}${r.terminal?.status === 'running' && r.terminal.asking ? ' asking' : ''}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
                 onClick={rowOrder.click(() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') })}
-                title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
+                title={compact ? rowTooltip({ title: r.title, mood: MOOD_LABEL[r.mood], left: ctxLeft, barLabel: parts.barLabel }, t) : r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
+                {compact ? (
+                  // 간략: one line — picture, name, the context tick (colour only), the status dot;
+                  // hovered, the × takes the dot's place. The rest is in the tooltip
+                  <div className="w-row-head">
+                    {picture}
+                    <div className="w-row-line1">
+                      {nameEl}
+                      {!r.shell && <span className={`w-row-tick ${hpTone(ctxLeft)}`} aria-hidden="true" />}
+                      <span className="w-row-state">{pill}{closeBtn}</span>
+                    </div>
+                  </div>
+                ) : <>
                 {/* Line 1: the session's name and its status; line 2: Lv first, then folder, AI tool and
                     branch (the branch gives way first), helpers at the end. The buttons float over
                     line 2's end on hover instead of holding space the name needs */}
                 <div className="w-row-head">
-                  {parts.picture === 'shell' ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span>
-                    : parts.picture === 'glyph' ? <span className="w-row-mon w-row-glyph" aria-hidden="true"><TerminalIcon size={18} /></span>
-                    : <img className="w-row-mon" src={r.sprite} alt="" />}
+                  {picture}
                   <div className="w-row-line1">
-                    {renaming === r.sessionId ? (
-                      <input
-                        className="w-row-rename"
-                        autoFocus
-                        defaultValue={r.title ?? ''}
-                        placeholder={t('새 세션')}
-                        maxLength={40}
-                        onClick={e => e.stopPropagation()}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) { commitRename(r, e.currentTarget.value); setRenaming(null) }
-                          if (e.key === 'Escape') setRenaming(null)
-                        }}
-                        onBlur={e => { if (renaming === r.sessionId) commitRename(r, e.currentTarget.value); setRenaming(null) }}
-                      />
-                    ) : (
-                      <span
-                        className="w-row-name"
-                        title={r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
-                        onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
-                      >{r.title ?? t('새 세션')}</span>
-                    )}
-                    {r.shell ? null : r.mood === 'needs-you' && r.terminal ? (
-                      <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}><i className="w-pill-dot" /><span className="w-pill-text">{t('확인 필요')}</span></button>
-                    ) : (
-                      <span className={`w-pill mood-${r.mood}`}><i className="w-pill-dot" /><span className="w-pill-text">{t(MOOD_LABEL[r.mood])}</span></span>
-                    )}
+                    {nameEl}
+                    {r.shell ? null : pill}
                   </div>
                   <div className="w-row-line2">
                     {parts.level !== null && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{parts.level}</span>}
@@ -915,20 +977,13 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     )}
                     {(r.terminal || monOf(r.sessionId)) && (
                       <span className="w-row-tools">
-                        {r.terminal && renaming !== r.sessionId && (
-                          <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
+                        {r.terminal && renaming?.id !== r.sessionId && (
+                          <button className="w-row-edit" onClick={e => { e.stopPropagation(); startRename(r.sessionId, 'row') }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
                         )}
                         {parts.swap && (
                           <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('교체: 이 세션에서 일할 포켓몬을 바꿔요 (파티나 박스에서)')} aria-label={t('교체')}><SwapIcon size={13} /></button>
                         )}
-                        {r.terminal && (
-                          <button
-                            className={`w-row-close${closing === r.sessionId ? ' confirm' : ''}`}
-                            onClick={e => { e.stopPropagation(); closeSession(r) }}
-                            onMouseLeave={() => closing === r.sessionId && setClosing(null)}
-                            title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
-                          >{closing === r.sessionId ? t('닫기') : '×'}</button>
-                        )}
+                        {closeBtn}
                       </span>
                     )}
                   </div>
@@ -981,8 +1036,10 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     </div>
                   )
                 })()}
+                </>}
               </div>
             ) })}
+            </div>
           </section>
 
           {/* A question Claude Code cannot go on without (folder trust, a permission):
@@ -1056,21 +1113,25 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={isMac() ? t('닫기 ({tray} 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)', { tray: t(platformWord('tray', true)) }) : t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>
-          {/* The sessions: their own row of tabs under the view bar, reordered by dragging */}
+          {/* Which session is open (the left list or the rail switches them): its picture, name,
+              branch and project; rename and close here too. The bar keeps its height with none */}
           {view === 'terminal' && (
-            <SessionTabs
-              rows={withTerminal}
-              shownId={shown?.sessionId}
-              onSelect={setTarget}
-              onRename={setRenaming}
-              onMove={(id, index) => { void bridge?.terminals.move(id, index) }}
-              onNew={() => launch(false)}
-              onNewShell={openShell}
-              onClose={id => { const r = withTerminal.find(x => x.sessionId === id); if (r) closeSession(r) }}
-              closing={closing}
-              onCloseCancel={() => setClosing(null)}
-              workMode={workMode}
-            />
+            <div className="w-sess-bar">
+              {shown?.terminal && (
+                <SessionHeader
+                  parts={sessionHeaderParts(shown, workMode)}
+                  sprite={shown.sprite}
+                  cwd={shown.session?.cwd ?? shown.terminal.cwd}
+                  renaming={renaming?.id === shown.sessionId && renaming.at === 'header'}
+                  onRenameStart={() => startRename(shown.sessionId, 'header')}
+                  onRenameCommit={value => endRename(shown, value)}
+                  onRenameCancel={() => endRename(shown)}
+                  closing={closing === shown.sessionId}
+                  onClose={() => closeSession(shown)}
+                  onCloseCancel={() => setClosing(null)}
+                />
+              )}
+            </div>
           )}
           <Suspense fallback={null}>
             {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}
