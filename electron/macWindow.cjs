@@ -1,0 +1,117 @@
+'use strict'
+
+/**
+ * electron/macWindow.cjs — the app window on macOS.
+ *
+ * The app is two windows, never both (main.cjs): the widget and an ordinary window for
+ * the window and fullscreen modes. Moving between them builds the other one, so each
+ * gets its own title bar at creation: the window the native traffic lights (inset, in
+ * the room the page leaves at its top-left), the widget none (it has its own buttons).
+ *
+ * Fullscreen is the display's work area filled, not macOS's own full screen (a Space of
+ * its own) and not its zoom (which toggles to a frame macOS keeps itself): the bounds
+ * before are remembered here and put back for the window mode. A Mac has no in-app
+ * full-screen button (the owner's decision: the page's window buttons give way to the
+ * traffic lights). The fill comes from the saved mode: macOS's zoom (a double-click on
+ * the title area, Window › Zoom) or its own full screen (the green button) is heard as
+ * the fullscreen mode (maximize / enter-full-screen in main.cjs), and a window opened in
+ * that saved mode, or switched to it, is filled here.
+ *
+ * The platform is a parameter so both sides can be tested on any OS; on Windows none of
+ * these does anything.
+ */
+
+const { isMac } = require('./platform.cjs')
+
+/** The BrowserWindow options a window of `mode` gets on macOS ({} elsewhere). */
+function macWindowOptions(mode, platform = process.platform) {
+  if (!isMac(platform)) return {}
+  if (mode === 'widget') return { frame: false }
+  return { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 } }
+}
+
+// Each filled window's bounds from before the fill
+const before = new WeakMap()
+
+/** Fill the work area of the window's display; the bounds before are kept for restore. */
+function fillWorkArea(win, screen, platform = process.platform) {
+  if (!isMac(platform)) return false
+  const b = win.getBounds()
+  const { workArea } = screen.getDisplayMatching(b)
+  if (!before.has(win)) before.set(win, b)
+  win.setBounds({ x: workArea.x, y: workArea.y, width: workArea.width, height: workArea.height })
+  return true
+}
+
+/** Put a filled window back where it was before the fill. */
+function restore(win, platform = process.platform) {
+  if (!isMac(platform)) return false
+  const b = before.get(win)
+  if (!b) return false
+  before.delete(win)
+  win.setBounds(b)
+  return true
+}
+
+/** Filled by fillWorkArea and not restored since */
+const isFilled = (win) => before.has(win)
+
+/**
+ * The display's work area changed (the Dock shown or hidden, moved, resized; the display
+ * rearranged) while `win` is filled: fill the new one. Leaving widget mode shows the Dock
+ * icon again after the window was filled, and the fill was a few pixels off (CI run 2).
+ * The bounds from before the first fill stay, for restore.
+ */
+function refillOnWorkAreaChange(win, changedMetrics, screen, platform = process.platform) {
+  if (!isMac(platform) || !win || win.isDestroyed?.() || !isFilled(win)) return false
+  if (!Array.isArray(changedMetrics) || !changedMetrics.includes('workArea')) return false
+  return fillWorkArea(win, screen, platform)
+}
+
+/**
+ * Switch one window between the fullscreen and the window mode. macOS's own full screen
+ * (the green button) already is the fullscreen mode; the window mode leaves it. A window
+ * zoomed by macOS (a double-click on the title area, Window › Zoom) is unzoomed.
+ */
+function applyMode(win, mode, screen, platform = process.platform) {
+  if (!isMac(platform)) return false
+  if (mode === 'fullscreen') {
+    // Filled again even when filled already (moved by hand since): the first bounds stay
+    if (!win.isFullScreen()) fillWorkArea(win, screen, platform)
+  } else if (win.isFullScreen()) {
+    win.setFullScreen(false)
+  } else if (isFilled(win)) {
+    restore(win, platform)
+  } else if (win.isMaximized()) {
+    win.unmaximize()
+  }
+  return true
+}
+
+/**
+ * The window mode reached another way than restore (macOS's zoom toggled off, heard as
+ * unmaximize): the fill is over, so its record goes. Kept, it would stop the window's
+ * place being saved and leave the bounds of an old fill for the next restore.
+ */
+function noteMode(win, mode, platform = process.platform) {
+  if (!isMac(platform) || mode !== 'window') return
+  before.delete(win)
+}
+
+/** The Dock icon: hidden while the app is the widget, shown in the other modes. */
+function dockFor(mode, dock, platform = process.platform) {
+  if (!isMac(platform) || !dock) return
+  if (mode === 'widget') dock.hide()
+  else Promise.resolve(dock.show()).catch(() => {})
+}
+
+/**
+ * How long a quit may take before the app goes anyway: 2 s while macOS shuts down or logs
+ * out (it gives up on the logout when an app takes long), else no cap (null): an ordinary
+ * quit, and every quit on Windows, waits for the server's flush and the sessions' end.
+ */
+function quitCapMs({ platform = process.platform, systemShutdown = false } = {}) {
+  return isMac(platform) && systemShutdown ? 2000 : null
+}
+
+module.exports = { macWindowOptions, fillWorkArea, restore, isFilled, applyMode, noteMode, dockFor, quitCapMs, refillOnWorkAreaChange }

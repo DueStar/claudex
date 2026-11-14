@@ -16,10 +16,14 @@ class FakeStorage {
 describe('theme.ts session cast', () => {
   beforeEach(() => {
     ;(globalThis as any).localStorage = new FakeStorage()
+    // The names below are Korean: the language is 'auto' (the system's), so the system is
+    // Korean here whatever the host's own locale is (Node has a navigator.language too)
+    vi.stubGlobal('navigator', { language: 'ko-KR' })
     vi.resetModules()
   })
   afterEach(() => {
     delete (globalThis as any).localStorage
+    vi.unstubAllGlobals()
   })
 
   it('a session is a Poké Ball until the server sends its Pokémon out, then that Pokémon', async () => {

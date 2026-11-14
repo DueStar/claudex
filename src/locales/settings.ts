@@ -80,6 +80,7 @@ const en: Record<string, string> = {
   '위젯 모드에서 다른 창 위에 고정돼요': 'In widget mode, it stays above other windows',
   '터미널 글꼴': 'Terminal font',
   '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요': 'Applies to open terminals right away. A font that is not installed shows as Consolas',
+  '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Menlo로 보여요': 'Applies to open terminals right away. A font that is not installed shows as Menlo',
   '스크롤 기록': 'Scrollback',
   '터미널마다 위로 올려 볼 수 있는 줄 수예요. 많을수록 메모리를 더 써요': 'How many lines each terminal keeps to scroll back through. More lines use more memory',
   '{n}줄': '{n} lines',
@@ -102,6 +103,12 @@ const en: Record<string, string> = {
   '데이터 폴더': 'Data folder',
   'pokedex.json이 저장된 폴더예요': 'The folder where pokedex.json is saved',
   '열기': 'Open',
+  '트레이': 'tray',
+  '메뉴 막대': 'menu bar',
+  '로그인 시 실행': 'Open at login',
+  '시작 시 {tray}로 최소화': 'Start minimized to the {tray}',
+  '창을 띄우지 않고 시작해요. {tray}의 몬스터볼로 열 수 있어요': 'Starts without a window. Open it from the Poké Ball in the {tray}',
+  '앱을 보고 있지 않을 때 세션이 일을 마치거나 확인이 필요하면 알림을 띄우고 Dock 아이콘을 튀겨요': 'When the app is not in front and a session finishes or needs you, show a notification and bounce the Dock icon',
 }
 const ja: Record<string, string> = {
   // sections
@@ -184,6 +191,7 @@ const ja: Record<string, string> = {
   '위젯 모드에서 다른 창 위에 고정돼요': 'ウィジェットモードでほかのウィンドウより手前に固定されます',
   '터미널 글꼴': 'ターミナルのフォント',
   '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요': '開いているターミナルにもすぐ適用されます。インストールされていないフォントは Consolas で表示されます',
+  '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Menlo로 보여요': '開いているターミナルにもすぐ適用されます。インストールされていないフォントは Menlo で表示されます',
   '스크롤 기록': 'スクロールバック',
   '터미널마다 위로 올려 볼 수 있는 줄 수예요. 많을수록 메모리를 더 써요': 'ターミナルごとにさかのぼって見られる行数です。多いほどメモリを多く使います',
   '{n}줄': '{n}行',
@@ -206,5 +214,11 @@ const ja: Record<string, string> = {
   '데이터 폴더': 'データフォルダ',
   'pokedex.json이 저장된 폴더예요': 'pokedex.json が保存されているフォルダです',
   '열기': '開く',
+  '트레이': 'トレイ',
+  '메뉴 막대': 'メニューバー',
+  '로그인 시 실행': 'ログイン時に起動',
+  '시작 시 {tray}로 최소화': '起動時に{tray}へ最小化',
+  '창을 띄우지 않고 시작해요. {tray}의 몬스터볼로 열 수 있어요': 'ウィンドウを表示せずに起動します。{tray}のモンスターボールから開けます',
+  '앱을 보고 있지 않을 때 세션이 일을 마치거나 확인이 필요하면 알림을 띄우고 Dock 아이콘을 튀겨요': 'アプリを見ていないときにセッションが作業を終えたり確認が必要になったりすると、通知を出してDockアイコンを弾ませます',
 }
 export default { en, ja }

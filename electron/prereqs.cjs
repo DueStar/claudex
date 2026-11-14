@@ -27,26 +27,30 @@ function run(cmd, args) {
   })
 }
 
-async function claudeVersion() {
-  const local = path.join(os.homedir(), '.local', 'bin', process.platform === 'win32' ? 'claude.exe' : 'claude')
-  const out = (fs.existsSync(local) && await run(local, ['--version'])) || await run('claude', ['--version'])
+async function claudeVersion({ platform, run, home, exists }) {
+  const local = path.join(home, '.local', 'bin', platform === 'win32' ? 'claude.exe' : 'claude')
+  const out = (exists(local) && await run(local, ['--version'])) || await run('claude', ['--version'])
   return out ? out.split('\n')[0] : null
 }
 
-async function gitVersion() {
+async function gitVersion({ platform, run, exists }) {
+  // On the Mac `git` without the Xcode command line tools pops up an install dialog:
+  // ask xcode-select first, and never run git without them. Git is optional there.
+  if (platform === 'darwin' && !(await run('xcode-select', ['-p']))) return null
   const out = await run('git', ['--version'])
   if (out) return out.split('\n')[0]
   const bash = 'C:\\Program Files\\Git\\bin\\bash.exe'
-  return process.platform === 'win32' && fs.existsSync(bash) ? 'Git Bash' : null
+  return platform === 'win32' && exists(bash) ? 'Git Bash' : null
 }
 
 /** { claude, git } -> { ok, version, link } */
-async function checkPrereqs() {
-  const [claude, git] = await Promise.all([claudeVersion(), gitVersion()])
+async function checkPrereqs({ platform = process.platform, run: runner = run, home = os.homedir(), exists = fs.existsSync } = {}) {
+  const ctx = { platform, run: runner, home, exists }
+  const [claude, git] = await Promise.all([claudeVersion(ctx), gitVersion(ctx)])
   // Debug: SPAWN_FAKE_MISSING=claude,git pretends those are not installed
   const fake = new Set(String(process.env.SPAWN_FAKE_MISSING || '').split(',').filter(Boolean))
-  const item = (version, key) => (fake.has(key) ? { ok: false, version: null, link: LINKS[key] } : { ok: !!version, version, link: LINKS[key] })
-  return { claude: item(claude, 'claude'), git: item(git, 'git') }
+  const item = (version, key, optional = false) => (fake.has(key) ? { ok: false, version: null, link: LINKS[key] } : { ok: optional || !!version, version, link: LINKS[key] })
+  return { claude: item(claude, 'claude'), git: item(git, 'git', platform === 'darwin') }
 }
 
 module.exports = { checkPrereqs, LINKS }

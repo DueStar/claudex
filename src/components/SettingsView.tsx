@@ -10,8 +10,10 @@ import { useSettings, changeSettings } from '../settingsStore'
 import { cloudErrorText, useCloud } from '../cloudStore'
 import { CloseIcon } from './Icons'
 import { t, locale } from '../i18n'
+import { isMac, platformWord } from '../platform'
+import { termFontLabel } from '../termFont'
 import { settingsSections } from '../features'
-import { WORK_MODE_KEY } from '../workMode'
+import { workModeKeyLabel } from '../workMode'
 
 type Section = 'notify' | 'privacy' | 'session' | 'tools' | 'app' | 'data'
 
@@ -151,7 +153,7 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback
             <Toggle label={t('진화')} on={s.notify.evolve} onChange={v => set('notify', { evolve: v })} />
             <Toggle label={t('레벨 업')} on={s.notify.levelup} onChange={v => set('notify', { levelup: v })} />
             <Toggle label={t('희귀 등급 이상만')} hint={t('포획·도망 알림은 희귀 등급 이상이거나 색이 다른 포켓몬일 때만 표시해요')} on={s.notify.rareOnly} onChange={v => set('notify', { rareOnly: v })} />
-            <Toggle label={t('세션 알림')} hint={t('앱을 보고 있지 않을 때 세션이 일을 마치거나 확인이 필요하면 Windows 알림을 띄우고 작업 표시줄을 깜빡여요')} on={s.notify.sessions} onChange={v => set('notify', { sessions: v })} />
+            <Toggle label={t('세션 알림')} hint={t(isMac() ? '앱을 보고 있지 않을 때 세션이 일을 마치거나 확인이 필요하면 알림을 띄우고 Dock 아이콘을 튀겨요' : '앱을 보고 있지 않을 때 세션이 일을 마치거나 확인이 필요하면 Windows 알림을 띄우고 작업 표시줄을 깜빡여요')} on={s.notify.sessions} onChange={v => set('notify', { sessions: v })} />
             <Toggle label={t('효과음')} hint={t('알림이 뜰 때 짧은 소리를 내요 (포획, 도망, 레벨 업, 진화)')} on={s.notify.sound} onChange={v => set('notify', { sound: v })} />
             <Choice label={t('표시 시간')} value={s.notify.duration} options={[['short', t('짧게')], ['normal', t('보통')], ['long', t('길게')]]} onChange={v => set('notify', { duration: v })} />
             <Toggle label={t('방해 금지')} hint={t('정한 시간에는 알림을 띄우지 않아요. 기록에는 그대로 남아요')} on={s.notify.quiet} onChange={v => set('notify', { quiet: v })} />
@@ -192,14 +194,14 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback
           {section === 'app' && <>
             <h3>{t('앱')}</h3>
             {/* First in 앱, so it is found at once (src/workMode.ts) */}
-            <Toggle label={t('업무 모드')} hint={t('포켓몬 그림과 이름, 도감·박스·기록·랭킹, 포획 알림을 숨겨서 평범한 세션 도구처럼 보여요. 게임은 그대로 계속돼요. 단축키 {key}', { key: WORK_MODE_KEY })}
-              title={t('업무 모드 켜고 끄기 ({key})', { key: WORK_MODE_KEY })} on={s.app.workMode} onChange={v => set('app', { workMode: v })} />
+            <Toggle label={t('업무 모드')} hint={t('포켓몬 그림과 이름, 도감·박스·기록·랭킹, 포획 알림을 숨겨서 평범한 세션 도구처럼 보여요. 게임은 그대로 계속돼요. 단축키 {key}', { key: workModeKeyLabel() })}
+              title={t('업무 모드 켜고 끄기 ({key})', { key: workModeKeyLabel() })} on={s.app.workMode} onChange={v => set('app', { workMode: v })} />
             <Choice label={t('언어')} hint={s.app.language === 'auto' ? t('시스템 언어를 따라요') : undefined} value={s.app.language} options={[['auto', t('자동')], ['ko', '한국어'], ['en', 'English'], ['ja', '日本語']]} onChange={v => set('app', { language: v })} />
-            <Toggle label={t('Windows 시작 시 실행')} on={s.app.openAtLogin} onChange={v => set('app', { openAtLogin: v })} />
-            <Toggle label={t('시작 시 트레이로 최소화')} hint={t('창을 띄우지 않고 시작해요. 작업 표시줄 트레이의 몬스터볼로 열 수 있어요')} on={s.app.startHidden} onChange={v => set('app', { startHidden: v })} />
+            <Toggle label={t(platformWord('startup', isMac()))} on={s.app.openAtLogin} onChange={v => set('app', { openAtLogin: v })} />
+            <Toggle label={isMac() ? t('시작 시 {tray}로 최소화', { tray: t(platformWord('tray', true)) }) : t('시작 시 트레이로 최소화')} hint={isMac() ? t('창을 띄우지 않고 시작해요. {tray}의 몬스터볼로 열 수 있어요', { tray: t(platformWord('tray', true)) }) : t('창을 띄우지 않고 시작해요. 작업 표시줄 트레이의 몬스터볼로 열 수 있어요')} on={s.app.startHidden} onChange={v => set('app', { startHidden: v })} />
             <Toggle label={t('위젯 항상 위에 표시')} hint={t('위젯 모드에서 다른 창 위에 고정돼요')} on={s.app.widgetOnTop} onChange={v => set('app', { widgetOnTop: v })} />
-            <Choice label={t('터미널 글꼴')} hint={t('열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요')} value={s.terminal.font}
-              options={[['default', 'Monaspace'], ['consolas', 'Consolas'], ['cascadia', 'Cascadia'], ['d2coding', 'D2Coding']]} onChange={v => set('terminal', { font: v })} />
+            <Choice label={t('터미널 글꼴')} hint={t(isMac() ? '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Menlo로 보여요' : '열린 터미널에도 바로 적용돼요. 설치되지 않은 글꼴은 Consolas로 보여요')} value={s.terminal.font}
+              options={[['default', 'Monaspace'], ['consolas', termFontLabel('consolas')], ['cascadia', 'Cascadia'], ['d2coding', 'D2Coding']]} onChange={v => set('terminal', { font: v })} />
             <Choice label={t('스크롤 기록')} hint={t('터미널마다 위로 올려 볼 수 있는 줄 수예요. 많을수록 메모리를 더 써요')} value={String(s.terminal.scrollback)}
               options={SCROLLBACKS.map(n => [String(n), t('{n}줄', { n: n.toLocaleString(locale()) })])} onChange={v => set('terminal', { scrollback: Number(v) as AppSettings['terminal']['scrollback'] })} />
             {onFeedback && (

@@ -4,7 +4,7 @@
  * behind the "updating" card, never loop, leave the staged folder for later.
  */
 import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -44,7 +44,8 @@ function fakes(code: number | null = 1) {
   return { app, spawn, card, openCard, timer, steps }
 }
 
-const run = (f: ReturnType<typeof fakes>, isPackaged = true) => runPendingUpdate({
+// These are the Windows flow (robocopy, app.relaunch), pinned so they run on any host; the Mac flow is pinned to darwin below
+const run = (f: ReturnType<typeof fakes>, isPackaged = true) => runPendingUpdate({ platform: 'win32',
   app: f.app, isPackaged, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer,
   readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--some-flag'],
 })
@@ -107,14 +108,14 @@ describe('runPendingUpdate', () => {
   it('does not add the updated flag twice', async () => {
     writeMarker()
     const f = fakes(0)
-    await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--spawn-updated'] })
+    await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--spawn-updated'] })
     expect(f.app.relaunch).toHaveBeenCalledWith({ args: ['--spawn-updated'] })
   })
 
   it('drops the old --claudex-updated flag (from a 1.3.35 restart) instead of carrying it along', async () => {
     writeMarker()
     const f = fakes(0)
-    await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--claudex-updated', '--x'] })
+    await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, readNear: () => null, lang: 'ko', argv: ['spawn.exe', '--claudex-updated', '--x'] })
     expect(f.app.relaunch).toHaveBeenCalledWith({ args: ['--x', '--spawn-updated'] })
   })
 
@@ -147,7 +148,7 @@ describe('runPendingUpdate — robustness', () => {
   it('a marker that cannot be removed ends the run without starting it again (no loop)', async () => {
     writeMarker()
     const f = fakes()
-    const r = await runPendingUpdate({
+    const r = await runPendingUpdate({ platform: 'win32',
       app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'],
       removeMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
       setAsideMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
@@ -161,7 +162,7 @@ describe('runPendingUpdate — robustness', () => {
   it('a marker that cannot be removed but can be set aside still lets the update go in', async () => {
     writeMarker()
     const f = fakes(1)
-    const r = await runPendingUpdate({
+    const r = await runPendingUpdate({ platform: 'win32',
       app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'],
       removeMarker: () => { throw Object.assign(new Error('busy'), { code: 'EBUSY' }) },
     })
@@ -183,7 +184,7 @@ describe('runPendingUpdate — robustness', () => {
     let ready = false
     f.app.whenReady = vi.fn(async () => { ready = true })
     const getLang = vi.fn(() => (ready ? 'ko' : 'en'))
-    await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], getLang })
+    await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], getLang })
     expect(f.openCard).toHaveBeenCalledWith(expect.objectContaining({ lang: 'ko' }))
   })
 
@@ -191,7 +192,7 @@ describe('runPendingUpdate — robustness', () => {
     writeMarker()
     const f = fakes(1)
     f.app.whenReady = vi.fn(() => new Promise<void>(() => {}))
-    const r = await runPendingUpdate({ app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], readyTimeoutMs: 20 })
+    const r = await runPendingUpdate({ platform: 'win32', app: f.app, isPackaged: true, resourcesPath: resources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer, argv: ['x'], readyTimeoutMs: 20 })
     expect(r.ok).toBe(true)
     expect(f.openCard).not.toHaveBeenCalled()
     expect(f.app.relaunch).toHaveBeenCalledTimes(1)
@@ -203,7 +204,11 @@ describe('cleanupStaleUpdates', () => {
     const tmp = join(root, 'tmp'); mkdirSync(tmp)
     // claudex-update-*: left by 1.3.35 and older (the update into spawn among them)
     for (const d of ['spawn-update-a', 'spawn-update-b', 'claudex-update-c', 'other']) mkdirSync(join(tmp, d))
-    await expect(cleanupStaleUpdates({ tmpdir: tmp, keep: join(tmp, 'spawn-update-b'), minAgeMs: 0 })).resolves.toBe(2)
+    // Seen an hour on, so every folder is old: a file's birth time is finer than Date.now()'s whole
+    // milliseconds and can read a fraction after it, so with minAgeMs 0 and the real clock a folder
+    // made in the same millisecond still counted as new (macOS CI, run 3: 0 removed, not 2)
+    const later = Date.now() + 60 * 60_000
+    await expect(cleanupStaleUpdates({ tmpdir: tmp, keep: join(tmp, 'spawn-update-b'), now: () => later })).resolves.toBe(2)
     expect(readdirSync(tmp).sort()).toEqual(['other', 'spawn-update-b'])
   })
 
@@ -214,5 +219,104 @@ describe('cleanupStaleUpdates', () => {
     expect(readdirSync(tmp)).toEqual(['spawn-update-new'])
     // the same folder, seen just over ten minutes later (a file time is finer than Date.now's whole ms)
     await expect(cleanupStaleUpdates({ tmpdir: tmp, now: () => Date.now() + 10 * 60_000 + 1000 })).resolves.toBe(1)
+  })
+})
+
+describe('runPendingUpdate on macOS', () => {
+  const bundle = '/Applications/spawn.app'
+  const macResources = `${bundle}/Contents/Resources`
+
+  /** spawn and mirror fakes that log the order things happen in; `codes` per command */
+  function macFakes(codes: Record<string, number> = {}, mirrorError: Error | null = null) {
+    const f = fakes()
+    const order: string[] = []
+    f.spawn.mockImplementation(((cmd: string) => {
+      order.push(cmd)
+      const child = new EventEmitter()
+      setTimeout(() => child.emit('exit', codes[cmd] ?? 0), 0)
+      return child
+    }) as any)
+    const mirror = vi.fn((_from: string, _to: string) => { order.push('mirror'); if (mirrorError) throw mirrorError })
+    const runMac = () => runPendingUpdate({
+      app: f.app, isPackaged: true, resourcesPath: macResources, userData, spawn: f.spawn, openCard: f.openCard, timer: f.timer,
+      argv: ['/Applications/spawn.app/Contents/MacOS/spawn', '--some-flag'], platform: 'darwin', mirror,
+    })
+    return { f, order, mirror, runMac }
+  }
+
+  it('mirrors the update into the bundle, re-signs it ad hoc and opens it again', async () => {
+    writeMarker()
+    const { f, order, mirror, runMac } = macFakes()
+    await expect(runMac()).resolves.toEqual({ ok: true })
+    expect(order).toEqual(['mirror', 'codesign', 'open'])
+    expect(mirror).toHaveBeenCalledWith(staged, `${macResources}/app`)
+    const calls = f.spawn.mock.calls as unknown as Array<[string, string[], any]>
+    expect(calls[0].slice(0, 2)).toEqual(['codesign', ['--force', '--deep', '--sign', '-', bundle]])
+    expect(calls[1].slice(0, 2)).toEqual(['open', ['-n', bundle, '--args', '--spawn-updated']])
+    expect(f.app.relaunch).not.toHaveBeenCalled()
+    expect(f.app.exit).toHaveBeenCalledWith(0)
+    expect(existsSync(marker())).toBe(false)
+    expect(existsSync(staged)).toBe(true)
+    expect(f.card.close).toHaveBeenCalled()
+    expect(f.steps).toEqual(['p2-start', 'mirror-start', 'mirror-end', 'codesign-start', 'codesign-end', 'relaunch'])
+  })
+
+  it('a failed re-sign still opens the updated app, and the update log says so', async () => {
+    writeMarker()
+    const { f, order, runMac } = macFakes({ codesign: 1 })
+    const r = await runMac()
+    expect(order).toEqual(['mirror', 'codesign', 'open'])
+    expect(r.ok).toBe(true)
+    expect(f.timer.mark).toHaveBeenCalledWith('codesign-end', 'code=1')
+    expect(f.app.exit).toHaveBeenCalledWith(0)
+  })
+
+  it('a failed copy is logged, the bundle is signed again all the same, and the app opens', async () => {
+    writeMarker()
+    const { f, order, runMac } = macFakes({}, Object.assign(new Error('nope'), { code: 'EACCES' }))
+    const r = await runMac()
+    expect(r).toEqual({ ok: false, reason: 'mirror EACCES' })
+    expect(order).toEqual(['mirror', 'codesign', 'open'])
+    expect(f.timer.mark).toHaveBeenCalledWith('mirror-end', 'error=EACCES nope')
+    expect(f.app.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failed copy leaves a note, so the next check offers the full download instead of the same patch', async () => {
+    writeMarker()
+    const { runMac } = macFakes({}, Object.assign(new Error('nope'), { code: 'EACCES' }))
+    await runMac()
+    const note = join(userData, 'mac-update-failed.json')
+    expect(JSON.parse(readFileSync(note, 'utf8'))).toMatchObject({ version: '9.9.9' })
+  })
+
+  it('a copy that went in leaves no note; neither does Windows', async () => {
+    writeMarker()
+    await macFakes().runMac()
+    expect(existsSync(join(userData, 'mac-update-failed.json'))).toBe(false)
+    writeMarker()
+    await run(fakes(8)) // robocopy failed on Windows: the flow there is as it was
+    expect(existsSync(join(userData, 'mac-update-failed.json'))).toBe(false)
+  })
+
+  it('when open fails, Electron starts the app instead (never left closed)', async () => {
+    writeMarker()
+    const { f, runMac } = macFakes({ open: 1 })
+    await runMac()
+    expect(f.app.relaunch).toHaveBeenCalledWith({ args: ['--spawn-updated'] })
+    expect(f.app.exit).toHaveBeenCalledWith(0)
+  })
+
+  it('a marker pointing at nothing touches nothing and opens the app', async () => {
+    writeMarker(join(root, 'gone', 'app'))
+    const { f, order, runMac } = macFakes()
+    await expect(runMac()).resolves.toEqual({ ok: false, reason: 'no staged app' })
+    expect(order).toEqual(['open'])
+    expect(f.app.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('bundlePath is the .app two levels above Contents/Resources', () => {
+    const { bundlePath } = require('../electron/updateRunner.cjs')
+    expect(bundlePath('/Applications/spawn.app/Contents/Resources')).toBe('/Applications/spawn.app')
+    expect(bundlePath('/Users/me/Apps/spawn.app/Contents/Resources/')).toBe('/Users/me/Apps/spawn.app')
   })
 })

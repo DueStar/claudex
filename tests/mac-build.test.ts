@@ -1,0 +1,255 @@
+/**
+ * The Mac build (package.json build.mac, scripts/mac-build.mjs) and its CI
+ * (.github/workflows/mac.yml): the names the zips go by (the Mac updater
+ * takes only spawn-app-<v>-mac-<arch>.zip), where electron-builder leaves
+ * spawn.app, the node-pty helper that must stay executable, and a Windows
+ * build left exactly as it was.
+ */
+
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+// @ts-expect-error plain ESM script without types
+import { macArtifactNames, findMacApps, pickMacApp, appDirOf, spawnHelperProblems, sha256Lines, smokeKillMs, pruneOtherPlatforms, OTHER_PLATFORM_PATHS, bundleMissingFonts } from '../scripts/mac-build.mjs'
+
+const require = createRequire(import.meta.url)
+const { appFilePattern } = require('../electron/updater.cjs')
+const yaml = require('js-yaml')
+const ROOT = join(__dirname, '..')
+const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+
+describe('artifact names', () => {
+  it('per arch: the update zip, the full zip and the CI artifact', () => {
+    expect(macArtifactNames('1.3.48', 'arm64')).toEqual({ artifact: 'mac-arm64', appZip: 'spawn-app-1.3.48-mac-arm64.zip', fullZip: 'spawn-1.3.48-mac-arm64.zip' })
+    expect(macArtifactNames('0.0.0-test', 'x64')).toEqual({ artifact: 'mac-x64', appZip: 'spawn-app-0.0.0-test-mac-x64.zip', fullZip: 'spawn-0.0.0-test-mac-x64.zip' })
+  })
+
+  it('the update zip is one the Mac updater takes, for its own arch', () => {
+    for (const arch of ['arm64', 'x64']) {
+      const m = appFilePattern('darwin').exec(macArtifactNames('1.3.48', arch).appZip)
+      expect(m?.[1]).toBe(arch)
+    }
+  })
+
+  it('only arm64 and x64, and a version that is a version', () => {
+    expect(() => macArtifactNames('1.3.48', 'ia32')).toThrow()
+    expect(() => macArtifactNames('', 'arm64')).toThrow()
+    expect(() => macArtifactNames('1.3.48/../x', 'arm64')).toThrow()
+  })
+
+  it('sha256.txt: one "<hash>  <file>" line per file', () => {
+    expect(sha256Lines({ 'a.zip': 'ab12', 'b.zip': 'cd34' })).toBe('ab12  a.zip\ncd34  b.zip\n')
+  })
+})
+
+describe("the smoke launch's kill time", () => {
+  it("follows the app's own timeout: it plus the quit cap plus a margin, so the app always says why first", () => {
+    // default: 60 s run + 20 s quit + 10 s = 90 s
+    expect(smokeKillMs({})).toBe(90_000)
+    expect(smokeKillMs({ SPAWN_SMOKE_TIMEOUT_MS: '120000' })).toBe(150_000)
+    // what the app would not take as a timeout, the kill does not take either
+    for (const bad of ['', 'abc', '-5', '0', 'Infinity']) expect(smokeKillMs({ SPAWN_SMOKE_TIMEOUT_MS: bad })).toBe(90_000)
+  })
+})
+
+describe('the built app', () => {
+  let dir: string
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'spawn-mac-build-')) })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  const makeApp = (folder: string) => {
+    const app = join(dir, folder, 'spawn.app')
+    mkdirSync(join(app, 'Contents', 'MacOS'), { recursive: true })
+    return app
+  }
+
+  it('finds spawn.app in release/mac (x64) and release/mac-arm64, and picks the one for the arch', () => {
+    const x64 = makeApp('mac')
+    const arm = makeApp('mac-arm64')
+    makeApp('win-unpacked') // not a Mac folder
+    expect(findMacApps(dir).sort()).toEqual([x64, arm].sort())
+    expect(pickMacApp(dir, 'arm64')).toBe(arm)
+    expect(pickMacApp(dir, 'x64')).toBe(x64)
+    expect(pickMacApp(join(dir, 'nothing'), 'arm64')).toBe(null)
+  })
+
+  it('prune: the Windows node-pty binaries leave the bundle, the Mac ones stay', () => {
+    const app = makeApp('mac-arm64')
+    const pty = join(appDirOf(app), 'node_modules', 'node-pty')
+    for (const d of ['prebuilds/win32-x64', 'prebuilds/win32-arm64', 'prebuilds/darwin-arm64', 'prebuilds/darwin-x64', 'third_party/conpty/1.23/win10-x64', 'build/Release/conpty', 'lib']) {
+      mkdirSync(join(pty, d), { recursive: true })
+      writeFileSync(join(pty, d, 'f'), 'x')
+    }
+    const removed = pruneOtherPlatforms(app).map((p: string) => p.replace(/\\/g, '/'))
+    expect(removed.sort()).toEqual(['build/Release/conpty', 'prebuilds/win32-arm64', 'prebuilds/win32-x64', 'third_party/conpty'].map(d => `${appDirOf(app).replace(/\\/g, '/')}/node_modules/node-pty/${d}`))
+    expect(readdirSync(join(pty, 'prebuilds')).sort()).toEqual(['darwin-arm64', 'darwin-x64'])
+    expect(readdirSync(pty).sort()).toEqual(['build', 'lib', 'prebuilds', 'third_party'])
+    // again: nothing left to remove
+    expect(pruneOtherPlatforms(app)).toEqual([])
+    expect(OTHER_PLATFORM_PATHS).toContain('prebuilds/win32-*')
+  })
+
+  it('the bundled fonts: missing is reported, a copy of public/fonts passes, and prune never touches them', () => {
+    const app = makeApp('mac-arm64')
+    expect(bundleMissingFonts(app)).toContain('fonts/fonts.css')
+    const fonts = join(appDirOf(app), 'dist', 'fonts')
+    mkdirSync(fonts, { recursive: true })
+    for (const f of readdirSync(join(ROOT, 'public', 'fonts'))) writeFileSync(join(fonts, f), readFileSync(join(ROOT, 'public', 'fonts', f)))
+    expect(bundleMissingFonts(app)).toEqual([])
+    pruneOtherPlatforms(app)
+    expect(bundleMissingFonts(app)).toEqual([])
+    for (const p of OTHER_PLATFORM_PATHS) expect(p.startsWith('dist')).toBe(false)
+  })
+
+  it('the status card finds the fonts from inside the bundle (../dist/fonts from app/electron)', () => {
+    const card = readFileSync(join(ROOT, 'electron', 'status-card.html'), 'utf8')
+    const href = /<link rel="stylesheet" href="([^"]+)">/.exec(card)![1]
+    const resolved = join('/r/mac-arm64/spawn.app/Contents/Resources/app/electron', href).replace(/\\/g, '/')
+    expect(resolved).toMatch(/\/spawn\.app\/Contents\/Resources\/app\/dist\/fonts\/fonts\.css$/)
+    // the files list ships dist/** whole: the fonts with it
+    expect(pkg.build.files).toContain('dist/**')
+  })
+
+  it('the app folder inside the bundle (what the update zip holds)', () => {
+    expect(appDirOf('/r/mac-arm64/spawn.app').replace(/\\/g, '/')).toBe('/r/mac-arm64/spawn.app/Contents/Resources/app')
+  })
+
+  it('spawn-helper: missing is a problem', () => {
+    const app = makeApp('mac-arm64')
+    expect(spawnHelperProblems(app).join(' ')).toMatch(/no node-pty darwin prebuilds/)
+    const pre = join(appDirOf(app), 'node_modules', 'node-pty', 'prebuilds', 'darwin-arm64')
+    mkdirSync(pre, { recursive: true })
+    expect(spawnHelperProblems(app).join(' ')).toMatch(/spawn-helper missing/)
+  })
+
+  it.skipIf(process.platform === 'win32')('spawn-helper: present but not executable is a problem; executable passes', () => {
+    const app = makeApp('mac-arm64')
+    const pre = join(appDirOf(app), 'node_modules', 'node-pty', 'prebuilds', 'darwin-arm64')
+    mkdirSync(pre, { recursive: true })
+    const helper = join(pre, 'spawn-helper')
+    writeFileSync(helper, '')
+    chmodSync(helper, 0o644)
+    expect(spawnHelperProblems(app).join(' ')).toMatch(/not executable/)
+    chmodSync(helper, 0o755)
+    expect(spawnHelperProblems(app)).toEqual([])
+  })
+})
+
+describe('package.json build', () => {
+  it('mac: a dir build, the icns, ad-hoc (no identity), no hardened runtime', () => {
+    expect(pkg.build.mac).toMatchObject({
+      target: ['dir'],
+      icon: 'build/icon.icns',
+      category: 'public.app-category.developer-tools',
+      identity: null,
+      hardenedRuntime: false,
+    })
+  })
+
+  it('no platform has a files list of its own (electron-builder would copy the project twice: CI run 1)', () => {
+    // A per-platform files list sits beside the top-level one (normalized into a file set,
+    // app-builder-lib util/config.js normalizeFiles) as a second matcher that, holding only
+    // exclusions, takes **/* (fileMatcher.js getMainFileMatchers): server/ was linked twice (EEXIST)
+    for (const p of ['mac', 'win', 'linux']) expect(pkg.build[p]?.files).toBeUndefined()
+  })
+
+  it('Windows is as it was: its block, the shared files list, the output folder', () => {
+    expect(pkg.build.win).toEqual({ icon: 'build/icon.ico', target: ['dir'] })
+    expect(pkg.build.files).toEqual(['dist/**', 'electron/**', 'server/**', 'hooks/**', '!dist/sprites/pokemon/**'])
+    expect(pkg.build.directories).toEqual({ output: 'release', buildResources: 'build' })
+    expect(pkg.build.asar).toBe(false)
+    expect(pkg.build.npmRebuild).toBe(false)
+  })
+})
+
+describe('workflows', () => {
+  const mac = yaml.load(readFileSync(join(ROOT, '.github', 'workflows', 'mac.yml'), 'utf8'))
+  const ci = yaml.load(readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8'))
+
+  it('mac.yml: on a push to main (and mac-port until it is merged) that touches the Mac build, and by hand with a version', () => {
+    expect(mac.on.push.branches).toEqual(['main', 'mac-port'])
+    expect(mac.on.push.paths).toEqual([
+      'electron/**', 'src/**', 'server/**', 'scripts/mac-build.mjs', 'scripts/smoke-mac.mjs',
+      'package.json', 'package-lock.json', '.github/workflows/mac.yml',
+    ])
+    // no other trigger (no pull_request, no tags: a release dispatches it on its tag)
+    expect(Object.keys(mac.on).sort()).toEqual(['push', 'workflow_dispatch'])
+    expect(mac.on.push.tags).toBeUndefined()
+    expect(mac.on.workflow_dispatch.inputs.version).toBeTruthy()
+  })
+
+  it('mac.yml: arm64 on macos-15, x64 on macos-15-intel (macOS 13 is retired, macos-14 arm64 refused in run 1), neither stops the other', () => {
+    const job = mac.jobs.build
+    expect(job.strategy['fail-fast']).toBe(false)
+    expect(job.strategy.matrix.include).toEqual(expect.arrayContaining([
+      expect.objectContaining({ arch: 'arm64', runner: 'macos-15' }),
+      expect.objectContaining({ arch: 'x64', runner: 'macos-15-intel' }),
+    ]))
+    expect(job['runs-on']).toBe('${{ matrix.runner }}')
+  })
+
+  it('mac.yml: build, ad-hoc sign, smoke, zip; the smoke pictures uploaded even when it fails', () => {
+    const steps = mac.jobs.build.steps as Array<{ name?: string, run?: string, if?: string, uses?: string, with?: Record<string, string>, env?: Record<string, string> }>
+    const runs = steps.map(s => s.run ?? '').join('\n')
+    expect(runs).toMatch(/npx vitest run/)
+    expect(runs).toMatch(/npx tsc --noEmit -p \./)
+    expect(runs).toMatch(/npx vite build/)
+    expect(runs).toMatch(/electron-builder --mac dir --\$\{\{ matrix\.arch \}\}/)
+    expect(runs).toMatch(/codesign --force --deep --sign - /)
+    // the Windows binaries go after packaging and before the signature
+    const order = (re: RegExp) => steps.findIndex(s => re.test(s.run ?? ''))
+    expect(order(/mac-build\.mjs prune/)).toBeGreaterThan(order(/electron-builder --mac/))
+    expect(order(/mac-build\.mjs prune/)).toBeLessThan(order(/codesign --force/))
+    expect(runs).toMatch(/codesign --verify --deep --strict/)
+    expect(runs).toMatch(/node scripts\/smoke-mac\.mjs/)
+    expect(runs).toMatch(/node scripts\/mac-build\.mjs pack/)
+    // the Electron binary is needed here (the smoke launch), unlike ci.yml
+    for (const s of steps) expect(s.env?.ELECTRON_SKIP_BINARY_DOWNLOAD).toBeUndefined()
+    // one artifact per arch, uploaded even when a step failed: the smoke folder is inside it
+    const uploads = steps.filter(s => String(s.uses ?? '').startsWith('actions/upload-artifact'))
+    expect(uploads).toEqual([expect.objectContaining({ if: 'always()', with: expect.objectContaining({ name: 'mac-${{ matrix.arch }}', path: 'release/upload' }) })])
+    const smokeStep = steps.find(s => String(s.run ?? '').includes('smoke-mac.mjs'))
+    expect(smokeStep?.env?.SPAWN_SMOKE_DIR).toBe('${{ github.workspace }}/release/upload/smoke')
+    // a failed test still fails the job, after the build and the smoke launch
+    const test = steps.find(s => s.run === 'npx vitest run') as { id?: string, 'continue-on-error'?: boolean }
+    expect(test['continue-on-error']).toBe(true)
+    expect(steps.at(-1)?.if).toBe(`always() && steps.${test.id}.outcome == 'failure'`)
+  })
+
+  it('both workflows check out without leaving the token in .git/config', () => {
+    for (const wf of [mac, ci]) {
+      for (const job of Object.values(wf.jobs) as Array<{ steps: Array<{ uses?: string, with?: Record<string, unknown> }> }>) {
+        const checkout = job.steps.find(s => String(s.uses ?? '').startsWith('actions/checkout'))
+        expect(checkout?.with?.['persist-credentials']).toBe(false)
+      }
+    }
+  })
+
+  it('js-yaml (read here) is declared, at the version the lock already has', () => {
+    const lock = JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8'))
+    expect(pkg.devDependencies['js-yaml']).toBe('^4.1.1')
+    expect(lock.packages[''].devDependencies['js-yaml']).toBe('^4.1.1')
+    expect(lock.packages['node_modules/js-yaml'].version).toBe('4.1.1')
+  })
+
+  it('one version rule: release-mac.mjs takes the one in mac-build.mjs', () => {
+    const rel = readFileSync(join(ROOT, 'scripts', 'release-mac.mjs'), 'utf8')
+    expect(rel).toContain("import { macArtifactNames, VERSION } from './mac-build.mjs'")
+    expect(rel).not.toMatch(/const VERSION\s*=/)
+  })
+
+  it('ci.yml: macOS joins the test matrix; its triggers are as they were', () => {
+    expect(ci.jobs.test.strategy.matrix.os).toEqual(['windows-latest', 'ubuntu-latest', 'macos-latest'])
+    expect(ci.on).toEqual({ push: { branches: ['main'] }, pull_request: null })
+  })
+
+  it('ci.yml: the page is built before the tests (tests/dist-check.test.ts checks dist/)', () => {
+    const runs = (ci.jobs.test.steps as Array<{ run?: string }>).map(s => s.run ?? '')
+    const build = runs.findIndex(r => r.includes('npx vite build'))
+    const test = runs.findIndex(r => r === 'npm test')
+    expect(build).toBeGreaterThanOrEqual(0)
+    expect(test).toBeGreaterThan(build)
+  })
+})

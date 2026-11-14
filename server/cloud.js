@@ -26,9 +26,13 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, unlinkSync, chmodSync } from 'fs'
-import { join } from 'path'
+import { join, posix, win32 } from 'path'
+import { homedir } from 'os'
+import { createRequire } from 'module'
 import { createHash, randomBytes } from 'crypto'
 import { mergeGames, sameGame } from './merge.js'
+
+const { appSupportDir } = createRequire(import.meta.url)('../electron/platform.cjs')
 
 const PENDING_TTL_MS = 10 * 60 * 1000
 const SYNC_DEBOUNCE_MS = 30 * 1000
@@ -69,8 +73,8 @@ function withoutRequests(game) {
 }
 
 /** Where the app keeps its settings (a server the app reused, started without SPAWN_SETTINGS_FILE, still finds them) */
-function defaultSettingsFile() {
-  return process.env.APPDATA ? join(process.env.APPDATA, 'spawn', 'settings.json') : null
+export function defaultSettingsFile(env = process.env, home = homedir(), platform = process.platform) {
+  return (platform === 'win32' ? win32 : posix).join(appSupportDir(home, platform, env), 'settings.json')
 }
 
 /** The app's 프롬프트 숨기기 setting, read from its settings file (missing or unreadable: off) */

@@ -3,7 +3,9 @@ import './storageMigration'
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { captureServerToken } from './serverToken'
+import { isMac } from './platform'
 import { terminalFontsReady } from './fontsReady'
+import { registerSmokeGlobals } from './termMetrics'
 
 // The page link carries the server token in its fragment (#token=...): keep it
 // and take it out of the address bar before the first render and the WebSocket
@@ -18,6 +20,10 @@ const isQa = params.has('qa')
 if (isQa) document.documentElement.classList.add('qa-mode')
 else if (isToast) document.documentElement.classList.add('toast-mode')
 else if (params.has('widget')) document.documentElement.classList.add('widget-mode')
+// A Mac: the native traffic lights instead of the page's own window buttons (.is-mac rules)
+if (isMac()) document.documentElement.classList.add('is-mac')
+// The Mac CI's smoke launch (electron/smoke.cjs) reads the terminal's font from the page; only then
+if (params.has('smoke')) registerSmokeGlobals()
 
 // Each page loads only its own code: a catch notification opens a window per
 // catch and needs neither the terminal nor the Pokédex. One import() per page:

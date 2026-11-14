@@ -12,7 +12,7 @@ import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { startQuitWatchdog } = require('../electron/quitWatchdog.cjs')
+const { startQuitWatchdog, watchdogScript } = require('../electron/quitWatchdog.cjs')
 
 // Whatever a failed assertion left running is ended
 const spawned: number[] = []
@@ -55,5 +55,14 @@ describe('quit watchdog', () => {
     expect(lines().find(l => l.includes(`pid=${quick.pid} p1 main-gone`))).toBeTruthy()
     expect(lines().find(l => l.includes(`pid=${stuck.pid} p1 main-killed`))).toBeTruthy()
     rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('watchdog script per platform', () => {
+  it('ends the main with SIGKILL off Windows, as before on Windows', () => {
+    expect(watchdogScript('darwin')).toContain("process.kill(pid, 'SIGKILL')")
+    expect(watchdogScript('linux')).toContain("process.kill(pid, 'SIGKILL')")
+    expect(watchdogScript('win32')).toContain('try { process.kill(pid) } catch {}')
+    expect(watchdogScript('win32')).not.toContain('SIGKILL')
   })
 })

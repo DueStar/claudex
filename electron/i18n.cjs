@@ -17,6 +17,7 @@ const en = {
   '보이기/숨기기': 'Show/Hide',
   '설정': 'Settings',
   '편집': 'Edit',
+  '창': 'Window',
   '업데이트 확인': 'Check for updates',
   '로그 폴더 열기': 'Open logs folder',
   '디자인 QA 페이지': 'Design QA page',
@@ -28,6 +29,9 @@ const en = {
   '세션 폴더 선택': 'Choose a folder for the session',
   'spawn 디자인 QA': 'spawn Design QA',
   '개발 실행에서는 업데이트하지 않아요': "Updates are off in a development run",
+  '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요': 'Mac: move the app to the Applications folder, then update',
+  '맥: 이 위치의 앱은 직접 업데이트할 수 없어요. 새 버전을 받아 주세요': "Mac: the app can't update itself where it is. Please download the new version",
+  '맥: 업데이트를 적용하지 못했어요. 새 버전을 받아 주세요': "Mac: the update couldn't be applied. Please download the new version",
 }
 
 const ja = {
@@ -41,6 +45,7 @@ const ja = {
   '보이기/숨기기': '表示/隠す',
   '설정': '設定',
   '편집': '編集',
+  '창': 'ウィンドウ',
   '업데이트 확인': 'アップデートを確認',
   '로그 폴더 열기': 'ログフォルダを開く',
   '디자인 QA 페이지': 'デザイン QA ページ',
@@ -52,6 +57,9 @@ const ja = {
   '세션 폴더 선택': 'セッションのフォルダを選択',
   'spawn 디자인 QA': 'spawn デザイン QA',
   '개발 실행에서는 업데이트하지 않아요': '開発版ではアップデートしません',
+  '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요': 'Mac: アプリを「アプリケーション」フォルダに移してからアップデートしてください',
+  '맥: 이 위치의 앱은 직접 업데이트할 수 없어요. 새 버전을 받아 주세요': 'Mac: この場所のアプリは直接アップデートできません。新しいバージョンをダウンロードしてください',
+  '맥: 업데이트를 적용하지 못했어요. 새 버전을 받아 주세요': 'Mac: アップデートを適用できませんでした。新しいバージョンをダウンロードしてください',
 }
 
 const DICTS = { en, ja }

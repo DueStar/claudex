@@ -8,6 +8,8 @@
  *   latest.json              { version, electron, notes, app: { file, sha256, size }, full }
  *   claudex-app-<v>.zip    the resources/app folder (the old name, which 1.3.35 and older
  *                          require; spawn-app-<v>.zip is accepted too, for a later switch)
+ * A Mac reads its own pair instead: latest-mac-<arch>.json and
+ * spawn-app-<v>-mac-<arch>.zip (manifestName, appFilePattern).
  * They are read from https://github.com/<repo>/releases/latest/download/, a
  * plain download (no API rate limit, no token: the repository is public).
  * When that path fails (it answered 504 for every repository on 2026-11-08
@@ -22,12 +24,19 @@ const os = require('os')
 const path = require('path')
 const crypto = require('crypto')
 const https = require('https')
-const { spawn } = require('child_process')
+const childProcess = require('child_process')
 const { t } = require('./i18n.cjs')
-const { pendingFile: runnerPendingFile } = require('./updateRunner.cjs')
+const { pendingFile: runnerPendingFile, bundlePath, macFailedFile } = require('./updateRunner.cjs')
+const { isMac } = require('./platform.cjs')
 
 const REPO = 'DueStar/spawn'
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
+
+/** The manifest this platform reads: latest.json on Windows (as always), latest-mac-<arch>.json on a Mac */
+const manifestName = (platform = process.platform, arch = process.arch) => (isMac(platform) ? `latest-mac-${arch}.json` : 'latest.json')
+
+/** The app zips this platform takes: Windows' rule as it always was, and a Mac only its own */
+const appFilePattern = (platform = process.platform) => (isMac(platform) ? /^spawn-app-[\w.-]+-mac-(arm64|x64)\.zip$/ : /^(spawn|claudex)-app-[\w.-]+\.zip$/)
 
 /** a > b for dotted versions ("0.10.0" > "0.9.3") */
 function newer(a, b) {
@@ -103,25 +112,65 @@ function get(url, { onProgress, maxBytes = 300 * 1024 * 1024, headers = {} } = {
 /**
  * A local channel for whoever builds spawn on this PC: when
  * ~/.spawn/update-dir (or SPAWN_UPDATE_DIR) names a folder, the update
- * comes from that folder's latest.json and zip (what scripts/release.mjs leaves
- * in release/), checked every minute, and a build counts as newer by its date
- * even when the version number is the same. No GitHub release is needed.
+ * comes from that folder's manifest (`name`: latest.json, or a Mac's own) and
+ * zip (what scripts/release.mjs leaves in release/), checked every minute, and
+ * a build counts as newer by its date even when the version number is the
+ * same. No GitHub release is needed.
  */
-function localUpdateDir() {
+function localUpdateDir(name = manifestName()) {
   if (process.env.SPAWN_UPDATE_DIR) return process.env.SPAWN_UPDATE_DIR
   try {
     const home = require('../server/runtime-dir.cjs').runtimeDir()
     const dir = fs.readFileSync(path.join(home, 'update-dir'), 'utf8').trim()
-    return dir && fs.existsSync(path.join(dir, 'latest.json')) ? dir : null
+    return dir && fs.existsSync(path.join(dir, name)) ? dir : null
   } catch { return null }
 }
+
+/**
+ * Why a Mac update cannot go into this app, or null when it can: 'translocated'
+ * (macOS runs an app opened from Downloads from a read-only copy under
+ * /private/var/folders) or 'not-writable' (the bundle or its
+ * Contents/Resources/app not writable by this user).
+ */
+function macUpdateBlock(resourcesPath, fsx = fs) {
+  const bundle = bundlePath(resourcesPath)
+  if (bundle.startsWith('/private/var/folders/')) return 'translocated'
+  try {
+    fsx.accessSync(bundle, fs.constants.W_OK)
+    fsx.accessSync(path.posix.join(resourcesPath, 'app'), fs.constants.W_OK)
+    return null
+  } catch { return 'not-writable' }
+}
+
+/** What a Mac is told when it gets the full download instead of the patch */
+const MAC_FULL_REASON = Object.freeze({
+  translocated: '맥: 앱을 응용 프로그램 폴더로 옮긴 뒤 업데이트해 주세요',
+  'not-writable': '맥: 이 위치의 앱은 직접 업데이트할 수 없어요. 새 버전을 받아 주세요',
+  failed: '맥: 업데이트를 적용하지 못했어요. 새 버전을 받아 주세요',
+})
 
 /** When this copy of the app was built (scripts/release.mjs writes build-info.json) */
 function ownBuildDate(app) {
   try { return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'build-info.json'), 'utf8')).date ?? null } catch { return null }
 }
 
-function createUpdater({ app, send, isPackaged }) {
+/**
+ * platform, arch, fetch, spawn, localDir, resourcesPath, fsx (the writable
+ * check) and userData (where a failed Mac update is noted) are this process's
+ * own unless a test hands in others (the Mac paths are tested on Windows that way).
+ */
+function createUpdater({
+  app, send, isPackaged,
+  platform = process.platform,
+  arch = process.arch,
+  fetch = get,
+  spawn = childProcess.spawn,
+  localDir = localUpdateDir,
+  resourcesPath = process.resourcesPath,
+  fsx = fs,
+  userData = null,
+}) {
+  const manifestFile = manifestName(platform, arch)
   let state = { status: 'idle', current: app.getVersion(), latest: null, notes: '', notesEn: '', notesJa: '', progress: 0, error: null, needsFull: false, page: RELEASES_PAGE }
   let manifest = null
   let workFolder = null
@@ -131,13 +180,36 @@ function createUpdater({ app, send, isPackaged }) {
   /** Newer by version, or the same version built later (local builds) */
   const isNewer = (m) => newer(m.version, state.current) || (m.version === state.current && !!m.date && !!builtAt && Date.parse(m.date) > Date.parse(builtAt))
 
+  /**
+   * A Mac only: why the update `m` has to be the full download, or null. The bundle
+   * cannot be written (translocated, or not this user's), or this very version's
+   * patch failed to go in before (updateRunner.cjs noted it). That note goes once a
+   * newer build runs (this one is that version or later) or a newer version than the
+   * failed one is out: its patch is tried again.
+   */
+  function macFullReason(m) {
+    if (!isMac(platform)) return null
+    const block = macUpdateBlock(resourcesPath, fsx)
+    if (block) return block
+    const dir = userData ?? (() => { try { return app.getPath('userData') } catch { return null } })()
+    if (!dir) return null
+    let failed = null
+    try { failed = JSON.parse(fs.readFileSync(macFailedFile(dir), 'utf8')) } catch { return null }
+    const v = String(failed?.version ?? '')
+    if (!v || !newer(v, state.current) || newer(m.version, v)) {
+      try { fs.rmSync(macFailedFile(dir), { force: true }) } catch {}
+      return null
+    }
+    return 'failed'
+  }
+
   async function check() {
     if (state.status === 'downloading' || state.status === 'ready') return state
     try {
-      const local = localUpdateDir()
+      const local = localDir(manifestFile)
       const m = local
-        ? { ...JSON.parse(fs.readFileSync(path.join(local, 'latest.json'), 'utf8')), localDir: local }
-        : JSON.parse((await releaseFile('latest', 'latest.json', { maxBytes: 64 * 1024 })).toString('utf8'))
+        ? { ...JSON.parse(fs.readFileSync(path.join(local, manifestFile), 'utf8')), localDir: local }
+        : JSON.parse((await releaseFile('latest', manifestFile, { maxBytes: 64 * 1024 }, fetch)).toString('utf8'))
       if (!m || typeof m.version !== 'string') throw new Error('bad manifest')
       // GitHub's manifest must carry the release key's signature. The local
       // channel is a folder on this PC that the user pointed the app at, so
@@ -145,11 +217,14 @@ function createUpdater({ app, send, isPackaged }) {
       if (!local && !verifyManifest(m)) throw new Error('unsigned or tampered manifest')
       if (!isNewer(m)) { publish({ status: 'current', latest: m.version, error: null }); return state }
       manifest = m
+      // A Mac that cannot take the patch is told so at every check, not only once it clicks
+      const full = macFullReason(m)
       publish({
         status: 'available', latest: m.version, notes: String(m.notes ?? '').slice(0, 2000),
         // English and Japanese notes (1.3.21+ manifests); the page picks by its language
-        notesEn: String(m.notesEn ?? '').slice(0, 2000), notesJa: String(m.notesJa ?? '').slice(0, 2000), error: null,
-        needsFull: !!m.electron && m.electron !== process.versions.electron,
+        notesEn: String(m.notesEn ?? '').slice(0, 2000), notesJa: String(m.notesJa ?? '').slice(0, 2000),
+        error: full ? t(MAC_FULL_REASON[full]) : null,
+        needsFull: (!!m.electron && m.electron !== process.versions.electron) || !!full,
       })
     } catch (err) {
       // Offline, or no public release yet: quietly stay as we are
@@ -164,12 +239,19 @@ function createUpdater({ app, send, isPackaged }) {
     if (state.needsFull) return state
     if (!isPackaged) { publish({ error: t('개발 실행에서는 업데이트하지 않아요') }); return state }
     const appFile = String(manifest.app?.file ?? '')
-    if (!/^(spawn|claudex)-app-[\w.-]+\.zip$/.test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
+    if (!appFilePattern(platform).test(appFile)) { publish({ status: 'available', error: 'bad manifest' }); return state }
+    // A Mac app the update could not write into (run from Downloads, or put in
+    // Applications by another user) is sent to the full download, before any of it is fetched
+    const block = isMac(platform) ? macUpdateBlock(resourcesPath, fsx) : null
+    if (block) {
+      publish({ status: 'available', error: t(MAC_FULL_REASON[block]), needsFull: true })
+      return state
+    }
     publish({ status: 'downloading', progress: 0, error: null })
     try {
       const zip = manifest.localDir
         ? fs.readFileSync(path.join(manifest.localDir, appFile))
-        : await releaseFile(`v${manifest.version}`, appFile, { onProgress: (p) => publish({ progress: p }) })
+        : await releaseFile(`v${manifest.version}`, appFile, { onProgress: (p) => publish({ progress: p }) }, fetch)
       const sha = crypto.createHash('sha256').update(zip).digest('hex')
       if (sha !== String(manifest.app?.sha256 ?? '').toLowerCase()) throw new Error('checksum mismatch')
 
@@ -179,13 +261,22 @@ function createUpdater({ app, send, isPackaged }) {
       fs.writeFileSync(zipPath, zip)
       const staged = path.join(work, 'app')
       fs.mkdirSync(staged)
-      // Windows 10+ ships bsdtar, which reads zip
-      await new Promise((resolve, reject) => {
-        const tar = path.join(process.env.SystemRoot || 'C:/Windows', 'System32', 'tar.exe')
-        const t = spawn(tar, ['-xf', zipPath, '-C', staged], { windowsHide: true })
-        t.on('error', reject)
-        t.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`unpack failed (${code})`))))
-      })
+      if (isMac(platform)) {
+        // macOS's own unzip, which keeps modes and links
+        await new Promise((resolve, reject) => {
+          const d = spawn('ditto', ['-x', '-k', zipPath, staged], { stdio: 'ignore' })
+          d.on('error', reject)
+          d.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`unpack failed (${code})`))))
+        })
+      } else {
+        // Windows 10+ ships bsdtar, which reads zip
+        await new Promise((resolve, reject) => {
+          const tar = path.join(process.env.SystemRoot || 'C:/Windows', 'System32', 'tar.exe')
+          const t = spawn(tar, ['-xf', zipPath, '-C', staged], { windowsHide: true })
+          t.on('error', reject)
+          t.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`unpack failed (${code})`))))
+        })
+      }
       if (!fs.existsSync(path.join(staged, 'package.json'))) throw new Error('package.json missing in update')
       manifest.staged = staged
       publish({ status: 'ready', progress: 1 })
@@ -211,9 +302,9 @@ function createUpdater({ app, send, isPackaged }) {
   }
 
   // workDir: the spawn-update-* folder this run is downloading or unpacking into, or has staged (kept by the stale-folder cleanup)
-  return { check, install, restart, getState: () => state, usesLocal: () => !!localUpdateDir(), workDir: () => workFolder }
+  return { check, install, restart, getState: () => state, usesLocal: () => !!localDir(manifestFile), workDir: () => workFolder }
 }
 
 const pendingFile = (app) => runnerPendingFile(app.getPath('userData'))
 
-module.exports = { createUpdater, newer, verifyManifest, releaseFile, REPO }
+module.exports = { createUpdater, newer, verifyManifest, releaseFile, manifestName, appFilePattern, localUpdateDir, REPO }
