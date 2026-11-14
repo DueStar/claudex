@@ -75,6 +75,7 @@ Before: npx vite build   (the harness reads dist/, it never builds)
 
 Surfaces (each at 1440x900 and 1100x720 unless noted):
   session session-compact session-12 session-12-compact size-small size-xlarge dex box log rank settings rail
+  resume throw swap notes find   (opened by a click: 이어하기, 던지기, 교체, 패치노트, the terminal's find bar)
   widget widget-xlarge (340x820)   toast qa (full page, 1440 wide)   status-card (300x96)
   -work: session-work session-compact-work rail-work widget-work settings-work
   -mac:  session-mac rail-mac
@@ -109,6 +110,18 @@ const SURFACES = {
   // The board's own twelve rows (the viewer 7th), as the lab shows them: practice rivals hidden
   rank: { view: 'rank', ready: '.rank-name', local: { 'spawn-rank-npc': '0' } },
   settings: { view: 'terminal', settings: true },
+  // The pickers and dialogs, opened by a click as a user would (window mode, the session view)
+  resume: { view: 'terminal', open: async page => { await page.locator('.w-side .w-launch-alt').nth(1).click() }, ready: '.resume-item' },
+  throw: { view: 'terminal', open: async page => { await page.locator('.w-side .w-launch-main').click() }, ready: '.w-swap-item' },
+  swap: {
+    view: 'terminal', ready: '.w-swap-item',
+    open: async page => { const row = page.locator('.w-party .w-row').first(); await row.hover(); await row.locator('.w-row-swap').click() },
+  },
+  notes: { view: 'terminal', open: async page => { await page.locator('.w-side .w-brand').click() }, ready: '.w-notes-body h3' },
+  find: {
+    view: 'terminal', ready: '.term-search',
+    open: async page => { await page.locator('.w-term-body .xterm').first().click(); await page.keyboard.press('Control+f'); await page.locator('.term-search input').fill('login') },
+  },
   rail: { view: 'terminal', local: { 'spawn-side-hidden': '1' } },
   widget: { mode: 'widget', sizes: [[340, 820]] },
   'widget-xlarge': { mode: 'widget', sizes: [[340, 820]], local: { 'spawn-text-size': 'xlarge', 'spawn-term-font': '17' } },
@@ -622,7 +635,7 @@ async function openApp(browser, { local = {}, twelve = false, size = [1440, 900]
   const shot = {
     mode: 'window', workMode: work, version: VERSION,
     terminals: twelve ? fixture.terminals12 : fixture.terminals,
-    board: fixture.board, branches: fixture.branches,
+    board: fixture.board, branches: fixture.branches, history: fixture.history,
     transcript: fixture.transcript, shellTranscript: fixture.shellTranscript,
   }
   const snapshot = twelve ? fixture.snapshot12 : fixture.snapshot
@@ -841,7 +854,7 @@ async function shoot(browser, s, [W, H], opts, report) {
   const shot = {
     mode: s.mode ?? 'window', workMode: s.work, version: VERSION,
     terminals: twelve ? fixture.terminals12 : fixture.terminals,
-    board: fixture.board, branches: fixture.branches,
+    board: fixture.board, branches: fixture.branches, history: fixture.history,
     transcript: fixture.transcript, shellTranscript: fixture.shellTranscript,
   }
   const snapshot = twelve ? fixture.snapshot12 : fixture.snapshot
@@ -920,6 +933,10 @@ async function shoot(browser, s, [W, H], opts, report) {
         await page.locator('.w-head .w-icon[aria-label="설정"]').click()
         await page.locator('.set-nav button', { hasText: /^앱$/ }).click()
         await page.waitForSelector('.set-modal', { timeout: 10_000 })
+      }
+      if (s.open) {
+        await s.open(page)
+        await page.waitForSelector(s.ready, { timeout: 10_000 })
       }
       // Away from anything hovered (a tooltip or hover tools would differ run to run)
       await page.mouse.move(W - 1, H - 1)

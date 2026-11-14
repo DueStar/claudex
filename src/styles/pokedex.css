@@ -269,30 +269,34 @@
 }
 .w-row-swap:hover { color: var(--ink); background: var(--hover); }
 .w-swap-list { overflow-y: auto; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+/* The pickers (교체, 던지기): no card in the card; a faint grey and a hairline when hovered */
 .w-swap-item {
   display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 8px;
   padding: 6px 8px; text-align: left; font: inherit; color: inherit; cursor: pointer;
-  background: var(--card-2); border: 1px solid transparent; border-radius: 10px;
+  background: none; border: 1px solid transparent; border-radius: var(--r-m);
 }
-.w-swap-item:hover { border-color: rgba(255, 216, 74, 0.45); }
+.w-swap-item:hover:not(:disabled) { border-color: var(--line-hover); background: var(--hover); }
 .w-swap-item.busy, .w-swap-item:disabled { opacity: 0.4; cursor: default; }
 .w-swap-item img { grid-row: 1 / span 2; width: 40px; height: 40px; object-fit: contain; }
-.w-swap-name { font-weight: 650; font-size: 13px; }
-.w-swap-meta { font-size: 11px; color: var(--ink-3); }
+.w-swap-name { font-weight: var(--w-name); font-size: var(--t-name); color: var(--ink); }
+.w-swap-meta { font-size: var(--t-meta); color: var(--ink-3); }
 .w-row-mon { width: var(--row-mon); height: var(--row-mon); object-fit: contain; flex-shrink: 0; image-rendering: auto; }
 .w-row-lv { font-size: var(--t-meta); font-weight: var(--w-body); color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.w-throw-hint { padding: 8px 14px 0; font-size: 12px; color: var(--amber); }
+.w-throw-hint { padding: 8px 14px 0; font-size: var(--t-ui); color: var(--amber); }
 .resume-mon { width: 22px; height: 22px; object-fit: contain; vertical-align: -6px; margin-right: 6px; }
 
 /* ---------- Setup card: missing prerequisites ---------- */
-.w-setup { grid-column: 1 / -1; border-color: rgba(255, 181, 74, 0.45); display: flex; flex-direction: column; gap: 6px; }
-.w-setup-title { font-weight: 700; font-size: 13px; color: var(--amber); }
-.w-setup-desc { margin: 0; color: var(--ink-2); font-size: 12px; line-height: 1.5; }
-.w-setup-row { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: var(--card-2); }
-.w-setup-name { font-weight: 650; font-size: 13px; }
-.w-setup-why { grid-row: 2; font-size: 11px; color: var(--ink-3); }
-.w-setup-go { grid-row: 1 / span 2; grid-column: 2; font: inherit; font-size: 12px; font-weight: 700; padding: 6px 10px; border: 0; border-radius: 9px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
-.w-setup-again { align-self: flex-end; font: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+/* (it needs you: the amber edge, as the question card; the missing programs a ruled list) */
+.w-setup { grid-column: 1 / -1; border-color: color-mix(in srgb, var(--amber) 38%, transparent); display: flex; flex-direction: column; gap: 6px; }
+.w-setup-title { font-weight: var(--w-head); font-size: var(--t-name); color: var(--ink); }
+.w-setup-desc { margin: 0; color: var(--ink-2); font-size: var(--t-ui); line-height: 1.5; }
+.w-setup-row { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 8px 0; border-radius: 0; background: none; border-top: 1px solid var(--line); }
+.w-setup-name { font-weight: var(--w-name); font-size: var(--t-name); }
+.w-setup-why { grid-row: 2; font-size: var(--t-meta); color: var(--ink-3); }
+.w-setup-go { grid-row: 1 / span 2; grid-column: 2; font: inherit; font-size: var(--t-ui); font-weight: var(--w-name); padding: 6px 10px; border: 0; border-radius: var(--r-s); background: var(--ink); color: var(--accent-ink); cursor: pointer; }
+.w-setup-go:hover { filter: brightness(1.08); }
+.w-setup-again { align-self: flex-end; font: inherit; font-size: var(--t-ui); font-weight: var(--w-name); padding: 5px 12px; border-radius: var(--r-s); border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+.w-setup-again:hover:not(:disabled) { border-color: var(--line-hover); color: var(--ink); }
 .w-setup-again:disabled { opacity: 0.5; }
 
 /* ---------- Account (Google sign-in) ---------- */
@@ -305,17 +309,20 @@
 .w-account {
   -webkit-app-region: no-drag;
   width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); padding: 0; overflow: hidden;
-  background: var(--card-2); color: var(--ink); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+  background: var(--card-2); color: var(--ink); font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); cursor: pointer;
   display: grid; place-items: center;
 }
 .w-account img { width: 100%; height: 100%; object-fit: cover; }
 .w-account-card { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
 .w-account-who { display: flex; flex-direction: column; gap: 1px; }
-.w-account-who span { font-size: 11px; color: var(--ink-3); }
-.w-account-sync { font-size: 11px; color: var(--ink-2); }
+.w-account-who b { font-weight: var(--w-name); font-size: var(--t-name); }
+.w-account-who span { font-size: var(--t-meta); color: var(--ink-3); }
+.w-account-sync { font-size: var(--t-meta); color: var(--ink-2); }
+.w-account-sync .tone-warn { color: var(--amber); }
 .w-account-actions { display: flex; gap: 6px; justify-content: flex-end; }
-.w-account-actions button { font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); cursor: pointer; }
-.w-note-card { grid-column: 1 / -1; font-size: 12px; color: var(--amber); }
+.w-account-actions button { font: inherit; font-size: var(--t-ui); font-weight: var(--w-name); padding: 5px 11px; border-radius: var(--r-s); border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.w-account-actions button:hover { border-color: var(--line-hover); background: var(--hover); }
+.w-note-card { grid-column: 1 / -1; font-size: var(--t-ui); color: var(--amber); }
 
 /* ---------- PC box (calm: borderless cells on the picture grey, hairlines between the bars) ---------- */
 .box { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; min-height: 0; }
@@ -431,15 +438,16 @@
 .w-term-empty .w-launch-main, .w-term-empty .w-launch-alt { flex: none; width: auto; min-width: 200px; padding: 9px 18px; justify-content: center; border: 1px solid var(--line); border-radius: var(--r-s); }
 
 /* ---------- Widget: a question waiting in a session (folder trust, a permission) ---------- */
-.w-ask { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 8px; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
-.w-ask-head { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); min-width: 0; }
-.w-ask-head b { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.w-ask-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 3px; animation: wLimitPulse 1.4s ease-in-out infinite; flex: none; }
-.w-ask-open { margin-left: auto; font: inherit; font-size: 11px; font-weight: 650; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; flex: none; }
-.w-ask-open:hover { color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
-.w-ask-term { position: relative; height: 210px; border-radius: 10px; overflow: hidden; background: #101217; }
+/* (needs you: an amber edge and an amber dot, as the row's status) */
+.w-ask { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 8px; border-color: color-mix(in srgb, var(--amber) 38%, transparent); }
+.w-ask-head { display: flex; align-items: center; gap: 4px; font-size: var(--t-ui); color: var(--ink-2); min-width: 0; }
+.w-ask-head b { color: var(--ink); font-weight: var(--w-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-ask-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); margin-right: 3px; animation: wLimitPulse 1.4s ease-in-out infinite; flex: none; }
+.w-ask-open { margin-left: auto; font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 2px 9px; border-radius: var(--r-xs); border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; flex: none; }
+.w-ask-open:hover { color: var(--ink); border-color: var(--line-hover); }
+.w-ask-term { position: relative; height: 210px; border-radius: var(--r-m); overflow: hidden; background: var(--term-bg); }
 .w-ask-term .term-view { position: absolute; inset: 6px 4px 4px 8px; }
-.w-ask-hint { font-size: 11px; color: var(--ink-3); }
+.w-ask-hint { font-size: var(--t-meta); color: var(--ink-3); }
 /* Window mode: the question opens inside the asking session's row */
 /* (a hairline box with the amber edge of the lab's waiting card) */
 .w-row-ask { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: var(--r-m); background: none; border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent); cursor: default; }
@@ -453,7 +461,7 @@
 @media (prefers-reduced-motion: reduce) { .w-row.mood-needs-you .w-row-mon, .w-row.asking .w-row-mon { animation: none; } }
 .w-row-ask-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .w-row-ask-actions .w-ask-hint { margin-left: auto; }
-.w-ask-quick { font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 3px 10px; border-radius: var(--r-s); border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+.w-ask-quick { font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 3px 10px; border-radius: var(--r-xs); border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
 .w-ask-quick:hover { color: var(--ink); border-color: var(--line-hover); }
 .w-ask-quick.yes { color: var(--ink); border-color: var(--line-hover); }
 
@@ -551,14 +559,16 @@ html.qa-mode #root { min-height: 100vh; }
 .w-row-helpers img:first-child { margin-left: 0; }
 .w-row-helpers small { font-size: var(--t-micro); color: var(--ink-3); margin-left: 2px; font-variant-numeric: tabular-nums; }
 /* The swap dialog: the party, then the box (working ones dimmed) */
-.w-swap-section { display: flex; align-items: center; gap: 8px; padding: 12px 12px 0; font-size: 12px; font-weight: 600; color: var(--ink-2); }
-.w-swap-section small { font-size: 11px; font-weight: 400; color: var(--ink-3); }
-.w-swap-section input { margin-left: auto; font: inherit; font-size: 12px; font-weight: 400; color: var(--ink); width: 120px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card-2); }
-.w-swap-section input:focus { outline: none; border-color: rgba(242, 201, 76, 0.5); }
+.w-swap-section { display: flex; align-items: center; gap: 8px; padding: 12px 12px 0; font-size: var(--t-ui); font-weight: var(--w-name); color: var(--ink-2); }
+.w-swap-section small { font-size: var(--t-meta); font-weight: var(--w-body); color: var(--ink-3); }
+/* As the 도감 search */
+.w-swap-section input { margin-left: auto; font: inherit; font-size: var(--t-ui); font-weight: var(--w-body); color: var(--ink); width: 120px; padding: 4px 8px; border-radius: var(--r-s); border: 1px solid var(--line); background: var(--card); }
+.w-swap-section input:focus { outline: none; border-color: var(--ink-3); }
 .w-swap-box { overflow-y: auto; max-height: 260px; padding: 8px 12px 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
-.w-swap-cell { display: grid; place-items: center; gap: 2px; padding: 8px 4px 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--card-2); color: var(--ink-3); font: inherit; font-size: 10px; cursor: pointer; content-visibility: auto; contain-intrinsic-size: auto 72px; }
+/* As the 박스 cells: the picture grey, no ring until hovered */
+.w-swap-cell { display: grid; place-items: center; gap: 2px; padding: 8px 4px 6px; border-radius: var(--r-m); border: 1px solid transparent; background: var(--mon-bg); color: var(--ink-3); font: inherit; font-size: var(--t-micro); cursor: pointer; content-visibility: auto; contain-intrinsic-size: auto 72px; }
 .w-swap-cell img { width: auto; height: auto; max-width: 40px; max-height: 40px; }
-.w-swap-cell:hover { border-color: rgba(255, 216, 74, 0.45); }
+.w-swap-cell:hover:not(:disabled) { border-color: var(--line-hover); background: var(--mon-bg-hover); }
 .w-swap-cell.busy, .w-swap-cell:disabled { opacity: 0.4; cursor: default; }
 /* Arranging the box: a bar in the gap it would go into */
 .box-cell.ins-before::before, .box-cell.ins-after::after {
@@ -570,10 +580,11 @@ html.qa-mode #root { min-height: 100vh; }
 .box.look-icon .box-cell.ins-before::before { left: -7px; }
 .box.look-icon .box-cell.ins-after::after { right: -7px; }
 /* Which AI tool the new session runs (only when 설정 lists more than Claude Code) */
-.w-throw-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px 0; font-size: 12px; color: var(--ink-3); }
+.w-throw-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px 0; font-size: var(--t-ui); color: var(--ink-3); }
 .w-throw-tools span { margin-right: 4px; }
-.w-throw-tools button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
-.w-throw-tools button.on { background: var(--card-2); color: var(--ink); border-color: rgba(255, 255, 255, 0.25); }
+.w-throw-tools button { font: inherit; font-size: var(--t-ui); padding: 4px 10px; border-radius: var(--r-s); border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+.w-throw-tools button:hover { color: var(--ink); background: var(--hover); }
+.w-throw-tools button.on { background: var(--sel-bg); color: var(--ink); border-color: var(--line-hover); }
 /* A session running another AI tool than Claude Code: its name, quiet */
 .w-row-tool { flex: none; font-size: var(--t-micro); color: var(--ink-3); padding: 1px 6px; border-radius: var(--r-s); border: 1px solid var(--line); margin-left: 6px; white-space: nowrap; }
 /* A session worked by a box Pokémon (the party was all out): its tag in the accent */

@@ -1,103 +1,109 @@
-/* feedback.css — the feedback pin: picking a spot, the pin, the note (FeedbackPin.tsx). */
+/* feedback.css — the feedback pin: picking a spot, the pin, the note (FeedbackPin.tsx).
+   (calm: hairlines and the neutral grey; the picking bar keeps an amber edge, a mode you are in) */
 
 .fb-layer { position: fixed; inset: 0; z-index: 9000; cursor: crosshair; background: rgba(0, 0, 0, 0.12); }
 .fb-hover {
   position: fixed; z-index: 9001; pointer-events: none;
-  border: 2px dashed var(--accent); border-radius: 6px; background: var(--accent-soft);
+  border: 2px dashed var(--ink-2); border-radius: var(--r-m); background: var(--hover);
 }
 
 .fb-bar {
   position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 9010;
   display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 24px);
-  padding: 6px 6px 6px 14px; border-radius: 12px;
-  border: 1px solid rgba(255, 181, 74, 0.45); background: var(--card); color: var(--ink);
-  font-size: 13px; white-space: nowrap; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 6px 6px 6px 14px; border-radius: var(--r-l);
+  border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent); background: var(--card); color: var(--ink);
+  font-size: var(--t-name); white-space: nowrap; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 .fb-bar > span { overflow: hidden; text-overflow: ellipsis; margin-right: 4px; }
 .fb-bar-btn {
-  height: 28px; padding: 0 11px; border-radius: 8px; flex: none;
-  border: 1px solid rgba(255, 255, 255, 0.16); background: var(--card-2); color: var(--ink);
-  font: inherit; font-weight: 600; font-size: 12px; cursor: pointer;
+  height: 28px; padding: 0 11px; border-radius: var(--r-s); flex: none;
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+  font: inherit; font-weight: var(--w-name); font-size: var(--t-ui); cursor: pointer;
 }
-.fb-bar-btn:hover { background: #232733; }
+.fb-bar-btn:hover { border-color: var(--line-hover); background: var(--hover); }
 .fb-bar-btn.ghost { background: transparent; color: var(--ink-2); }
 
+/* The spot: a light pin with a dark ring, readable on any part of the window */
 .fb-pin {
   position: fixed; z-index: 9005; pointer-events: none;
   width: 22px; height: 22px; margin: -22px 0 0 -1px;
-  border-radius: 50% 50% 50% 0; background: var(--accent);
+  border-radius: 50% 50% 50% 0; background: var(--ink);
   border: 2px solid var(--accent-ink); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
 }
 .fb-pin.sent { background: var(--green); }
 
 .fb-pop {
   position: fixed; z-index: 9020; width: 340px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); overflow-y: auto; box-sizing: border-box;
-  padding: 14px; border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16); background: var(--card); color: var(--ink);
+  padding: 14px; border-radius: var(--r-l);
+  border: 1px solid rgba(255, 255, 255, 0.1); background: var(--card); color: var(--ink);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
 }
-.fb-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+.fb-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: var(--t-head); }
 .fb-x {
-  width: 26px; height: 26px; border: 0; border-radius: 7px; background: transparent;
+  width: 26px; height: 26px; border: 0; border-radius: var(--r-s); background: transparent;
   color: var(--ink-3); font-size: 17px; line-height: 1; cursor: pointer;
 }
-.fb-x:hover { background: var(--card-2); color: var(--ink); }
-.fb-lead { margin: -4px 0 10px; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+.fb-x:hover { background: var(--hover); color: var(--ink); }
+.fb-lead { margin: -4px 0 10px; font-size: var(--t-ui); line-height: 1.5; color: var(--ink-2); }
 
+/* The kind: a hairline each, the chosen one the neutral grey */
 .fb-kinds { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
 .fb-kind {
-  height: 26px; padding: 0 10px; border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16); background: transparent; color: var(--ink-2);
-  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  height: 26px; padding: 0 10px; border-radius: var(--r-s);
+  border: 1px solid var(--line); background: transparent; color: var(--ink-2);
+  font: inherit; font-size: var(--t-ui); font-weight: var(--w-body); cursor: pointer;
 }
-.fb-kind:hover { color: var(--ink); }
-.fb-kind.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.fb-kind:hover { color: var(--ink); background: var(--hover); }
+.fb-kind.on { background: var(--sel-bg); border-color: var(--line-hover); color: var(--ink); }
 
 .fb-text {
   display: block; width: 100%; box-sizing: border-box; min-height: 78px; resize: vertical;
-  padding: 9px 11px; border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.16); background: #0b0c10; color: var(--ink);
-  font: inherit; font-size: 13px; line-height: 1.5;
+  padding: 9px 11px; border-radius: var(--r-s);
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  font: inherit; font-size: var(--t-name); line-height: 1.5;
 }
-.fb-text:focus { outline: none; border-color: var(--accent); }
+.fb-text:focus { outline: none; border-color: var(--ink-3); }
 .fb-text::placeholder { color: var(--ink-3); }
 
-.fb-spot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 11px; color: var(--ink-3); }
+.fb-spot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: var(--t-meta); color: var(--ink-3); }
 .fb-spot-btn {
-  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--r-s);
   border: 1px dashed rgba(255, 255, 255, 0.22); background: transparent; color: var(--ink-2);
-  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  font: inherit; font-size: var(--t-ui); font-weight: var(--w-name); cursor: pointer;
 }
-.fb-spot-btn svg { color: var(--accent); }
-.fb-spot-btn:hover { border-color: var(--accent); color: var(--ink); }
-.fb-spot-acts { display: flex; align-items: center; gap: 4px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.fb-spot-btn svg { color: var(--ink-2); }
+.fb-spot-btn:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--ink); }
+.fb-spot-acts { display: flex; align-items: center; gap: 4px; margin-top: 10px; font-size: var(--t-ui); color: var(--ink-2); }
 .fb-spot-acts span { margin-right: auto; }
 .fb-spot-acts button {
-  height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent;
-  color: var(--ink-3); font: inherit; font-size: 12px; cursor: pointer;
+  height: 24px; padding: 0 8px; border: 0; border-radius: var(--r-s); background: transparent;
+  color: var(--ink-3); font: inherit; font-size: var(--t-ui); cursor: pointer;
 }
-.fb-spot-acts button:hover { background: var(--card-2); color: var(--ink); }
+.fb-spot-acts button:hover { background: var(--hover); color: var(--ink); }
 .fb-spot-btn:focus-visible, .fb-spot-acts button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.fb-shot { display: block; margin-top: 6px; padding: 8px; border-radius: 9px; background: var(--card-2); cursor: pointer; font-size: 12px; color: var(--ink-2); }
-.fb-shot img { display: block; width: 100%; height: 120px; object-fit: contain; border-radius: 6px; background: #0b0c10; border: 1px solid var(--line); }
+/* The screenshot: a hairline box, not a fill */
+.fb-shot { display: block; margin-top: 6px; padding: 8px; border-radius: var(--r-m); background: none; border: 1px solid var(--line); cursor: pointer; font-size: var(--t-ui); color: var(--ink-2); }
+.fb-shot img { display: block; width: 100%; height: 120px; object-fit: contain; border-radius: var(--r-s); background: var(--bg); border: 1px solid var(--line); }
 .fb-shot.off img { opacity: 0.3; }
 .fb-shot-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; line-height: 1.4; }
-.fb-shot input { accent-color: var(--accent); margin: 2px 0 0; flex: none; }
+/* checked: the green of a switch that is on */
+.fb-shot input { accent-color: var(--hp); margin: 2px 0 0; flex: none; }
 .fb-shot-row span { display: flex; flex-direction: column; gap: 2px; }
-.fb-shot em { font-style: normal; color: var(--amber); font-size: 11px; }
+.fb-shot em { font-style: normal; color: var(--amber); font-size: var(--t-meta); }
 
 .fb-actions { display: flex; gap: 8px; margin-top: 12px; }
 .fb-btn {
-  flex: 1; height: 34px; border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.16); background: var(--card-2); color: var(--ink);
-  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  flex: 1; height: 34px; border-radius: var(--r-s);
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+  font: inherit; font-size: var(--t-name); font-weight: var(--w-name); cursor: pointer;
 }
-.fb-btn:hover { background: #232733; }
-.fb-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.fb-btn.primary:hover { background: var(--accent-hover); }
+.fb-btn:hover { border-color: var(--line-hover); background: var(--hover); }
+/* The one to press: solid --ink (yellow is for send in the session view) */
+.fb-btn.primary { background: var(--ink); border-color: transparent; color: var(--accent-ink); }
+.fb-btn.primary:hover { background: var(--ink); filter: brightness(1.08); }
 .fb-btn:focus-visible, .fb-kind:focus-visible, .fb-x:focus-visible, .fb-bar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.fb-msg { margin-top: 8px; font-size: 12px; line-height: 1.45; }
+.fb-msg { margin-top: 8px; font-size: var(--t-ui); line-height: 1.45; }
 .fb-msg.ok { color: var(--green); }
 .fb-msg.warn { color: var(--amber); }
-.fb-note { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: var(--ink-3); }
+.fb-note { margin: 8px 0 0; font-size: var(--t-meta); line-height: 1.45; color: var(--ink-3); }

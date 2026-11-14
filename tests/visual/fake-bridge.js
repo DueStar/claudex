@@ -4,7 +4,7 @@
  * tests/visual/shots.mjs with page.addInitScript before the app's code runs.
  *
  * It reads window.__SHOT__ = { mode, workMode, terminals, board, branches,
- * transcript, shellTranscript, version } (set by an earlier init script) and
+ * history, transcript, shellTranscript, version } (set by an earlier init script) and
  * answers every bridge call from it. Nothing touches the network or a disk; no
  * pty. Calls that would change something (terminals.move / close / rename /
  * create / send / write / resize) do nothing but are recorded, in order, in
@@ -41,7 +41,7 @@
       pickFolder: () => Promise.resolve(null),
       restorable: () => Promise.resolve([]),
       branches: (dirs) => Promise.resolve(Object.fromEntries((dirs || []).map(d => [d, (shot.branches || {})[d] ?? null]))),
-      history: () => Promise.resolve([]),
+      history: () => Promise.resolve((shot.history || []).map(h => Object.assign({}, h))),
       buffer: (id) => {
         const t = terminals.find(x => x.id === id)
         return Promise.resolve({ data: (t && t.tool === 'shell' ? shot.shellTranscript : shot.transcript) || '', seq: 1 })

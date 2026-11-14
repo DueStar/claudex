@@ -204,6 +204,15 @@ export const branches = Object.fromEntries([...TWELVE.map(s => [s.cwd, s.branch]
 const RANK = [['지우', 25, 61], ['이슬', 120, 57], ['웅', 95, 52], ['그린', 133, 49], ['단풍', 37, 47], ['하늘', 18, 44], ['솔바람', 27, 41], ['레드', 6, 39], ['바람', 12, 36], ['민트', 43, 33], ['새벽', 41, 30], ['솔', 1, 28]]
 export const board = RANK.map(([nickname, partner, value], i) => ({ place: i + 1, rn: i + 1, nickname, partner, value, me: i === 6 }))
 
+/** 이어하기 (terminals.history): past sessions, newest first — one open in the app, one running elsewhere */
+export const history = [
+  { id: sid(1), cwd: BASE[0].cwd, project: 'shop-web', title: BASE[0].title, updatedAt: at('14:28'), sizeKb: 412, running: true },
+  { id: sid(41), cwd: 'C:\\Users\\me\\code\\shop-api', project: 'shop-api', title: '주문 API 응답 시간 줄이기', updatedAt: at('13:40'), sizeKb: 230, running: true },
+  { id: sid(42), cwd: 'C:\\Users\\me\\code\\docs', project: 'docs', title: '설치 문서 정리', updatedAt: at('11:05'), sizeKb: 96, running: false },
+  { id: sid(43), cwd: 'C:\\Users\\me\\code\\shop-web', project: 'shop-web', title: '장바구니 수량 버그: 0개로 바꾸면 결제 버튼이 그대로 남는 문제', updatedAt: at('17:20', -1), sizeKb: 640, running: false },
+  { id: sid(44), cwd: 'C:\\Users\\me\\code\\infra', project: 'infra', title: 'CI 캐시 키 정리', updatedAt: at('10:12', -3), sizeKb: 58, running: false },
+]
+
 /** What a Claude Code terminal replays (any terminal: the harness has no pty) */
 const E = '\x1b['
 export const transcript = [
