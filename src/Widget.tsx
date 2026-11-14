@@ -54,7 +54,7 @@ function preloadViews() {
   if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2000 })
   else setTimeout(go, 500)
 }
-import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
+import { setTextStep, useTextStep, type TextStep } from './textSize'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
 import { appShortcut } from './keys'
@@ -292,7 +292,7 @@ const Widget: React.FC = () => {
   })
   // A new session name also becomes Claude Code's own name for it (/rename), sent when Claude is free
   const pendingRename = useRef(new Map<string, string>())
-  const termFont = useTermFont()
+  const textStep = useTextStep()
   const [mode, setModeState] = useState<WidgetMode>(modeFromUrl)
   const expanded = mode !== 'widget'
   const [viewState, setViewState] = useState<View>(() => readCarry().view ?? 'terminal')
@@ -1155,8 +1155,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
             {view === 'terminal' && (
               <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 ({mod}+휠로도 바꿀 수 있어요)', { mod: modLabel() })} title={t('글자 크기 · {mod}+휠, {mod}+= / {mod}+-', { mod: modLabel() })}>
-                {FONT_PRESETS.map(p => (
-                  <button key={p.label} className={termFont === p.size ? 'on' : ''} onClick={() => setTermFont(p.size)} style={{ fontSize: 9 + FONT_PRESETS.indexOf(p) * 2 }} title={t('글자 {size}', { size: t(p.label) })} aria-label={t('글자 크기 {size}', { size: t(p.label) })}>Aa</button>
+                {([['소', 'normal'], ['중', 'large'], ['대', 'xlarge']] as const).map(([label, step]: readonly [string, TextStep], i) => (
+                  <button key={label} className={textStep === step ? 'on' : ''} onClick={() => setTextStep(step)} style={{ fontSize: 9 + i * 2 }} title={t('글자 {size}', { size: t(label) })} aria-label={t('글자 크기 {size}', { size: t(label) })}>Aa</button>
                 ))}
               </div>
             )}

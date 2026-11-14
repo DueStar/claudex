@@ -379,6 +379,78 @@ const FLOWS = {
     }
     return problems
   },
+
+  /**
+   * One text step for the UI and the terminal (calm-style plan, Task 7): the step a page
+   * starts on (picked, or carried over from the old terminal size, nearest step, ties larger,
+   * nothing written), its <html> class, the terminal's px, the UI's name size, the lockup the
+   * same at every step, and the terminal's rows inside its box (measured with the bundled face).
+   */
+  'text-size': async ({ browser }) => {
+    const problems = []
+    const cases = [
+      ['nothing stored', {}, 'normal'],
+      ['old 12px', { 'spawn-term-font': '12' }, 'small'],
+      ['old 14px (a tie)', { 'spawn-term-font': '14' }, 'large'],
+      ['old 17px', { 'spawn-term-font': '17' }, 'xlarge'],
+      ['old 20px', { 'spawn-term-font': '20' }, 'xlarge'],
+      ['old garbage', { 'spawn-term-font': 'abc' }, 'normal'],
+      ['picked 크게 over old 12px', { 'spawn-text-size': 'large', 'spawn-term-font': '12' }, 'large'],
+    ]
+    const TERM = { small: 12, normal: 13, large: 15, xlarge: 17 }
+    const NAME = { small: 11, normal: 12, large: 13, xlarge: 14 }
+    let lockup = null
+    for (const [label, local, want] of cases) {
+      let app
+      const bad = m => problems.push(`${label}: ${m}`)
+      try {
+        app = await openApp(browser, { local, smoke: true })
+        const { page, shot } = app
+        await sleep(500)
+        const got = await textState(page, shot.terminals[0].id)
+        if (got.cls !== (want === 'normal' ? '' : `ts-${want}`)) bad(`<html> has "${got.cls}", want ${want}`)
+        if (got.term?.fontSize !== TERM[want]) bad(`the terminal is ${got.term?.fontSize}px, want ${TERM[want]}`)
+        if (got.name !== `${NAME[want]}px`) bad(`--t-name is ${got.name}, want ${NAME[want]}px`)
+        if (got.stored !== (local['spawn-text-size'] ?? null)) bad(`spawn-text-size was written: ${got.stored}`)
+        if (got.old !== (local['spawn-term-font'] ?? null)) bad(`spawn-term-font changed: ${got.old}`)
+        if (!got.fits) bad(`the terminal's rows overflow its box: ${JSON.stringify(got.box)}`)
+        lockup ??= got.lockup
+        if (JSON.stringify(got.lockup) !== JSON.stringify(lockup)) bad(`the lockup changed: ${JSON.stringify(got.lockup)} vs ${JSON.stringify(lockup)}`)
+        console.log(`      ${label}: ${got.cls || '(보통)'} · terminal ${got.term?.fontSize}px ${got.term?.cols}×${got.term?.rows} · --t-name ${got.name} · lockup ${got.lockup.font} ${got.lockup.w}px`)
+      } catch (err) {
+        bad(String(err.message).split('\n')[0])
+      } finally {
+        if (app) await app.ctx.close()
+      }
+    }
+    return problems
+  },
+}
+
+/**
+ * The text step as the page shows it: the <html> class, the stored keys, --t-name, the
+ * lockup's size, the terminal's metrics and whether its rows fit its box
+ */
+async function textState(page, id) {
+  return page.evaluate(i => {
+    const html = document.documentElement
+    const term = (window.spawnTermMetrics?.() ?? []).find(m => m.id === i) ?? null
+    const view = document.querySelector('.w-term-body .term-view:not([style*="display: none"])') ?? document.querySelector('.w-term-body .term-view')
+    const screen = view?.querySelector('.xterm-screen')
+    const box = view ? { view: view.clientHeight, screen: screen?.getBoundingClientRect().height ?? null, rows: term?.rows, cell: term?.cellHeight } : null
+    const brand = document.querySelector('.w-brand-name')
+    const b = brand?.getBoundingClientRect()
+    return {
+      cls: [...html.classList].filter(c => c.startsWith('ts-')).join(' '),
+      stored: localStorage.getItem('spawn-text-size'),
+      old: localStorage.getItem('spawn-term-font'),
+      name: getComputedStyle(html).getPropertyValue('--t-name').trim(),
+      term,
+      box,
+      fits: !!(term && box && term.rows * term.cellHeight <= box.view + 0.5),
+      lockup: brand ? { font: getComputedStyle(brand).fontSize, w: Math.round(b.width * 10) / 10, h: Math.round(b.height * 10) / 10 } : null,
+    }
+  }, id)
 }
 
 /** The bridge calls the page made so far (fake-bridge.js) */
