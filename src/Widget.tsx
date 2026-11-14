@@ -16,7 +16,8 @@ import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
-import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
+import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, usageTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
+import { hpTone } from './sessionList'
 import { sessionTools, shownCodexLimits } from './features'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
@@ -138,9 +139,9 @@ function pct(n: number | null | undefined): string {
   return typeof n === 'number' ? String(Math.round(n)) : '—'
 }
 
-/** One limit row: label, bar, percent, when it resets */
+/** One limit row: label, bar, percent, when it resets (the bar grey, amber from 80 %, red from 90 %) */
 const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null; resetAt?: number | null }> = ({ label, value, reset, resetAt }) => (
-  <div className={`w-limit tone-${contextTone(value)}${typeof value === 'number' ? '' : ' loading'}`}>
+  <div className={`w-limit tone-${usageTone(value)}${typeof value === 'number' ? '' : ' loading'}`}>
     <span className="w-label">{label}</span>
     <div className="w-bar" aria-hidden="true"><span style={{ width: `${typeof value === 'number' ? Math.max(2, Math.min(100, value)) : 0}%` }} /></div>
     <span className="w-limit-pct">{typeof value === 'number' ? <>{pct(value)}<small>%</small></> : <span className="w-limit-wait" />}</span>
@@ -683,7 +684,8 @@ const Widget: React.FC = () => {
                 <div className="w-rail-bars">
                   {bars.map(b => {
                     const v = typeof b.value === 'number' ? Math.max(0, Math.min(100, b.value)) : 0
-                    return <span key={b.key} className={`w-rail-bar${v >= 90 ? ' high' : v >= 70 ? ' mid' : ''}`}><i style={{ height: `${v}%` }} /></span>
+                    const tone = usageTone(v)
+                    return <span key={b.key} className={`w-rail-bar${tone === 'ok' ? '' : ` ${tone}`}`}><i style={{ height: `${v}%` }} /></span>
                   })}
                 </div>
               </div>
@@ -807,8 +809,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
           {/* 업무 모드: no Pokédex card and no party (not drawn, so no pictures are fetched) */}
           {!workMode && <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title={t('도감 열기')}>
-            <span className="w-label">{t('도감')}</span>
-            {hasNew && <span className="w-new-dot corner" aria-label={t('새로 잡은 포켓몬')} />}
+            <span className="w-label">{t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</span>
             <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span></span>
             <span className="w-dex-recent">
               {(dex?.log ?? []).filter(e => e.kind === 'catch').slice(-6).reverse().map((e, i) => (
@@ -861,7 +862,6 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 onClick={rowOrder.click(() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') })}
                 title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
-                {r.mood === 'working' && <span className="w-glint" aria-hidden="true" />}
                 {/* Line 1: the session's name and its status; line 2: Lv first, then folder, AI tool and
                     branch (the branch gives way first), helpers at the end. The buttons float over
                     line 2's end on hover instead of holding space the name needs */}
@@ -892,9 +892,9 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                       >{r.title ?? t('새 세션')}</span>
                     )}
                     {r.shell ? null : r.mood === 'needs-you' && r.terminal ? (
-                      <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}>{t('확인 필요')}</button>
+                      <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}><i className="w-pill-dot" /><span className="w-pill-text">{t('확인 필요')}</span></button>
                     ) : (
-                      <span className={`w-pill mood-${r.mood}`}>{t(MOOD_LABEL[r.mood])}</span>
+                      <span className={`w-pill mood-${r.mood}`}><i className="w-pill-dot" /><span className="w-pill-text">{t(MOOD_LABEL[r.mood])}</span></span>
                     )}
                   </div>
                   <div className="w-row-line2">
@@ -936,7 +936,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 {!r.shell && <div className="w-row-bottom">
                   {(() => {
                     // The context window as the session's HP: what is left, draining like a Pokémon's
-                    // (green, yellow under half, red under a fifth); the number is the tokens left.
+                    // (green, amber at half and under, red at a fifth and under: hpTone); the number is the tokens left.
                     // 업무 모드: the same bar, labelled 컨텍스트
                     const used = r.meter?.context.used
                     const size = r.meter?.context.size ?? null
@@ -948,7 +948,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     const m = modelLabel(r.meter?.model, r.session?.model)
                     return <>
                       <span className="w-hp-label" aria-hidden="true">{parts.barLabel === 'HP' ? 'HP' : t(parts.barLabel)}</span>
-                      <div className={`w-ctx w-hp ${left === null ? 'hp-full' : left <= 20 ? 'hp-red' : left <= 50 ? 'hp-yellow' : 'hp-green'}`} title={tip} role="meter" aria-valuenow={left ?? 100} aria-valuemin={0} aria-valuemax={100} aria-label={tip}>
+                      <div className={`w-ctx w-hp ${hpTone(left)}`} title={tip} role="meter" aria-valuenow={left ?? 100} aria-valuemin={0} aria-valuemax={100} aria-label={tip}>
                         <span style={{ width: `${left ?? 100}%` }} />
                       </div>
                       {m && <span className="w-row-model" title={r.meter?.modelId ?? r.session?.model}>{m}</span>}

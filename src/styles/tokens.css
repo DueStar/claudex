@@ -16,8 +16,8 @@
   --green: #74d68b;  --amber: #ffb54a;  --danger: #ff6464;  --red-text: #ff8787;
   /* HP (context left): green, amber at 50 % and under, red at 20 % and under */
   --hp: #5fcf7a;  --hp-warn: var(--amber);  --hp-low: var(--danger);  --hp-h: 3px;
-  /* usage bars: grey, amber from 80 % */
-  --bar: var(--ink-3);  --bar-warn: var(--amber);  --bar-h: 2px;
+  /* usage bars: grey, amber from 80 %, red from 90 % (the limit is about to hit) */
+  --bar: var(--ink-3);  --bar-warn: var(--amber);  --bar-danger: var(--danger);  --bar-h: 2px;
   /* rewards keep their colour */
   --new-dot: #ff4d4f;  --new-badge: #ffd84a;  --shiny: #fff3a0;
   --metal-1: #ffd84a;  --metal-2: #c9ced8;  --metal-3: #e3a76f;

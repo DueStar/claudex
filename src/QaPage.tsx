@@ -12,6 +12,7 @@ import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import './styles/toast.css'
 import { bridge } from './desktop'
+import { usageTone } from './meters'
 import { pokemonById } from './theme'
 import { ToastCard } from './Toast'
 import TodayLog from './components/TodayLog'
@@ -104,8 +105,9 @@ const QaPage: React.FC = () => (
       </div>
       <div className="qa-item qa-narrow">
         <section className="w-card w-limits">
-          {[['5시간', 43, 'ok', '↻ 15:20'], ['주간', 82, 'warn', '↻ 11/9 17:00']].map(([l, v, tone, r]) => (
-            <div key={l} className={`w-limit tone-${tone}`}><span className="w-label">{l}</span><div className="w-bar"><span style={{ width: `${v}%` }} /></div><span className="w-limit-pct">{v}<small>%</small></span><span className="w-limit-reset">{r}</span></div>
+          {/* the three tones: grey, amber from 80 %, red from 90 % (usageTone) */}
+          {([['5시간', 43, '↻ 15:20'], ['주간', 82, '↻ 11/9'], ['Codex 주간', 93, '↻ 11/12']] as const).map(([l, v, r]) => (
+            <div key={l} className={`w-limit tone-${usageTone(v)}`}><span className="w-label">{l}</span><div className="w-bar"><span style={{ width: `${v}%` }} /></div><span className="w-limit-pct">{v}<small>%</small></span><span className="w-limit-reset">{r}</span></div>
           ))}
         </section>
       </div>

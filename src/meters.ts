@@ -151,11 +151,22 @@ export function limitNow(pct: number | undefined, resetsAt: number | undefined, 
   return typeof resetsAt === 'number' && resetsAt * 1000 <= now ? 0 : pct
 }
 
-/** Amber above 70 %, red above 90 % (context and the usage limits alike) */
+/** Amber above 70 %, red above 90 % (a context in use) */
 export function contextTone(used: number | null | undefined): Tone {
   if (used == null) return 'ok'
   if (used > 90) return 'danger'
   if (used > 70) return 'warn'
+  return 'ok'
+}
+
+/**
+ * The usage limits' bars: grey until they matter, amber from 80 %, red from 90 % (the limit is
+ * about to hit)
+ */
+export function usageTone(pct: number | null | undefined): Tone {
+  if (pct == null) return 'ok'
+  if (pct >= 90) return 'danger'
+  if (pct >= 80) return 'warn'
   return 'ok'
 }
 

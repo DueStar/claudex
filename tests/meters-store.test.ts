@@ -5,7 +5,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  contextTone, dispatchMeters, formatClockTime, getMeters, reduceMeters, resetMeters, subscribeMeters,
+  contextTone, usageTone, dispatchMeters, formatClockTime, getMeters, reduceMeters, resetMeters, subscribeMeters,
   type MetersState, type SessionStatus,
 } from '../src/meters'
 
@@ -97,6 +97,18 @@ describe('presentation', () => {
     expect(contextTone(70.1)).toBe('warn')
     expect(contextTone(90)).toBe('warn')
     expect(contextTone(90.1)).toBe('danger')
+  })
+
+  // The usage bars: grey, amber from 80 %, red from 90 % (the plan's ruling 4 keeps the red)
+  it('usage tone: grey under 80 %, amber from 80 %, red from 90 %', () => {
+    expect(usageTone(null)).toBe('ok')
+    expect(usageTone(undefined)).toBe('ok')
+    expect(usageTone(0)).toBe('ok')
+    expect(usageTone(79.9)).toBe('ok')
+    expect(usageTone(80)).toBe('warn')
+    expect(usageTone(89.9)).toBe('warn')
+    expect(usageTone(90)).toBe('danger')
+    expect(usageTone(100)).toBe('danger')
   })
 
   it('reset times read as local HH:MM', () => {

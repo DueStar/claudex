@@ -65,6 +65,14 @@ describe('tokens.css', () => {
     expect(root['--head-h']).toBe('44px')
   })
 
+  it('usage bars: grey, amber from 80 %, the danger red from 90 %', () => {
+    expect(root['--bar']).toBe('var(--ink-3)')
+    expect(root['--bar-warn']).toBe('var(--amber)')
+    expect(root['--bar-danger']).toBe('var(--danger)')
+    expect(resolve('--bar-danger')).toBe('#ff6464')
+    expect(root['--bar-h']).toBe('2px')
+  })
+
   it('holds the four text steps exactly (보통 on :root)', () => {
     const pick = (o: Record<string, string>) => Object.fromEntries(TYPE.map(k => [k, o[k]]))
     expect(pick(root)).toEqual(px(10, 11, 12, 12, 13, 12, 14, 15, 12))

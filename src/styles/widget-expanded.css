@@ -12,11 +12,11 @@
 }
 .widget.expanded .w-side { flex: 0 0 328px; width: 328px; }
 
-/* ---------- Launcher card ---------- */
+/* ---------- Launcher: a plain text row (new session), then folder and resume as icons ---------- */
 .w-launch {
   grid-column: 1 / -1;
   display: flex;
-  gap: 6px;
+  gap: 2px;
   padding: 6px;
   border-radius: 14px;
 }
@@ -24,53 +24,55 @@
   flex: 1;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
+  justify-content: flex-start;
+  gap: 8px;
   font: inherit;
-  font-weight: 650;
-  font-size: 13px;
-  color: var(--accent-ink);
-  background: var(--accent);
+  font-weight: var(--w-body);
+  font-size: var(--t-ui);
+  color: var(--ink-2);
+  background: none;
   border: 0;
-  border-radius: 10px;
-  padding: 9px 12px;
+  border-radius: var(--r-s);
+  padding: 7px 8px;
   cursor: pointer;
 }
-.w-launch-main:hover { filter: brightness(1.08); }
 .w-launch-alt {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 40px;
+  width: 30px;
   font: inherit;
   font-size: 14px;
-  color: var(--ink-2);
-  background: var(--card-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  border-radius: var(--r-s);
   cursor: pointer;
 }
-.w-launch-alt:hover { color: var(--ink); background: #232733; }
-.w-launch-alt.wide { width: auto; padding: 9px 14px; font-size: 13px; font-weight: 600; }
+.w-launch-main:hover, .w-launch-alt:hover { background: var(--hover); color: var(--ink); }
+/* Full (the session limit): the same row, quieter */
+.w-launch-main.full { color: var(--ink-3); }
+.w-launch-alt.wide { width: auto; padding: 9px 14px; font-size: var(--t-ui); font-weight: var(--w-body); }
 
 /* ---------- Party extras ---------- */
 .w-row { cursor: pointer; }
-.w-row:hover { --row-bg: #1f232d; }
-.w-pill.as-button { border: 0; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+/* 확인 필요 as a button: the same dot and words, a little brighter on hover */
+.w-pill.as-button { border: 0; padding: 0; background: none; font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); cursor: pointer; }
+.w-pill.as-button:hover { color: var(--ink); }
 .w-row-close {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--t-ui);
   line-height: 1;
   color: var(--ink-3);
   background: none;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-s);
   padding: 2px 5px;
   cursor: pointer;
 }
 .w-row-close:hover { color: var(--danger); background: rgba(255, 100, 100, 0.12); }
-.w-row-close.confirm { color: #fff; background: var(--danger); font-size: 11px; font-weight: 700; }
+.w-row-close.confirm { color: #fff; background: var(--danger); font-size: var(--t-meta); font-weight: var(--w-name); }
 
 /* ---------- Terminal card (expanded) ---------- */
 .w-term {
@@ -234,10 +236,10 @@
    and the terminal fill the whole window with no transparent part. */
 .widget.mode-window, .widget.mode-fullscreen { background: #0b0c10; padding: 0; gap: 0; }
 .widget.mode-window .w-side, .widget.mode-fullscreen .w-side {
-  background: #0e1015;
+  background: var(--side-bg);
   border-right: 1px solid var(--line);
   /* no side padding: the dividers between the sections run the panel's full width;
-     the sections pad their own content (14px) */
+     the sections pad their own content (16px) */
   padding: 0 0 8px;
   box-sizing: border-box;
   height: 100%;
@@ -272,13 +274,20 @@
   border: 0;
   border-radius: 0;
   border-bottom: 1px solid var(--line);
-  padding-left: 14px;
-  padding-right: 14px;
+  padding: 10px 16px;
 }
 .widget.mode-window .w-side .w-card:last-child, .widget.mode-fullscreen .w-side .w-card:last-child { border-bottom: 0; }
 .widget.mode-window .w-bento, .widget.mode-fullscreen .w-bento { gap: 0; }
-.widget.mode-window .w-side .w-launch, .widget.mode-fullscreen .w-side .w-launch { padding: 10px 14px; }
-.widget.mode-window .w-side .w-compose textarea, .widget.mode-fullscreen .w-side .w-compose textarea { background: var(--card-2); }
+.widget.mode-window .w-side .w-limits, .widget.mode-fullscreen .w-side .w-limits { padding: 12px 16px; }
+.widget.mode-window .w-side .w-launch, .widget.mode-fullscreen .w-side .w-launch { padding: 6px 8px; }
+/* The Pokédex strip and the party strip read as one block: no line between them; the party's
+   line runs the panel's full width */
+.widget.mode-window .w-side .w-dex, .widget.mode-fullscreen .w-side .w-dex { padding-bottom: 6px; border-bottom: 0; }
+.widget.mode-window .w-side .w-party:has(> .w-party-head), .widget.mode-fullscreen .w-side .w-party:has(> .w-party-head) { padding-top: 0; }
+.widget.mode-window .w-party-head, .widget.mode-fullscreen .w-party-head { margin: 0 -16px 10px; padding: 0 16px 10px; }
+/* A row with no fill shows the panel */
+.widget.mode-window .w-row, .widget.mode-fullscreen .w-row { --row-base: var(--side-bg); }
+.widget.mode-window .w-side .w-compose textarea, .widget.mode-fullscreen .w-side .w-compose textarea { background: var(--card); }
 
 /* xterm's own scrollbar: quiet until hovered */
 .term-view .xterm .scrollbar > .slider { background: rgba(255, 255, 255, 0.08) !important; border-radius: 4px; }
@@ -322,7 +331,7 @@
 }
 /* The logo keeps its place when the left panel folds: the header's symbol is centred
    28px from the window's left edge, as in the 56px rail, at the same height */
-.widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 18px; padding-right: 16px; }
+.widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 18px; padding-right: 10px; gap: 4px; }
 
 /* ---------- macOS: the native traffic lights at the window's top-left (x 14, y 14) ---------- */
 /* They minimize, zoom and close, so the page's own three go; the widget toggle and the
@@ -435,23 +444,23 @@
 .w-rail-usage { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; cursor: default; }
 .w-rail-bars { display: flex; gap: 4px; align-items: flex-end; height: 30px; }
 .w-rail-bar { position: relative; width: 4px; height: 100%; border-radius: 3px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
-.w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--green); }
-.w-rail-bar.mid i { background: var(--amber); }
-.w-rail-bar.high i { background: var(--danger); }
+.w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--bar); }
+.w-rail-bar.warn i { background: var(--bar-warn); }
+.w-rail-bar.danger i { background: var(--bar-danger); }
 .w-rail-account .w-account { width: 26px; height: 26px; pointer-events: none; }
 .w-rail-signin { width: 46px; height: 28px; font-size: 11px; font-weight: 600; }
 .w-side-toggle { flex: none; -webkit-app-region: no-drag; }
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
 .w-row { position: relative; user-select: none; touch-action: none; }
 .w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
-.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; --row-bg: #1f232d; }
+.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; --row-bg: color-mix(in srgb, #fff 4.5%, var(--row-base)); background: var(--row-bg); }
 .w-row input, .w-row textarea { user-select: text; }
 /* A plain shell tab: a prompt mark where the Pokémon would be */
 .w-sess-shell { flex: none; width: 20px; text-align: center; font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
 /* ---------- 업무 모드 (src/workMode.ts): nothing Pokémon on screen. The pictures, the logo, the
    Pokédex card and the party are not drawn at all; this only fills their places ---------- */
 /* A plain session glyph in the Pokémon's box, the same size, so nothing moves */
-.w-row-glyph { display: inline-grid; place-items: center; color: var(--ink-3); border-radius: 6px; background: rgba(255, 255, 255, 0.05); }
+.w-row-glyph { display: inline-grid; place-items: center; box-sizing: border-box; color: var(--ink-3); border: 1px solid var(--line); border-radius: var(--r-s); background: none; }
 .w-sess-glyph { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--ink-3); }
 .w-rail-glyph { display: grid; place-items: center; width: 30px; height: 30px; color: var(--ink-3); }
 .w-rail-session.on .w-rail-glyph, .w-sess-tab.on .w-sess-glyph { color: var(--ink-2); }

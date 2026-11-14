@@ -21,7 +21,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   flex-direction: column;
   color: var(--ink);
   font-family: 'W Uncut', 'Uncut Sans Variable', 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Hiragino Sans', system-ui, sans-serif;
-  font-size: 12px;
+  font-size: var(--t-ui);
   font-feature-settings: 'tnum' 1;
   -webkit-font-smoothing: antialiased;
   padding: 0 6px 6px;
@@ -43,12 +43,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   /* no drop shadow: the widget's window is transparent and ends at the cards, so a shadow was cut off square at its edge */
 }
 .w-label {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--t-meta);
+  font-weight: var(--w-body);
   color: var(--ink-3);
-  letter-spacing: 0.01em;
 }
-.w-empty { color: var(--ink-3); font-size: 12px; }
+.w-empty { color: var(--ink-3); font-size: var(--t-ui); }
 
 .w-head {
   grid-column: 1 / -1;
@@ -65,7 +64,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-brand:hover { color: var(--accent); }
 .w-brand .pokeball { display: block; }
 .w-brand:hover .pokeball { filter: brightness(1.1); }
-.w-conn { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.w-conn { width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--green); }
 .w-conn.off { background: var(--ink-3); box-shadow: none; }
 .w-icon {
   -webkit-app-region: no-drag;
@@ -80,60 +79,57 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   cursor: pointer;
 }
 .w-icon:hover { background: #262a35; color: var(--ink); }
-.w-bar { height: 5px; border-radius: 3px; background: #262a34; overflow: hidden; }
-.w-bar span { display: block; height: 100%; border-radius: 3px; background: var(--green); transition: width 0.4s; }
+/* The header's icons: no fill until hovered */
+.w-head .w-icon { width: 26px; height: 26px; border-radius: var(--r-s); background: transparent; color: var(--ink-3); }
+.w-head .w-icon:hover { background: var(--hover); color: var(--ink); }
+/* A usage bar: a hairline, grey until it matters (usageTone: amber from 80 %, red from 90 %) */
+.w-bar { height: var(--bar-h); border-radius: 1px; background: var(--track); overflow: hidden; }
+.w-bar span { display: block; height: 100%; border-radius: 1px; background: var(--bar); transition: width 0.4s; }
 
 .w-party {
   grid-column: 1 / -1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--row-gap);
 }
+/* Session rows: no fill and no ring; hovered a faint grey, the chosen one a little lighter with a
+   2px yellow bar at the panel's left edge. They reach 8px into the card's side padding (the
+   sections pad 16px), so the bar sits at the edge itself */
 .w-row {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 7px 9px;
-  border-radius: 10px;
-  /* --row-bg: the row's background, also behind the hover buttons that float over line 2 */
-  --row-bg: var(--card-2);
-  background: var(--row-bg);
-  border: 1px solid transparent;
+  gap: 4px;
+  margin: 0 -8px;
+  padding: 8px 8px 8px 10px;
+  border-radius: var(--r-m);
+  /* --row-bg: the row's real background, also behind the hover buttons that float over line 2.
+     --row-base shows through a row with no fill: the card in the widget, the panel as a window
+     (widget-expanded.css). Hovered and chosen, the row is white 4.5 % (--hover) and 4 %
+     (--row-sel-bg) over it: --row-bg is that colour, mixed solid */
+  --row-base: var(--card);
+  --row-bg: var(--row-base);
+  background: none;
+  border: 0;
   cursor: pointer;
 }
-.w-row.chosen { border-color: color-mix(in srgb, var(--accent) 65%, transparent); --row-bg: color-mix(in srgb, var(--accent) 8%, var(--card-2)); }
-/* A session while it works: a glint runs round its border, accent yellow on the chosen
-   one and light grey on the others; resting, the chosen one has the still yellow border above.
-   The ring (.w-glint) is masked to the border once; inside it a still conic gradient turns by
-   transform, which the GPU does without repainting (animating the gradient's angle repainted
-   every row every frame: about half the CPU and GPU in a 12-row test) */
-.w-row.mood-working { --spin-head: rgba(255, 255, 255, 0.5); --spin-tail: rgba(255, 255, 255, 0.07); }
-.w-row.chosen.mood-working { border-color: transparent; --spin-head: var(--accent); --spin-tail: rgba(242, 201, 76, 0.18); }
-.w-glint {
-  position: absolute; inset: -1px; border-radius: 11px; padding: 1.5px; pointer-events: none; overflow: hidden;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
-}
-/* 130% wide and square: wider than the row's diagonal, so the turning layer always covers the ring */
-.w-glint::before {
-  content: ''; position: absolute; left: 50%; top: 50%; width: 130%; aspect-ratio: 1; translate: -50% -50%;
-  background: conic-gradient(var(--spin-head), var(--spin-tail) 30%, var(--spin-tail) 55%, var(--spin-head) 85%, var(--spin-head));
-  animation: w-spin 4s linear infinite; will-change: transform;
-}
-@keyframes w-spin { to { rotate: 360deg; } }
-@media (prefers-reduced-motion: reduce) { .w-glint::before { animation: none; } }
-.w-row-name { font-weight: 650; font-size: 13px; }
-.w-row-project { color: var(--ink-3); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.w-pill { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: #262a34; color: var(--ink-2); white-space: nowrap; }
-.w-pill.mood-working { background: rgba(116, 214, 139, 0.14); color: var(--green); }
-.w-pill.mood-needs-you { background: rgba(255, 181, 74, 0.16); color: var(--amber); }
-.w-pill.mood-error { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
-.w-row-bottom { display: flex; align-items: center; gap: 8px; }
-.w-ctx { flex: 1; height: 4px; border-radius: 2px; background: #2a2e39; overflow: hidden; }
-.w-ctx span { display: block; height: 100%; background: var(--accent); }
-.w-ctx.tone-warn span { background: var(--amber); }
-.w-ctx.tone-danger span { background: var(--danger); }
-.w-row-num { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+.w-row:hover { background: var(--hover); --row-bg: color-mix(in srgb, #fff 4.5%, var(--row-base)); }
+.w-row.chosen { background: var(--row-sel-bg); --row-bg: color-mix(in srgb, #fff 4%, var(--row-base)); }
+.w-row.chosen::before { content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+.w-row-name { font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink-2); }
+.w-row.chosen .w-row-name { color: var(--ink); }
+.w-row-project { color: var(--ink-3); font-size: var(--t-meta); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The status: a dot and grey words, no fill */
+.w-pill { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-meta); font-weight: var(--w-body); padding: 0; border-radius: 0; background: none; color: var(--ink-3); white-space: nowrap; }
+.w-pill-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+.w-pill.mood-working .w-pill-dot { background: var(--green); }
+.w-pill.mood-needs-you { color: var(--ink-2); }
+.w-pill.mood-needs-you .w-pill-dot { background: var(--amber); }
+.w-pill.mood-error .w-pill-dot { background: var(--danger); }
+.w-row-bottom { display: flex; align-items: center; gap: 8px; padding-left: 34px; }
+.w-ctx { flex: 1; height: var(--hp-h); border-radius: 2px; background: var(--track); overflow: hidden; }
+.w-ctx span { display: block; height: 100%; border-radius: 2px; background: var(--hp); }
+.w-row-num { font-size: var(--t-meta); color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; }
 
 /* The instruction box: the note sits above it, 보내기 inside it */
 .w-compose { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
@@ -143,16 +139,17 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   flex: 1;
   resize: none;
   font: inherit;
-  font-size: 13px;
+  font-family: 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Hiragino Sans', system-ui, sans-serif;
+  font-size: var(--t-prose);
   line-height: 1.45;
   color: var(--ink);
-  background: var(--card-2);
+  background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-l);
   padding: 8px 42px 8px 10px;
 }
 .w-input textarea::placeholder { color: var(--ink-3); }
-.w-input textarea:focus { outline: none; border-color: rgba(255, 216, 74, 0.6); }
+.w-input textarea:focus { outline: none; border-color: var(--ink-3); }
 .w-send {
   position: absolute;
   right: 6px;
@@ -164,7 +161,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--r-m);
   background: var(--accent);
   color: var(--accent-ink);
   cursor: pointer;
@@ -174,12 +171,13 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-send:disabled { background: rgba(255, 255, 255, 0.07); color: var(--ink-3); cursor: default; }
 .w-note {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--t-ui);
   line-height: 1.45;
   color: var(--ink-2);
   padding: 6px 9px;
-  border-radius: 9px;
-  background: var(--card-2);
+  border-radius: var(--r-s);
+  border: 1px solid var(--line);
+  background: none;
   cursor: pointer;
   animation: wNoteIn 0.2s ease-out both;
 }
@@ -192,41 +190,40 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-party::-webkit-scrollbar-thumb:hover { background: #3a3f4c; }
 .w-party::-webkit-scrollbar-button { display: none; height: 0; }
 
-/* ---------- Limits: two slim rows instead of four big tiles ---------- */
-.w-limits { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
-.w-limit { display: grid; grid-template-columns: 44px 1fr 40px 52px; align-items: center; gap: 8px; }
+/* ---------- Limits: two slim rows, hairline bars, grey until they matter ---------- */
+.w-limits { display: flex; flex-direction: column; gap: 7px; padding: 9px 12px; }
+.w-limit { display: grid; grid-template-columns: 36px minmax(0, 1fr) 30px 74px; align-items: center; gap: 10px; }
 /* the label never wraps ("5-hour", "Weekly" in English): the bar gives up the room */
 .w-limit > .w-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.w-limit .w-bar { height: 6px; }
-.w-limit-pct { text-align: right; font-weight: 650; font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.w-limit-pct small { font-size: 10px; font-weight: 500; color: var(--ink-3); margin-left: 1px; }
-.w-limit-reset { font-size: 11px; color: var(--ink-3); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
-.w-limit.tone-warn .w-bar span { background: var(--amber); }
-.w-limit.tone-danger .w-bar span { background: var(--danger); }
+.w-limit-pct { text-align: right; font-weight: var(--w-body); font-size: var(--t-meta); color: var(--num-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.w-limit-pct small { font: inherit; color: inherit; margin: 0; }
+.w-limit-reset { font-size: var(--t-meta); color: var(--ink-3); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.w-limit.tone-warn .w-bar span { background: var(--bar-warn); }
+.w-limit.tone-danger .w-bar span { background: var(--bar-danger); }
 .w-limit.tone-warn .w-limit-pct { color: var(--amber); }
-.w-limit.tone-danger .w-limit-pct { color: var(--danger); }
+.w-limit.tone-danger .w-limit-pct { color: var(--red-text); }
 
-/* ---------- Update ---------- */
-.w-update { -webkit-app-region: no-drag; font: inherit; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 0; background: var(--accent-soft); color: var(--accent); cursor: pointer; white-space: nowrap; }
-.w-update:hover { filter: brightness(1.08); }
-.w-update.downloading { background: var(--card-2); color: var(--accent); cursor: default; }
-.w-update.ready { background: var(--accent); color: var(--accent-ink); }
-.w-update.failed { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+/* ---------- Update: a hairline button; ready to apply, solid --ink ---------- */
+.w-update { -webkit-app-region: no-drag; font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 3px 8px; border-radius: var(--r-s); border: 1px solid var(--line); background: none; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.w-update:hover { border-color: var(--line-hover); color: var(--ink); }
+.w-update.downloading { border-color: var(--line); color: var(--ink-3); cursor: default; }
+.w-update.ready { border-color: transparent; background: var(--ink); color: var(--accent-ink); }
+.w-update.failed { border-color: color-mix(in srgb, var(--danger) 45%, transparent); color: var(--red-text); }
 
 /* ---------- Session rows: the Pokémon beside two lines.
    Line 1 is the name (it gets the whole width) and the status; line 2 is Lv, folder, AI tool,
    branch, then the helpers. The buttons float over line 2's end on hover. ---------- */
-.w-row-head { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 8px; row-gap: 3px; align-items: center; }
-.w-row-head > .w-row-mon { grid-row: 1 / span 2; width: 30px; height: 30px; }
+.w-row-head { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 10px; row-gap: 2px; align-items: center; }
+.w-row-head > .w-row-mon { grid-row: 1 / span 2; width: var(--row-mon); height: var(--row-mon); }
 .w-row-line1, .w-row-line2 { display: flex; align-items: center; gap: 6px; min-width: 0; position: relative; }
 .w-row-line1 .w-row-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-row-line1 > .w-pill { flex: none; }
-.w-row-line2 { gap: 5px; min-height: 18px; font-size: 11px; }
+.w-row-line2 { gap: 6px; min-height: 16px; font-size: var(--t-meta); }
 .w-row-meta { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; }
 .w-row-meta .w-row-project { flex: 0 1 auto; min-width: 44px; }
 .w-row-meta .w-row-tool { margin-left: 0; }
 .w-row-swap, .w-row-lv { flex: none; white-space: nowrap; }
-.w-row-helper { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; color: var(--accent); background: var(--accent-soft); cursor: help; }
+.w-row-helper { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--r-s); color: var(--ink-3); background: var(--hover); cursor: help; }
 .w-row-tools {
   position: absolute; right: -2px; top: 50%; transform: translateY(-50%);
   display: inline-flex; align-items: center; padding-left: 14px;
@@ -234,9 +231,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   opacity: 0; pointer-events: none;
 }
 .w-row:hover .w-row-tools, .w-row-tools:focus-within, .w-row-tools:has(.confirm) { opacity: 1; pointer-events: auto; }
-.w-row-edit { font: inherit; font-size: 11px; color: var(--ink-3); background: transparent; border: 0; border-radius: 6px; padding: 2px 5px; cursor: pointer; }
+.w-row-edit { font: inherit; font-size: var(--t-meta); color: var(--ink-3); background: transparent; border: 0; border-radius: var(--r-s); padding: 2px 5px; cursor: pointer; }
 .w-row-edit:hover { color: var(--ink); }
-.w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: 13px; font-weight: 650; color: var(--ink); background: var(--card); border: 1px solid var(--accent); border-radius: 7px; padding: 2px 7px; outline: none; }
+.w-row-rename { flex: 1; min-width: 0; font: inherit; font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink); background: var(--card); border: 1px solid var(--ink-3); border-radius: var(--r-s); padding: 2px 7px; outline: none; }
 
 /* ---------- Limits while nothing has reported yet: a quiet shimmer, same widths ---------- */
 /* while a session starts, the bar fills the row */
@@ -247,24 +244,24 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.10), transparent);
   animation: wLimitShimmer 1.4s ease-in-out infinite;
 }
-.w-limit-wait { display: inline-block; width: 26px; height: 10px; border-radius: 4px; background: #262a34; vertical-align: middle; animation: wLimitPulse 1.4s ease-in-out infinite; }
+.w-limit-wait { display: inline-block; width: 26px; height: 10px; border-radius: var(--r-s); background: var(--track); vertical-align: middle; animation: wLimitPulse 1.4s ease-in-out infinite; }
 @keyframes wLimitShimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @keyframes wLimitPulse { 50% { opacity: 0.45; } }
 
 /* Limits: a hint before any session */
 .w-limits.idle { flex-direction: row; align-items: center; gap: 10px; padding: 11px 12px; }
-.w-limits-hint { font-size: 11px; color: var(--ink-3); }
+.w-limits-hint { font-size: var(--t-meta); color: var(--ink-3); }
 /* The session's model, left of its context bar */
-.w-row-model { flex: none; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-3); }
-/* The context window as HP: what is left drains like a Pokémon's HP bar */
-.w-hp-label { flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-3); }
+.w-row-model { flex: none; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-meta); color: var(--ink-3); }
+/* The context window as HP: what is left drains like a Pokémon's HP bar (hpTone, src/sessionList.ts) */
+.w-hp-label { flex: none; font-size: var(--t-micro); font-weight: var(--w-body); color: var(--ink-3); }
 .w-ctx.w-hp span { transition: width 0.6s ease-out, background-color 0.3s; }
-.w-ctx.hp-green span, .w-ctx.hp-full span { background: #5fcf7a; }
-.w-ctx.hp-yellow span { background: var(--accent); }
-.w-ctx.hp-red span { background: var(--danger); }
+.w-ctx.hp-green span, .w-ctx.hp-full span { background: var(--hp); }
+.w-ctx.hp-yellow span { background: var(--hp-warn); }
+.w-ctx.hp-red span { background: var(--hp-low); }
 .w-ctx.hp-full span { opacity: 0.35; }
-/* The session folder's git branch, after the project: quiet, cut short when the row is narrow */
-.w-row-branch { flex: 0 1 auto; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ink-3); padding: 0 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.05); font-family: 'Monaspace Neon Var', Consolas, 'SF Mono', Menlo, monospace; }
+/* The session folder's git branch, after the project: quiet, no chip, cut short when the row is narrow */
+.w-row-branch { flex: 0 1 auto; min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(var(--t-meta) - 0.5px); font-weight: var(--w-mono); color: var(--ink-3); font-family: 'Monaspace Neon Var', Consolas, 'SF Mono', Menlo, monospace; }
 .w-row-branch::before { content: '⎇ '; opacity: 0.7; }
 /* A Mac: the same bundled faces first as on Windows (public/fonts/fonts.css); only the
    fallbacks behind them differ: should a bundled file fail to load, Latin goes to the system
