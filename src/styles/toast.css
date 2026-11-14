@@ -1,4 +1,7 @@
-/* toast.css — the catch notification window (?toast): one card, bottom-right, above everything */
+/* toast.css — the catch notification window (?toast): one card, bottom-right, above everything.
+   The one lively thing in the calm look (a reward): the rounder card, the picture, the tier in its
+   colour, NEW in yellow. A fixed-size window: it never takes the text step (no ts- class on its
+   page), so the --t-* sizes here are always the 보통 ones, and the name is a fixed 15px. */
 
 html.toast-mode, html.toast-mode body, html.toast-mode #root {
   margin: 0;
@@ -17,12 +20,12 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
   background: transparent;
 }
 
-/* tier colours: tokens.css (imported first by Toast.tsx) */
+/* tier colours and the tier dot: tokens.css (imported first by Toast.tsx) */
 
 /* ---------- The card alone: the waiting ones are a "+N" on it (cards peeking out below read as
    another small window behind, and the window's edge cut their shadows off square) ---------- */
 .toast-host .w-toast-stack { position: relative; width: 100%; box-sizing: border-box; }
-.toast-host .w-toast-more { color: #9aa0ad; font-variant-numeric: tabular-nums; }
+.toast-host .w-toast-more { color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 /* ---------- The card: picture | text, one job per line ---------- */
 .toast-host .w-toast {
@@ -30,72 +33,75 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
   width: 100%;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  padding: 18px 22px 18px 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: #14161c;
+  gap: 14px;
+  padding: 14px 18px 14px 14px;
+  border-radius: var(--r-toast);
+  border: 1px solid var(--line);
+  background: var(--toast-bg);
   cursor: pointer;
   animation: toastIn 0.3s cubic-bezier(.2, .8, .2, 1) both;
 }
-.toast-host .w-toast:hover { border-color: rgba(255, 255, 255, 0.24); }
+.toast-host .w-toast:hover { border-color: var(--line-hover); }
 .toast-host .w-toast.leaving { animation: toastOut 0.35s ease-in both; }
 
 /* The picture: the heaviest thing on the card, on the same quiet grey as the dex (no tier tint) */
 .toast-host .w-toast-art {
-  width: 72px; height: 72px; border-radius: 14px;
+  width: 64px; height: 64px; border-radius: var(--r-l);
   display: grid; place-items: center;
-  background: #1d1e22;
+  background: var(--toast-art-bg);
 }
-.toast-host .w-toast-art img { width: 52px; height: 52px; object-fit: contain; image-rendering: auto; }
+.toast-host .w-toast-art img { width: 48px; height: 48px; object-fit: contain; image-rendering: auto; }
 
 .toast-host .w-toast-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 
-/* 1. What happened: a quiet label, the tier in its colour */
-.toast-host .w-toast-eyebrow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; line-height: 1.4; }
-.toast-host .w-toast-kind { color: #9aa0ad; }
-.toast-host .w-toast-tier { color: var(--tier); padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, var(--tier) 15%, transparent); }
-.toast-host .w-toast-new { color: #1b1e27; background: #ffd84a; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 600; }
-.toast-host .w-toast-badge { color: #1b1e27; background: #ffd84a; padding: 0 7px; border-radius: 999px; }
+/* 1. What happened: a quiet label, the tier as its dot and its word in its colour (no pill) */
+.toast-host .w-toast-eyebrow { display: flex; align-items: center; gap: 8px; font-size: var(--t-meta); font-weight: var(--w-name); line-height: 1.4; }
+.toast-host .w-toast-kind { color: var(--ink-3); }
+.toast-host .w-toast-tier { display: inline-flex; align-items: center; gap: 5px; color: var(--tier); padding: 0; background: none; }
+/* NEW and 오늘의 출석 stay yellow tags: a reward */
+.toast-host .w-toast-new { color: var(--accent-ink); background: var(--new-badge); padding: 0 5px; border-radius: 999px; font-size: var(--t-micro); font-weight: var(--w-name); }
+.toast-host .w-toast-badge { color: var(--accent-ink); background: var(--new-badge); padding: 0 7px; border-radius: 999px; }
 
-/* 2. Who: the name, loudest text */
-.toast-host .w-toast-title { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -0.02em; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.toast-host .w-toast-title small { margin-left: 7px; font-size: 12px; font-weight: 650; color: #9aa0ad; letter-spacing: 0; font-variant-numeric: tabular-nums; }
-.toast-host .w-toast-arrow { color: #9aa0ad; font-weight: 600; }
+/* 2. Who: the name, loudest text (15px whatever the step: the window is fixed) */
+.toast-host .w-toast-title { font-size: 15px; font-weight: var(--w-head); color: var(--ink); letter-spacing: -0.02em; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toast-host .w-toast-title small { margin-left: 7px; font-size: var(--t-meta); font-weight: var(--w-body); color: var(--ink-3); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.toast-host .w-toast-arrow { color: var(--ink-3); font-weight: inherit; }
 
 /* 3. How and where: one quieter line */
 /* a little air between "what and who" above and "how, where, why" below */
-.toast-host .w-toast-meta { margin-top: 5px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a3a8b5; min-width: 0; white-space: nowrap; }
-.toast-host .w-toast-ball { display: inline-flex; align-items: center; gap: 4px; color: #d7dae3; font-weight: 600; flex: none; }
+.toast-host .w-toast-meta { margin-top: 3px; display: flex; align-items: center; gap: 8px; font-size: var(--t-ui); color: var(--ink-2); min-width: 0; white-space: nowrap; }
+.toast-host .w-toast-ball { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-weight: var(--w-name); flex: none; }
 .toast-host .w-toast-ball img { width: 14px; height: 14px; }
 .toast-host .w-toast-place { overflow: hidden; text-overflow: ellipsis; }
 
 /* 4. Why: the quietest line */
-.toast-host .w-toast-via { font-size: 11px; color: #7d8291; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.toast-host .w-toast-via.warn { color: #ffb54a; }
+.toast-host .w-toast-via { font-size: var(--t-meta); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toast-host .w-toast-via.warn { color: var(--amber); }
 
 /* × closes this one; the next comes forward */
 .toast-host .w-toast-close {
   position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; padding: 0;
   display: grid; place-items: center; border: 0; border-radius: 50%; cursor: pointer;
-  font: inherit; font-size: 14px; line-height: 1; color: #7d8291; background: transparent;
+  font: inherit; font-size: 14px; line-height: 1; color: var(--ink-3); background: transparent;
 }
-.toast-host .w-toast-close:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.toast-host .w-toast-close:hover { color: var(--ink); background: rgba(255, 255, 255, 0.1); }
 .toast-host .w-toast-text { padding-right: 10px; }
 
 /* ---------- Kinds ---------- */
 /* One that got away: a silhouette, as in the dex */
 .toast-host .w-toast.kind-flee .w-toast-art img { filter: brightness(0) invert(0.32); }
-.toast-host .w-toast.kind-flee .w-toast-art { background: #1d1e22; }
-.toast-host .w-toast.kind-flee .w-toast-title { color: #c9cdd6; }
-.toast-host .w-toast.kind-catch.tier-sub { border-color: rgba(192, 139, 255, 0.5); }
+.toast-host .w-toast.kind-flee .w-toast-art { background: var(--toast-art-bg); }
+.toast-host .w-toast.kind-flee .w-toast-title { color: var(--ink-2); }
+/* The rarer the catch, the more its edge takes the tier's colour */
+.toast-host .w-toast.kind-catch.tier-rare { border-color: color-mix(in srgb, var(--tier) 35%, transparent); }
+.toast-host .w-toast.kind-catch.tier-sub { border-color: color-mix(in srgb, var(--tier) 50%, transparent); }
 .toast-host .w-toast.kind-catch.tier-legendary, .toast-host .w-toast.kind-catch.tier-mythical {
   border-color: var(--tier);
   box-shadow: 0 0 0 1px var(--tier); /* a ring, no glow around it */
 }
-.toast-host .w-toast.shiny { border-color: #fff3a0; }
+.toast-host .w-toast.shiny { border-color: var(--shiny); }
 
 
 @keyframes toastIn { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }

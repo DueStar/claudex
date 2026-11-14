@@ -479,28 +479,33 @@
 .widget textarea::-webkit-scrollbar-thumb { border-width: 2px; }
 
 /* ---------- Design QA page (?qa) ---------- */
-html.qa-mode, html.qa-mode body { margin: 0; background: #0b0c10; }
+html.qa-mode, html.qa-mode body { margin: 0; background: var(--bg); }
 html.qa-mode #root { min-height: 100vh; }
-.widget.qa { height: auto; min-height: 100vh; display: block; padding: 28px 32px 60px; background: #0b0c10; }
-.qa-head h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: -0.02em; }
-.qa-head p { margin: 0 0 24px; color: var(--ink-2); font-size: 13px; }
+.widget.qa { height: auto; min-height: 100vh; display: block; padding: 28px 32px 60px; background: var(--bg); }
+.qa-head h1 { margin: 0 0 6px; font-size: var(--t-head); font-weight: var(--w-head); letter-spacing: -0.01em; }
+.qa-head p { margin: 0 0 24px; color: var(--ink-2); font-size: var(--t-name); }
+.qa-head p b { font-weight: var(--w-name); color: var(--ink); }
 .qa-section { margin-bottom: 34px; }
-.qa-section h2 { font-size: 13px; font-weight: 650; color: var(--ink-2); margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.qa-section h2 { font-size: var(--t-name); font-weight: var(--w-head); color: var(--ink-2); margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .qa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 18px 22px; align-items: start; }
 .qa-item { display: flex; flex-direction: column; gap: 8px; max-width: 384px; }
 .qa-item.qa-row { max-width: none; }
 .qa-narrow { max-width: 330px; }
 .qa-row { flex-direction: row; gap: 10px; align-items: center; flex-wrap: wrap; }
-.qa-label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.qa-label { display: flex; align-items: center; gap: 8px; font-size: var(--t-ui); }
+.qa-label b { flex: none; font-weight: var(--w-name); white-space: nowrap; }
 .qa-label span { color: var(--ink-3); }
-.qa-fire { margin-left: auto; font: inherit; font-size: 11px; font-weight: 650; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); cursor: pointer; }
-.qa-fire:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.qa-fire { margin-left: auto; font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 3px 10px; border-radius: var(--r-s); border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+.qa-fire:hover:not(:disabled) { border-color: var(--line-hover); color: var(--ink); }
 .qa-fire:disabled { opacity: 0.4; cursor: default; }
-.widget .toast-host.qa-toast { height: auto; padding: 0; width: 384px; display: block; }
+/* The toast window never takes the text step (a fixed-size window): its samples here neither */
+.widget .toast-host.qa-toast { height: auto; padding: 0; width: 384px; display: block; --t-micro: 10px; --t-meta: 11px; --t-ui: 12px; }
 .widget .toast-host.qa-toast .w-toast { animation: none; }
 .qa-fake-term { padding: 8px 10px; }
-.qa-fake-term pre { margin: 0; font-family: 'Monaspace Neon Var', 'Monaspace Neon', Consolas, 'SF Mono', Menlo, monospace; font-size: 11px; color: #e6e6e6; white-space: pre-wrap; }
-.qa-today { height: 420px; display: flex; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.qa-fake-term pre { margin: 0; font-family: 'Monaspace Neon Var', 'Monaspace Neon', Consolas, 'SF Mono', Menlo, monospace; font-size: var(--t-meta); color: var(--ink); white-space: pre-wrap; }
+.qa-today { height: 420px; display: flex; border: 1px solid var(--line); border-radius: var(--r-l); background: var(--card); overflow: hidden; }
+/* The session rows: a card the width of the left panel */
+.qa-rows { width: 300px; box-sizing: border-box; }
 
 /* ---------- 랭킹: board tabs, my entry, the list (calm: the medals stay, the rest goes quiet;
    you are marked by the neutral grey, not yellow) ---------- */

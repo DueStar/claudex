@@ -138,3 +138,27 @@ describe('tokens.css', () => {
     }
   })
 })
+
+describe('the two pages apart from the app (toast window, status card)', () => {
+  it('the status card writes in --ink at 500 (its CSP keeps the app CSS out, so the value is inlined)', () => {
+    const html = read('electron', 'status-card.html')
+    expect(html).toContain('color: #d7dae3')
+    expect(html).toContain('font-weight: 500')
+    expect(html).not.toContain('#f1f2f5')
+    expect(resolve('--ink').toLowerCase()).toBe('#d7dae3')
+  })
+
+  it('the catch card: the tier as a dot and its word, the card at the toast radius', () => {
+    expect(read('src', 'Toast.tsx')).toMatch(/<span className="w-toast-tier"><i className="tdot" aria-hidden="true" \/>\{TIER_LABEL\[/)
+    const toast = read('src', 'styles', 'toast.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const card = toast.match(/\.toast-host \.w-toast\s*{([^}]*)}/)
+    expect(card, '.toast-host .w-toast rule').not.toBeNull()
+    expect(card![1]).toMatch(/border-radius:\s*var\(--r-toast\)/)
+    // no grey literals left: every grey is a token
+    for (const lit of ['#9aa0ad', '#a3a8b5', '#c9cdd6', '#fff;', '#fff ', '#d7dae3', '#7d8291']) expect(toast, lit).not.toContain(lit)
+  })
+
+  it('the toast page never follows the text step (a fixed-size window: it does not load textSize.ts)', () => {
+    expect(read('src', 'Toast.tsx')).not.toMatch(/textSize|termFont|TextSizeControl/)
+  })
+})
