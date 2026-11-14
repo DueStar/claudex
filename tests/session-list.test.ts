@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { hpTone, LIST_MODE_KEY, readListMode, rowTooltip, sessionHeaderParts } from '../src/sessionList'
+import { hpTone, LIST_MODE_KEY, readListMode, rowKeyAction, rowLabel, rowTooltip, sessionHeaderParts } from '../src/sessionList'
 import DICTS from '../src/locales'
 
 describe('hpTone', () => {
@@ -59,6 +59,60 @@ describe("a 간략 row's tooltip", () => {
     const w = readFileSync(join(__dirname, '..', 'src', 'Widget.tsx'), 'utf8')
     expect(w).toContain("title={!compact && r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}")
     expect(w).toMatch(/rowTooltip\(\{[^}]*renamable: !!r\.terminal[^}]*\}, t\)/)
+  })
+})
+
+describe('rows from the keyboard and for screen readers (final review I2)', () => {
+  const widget = () => readFileSync(join(__dirname, '..', 'src', 'Widget.tsx'), 'utf8')
+  const css = () => readFileSync(join(__dirname, '..', 'src', 'styles', 'widget.css'), 'utf8')
+
+  it("a row's name: the session's name and its status (and the context left), in both list modes", () => {
+    expect(rowLabel({ title: '타입 정리', mood: '쉬는 중', left: 100, barLabel: 'HP' }, k => k)).toBe('타입 정리 · 쉬는 중 · HP 100%')
+    expect(rowLabel({ title: null, mood: '확인 필요', left: null, barLabel: '컨텍스트' }, k => k)).toBe('새 세션 · 확인 필요')
+    expect(rowLabel({ title: null, mood: '일하는 중', left: 40, barLabel: '컨텍스트' }, k => DICTS.ja[k] ?? k)).toBe(`${DICTS.ja['새 세션']} · ${DICTS.ja['일하는 중']} · ${DICTS.ja['컨텍스트']} 40%`)
+    // never the rename hint (that is the tooltip's)
+    expect(rowLabel({ title: 'x', mood: '쉬는 중', left: null, barLabel: 'HP' }, k => k)).not.toContain('\n')
+  })
+
+  it('Enter and Space open the row, F2 renames it; nothing while an IME composes', () => {
+    expect(rowKeyAction('Enter')).toBe('open')
+    expect(rowKeyAction(' ')).toBe('open')
+    expect(rowKeyAction('Spacebar')).toBe('open')
+    expect(rowKeyAction('F2')).toBe('rename')
+    for (const k of ['a', 'Tab', 'Escape', 'ArrowDown', 'Delete']) expect(rowKeyAction(k), k).toBeNull()
+    expect(rowKeyAction('Enter', true)).toBeNull()
+    expect(rowKeyAction('F2', true)).toBeNull()
+  })
+
+  it('a row is a focusable button; the one in view is the current one; keys only on the row itself (source check)', () => {
+    const w = widget()
+    expect(w).toContain("role={r.terminal ? 'button' : undefined}")
+    expect(w).toContain('tabIndex={r.terminal ? 0 : undefined}')
+    expect(w).toContain("aria-current={r.terminal && shown?.sessionId === r.sessionId ? 'true' : undefined}")
+    expect(w).toMatch(/aria-label=\{rowLabel\(\{ title: r\.title, mood: MOOD_LABEL\[r\.mood\]/)
+    expect(w).toContain('if (e.target !== e.currentTarget || !r.terminal) return')
+    expect(w).toContain('rowKeyAction(e.key, e.nativeEvent.isComposing)')
+    // the mouse goes through the same open() (the drag's click guard kept)
+    expect(w).toContain('onClick={rowOrder.click(open)}')
+  })
+
+  it('the focus ring is a quiet hairline (no yellow, none on a click); 간략 shows its × on keyboard focus; an ended 간략 row is dimmed', () => {
+    const c = css()
+    expect(c).toContain('.w-row:focus-visible { outline: 1px solid var(--ink-3); outline-offset: -1px; }')
+    expect(c).not.toMatch(/\.w-row:focus-visible[^}]*accent/)
+    expect(c).toContain('.w-rows.compact .w-row:is(:focus-visible, :has(.w-row-close:focus-visible)) .w-row-state > .w-row-close { display: inline-grid; place-items: center; }')
+    // a click's focus never shows the × (only :focus-visible does)
+    expect(c).not.toMatch(/\.w-rows\.compact \.w-row:focus-within/)
+    expect(c).toContain('.w-rows.compact .w-row.mood-ended { opacity: 0.45; }')
+  })
+})
+
+describe("the list header's >_ (final review M2)", () => {
+  it('opens the window only when a shell opened; the note of a refused one stays', () => {
+    const w = readFileSync(join(__dirname, '..', 'src', 'Widget.tsx'), 'utf8')
+    expect(w).toContain('const openShell = async (): Promise<boolean> => {')
+    expect(w).toContain('onClick={async () => { if (await openShell()) setExpanded(true) }}')
+    expect(w).not.toContain('await openShell(); setExpanded(true)')
   })
 })
 

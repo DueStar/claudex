@@ -1,7 +1,8 @@
 /**
  * sessionList.ts — the left list's helpers (unit-tested in plain Node): the context bar's tone,
- * the list mode (상세 / 간략) and its store, a 간략 row's tooltip, the session header's parts,
- * and the shell's name for the new-shell button.
+ * the list mode (상세 / 간략) and its store, a 간략 row's tooltip, a row's name and keys for the
+ * keyboard and screen readers, the session header's parts, and the shell's name for the
+ * new-shell button.
  */
 
 import { useSyncExternalStore } from 'react'
@@ -83,6 +84,30 @@ export function rowTooltip(
   const parts = [p.title ?? tr('새 세션'), tr(p.mood)]
   if (p.left !== null) parts.push(`${tr(p.barLabel)} ${Math.round(p.left)}%`)
   return parts.join(' · ') + (p.renamable ? `\n${tr('더블클릭해서 세션 이름 바꾸기')}` : '')
+}
+
+/**
+ * A row's name for a screen reader (its aria-label), in 상세 and 간략 alike: the tooltip's first
+ * line — "<name or 새 세션> · <status> · <HP|컨텍스트> <n>%" — so the status is heard even where
+ * 간략 shows only its dot
+ */
+export function rowLabel(
+  p: { title: string | null; mood: string; left: number | null; barLabel: 'HP' | '컨텍스트' },
+  tr: (ko: string, vars?: Record<string, string | number>) => string,
+): string {
+  return rowTooltip({ ...p, renamable: false }, tr)
+}
+
+/**
+ * A key pressed on a focused row (not on a button or the rename field inside it): Enter and Space
+ * open its session, as a click does; F2 renames it, as a double-click does. Nothing while an IME
+ * is composing.
+ */
+export function rowKeyAction(key: string, composing = false): 'open' | 'rename' | null {
+  if (composing) return null
+  if (key === 'Enter' || key === ' ' || key === 'Spacebar') return 'open'
+  if (key === 'F2') return 'rename'
+  return null
 }
 
 export interface SessionHeaderParts {

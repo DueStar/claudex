@@ -17,7 +17,7 @@ import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
 import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, usageTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
-import { hpTone, rowTooltip, sessionHeaderParts, setListMode, shellLabel, useListMode } from './sessionList'
+import { hpTone, rowKeyAction, rowLabel, rowTooltip, sessionHeaderParts, setListMode, shellLabel, useListMode } from './sessionList'
 import { sessionTools, shownCodexLimits } from './features'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
@@ -244,6 +244,13 @@ const Widget: React.FC = () => {
   const [renaming, setRenaming] = useState<{ id: string; at: 'row' | 'header' } | null>(null)
   const renamingRef = useRef(renaming)
   const startRename = (id: string, at: 'row' | 'header') => { renamingRef.current = { id, at }; setRenaming({ id, at }) }
+  // A rename opened from the keyboard (F2 on a row): Enter or Esc puts the focus back on that row
+  const keyRename = useRef<string | null>(null)
+  const backToRow = (sid: string) => {
+    if (keyRename.current !== sid) return
+    keyRename.current = null
+    requestAnimationFrame(() => rowEls.current.get(sid)?.focus())
+  }
   const [notesOpen, setNotesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -689,16 +696,18 @@ const Widget: React.FC = () => {
 
   /** A plain shell tab (PowerShell): no Pokémon goes, so the party is not asked; at most MAX_SHELLS */
   const MAX_SHELLS = 3 // twelve sessions + three shells + the ask card stay within Chromium's ~16 WebGL contexts
-  const openShell = async () => {
-    if (!bridge) return
+  /** A new shell; true when one opened (at the limit or on an error it leaves a note and says false) */
+  const openShell = async (): Promise<boolean> => {
+    if (!bridge) return false
     if (terminals.filter(tm => tm.tool === 'shell' && tm.status === 'running').length >= MAX_SHELLS) {
       setNote(t('셸은 {n}개까지 열 수 있어요.', { n: MAX_SHELLS }))
-      return
+      return false
     }
     const r = await bridge.terminals.create({ tool: 'shell' })
-    if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return }
+    if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return false }
     setTarget(r.sessionId)
     setView('terminal')
+    return true
   }
 
   const resume = async (past: PastSession) => {
@@ -1013,7 +1022,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 <button className={compact ? 'on' : ''} aria-pressed={compact} onClick={() => setListMode('compact')} title={t('한 줄씩 (많이 보기)')}>{t('간략')}</button>
                 <button className={compact ? '' : 'on'} aria-pressed={!compact} onClick={() => setListMode('detail')} title={t('이름·상태·컨텍스트·모델까지')}>{t('상세')}</button>
               </span>
-              <button className="w-list-btn w-list-shell" onClick={async () => { await openShell(); setExpanded(true) }}
+              <button className="w-list-btn w-list-shell" onClick={async () => { if (await openShell()) setExpanded(true) }}
                 title={workMode ? t('셸 열기') : t('셸 열기 (포켓몬 없이 {shell})', { shell: shellLabel(rows) })} aria-label={t('셸 열기')}>&gt;_</button>
               <button className={`w-list-btn${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('새로운 세션 시작하기')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={13} /></button>
             </div>
@@ -1039,10 +1048,10 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   maxLength={40}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) endRename(r, e.currentTarget.value)
-                    if (e.key === 'Escape') endRename(r)
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) { endRename(r, e.currentTarget.value); backToRow(sid) }
+                    if (e.key === 'Escape') { endRename(r); backToRow(sid) }
                   }}
-                  onBlur={e => endRename(r, e.currentTarget.value)}
+                  onBlur={e => { keyRename.current = null; endRename(r, e.currentTarget.value) }}
                 />
               ) : (
                 <span
@@ -1068,6 +1077,14 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                   aria-label={t('세션 닫기')}
                 >{closing === r.sessionId ? t('닫기') : '×'}</button>
               )
+              // A row's click (and Enter / Space on it, focused from the keyboard): open its session
+              const open = () => {
+                if (!r.terminal) return
+                setTarget(r.sessionId)
+                if (expanded) setView('terminal')
+                // 간략 in the widget: a session waiting on you opens its terminal, as 상세's 확인 필요 button does
+                else if (compact && r.mood === 'needs-you' && !r.shell) { setView('terminal'); setExpanded(true) }
+              }
               return (
               <div
                 key={r.sessionId}
@@ -1078,13 +1095,22 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 onPointerUp={drag.onPointerUp}
                 onPointerCancel={drag.onPointerCancel}
                 className={`w-row${rowOrder.stateClass(sid)} mood-${r.mood}${r.terminal?.status === 'running' && r.terminal.asking ? ' asking' : ''}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
-                onClick={rowOrder.click(() => {
-                  if (!r.terminal) return
-                  setTarget(r.sessionId)
-                  if (expanded) setView('terminal')
-                  // 간략 in the widget: a session waiting on you opens its terminal, as 상세's 확인 필요 button does
-                  else if (compact && r.mood === 'needs-you' && !r.shell) { setView('terminal'); setExpanded(true) }
-                })}
+                onClick={rowOrder.click(open)}
+                // The keyboard and screen readers: a row is a button (Tab reaches it, Enter / Space
+                // open it, F2 renames it), the one in view is the current one, and its name says
+                // the session's name and status (간략 shows only the status's dot)
+                role={r.terminal ? 'button' : undefined}
+                tabIndex={r.terminal ? 0 : undefined}
+                aria-current={r.terminal && shown?.sessionId === r.sessionId ? 'true' : undefined}
+                aria-label={rowLabel({ title: r.title, mood: MOOD_LABEL[r.mood], left: ctxLeft, barLabel: parts.barLabel }, t)}
+                onKeyDown={e => {
+                  if (e.target !== e.currentTarget || !r.terminal) return
+                  const act = rowKeyAction(e.key, e.nativeEvent.isComposing)
+                  if (!act) return
+                  e.preventDefault()
+                  if (act === 'open') open()
+                  else { keyRename.current = sid; startRename(r.sessionId, 'row') }
+                }}
                 title={compact ? rowTooltip({ title: r.title, mood: MOOD_LABEL[r.mood], left: ctxLeft, barLabel: parts.barLabel, renamable: !!r.terminal }, t) : r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
                 {compact ? (

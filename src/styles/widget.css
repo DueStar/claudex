@@ -144,6 +144,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .widget.mode-widget .w-row.chosen::before, .qa-rows .w-row.chosen::before { left: -4px; }
 .w-row-name { font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink-2); }
 .w-row.chosen .w-row-name { color: var(--ink); }
+/* Focused from the keyboard: a hairline ring in the quiet grey (no yellow; a click shows none) */
+.w-row:focus { outline: none; }
+.w-row:focus-visible { outline: 1px solid var(--ink-3); outline-offset: -1px; }
 .w-row-project { color: var(--ink-3); font-size: var(--t-meta); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The status: a dot and grey words, no fill */
 .w-pill { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-meta); font-weight: var(--w-body); padding: 0; border-radius: 0; background: none; color: var(--ink-3); white-space: nowrap; }
@@ -287,6 +290,13 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row-state > .w-row-close { display: none; }
 .w-rows.compact .w-row:hover .w-row-state > .w-pill, .w-row-state:has(> .w-row-close.confirm) > .w-pill { display: none; }
 .w-rows.compact .w-row:hover .w-row-state > .w-row-close, .w-row-state > .w-row-close.confirm { display: inline-grid; place-items: center; }
+/* the same from the keyboard: the focused row (or its ×) shows the ×, so Tab can reach it; a click's
+   focus does not count (:focus-visible), so the mouse sees exactly what it did */
+.w-rows.compact .w-row:is(:focus-visible, :has(.w-row-close:focus-visible)) .w-row-state > .w-pill { display: none; }
+.w-rows.compact .w-row:is(:focus-visible, :has(.w-row-close:focus-visible)) .w-row-state > .w-row-close { display: inline-grid; place-items: center; }
+.w-rows.compact .w-row-close:focus-visible { outline: 1px solid var(--ink-3); outline-offset: -1px; }
+/* an ended session, dimmed as the rail does (its dot alone looks like 쉬는 중) */
+.w-rows.compact .w-row.mood-ended { opacity: 0.45; }
 .w-rows.compact .w-row.dragging .w-row-state > .w-row-close { display: none; }
 .w-rows.compact .w-row.dragging .w-row-state > .w-pill { display: inline-flex; }
 /* the × a 22px target; the negative margins keep the line as it was (the dot's 14px slot, the 20px line) */
