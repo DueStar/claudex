@@ -1,6 +1,6 @@
 /* main.js — language, the live app demo in the hero, and the app views in
-   the sections. Markup follows the app's components (src/Widget.tsx,
-   src/components/SessionTabs.tsx, src/Toast.tsx, src/components/TodayLog.tsx,
+   the sections. Markup follows the app's components as of 1.4.0 (src/Widget.tsx,
+   src/components/SessionHeader.tsx, src/Toast.tsx, src/components/TodayLog.tsx,
    PokedexView.tsx, LeaderboardView.tsx); the sessions and numbers are made up.
    Pictures come from where the app gets them (server/sprites.js):
    Pokémon HOME art from PokeAPI's sprites, Scarlet/Violet box icons from
@@ -282,14 +282,13 @@
     return esc(t(key, v)).replace('\u0000', nameHtml);
   }
 
-  /* One session row of the party card (Widget.tsx), kept as live references */
+  /* One session row of the list (Widget.tsx, 1.4.0: the status is a dot and quiet words), kept as live references */
   function makeRow(s) {
     var row = h(
       '<div class="w-row">' +
-        '<span class="w-glint" aria-hidden="true"></span>' +
         '<div class="w-row-head">' +
           '<img class="w-row-mon" alt="">' +
-          '<div class="w-row-line1"><span class="w-row-name"></span><span class="w-pill"></span></div>' +
+          '<div class="w-row-line1"><span class="w-row-name"></span><span class="w-pill"><i class="w-pill-dot"></i><span class="w-pill-text"></span></span></div>' +
           '<div class="w-row-line2"><span class="w-row-lv"></span><span class="w-row-meta"><span class="w-row-project"></span></span></div>' +
         '</div>' +
         '<div class="w-row-bottom"><span class="w-hp-label">HP</span><div class="w-ctx w-hp"><span></span></div><span class="w-row-model"></span><span class="w-row-num"></span></div>' +
@@ -302,6 +301,7 @@
       img: row.querySelector('.w-row-mon'),
       name: row.querySelector('.w-row-name'),
       pill: row.querySelector('.w-pill'),
+      pillText: row.querySelector('.w-pill-text'),
       lv: row.querySelector('.w-row-lv'),
       project: row.querySelector('.w-row-project'),
       hp: row.querySelector('.w-hp'),
@@ -320,7 +320,7 @@
     u.img.title = s.dex ? nameOf(s.dex) : '';
     u.name.textContent = s.titleKey ? t(s.titleKey) : s.title;
     u.pill.className = 'w-pill mood-' + s.mood;
-    u.pill.textContent = t(moodKey(s.mood));
+    u.pillText.textContent = t(moodKey(s.mood));
     u.lv.textContent = s.dex ? 'Lv.' + s.lv : '';
     u.project.textContent = s.project;
     u.hp.className = 'w-ctx w-hp ' + hpTone(s.hp);
@@ -338,8 +338,9 @@
     el.querySelector('.w-limit-reset').textContent = reset ? '↻ ' + reset : '';
     return el;
   }
+  // usageTone (src/meters.ts): grey, amber from 80 %, red from 90 %
   function setLimit(el, value) {
-    el.className = 'w-limit tone-' + (value >= 80 ? 'warn' : 'ok');
+    el.className = 'w-limit tone-' + (value >= 90 ? 'danger' : value >= 80 ? 'warn' : 'ok');
     el.querySelector('.w-bar span').style.width = Math.max(2, Math.min(100, value)) + '%';
     el.querySelector('.w-limit-pct b').textContent = Math.round(value);
   }
@@ -354,7 +355,7 @@
     var head = '';
     if (e.daily) head += '<span class="w-toast-badge">' + esc(t('app.daily')) + '</span>';
     head += '<span class="w-toast-kind">' + esc(t(kindKey)) + '</span>';
-    if (e.kind !== 'levelup') head += '<span class="w-toast-tier">' + esc(t('tier.' + tier)) + '</span>';
+    if (e.kind !== 'levelup') head += '<span class="w-toast-tier"><i class="tdot" aria-hidden="true"></i>' + esc(t('tier.' + tier)) + '</span>';
     if (e.isNew) head += '<span class="w-toast-new">NEW</span>';
     var title = e.kind === 'evolve'
       ? esc(nameOf(e.from)) + ' <span class="w-toast-arrow">→</span> ' + esc(nameOf(e.id))
@@ -379,7 +380,8 @@
   var app = document.getElementById('app');
   var els = {
     rows: document.getElementById('rows'),
-    tabs: document.getElementById('tabs'),
+    head: document.getElementById('sessHead'),
+    listCount: document.getElementById('listCount'),
     term: document.getElementById('term'),
     slots: document.getElementById('partySlots'),
     dexCount: document.getElementById('dexCount'),
@@ -416,33 +418,36 @@
       model: o.model, dex: o.dex || 0, lv: o.lv || 5, mood: o.mood || 'idle', hp: o.hp == null ? 100 : o.hp, ctx: o.ctx || 200000, chosen: false, lines: [] };
     demo.sessions.push(s);
     els.rows.appendChild(makeRow(s));
-    s.tab = h('<span class="w-sess-tab"><img alt=""><span class="w-sess-tab-name"></span><span class="w-sess-tab-dot"></span></span>');
-    els.tabs.appendChild(s.tab);
-    updateTab(s);
     renderSlots();
     return s;
   }
 
-  function updateTab(s) {
-    s.tab.className = 'w-sess-tab mood-' + s.mood + (demo.shown === s ? ' on' : '');
-    var img = s.tab.querySelector('img');
+  /* The session header above the terminal (SessionHeader.tsx): the session in view, named */
+  function updateHead() {
+    var s = demo.shown, head = els.head;
+    head.hidden = !s;
+    if (!s) return;
+    var img = head.querySelector('.w-sess-head-pic');
     if (img.getAttribute('data-dex') !== String(s.dex || 0)) { setIcon(img, s.dex); img.setAttribute('data-dex', String(s.dex || 0)); }
-    img.title = s.dex ? nameOf(s.dex) : '';
-    s.tab.querySelector('.w-sess-tab-name').textContent = s.titleKey ? t(s.titleKey) : s.title;
+    head.querySelector('.w-sess-head-name').textContent = s.titleKey ? t(s.titleKey) : s.title;
+    var br = head.querySelector('.w-sess-head-branch');
+    br.textContent = s.branch || '';
+    br.hidden = !s.branch;
+    head.querySelector('.w-sess-head-proj').textContent = s.project;
   }
 
-  function update(s) { updateRow(s); updateTab(s); }
+  function update(s) { updateRow(s); if (s === demo.shown) updateHead(); }
 
   function removeSession(s) {
     demo.sessions = demo.sessions.filter(function (x) { return x !== s; });
     if (s.ui) s.ui.row.remove();
-    s.tab.remove();
     renderSlots();
   }
 
   function show(s) {
     demo.shown = s;
-    demo.sessions.forEach(function (x) { x.chosen = x === s; updateRow(x); updateTab(x); });
+    demo.sessions.forEach(function (x) { x.chosen = x === s; updateRow(x); });
+    updateHead();
     renderTerm();
   }
 
@@ -451,6 +456,7 @@
     els.slots.innerHTML = demo.party.map(function (id) {
       return '<span class="w-party-mon' + (out.indexOf(id) >= 0 ? ' out' : '') + '" title="' + esc(nameOf(id)) + '">' + iconImg(id) + '</span>';
     }).join('');
+    els.listCount.textContent = t('app.sessions', { n: demo.sessions.length });
   }
 
   function renderDex() {
@@ -566,7 +572,7 @@
 
   var a, b, d;
   function setup() {
-    els.rows.textContent = ''; els.tabs.textContent = '';
+    els.rows.textContent = '';
     demo.sessions = [];
     demo.party = PARTY.slice();
     a = newSession({ id: 'a', title: 'header-copy', project: 'spawn-site', branch: 'main', model: 'Opus', dex: 4, lv: 15, mood: 'idle', hp: 84, ctx: 200000 });
@@ -631,7 +637,8 @@
 
   if (app) {
     onLang(function () {
-      demo.sessions.forEach(function (s) { updateRow(s); updateTab(s); });
+      demo.sessions.forEach(function (s) { updateRow(s); });
+      updateHead();
       renderSlots();
       renderTerm();
       els.toggle.textContent = t(demo.userPaused ? 'demo.play' : 'demo.pause');
@@ -742,7 +749,7 @@
       return '<button type="button" data-show="' + s[0] + '" class="' + (dexView.show === s[0] ? 'on' : '') + '">' + esc(t(s[1])) + '</button>';
     }).join('');
     var tiers = ['common', 'rare', 'sub', 'legendary', 'mythical'].map(function (k) {
-      return '<button type="button" data-tier="' + k + '" class="tier-' + k + (dexView.tiers.indexOf(k) >= 0 ? ' on' : '') + '" aria-pressed="' + (dexView.tiers.indexOf(k) >= 0) + '">' + esc(t('tier.' + k)) + '</button>';
+      return '<button type="button" data-tier="' + k + '" class="tier-' + k + (dexView.tiers.indexOf(k) >= 0 ? ' on' : '') + '" aria-pressed="' + (dexView.tiers.indexOf(k) >= 0) + '"><i class="tdot" aria-hidden="true"></i>' + esc(t('tier.' + k)) + '</button>';
     }).join('');
     var keepFocus = document.activeElement && document.activeElement.id === 'dexQuery';
     f.innerHTML =
@@ -784,7 +791,7 @@
       '<div class="dex-card-no">' + pad3(p.id) + ' · ' + esc(t('dex.genN', { n: p.gen })) + '</div>' +
       '<div class="dex-card-name">' + (dc ? iconImg(p.id, 'dex-card-icon') : '') + esc(dc || ds ? nameOf(p.id) : '???') + ' ' + (dc && lang !== 'en' ? '<span class="dex-card-en">' + esc(p.en) + '</span>' : '') + '</div>';
     if (dc || ds) {
-      html += '<div class="dex-card-tags"><span class="dex-tier tier-' + p.tier + '">' + esc(t('tier.' + p.tier)) + '</span>' +
+      html += '<div class="dex-card-tags"><span class="dex-tier tier-' + p.tier + '"><i class="tdot" aria-hidden="true"></i>' + esc(t('tier.' + p.tier)) + '</span>' +
         p.types.map(function (y) { return '<span class="dex-type type-' + y + '">' + esc(typeName(y)) + '</span>'; }).join('') + '</div>';
     }
     if (dc) {
@@ -1053,7 +1060,7 @@
       var tier = SP[e.id].tier;
       var line = withName(e.kind === 'catch' ? 'app.logCatch' : 'app.logFlee', '<b>' + esc(nameOf(e.id)) + '</b>') + (e.kind === 'catch' && e.level ? ' · Lv.' + e.level : '');
       if (e.kind === 'catch' && e.isNew) line += '<span class="today-new">NEW</span>';
-      var sub = '<span class="w-toast-tier tier-' + tier + '">' + esc(t('tier.' + tier)) + '</span>' +
+      var sub = '<span class="w-toast-tier tier-' + tier + '"><i class="tdot" aria-hidden="true"></i>' + esc(t('tier.' + tier)) + '</span>' +
         (e.kind === 'catch' ? '<span class="today-ball">' + ballImg(e.ball, 13) + esc(ballName(e.ball)) + '</span>' : '') +
         '<span>' + esc(evPlace(e)) + '</span>';
       return '<div class="today-row kind-' + e.kind + ' tier-' + tier + '"><span class="today-time">' + e.time + '</span>' +
@@ -1166,7 +1173,7 @@
     if (!box) return;
     var via = hidePrompts ? 'Edit' : 'Edit src/Header.tsx · "' + t('privacy.hide.sample') + '"';
     box.innerHTML = '<span class="today-line">' + withName('app.logCatch', '<b>' + esc(nameOf(43)) + '</b>') + ' · Lv.8</span>' +
-      '<span class="today-sub"><span class="w-toast-tier tier-common">' + esc(t('tier.common')) + '</span><span class="today-ball">' + ballImg('great-ball', 13) + esc(ballName('great-ball')) + '</span><span>' + esc(place('spawn-site', 'grass')) + '</span><span>· ' + esc(via) + '</span></span>';
+      '<span class="today-sub"><span class="w-toast-tier tier-common"><i class="tdot" aria-hidden="true"></i>' + esc(t('tier.common')) + '</span><span class="today-ball">' + ballImg('great-ball', 13) + esc(ballName('great-ball')) + '</span><span>' + esc(place('spawn-site', 'grass')) + '</span><span>· ' + esc(via) + '</span></span>';
     var sw = document.getElementById('hideSwitch');
     sw.classList.toggle('on', hidePrompts);
     sw.setAttribute('aria-checked', hidePrompts ? 'true' : 'false');

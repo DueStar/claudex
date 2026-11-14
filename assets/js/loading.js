@@ -18,7 +18,7 @@
   function fontsIn() {
     if (!document.fonts || !document.fonts.load) return Promise.resolve();
     var text = SAMPLE[root.lang] || SAMPLE.en;
-    var asks = ['400 16px "Uncut Sans"', '600 16px "Uncut Sans"', '700 16px "Uncut Sans"'].map(function (f) { return document.fonts.load(f, 'Aa'); });
+    var asks = ['400 16px "Uncut Sans"', '500 16px "Uncut Sans"', '600 16px "Uncut Sans"', '700 16px "Uncut Sans"'].map(function (f) { return document.fonts.load(f, 'Aa'); });
     if (root.lang === 'ko') asks.push(document.fonts.load('700 16px "Pretendard Variable"', text));
     if (root.lang === 'ja') asks.push(document.fonts.load('700 16px "Pretendard JP Variable"', text));
     return Promise.all(asks).then(function () { return document.fonts.ready; });

@@ -34,6 +34,8 @@
   <!-- The app's fonts: Uncut Sans (Latin), Pretendard (Hangul, Japanese), Monaspace Neon (terminal) -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/uncut-sans@5.3.0/400.css">
+  <!-- 500: the app's names and numbers since 1.4.0 (its weights are 400 / 500, 600 for headings) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/uncut-sans@5.3.0/500.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/uncut-sans@5.3.0/600.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/uncut-sans@5.3.0/700.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -100,7 +102,7 @@
 
       <figure class="wrap hero-demo">
           <div class="app-frame">
-            <!-- The app in window mode, rebuilt from src/Widget.tsx + SessionTabs.tsx with the app's CSS -->
+            <!-- The app in window mode (1.4.0, the calm look), rebuilt from src/Widget.tsx + SessionHeader.tsx with the app's CSS -->
             <div class="widget expanded mode-window hero-app" id="app" aria-hidden="true" inert>
               <div class="w-side">
                 <div class="w-bento">
@@ -125,13 +127,13 @@
                     </div>
                   </section>
                   <section class="w-card w-launch">
-                    <span class="w-launch-main"><svg class="ico w-launch-plus" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg> <span data-i18n="app.newSession"></span></span>
+                    <span class="w-launch-main"><svg class="ico w-launch-plus" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg> <span class="w-launch-label" data-i18n="app.newSession"></span></span>
                     <span class="w-launch-alt"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5c0-.6.4-1 1-1h3l1.5 1.5H13c.6 0 1 .4 1 1V12c0 .6-.4 1-1 1H3c-.6 0-1-.4-1-1z"/></svg></span>
                     <span class="w-launch-alt"><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5.5" width="12" height="8" rx="1.5"/><path d="M3.5 3.5h9M5 1.8h6"/><path d="M5 9.5h4"/></svg></span>
                   </section>
+                  <!-- since 1.4.0 the dex and the party are one line each, the NEW dot right after the label -->
                   <div class="w-card w-dex">
-                    <span class="w-label" data-i18n="app.dex"></span>
-                    <span class="w-new-dot corner" id="dexNew" hidden></span>
+                    <span class="w-label"><span data-i18n="app.dex"></span><span class="w-new-dot" id="dexNew" hidden></span></span>
                     <span class="w-dex-count"><b id="dexCount">86</b><span> / 1025</span></span>
                     <span class="w-dex-recent" id="dexRecent"></span>
                   </div>
@@ -140,32 +142,48 @@
                       <span class="w-label" data-i18n="app.party"></span>
                       <span class="w-party-slots" id="partySlots"></span>
                     </div>
-                    <div id="rows" class="rows"></div>
+                    <!-- the list's header (1.4.0): 세션 n, 간략 / 상세, a new shell, a new session -->
+                    <div class="w-list-head">
+                      <span class="w-list-count" id="listCount"></span>
+                      <span class="w-list-mode"><span data-i18n="app.compact"></span><span class="on" data-i18n="app.detail"></span></span>
+                      <span class="w-list-btn">&gt;_</span>
+                      <span class="w-list-btn"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></span>
+                    </div>
+                    <div id="rows" class="w-rows"></div>
                   </section>
                 </div>
               </div>
 
               <section class="w-card w-term">
                 <div class="w-term-tabs">
-                  <div class="w-view-switch w-view-icons">
-                    <button class="icon-only on" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.8"/><path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3"/></svg></button>
-                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.2C6.6 3.2 4.6 3 2.5 3.3v9.2c2.1-.3 4.1-.1 5.5.9 1.4-1 3.4-1.2 5.5-.9V3.3C11.4 3 9.4 3.2 8 4.2zM8 4.2v9.2"/></svg><span class="w-new-dot" id="viewNew" hidden></span></button>
-                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></svg></button>
-                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.6"/></svg></button>
-                    <button class="icon-only" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5h7v3.2a3.5 3.5 0 0 1-7 0z"/><path d="M4.5 3.8H3.2a1.4 1.4 0 0 0 0 2.8h1.5M11.5 3.8h1.3a1.4 1.4 0 0 1 0 2.8h-1.5"/><path d="M8 9.2v2.3M5.5 13.5h5M6.3 11.5h3.4"/></svg></button>
+                  <!-- the views with their names (the first one is 세션 since 1.4.0); a narrow bar shows the icons only -->
+                  <div class="w-view-switch w-view-tabs">
+                    <button class="on" tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.8"/><path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3"/></svg><span class="w-view-name" data-i18n="app.view.sessions"></span></button>
+                    <button tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.2C6.6 3.2 4.6 3 2.5 3.3v9.2c2.1-.3 4.1-.1 5.5.9 1.4-1 3.4-1.2 5.5-.9V3.3C11.4 3 9.4 3.2 8 4.2zM8 4.2v9.2"/></svg><span class="w-view-name" data-i18n="app.dex"></span><span class="w-new-dot" id="viewNew" hidden></span></button>
+                    <button tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></svg><span class="w-view-name" data-i18n="app.box"></span></button>
+                    <button tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.6"/></svg><span class="w-view-name" data-i18n="app.view.log"></span></button>
+                    <button tabindex="-1"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5h7v3.2a3.5 3.5 0 0 1-7 0z"/><path d="M4.5 3.8H3.2a1.4 1.4 0 0 0 0 2.8h1.5M11.5 3.8h1.3a1.4 1.4 0 0 1 0 2.8h-1.5"/><path d="M8 9.2v2.3M5.5 13.5h5M6.3 11.5h3.4"/></svg><span class="w-view-name" data-i18n="app.view.rank"></span></button>
                   </div>
                   <span class="w-term-spacer"></span>
-                  <!-- as the app has them since 1.3.45: the widget toggle, then minimize, maximize, close -->
+                  <!-- as the app has them since 1.4.0: the widget toggle, the one text size (− 가 보통 +), then minimize, maximize, close -->
                   <span class="w-icon w-widget-toggle"><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.8" stroke-dasharray="2 1.6"/><rect x="8.5" y="4.5" width="4" height="7" rx="1" fill="currentColor" stroke="none"/></svg></span>
+                  <div class="w-textsize"><span class="w-textsize-step">−</span><span class="w-textsize-cur"><span class="w-textsize-g">가</span><span class="w-textsize-name" data-i18n="app.textNormal"></span></span><span class="w-textsize-step">+</span></div>
                   <div class="w-win-controls">
                     <span class="w-icon"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h9"/></svg></span>
                     <span class="w-icon"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="9" height="9" rx="1.2"/></svg></span>
                     <span class="w-icon"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></span>
                   </div>
                 </div>
+                <!-- 1.4.0: no row of session tabs; this bar names the session in view (SessionHeader.tsx) -->
                 <div class="w-sess-bar">
-                  <div class="w-sess-tabs" id="tabs"></div>
-                  <span class="w-sess-shell-btn">&gt;_</span>
+                  <div class="w-sess-head" id="sessHead">
+                    <img class="w-sess-head-pic" alt="">
+                    <span class="w-sess-head-name"></span>
+                    <span class="w-row-branch w-sess-head-branch"></span>
+                    <span class="w-sess-head-proj"></span>
+                    <span class="w-sess-head-spacer"></span>
+                    <span class="w-sess-head-close">×</span>
+                  </div>
                 </div>
                 <div class="w-term-body">
                   <div class="term-view"><div class="fake-term" id="term"></div></div>

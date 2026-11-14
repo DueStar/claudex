@@ -8,12 +8,10 @@
 .widget [hidden] { display: none !important; }
 
 /* ---------- The hero app (window mode) ---------- */
+/* (the left panel is the app's default 300px, --side-w in app.css) */
 .hero-app { display: flex; height: 560px; position: relative; cursor: default; user-select: none; }
-.widget.expanded.hero-app .w-side { flex: 0 0 328px; width: 328px; }
 .hero-app .w-party { overflow: hidden; }
-.hero-app .rows { display: flex; flex-direction: column; gap: 6px; }
 .hero-app .w-row { animation: rowIn 0.35s cubic-bezier(.2, .8, .2, 1) both; }
-.hero-app .w-sess-tab { animation: rowIn 0.25s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes rowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 .fake-term {
@@ -38,8 +36,14 @@
 .toast-slot { position: absolute; right: 16px; bottom: 16px; width: 344px; max-width: calc(100% - 32px); z-index: 5; pointer-events: none; }
 .toast-slot .w-toast { box-shadow: 0 18px 40px -12px var(--shadow); }
 
-/* Narrower screens: the tab bar drops its mode buttons first, as the app does */
-@media (max-width: 1080px) { .hero-app .w-mode-switch, .hero-app .w-win-controls { display: none; } }
+/* Narrower screens: the bar gives way step by step, as the app's does: the window buttons, then
+   the view names (icons only), then the text size folds to one 가 */
+@media (max-width: 1080px) { .hero-app .w-win-controls { display: none; } }
+@media (max-width: 1000px) {
+  .hero-app .w-view-name { display: none; }
+  .hero-app .w-view-switch button { padding: 5px 8px; }
+  .hero-app .w-view-switch { margin-right: 2px; }
+}
 @media (max-width: 820px) {
   .hero-app { flex-direction: column; height: auto; }
   .widget.expanded.hero-app .w-side { flex: none; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -47,8 +51,12 @@
   .widget.mode-window.hero-app .w-term { flex: none; height: 320px; }
   .toast-slot { right: 10px; left: 10px; bottom: 10px; width: auto; max-width: none; }
 }
+@media (max-width: 520px) {
+  .hero-app .w-textsize-step, .hero-app .w-textsize-name { display: none; }
+  .hero-app .w-textsize > .w-textsize-cur { border: 0; min-width: 26px; }
+}
 @media (max-width: 420px) {
-  .hero-app .w-limit { grid-template-columns: 44px minmax(0, 1fr) 40px; }
+  .hero-app .w-limits { grid-template-columns: minmax(36px, max-content) minmax(0, 1fr) 30px; }
   .hero-app .w-limit-reset { display: none; }
   .toast-slot .w-toast { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 14px 16px 14px 14px; }
   .toast-slot .w-toast-art { width: 56px; height: 56px; }
@@ -58,8 +66,9 @@
 /* ---------- Panels: an app view on its own ---------- */
 .widget.panel { display: block; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
 
-/* The Pokédex as the app lays it out inside its terminal card: dashboard on top, grid and detail side by side */
-.widget.panel.dex-panel { background: var(--term); }
+/* The Pokédex as the app lays it out inside its terminal card: dashboard on top, grid and detail side by side
+   (the pane is the app's page background, --bg, since 1.4.0) */
+.widget.panel.dex-panel { background: var(--bg); }
 .dex-panel .dex { height: 760px; min-height: 0; }
 .dex-panel .dex-main { min-height: 0; }
 .dex-panel .dex-grid { min-height: 0; }
@@ -77,17 +86,19 @@
   .dex-panel .dex-fsearch { margin-left: 0; }
 }
 @media (max-width: 560px) {
-  .dex-panel .dex-top { padding: 10px; }
-  .dex-panel .dex-stats { gap: 6px; }
-  .dex-panel .dex-stat { grid-template-columns: minmax(0, 1fr); padding: 8px 9px; }
+  .dex-panel .dex-top { padding: 12px 14px; }
+  .dex-panel .dex-grid { padding: 12px 14px; }
+  .dex-panel .dex-stat { grid-template-columns: minmax(0, 1fr); padding: 0 10px; }
+  .dex-panel .dex-stat:first-child, .dex-panel .dex-stat.dex-stat-tiers { padding-left: 0; padding-right: 0; }
   .dex-panel .dex-stat-pct { grid-column: 1; grid-row: auto; align-self: start; }
-  .dex-panel .dex-stat-value b { font-size: 22px; }
+  .dex-panel .dex-stat-value b { font-size: 18px; }
   .dex-panel .dex-stat-value small { display: block; font-size: 11px; }
-  .dex-panel .dex-tiers { gap: 6px; }
-  .dex-panel .dex-tiercol em { font-size: 15px; }
+  .dex-panel .dex-tiers { gap: 8px; }
+  .dex-panel .dex-tiercol em { font-size: 14px; }
   .dex-panel .dex-tiercol em small { display: block; }
   .dex-panel .dex-chips { flex-wrap: wrap; }
   .dex-panel .dex-seg { flex-wrap: wrap; }
+  .dex-panel .dex-seg button { min-width: 0; padding-left: 7px; padding-right: 7px; }
 }
 
 /* The art backdrops as in the app: one plain grey, no tier tint (the dex card uses --mon-bg from app.css) */
@@ -106,7 +117,9 @@
 .sess-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .sess-col { min-width: 0; height: 300px; display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 16px; background: var(--term); border: 1px dashed var(--line-strong); }
 .sess-col.open { border: 1px solid var(--line); animation: rowIn 0.35s cubic-bezier(.2, .8, .2, 1) both; }
-.sess-col .w-row { flex: none; }
+/* the session's row (unfilled, as in the app's list) above its terminal, a hairline between them */
+.sess-col .w-row { flex: none; margin: 0; padding: 6px 6px 10px; border-radius: 0; border-bottom: 1px solid var(--line); }
+.sess-col .w-row:hover { background: none; }
 .sess-wait { margin: auto; opacity: 0.35; }
 .sess-term { flex: 1; min-height: 0; height: auto; padding: 2px 4px 0; font-size: 12px; }
 @media (max-width: 760px) {
@@ -147,15 +160,18 @@
 /* Claude's two limits as tiles stacked to fill the card's height, the number large: no empty room
    above and below (until 2026-11-13 a 2×2 with Codex's two, from spawn-site-lab/usage-lab.html
    "B 타일"; that version is in spawn-site-lab/codex-hide-backup) */
+/* 1.4.0: no fill in the tiles (a hairline), the number by brightness (500, not bold), the bar a
+   thin grey line that turns amber from 80 % and red from 90 % */
 .tools-panel .w-limits { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: 8px; padding: 8px; }
-.tools-panel .w-limit { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr auto; align-items: end; gap: 0; padding: 18px 20px; border-radius: 14px; background: rgba(255, 255, 255, 0.025); border: 1px solid var(--line); }
+.tools-panel .w-limit { display: grid; grid-column: auto; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr auto; align-items: end; gap: 0; padding: 18px 20px; border-radius: var(--r-l); background: none; border: 1px solid var(--line); }
 .tools-panel .w-limit > .w-label { grid-column: 1 / -1; grid-row: 1; align-self: start; font-size: 13px; }
-.tools-panel .w-limit-pct { grid-column: 1; grid-row: 2; text-align: left; font-size: 56px; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
-.tools-panel .w-limit-pct small { font-size: 28px; margin-left: 2px; }
+.tools-panel .w-limit-pct { grid-column: 1; grid-row: 2; text-align: left; font-size: 56px; font-weight: var(--w-strong); letter-spacing: -0.03em; line-height: 1; }
+.tools-panel .w-limit-pct small { font-size: 28px; margin-left: 2px; color: var(--ink-3); }
 .tools-panel .w-limit-reset { grid-column: 2; grid-row: 2; align-self: end; font-size: 13px; }
-.tools-panel .w-limit .w-bar { grid-column: 1 / -1; grid-row: 3; margin-top: 12px; height: 6px; }
+.tools-panel .w-limit .w-bar { grid-column: 1 / -1; grid-row: 3; margin-top: 14px; height: 3px; }
 .tools-panel .rows { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
-.tools-panel .w-row { padding: 10px 12px; }
+/* the rows sit on the panel as on the app's left panel: no fill, no ring */
+.tools-panel .w-row { margin: 0; padding: 10px 12px; }
 @media (max-width: 760px) {
   .widget.panel.tools-panel { grid-template-columns: minmax(0, 1fr); }
   /* above the rows the two sit side by side */
@@ -176,7 +192,7 @@
 .step-side { justify-content: flex-start; }
 
 /* ---------- 사용량과 컨텍스트: the low-HP note on its row ---------- */
-.hp-hint { margin-top: 2px; font-size: 11px; color: #ff9b9b; display: flex; align-items: center; gap: 6px; }
+.hp-hint { margin-top: 2px; padding-left: 34px; font-size: 11px; color: var(--red-text); display: flex; align-items: center; gap: 6px; }
 .hp-hint::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); flex: none; }
 
 /* ---------- 내 PC에서만: the app's settings rows ---------- */
@@ -186,9 +202,11 @@
 .set-panel .set-row:last-child { border-bottom: 0; }
 .set-panel .set-text b { font-size: 14px; }
 .set-panel .set-text small { font-size: 12px; }
-.set-pill { flex: none; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--green); background: rgba(116, 214, 139, 0.12); border-radius: 999px; padding: 2px 8px; }
+/* (1.4.0: a hairline tag, no fill, as the app's other tags) */
+.set-pill { flex: none; font-size: 10px; font-weight: var(--w-name); letter-spacing: 0.04em; color: var(--ink-2); background: none; border: 1px solid var(--line); border-radius: var(--r-xs); padding: 1px 6px; }
 .set-panel .set-switch:focus-visible { outline-offset: 3px; }
-.hide-sample { margin: 2px 0 10px; padding: 9px 12px; border-radius: 10px; background: var(--card-2); display: flex; flex-direction: column; gap: 2px; }
+/* the sample log line: a hairline box, no filled card inside the card */
+.hide-sample { margin: 2px 0 10px; padding: 9px 12px; border-radius: var(--r-m); background: none; border: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
 .hide-sample .today-line { font-size: 13px; }
 .hide-sample .today-sub { white-space: normal; flex-wrap: wrap; }
 @media (max-width: 560px) { .widget.panel.set-panel { padding: 6px 14px 8px; } }
@@ -201,11 +219,12 @@
 .rel-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
 .rel-name { font-size: 11.5px; color: var(--ink); overflow-wrap: anywhere; line-height: 1.35; }
 .rel-tag { flex: none; font-size: 10px; font-weight: 700; color: var(--green); background: rgba(116, 214, 139, 0.12); padding: 1px 7px; border-radius: 999px; }
-.mini-head { border-radius: 12px; padding: 9px 12px; }
+.mini-head { height: auto; padding: 9px 12px; }
 .mini-head .w-brand { font-size: 14px; }
 .mini-exe { font-size: 11.5px; color: var(--ink-3); padding-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini-launch { background: transparent; border: 0; padding: 0; }
-.mini-launch .w-launch-main { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 12px; border-radius: 12px; font-weight: 650; font-size: 13px; }
+/* as the app's empty terminal pane offers it: the launcher with a hairline (1.4.0) */
+.mini-launch .w-launch-main { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 18px; border: 1px solid var(--line); border-radius: var(--r-s); font-size: 13px; }
 .mini-term { height: auto; font-size: 11.5px; padding: 0 4px; }
 .mini-catch { padding: 10px; }
 .mini-catch .w-toast { padding: 12px 14px 12px 12px; gap: 12px; grid-template-columns: 56px minmax(0, 1fr); }
@@ -225,7 +244,7 @@
 @media (max-width: 640px) { .dex-strip-cells { grid-template-columns: repeat(6, minmax(0, 1fr)); } .dex-strip { padding: 12px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-app .w-row, .hero-app .w-sess-tab, .fake-term .ln, .sess-col.open, .dex-strip .dex-cell.fill img { animation: none; }
+  .hero-app .w-row, .fake-term .ln, .sess-col.open, .dex-strip .dex-cell.fill img { animation: none; }
   .sess-party .w-party-mon img { transition: none; }
   .fake-term .t-cursor { animation: none; }
   .w-ctx.w-hp span, .w-bar span { transition: none; }
