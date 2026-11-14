@@ -2,7 +2,8 @@
 
 ## spawn
 
-### Unreleased
+### 1.4.0
+- macOS 버전이 나왔어요(Apple Silicon·Intel). 처음 열 때 한 번만 시스템 설정 › 개인정보 보호 및 보안에서 "그래도 열기"를 눌러 주세요. Mac에서는 단축키의 Ctrl 대신 ⌘를 써요.
 - 앱 전체가 차분한 모습으로 바뀌었어요. 글자가 한 단계 작아지고, 노란색은 지금 고른 세션·칸과 보내기 버튼에만 남았어요. 상태는 작은 점과 글자로 보여요. 포켓몬, 등급 색, 알림 카드의 NEW는 그대로예요.
 - 첫 탭 이름이 "세션"이 됐어요. 위쪽 세션 탭 줄이 없어지고, 세션을 고르고 이름을 바꾸고 닫는 일은 왼쪽 목록에서 해요. 터미널 위에는 지금 세션의 이름이 보여요.
 - 왼쪽 세션 목록을 상세(기본)와 간략(한 줄씩) 중에서 골라 볼 수 있어요.
@@ -363,7 +364,8 @@
 
 ## spawn (English)
 
-### Unreleased
+### 1.4.0
+- spawn for macOS is here (Apple Silicon and Intel). The first time you open it, choose "Open Anyway" once under System Settings › Privacy & Security. On a Mac the shortcuts use ⌘ instead of Ctrl.
 - The whole app has a calmer look. Text is a step smaller, and yellow is left only on the chosen session or cell and the send button. Status shows as a small dot and a word. Pokémon, tier colours and the NEW on catch cards are as they were.
 - The first tab is now called "Sessions". The row of session tabs at the top is gone: choose, rename and close sessions in the list on the left. The open session's name sits above the terminal.
 - The session list on the left can be Detailed (the default) or Compact (one line each).
@@ -588,7 +590,8 @@
 
 ## spawn (日本語)
 
-### Unreleased
+### 1.4.0
+- macOS 版ができました(Apple Silicon・Intel)。最初に開くときだけ、システム設定 › プライバシーとセキュリティで「このまま開く」を押してください。Mac ではショートカットの Ctrl の代わりに ⌘ を使います。
 - アプリ全体が落ち着いた見た目になりました。文字が一段小さくなり、黄色は選んでいるセッション・マスと送信ボタンだけに残りました。状態は小さな点と文字で表示します。ポケモン、ランクの色、ゲット通知の NEW はそのままです。
 - 最初のタブの名前が「セッション」になりました。上のセッションタブの列はなくなり、セッションを選ぶ・名前を変える・閉じるのは左のリストで行います。ターミナルの上には今のセッションの名前が表示されます。
 - 左のセッションリストを詳細(標準)とコンパクト(1行ずつ)から選べます。
