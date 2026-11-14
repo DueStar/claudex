@@ -39,7 +39,7 @@ const GAME = /포켓몬|몬스터볼|도감|박스|잡았|포획|파티|트레�
 const USAGE = `
 Screenshots of the built UI (dist/) with fixture sessions.
 
-  node tests/visual/shots.mjs [--out <dir>] [--only a,b] [--size WxH] [--side <px>] [--check fit|work] [--flow <name>]
+  node tests/visual/shots.mjs [--out <dir>] [--only a,b] [--size WxH] [--side <px>] [--text <step>] [--check fit|work] [--flow <name>]
   node tests/visual/shots.mjs --sheet <surface>[,<surface>] [--size WxH] --out <dir>
 
 Before: npx vite build   (the harness reads dist/, it never builds)
@@ -48,8 +48,11 @@ Before: npx vite build   (the harness reads dist/, it never builds)
   --only a,b       only these surface ids (default: all of them, below)
   --size WxH       only this size (1440x900 or 1100x720); with --sheet, the size to compare
   --side <px>      the left panel at this width (seeds spawn-side-w); the files end in -side<px>
+  --text <step>    every shot at this text step: small, large or xlarge (seeds spawn-text-size);
+                   the files end in -ts-<step> (--only dex --text xlarge → dex-1440x900-ts-xlarge.png)
   --check fit      in every shot page: no sideways page scroll, and no child of
-                   .w-term-tabs / .w-list-head / .w-sess-bar / .w-row ends past its parent
+                   .w-term-tabs / .w-list-head / .w-sess-bar / .w-row, or of a row in 도감 / 박스 /
+                   기록 / 랭킹 (numbers, filters, toolbars, list rows), ends past its parent
   --check work     in every -work shot: no img[src*="/sprites/pokemon"], no Pokémon word in
                    the visible text, titles or aria-labels, and the first .w-row has the same
                    left and width as in the same surface without 업무 모드 (shot too if needed)
@@ -144,7 +147,7 @@ function labRef(surface, size) {
 // ---------------------------------------------------------------- arguments
 
 function parseArgs(argv) {
-  const o = { out: join(HOME, 'shots'), only: null, size: null, side: null, checks: new Set(), flows: [], sheets: [], help: false }
+  const o = { out: join(HOME, 'shots'), only: null, size: null, side: null, text: null,checks: new Set(), flows: [], sheets: [], help: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const val = () => { const v = argv[++i]; if (v === undefined || v.startsWith('--')) fail(`${a} needs a value`); return v }
@@ -153,6 +156,7 @@ function parseArgs(argv) {
     else if (a === '--only') o.only = val().split(',').map(s => s.trim()).filter(Boolean)
     else if (a === '--size') o.size = val()
     else if (a === '--side') o.side = val()
+    else if (a === '--text') o.text = val()
     else if (a === '--check') for (const c of val().split(',')) o.checks.add(c.trim())
     else if (a === '--flow') o.flows.push(val())
     else if (a === '--sheet') o.sheets.push(...val().split(',').map(s => s.trim()).filter(Boolean))
@@ -161,6 +165,7 @@ function parseArgs(argv) {
   for (const c of o.checks) if (c !== 'fit' && c !== 'work') fail(`unknown check "${c}": fit or work`)
   if (o.size && !/^\d+x\d+$/.test(o.size)) fail(`--size wants WxH, e.g. 1100x720`)
   if (o.side !== null && !/^\d+$/.test(o.side)) fail(`--side wants a width in px, e.g. 240`)
+  if (o.text !== null && !['small', 'large', 'xlarge'].includes(o.text)) fail(`--text wants small, large or xlarge`)
   for (const id of [...(o.only ?? []), ...o.sheets]) if (!parseId(id)) fail(`unknown surface "${id}". Surfaces: ${ALL_IDS.join(' ')}`)
   for (const f of o.flows) if (!FLOWS[f]) fail(`unknown flow "${f}". Flows: ${Object.keys(FLOWS).join(' ')}`)
   return o
@@ -763,7 +768,12 @@ async function fitProblems(page) {
     const name = el => `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : ''}`
     const sw = document.documentElement.scrollWidth
     if (sw > innerWidth) bad.push(`the page scrolls sideways: scrollWidth ${sw} > ${innerWidth}`)
-    for (const parent of document.querySelectorAll('.w-term-tabs, .w-list-head, .w-sess-bar, .w-row')) {
+    const ROWS = '.w-term-tabs, .w-list-head, .w-sess-bar, .w-row, ' +
+      // the views: 도감's numbers and filters, 박스's bars, 기록's summary and rows, 랭킹's rows
+      '.dex-stats, .dex-stat, .dex-tiers, .dex-tiercol, .dex-filterbar, .dex-fgroup, .dex-card-tags, .dex-owned-top, ' +
+      '.box-party, .box-party-row, .box-toolbar, .box-tools, .box-actions, .today-sum, .today-row, .today-text, ' +
+      '.rank-top, .rank-me, .rank-row'
+    for (const parent of document.querySelectorAll(ROWS)) {
       const pr = parent.getBoundingClientRect()
       if (!pr.width) continue
       for (const child of parent.children) {
@@ -843,6 +853,7 @@ async function shoot(browser, s, [W, H], opts, report) {
     'spawn-dex-viewed': JSON.stringify(fixture.VIEWED),
     ...(s.local ?? {}),
     ...(opts.side ? { 'spawn-side-w': opts.side } : {}),
+    ...(opts.text ? { 'spawn-text-size': opts.text } : {}),
   }
   const ctx = await browser.newContext({
     viewport: { width: W, height: H }, deviceScaleFactor: 1, locale: 'ko-KR', timezoneId: 'Asia/Seoul',
@@ -922,7 +933,7 @@ async function shoot(browser, s, [W, H], opts, report) {
     if (s.clip) buf = await page.locator(s.clip).first().screenshot({ animations: 'disabled', caret: 'hide' })
     else buf = await page.screenshot({ fullPage: !!s.fullPage, animations: 'disabled', caret: 'hide' })
     const { w, h } = pngSize(buf)
-    const file = join(opts.out, `${s.id}-${s.clip || s.fullPage ? `${w}x${h}` : sizeName}${opts.side ? `-side${opts.side}` : ''}.png`)
+    const file = join(opts.out, `${s.id}-${s.clip || s.fullPage ? `${w}x${h}` : sizeName}${opts.side ? `-side${opts.side}` : ''}${opts.text ? `-ts-${opts.text}` : ''}.png`)
     writeFileSync(file, buf)
     result.file = file
 

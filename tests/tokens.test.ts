@@ -102,6 +102,20 @@ describe('tokens.css', () => {
     }
   })
 
+  it('a tier is a coloured dot beside its word, never a filled chip (the dot rule lives here)', () => {
+    const dot = css.match(/(?:^|[}\s])\.tdot\s*{([^}]*)}/)
+    expect(dot, '.tdot rule in tokens.css').not.toBeNull()
+    expect(dot![1]).toMatch(/background:\s*var\(--tier\)/)
+    expect(dot![1]).toMatch(/border-radius:\s*50%/)
+    const dex = read('src', 'components', 'PokedexView.tsx')
+    // Every tier chip: the dot, then the tier's word as text (the word keeps tiers apart without hue)
+    const chip = dex.match(/<div className="dex-chips">([\s\S]*?)<\/div>/)
+    expect(chip, 'the tier chips').not.toBeNull()
+    expect(chip![1]).toMatch(/<i className="tdot" aria-hidden="true" \/>\s*\{TIER_LABEL\[k\]\}/)
+    // The detail card's tier: the dot and the word, too
+    expect(dex).toMatch(/className=\{`dex-tier tier-[^`]*`\}><i className="tdot" aria-hidden="true" \/>\{TIER_LABEL\[/)
+  })
+
   it('no other stylesheet defines the tokens or the tier colours', () => {
     const others = readdirSync(join(ROOT, 'src', 'styles')).filter(f => f.endsWith('.css') && f !== 'tokens.css')
     expect(others.length).toBeGreaterThan(0)

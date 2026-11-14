@@ -7,6 +7,7 @@ Shots of the real built UI (`dist/`) with fixture sessions, to compare each rest
     node tests/visual/shots.mjs --sheet session --out <dir>     # before | lab | after → <dir>/sheet-session.png
     node tests/visual/shots.mjs --flow tabs-gone                # close / rename / drag / switch without the tab row
     node tests/visual/shots.mjs --only session --side 240 --out <dir>   # the left panel at 240px (files end in -side240)
+    node tests/visual/shots.mjs --only dex --text xlarge --check fit --out <dir>   # at a text step (files end in -ts-xlarge)
     node tests/visual/shots.mjs --flow side-resize              # drag / double-click / keys on the left panel's edge
     node tests/visual/shots.mjs --flow text-size [--out <dir>]  # the text step: migration, keys, wheel, − 가 +, its menu, 설정
     node tests/visual/shots.mjs --help                          # every option and surface id

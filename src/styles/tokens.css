@@ -40,3 +40,5 @@
 /* tier colours are information: text and dot colour, never a fill */
 .tier-common { --tier: #a4a9b6; }  .tier-rare { --tier: #6cb6ff; }  .tier-sub { --tier: #c08bff; }
 .tier-legendary { --tier: #ffc94a; }  .tier-mythical { --tier: #ff7ad9; }
+/* a tier is shown as this dot beside its word (the word always there: tiers never rely on hue alone) */
+.tdot { display: inline-block; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tier); }
