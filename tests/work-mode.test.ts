@@ -20,6 +20,7 @@ import part from '../src/locales/workMode'
 const require = createRequire(import.meta.url)
 const { DEFAULTS, sanitize, applyPatch, toastAllowed } = require('../electron/settings.cjs')
 const { translator } = require('../electron/i18n.cjs')
+const { macWindowOptions } = require('../electron/macWindow.cjs')
 
 const noon = new Date(2026, 10, 13, 12)
 const ROW = { title: null, name: '모래두지', project: 'todo-cli', level: 17, helpers: 2, helperSession: true }
@@ -180,6 +181,38 @@ describe('on a Mac (the platform passed explicitly)', () => {
     expect(hideTitleKey(true, false)).toBe('숨기기 (트레이 아이콘을 누르면 다시 열려요)')
     expect(hideTitleKey(false, false)).toBe('숨기기 (작업 표시줄 트레이의 몬스터볼을 누르면 다시 열려요)')
     expect(DICTS.en[hideTitleKey(true, true)].replace('{tray}', 'menu bar')).toBe('Hide (click the menu bar icon to open it again)')
+  })
+
+  it("the profile takes the logo's place right of the traffic lights: the 78px room stays in work mode", () => {
+    const css = readFileSync(join(__dirname, '..', 'src', 'styles', 'widget-expanded.css'), 'utf8')
+    // The window and full screen keep the left room whatever the mode (the rule has no work-mode condition)
+    expect(css).toContain('.is-mac .widget.mode-window .w-side .w-head, .is-mac .widget.mode-fullscreen .w-side .w-head { padding-left: 78px; }')
+    expect(css).toContain('.is-mac .widget.expanded.side-hidden .w-rail { padding-top: 30px; }')
+    // and no work-mode rule moves the header's start or the rail's top back under them
+    const workRules = css.split('}').filter(r => r.includes('.work-mode'))
+    expect(workRules.length).toBeGreaterThan(0)
+    for (const r of workRules) {
+      expect(r, r).not.toMatch(/padding(-left|-top)?\s*:|margin-left\s*:|position\s*:\s*(absolute|fixed)|(^|[\s;{])left\s*:|(^|[\s;{])top\s*:/)
+      expect(r, r).not.toContain('.is-mac')
+    }
+    // The widget (frameless, no traffic lights) has no Mac header rule: it lays out as on Windows
+    expect(css).not.toMatch(/\.is-mac [^{]*mode-widget/)
+    expect(macWindowOptions('widget', 'darwin')).toEqual({ frame: false })
+    expect(macWindowOptions('window', 'darwin')).toMatchObject({ trafficLightPosition: { x: 14, y: 14 } })
+  })
+
+  it('the sessions view only: ⌘1 opens it and ⌘2–5 open nothing, as Ctrl+1–5 on Windows', () => {
+    for (const p of ['mac', 'win']) {
+      setPlatformForTest(p)
+      const mod = p === 'mac' ? { metaKey: true } : { ctrlKey: true }
+      const views = visibleViews(true)
+      for (const n of [1, 2, 3, 4, 5]) {
+        const action = appShortcut({ key: String(n), code: `Digit${n}`, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mod } as KeyboardEvent)
+        expect(action).toBe(`view${n}`)
+        // Widget opens VIEWS[n - 1] only when it is visible
+        expect(views.includes(VIEWS[n - 1])).toBe(n === 1)
+      }
+    }
   })
 })
 
