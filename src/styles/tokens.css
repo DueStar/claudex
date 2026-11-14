@@ -1,0 +1,44 @@
+/* src/styles/tokens.css — 차분하게 2 (chosen 2026-11-13). The one place design values live. */
+:root {
+  /* surfaces */
+  --bg: #0b0c10;  --side-bg: #0e1015;  --card: #14161c;  --card-2: #1b1e26;
+  --term-bg: #101218;  --mon-bg: #16181d;  --mon-bg-hover: #1a1c22;
+  --unknown-bg: #131519;  --q-ink: #2c303b;  --toast-bg: #14161c;  --toast-art-bg: #1d1e22;
+  /* the three greys, and numbers */
+  --ink: #d7dae3;  --ink-2: #a4a9b6;  --ink-3: #7d8291;  --num-ink: #d7dae3;
+  /* lines and neutral states */
+  --line: rgba(255, 255, 255, 0.07);  --line-hover: rgba(255, 255, 255, 0.22);
+  --track: rgba(255, 255, 255, 0.08);  --hover: rgba(255, 255, 255, 0.045);
+  --sel-bg: rgba(255, 255, 255, 0.06);  --row-sel-bg: rgba(255, 255, 255, 0.04);
+  /* yellow: the chosen session, the chosen cell, send */
+  --accent: #f2c94c;  --accent-hover: #f7d76c;  --accent-ink: #16171b;
+  /* status */
+  --green: #74d68b;  --amber: #ffb54a;  --danger: #ff6464;  --red-text: #ff8787;
+  /* HP (context left): green, amber at 50 % and under, red at 20 % and under */
+  --hp: #5fcf7a;  --hp-warn: var(--amber);  --hp-low: var(--danger);  --hp-h: 3px;
+  /* usage bars: grey, amber from 80 %, red from 90 % (the limit is about to hit) */
+  --bar: var(--ink-3);  --bar-warn: var(--amber);  --bar-danger: var(--danger);  --bar-h: 2px;
+  /* rewards keep their colour */
+  --new-dot: #ff4d4f;  --new-badge: #ffd84a;  --shiny: #fff3a0;
+  --metal-1: #ffd84a;  --metal-2: #c9ced8;  --metal-3: #e3a76f;
+  /* weight */
+  --w-body: 400;  --w-name: 500;  --w-strong: 500;  --w-head: 600;  --w-mono: 380;
+  /* radius */
+  --r-xs: 3px;  --r-s: 4px;  --r-m: 6px;  --r-l: 8px;  --r-toast: 14px;
+  /* measures */
+  --head-h: 44px;  --sess-bar-h: 40px;  --rail-w: 56px;
+  --side-w: 300px;            /* resizable 240–420, remembered (src/sideWidth.ts) */
+  --row-gap: 4px;  --row-gap-compact: 2px;
+  --row-mon: 24px;  --row-mon-compact: 20px;  --strip-mon: 21px;
+  /* type, 보통 (the default step) */
+  --t-micro: 10px;  --t-meta: 11px;  --t-ui: 12px;  --t-name: 12px;  --t-prose: 13px;
+  --t-num: 12px;  --t-head: 14px;  --t-big: 15px;  --t-code: 12px;
+}
+:root.ts-small  { --t-micro: 9px;  --t-meta: 10px; --t-ui: 11px; --t-name: 11px; --t-prose: 12px; --t-num: 11px; --t-head: 13px; --t-big: 14px; --t-code: 11px; }
+:root.ts-large  { --t-micro: 10px; --t-meta: 11px; --t-ui: 12px; --t-name: 13px; --t-prose: 14px; --t-num: 13px; --t-head: 15px; --t-big: 16px; --t-code: 13px; }
+:root.ts-xlarge { --t-micro: 11px; --t-meta: 12px; --t-ui: 13px; --t-name: 14px; --t-prose: 15px; --t-num: 14px; --t-head: 16px; --t-big: 17px; --t-code: 14px; }
+/* tier colours are information: text and dot colour, never a fill */
+.tier-common { --tier: #a4a9b6; }  .tier-rare { --tier: #6cb6ff; }  .tier-sub { --tier: #c08bff; }
+.tier-legendary { --tier: #ffc94a; }  .tier-mythical { --tier: #ff7ad9; }
+/* a tier is shown as this dot beside its word (the word always there: tiers never rely on hue alone) */
+.tdot { display: inline-block; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tier); }

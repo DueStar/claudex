@@ -1,11 +1,11 @@
 /**
- * The terminals' font size, shared by every terminal view and kept per PC.
- * 소 / 중 / 대 presets, Ctrl+wheel and Ctrl+= / Ctrl+- / Ctrl+0 step it.
+ * The terminals' fonts (the stacks for each 설정 choice) and their size, which is the app's
+ * one text step (src/textSize.ts).
  */
 
-import { useSyncExternalStore } from 'react'
 import type { TerminalFont } from './desktop'
 import { isMac } from './platform'
+import { getTextStep, resetTextSize, stepTextSize, subscribeTextStep, TERM_PX } from './textSize'
 
 /**
  * The terminal font choices (설정 › 앱 › 터미널 글꼴), each a CSS font stack.
@@ -54,39 +54,12 @@ export const termFontStack = (font: TerminalFont | undefined, mac: boolean = isM
 export const termFontLabel = (font: TerminalFont, mac: boolean = isMac()): string =>
   font === 'consolas' && mac ? 'Menlo' : { default: 'Monaspace', consolas: 'Consolas', cascadia: 'Cascadia', d2coding: 'D2Coding' }[font]
 
-export const FONT_PRESETS = [
-  { label: '소', size: 13 },
-  { label: '중', size: 15 },
-  { label: '대', size: 17 },
-] as const
-const KEY = 'spawn-term-font'
-const MIN = 10
-const MAX = 24
-const DEFAULT = 13
-
-let size = (() => {
-  try { const v = Number(localStorage.getItem(KEY)); return v >= MIN && v <= MAX ? v : DEFAULT } catch { return DEFAULT }
-})()
-const listeners = new Set<() => void>()
-
-export function getTermFont(): number { return size }
-
-export function setTermFont(next: number) {
-  const v = Math.max(MIN, Math.min(MAX, Math.round(next)))
-  if (v === size) return
-  size = v
-  try { localStorage.setItem(KEY, String(v)) } catch {}
-  for (const l of listeners) l()
-}
-
-export function stepTermFont(delta: number) { setTermFont(size + delta) }
-export function resetTermFont() { setTermFont(DEFAULT) }
-
-export function subscribeTermFont(fn: () => void): () => void {
-  listeners.add(fn)
-  return () => { listeners.delete(fn) }
-}
-
-export function useTermFont(): number {
-  return useSyncExternalStore(subscribeTermFont, getTermFont, getTermFont)
-}
+/**
+ * The terminals' font size is the app's one text step (src/textSize.ts): these are its view
+ * for TerminalPanel.tsx, under the names it has always used. Ctrl+wheel and Ctrl+= / Ctrl+- /
+ * Ctrl+0 in a terminal step it like anywhere else in the window.
+ */
+export const getTermFont = (): number => TERM_PX[getTextStep()]
+export const subscribeTermFont = subscribeTextStep
+export function stepTermFont(delta: number) { if (delta) stepTextSize(delta > 0 ? 1 : -1) }
+export const resetTermFont = resetTextSize

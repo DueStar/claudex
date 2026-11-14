@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { appShortcut, clipboardAction, keptFromPty, PINCH_STEP_MS, wheelFontStep } from '../src/keys'
 import { modCombo, modLabel, setPlatformForTest } from '../src/platform'
 import widgetDicts from '../src/locales/widget'
+import allDicts from '../src/locales'
 
 const require = createRequire(import.meta.url)
 const { menuTemplate } = require('../electron/menu.cjs')
@@ -249,12 +250,19 @@ describe('wheelFontStep', () => {
 describe('tooltips name the platform\'s keys', () => {
   const fill = (s: string, vars: Record<string, string>) => s.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m)
   const views: [string, string, string, string][] = [
-    ['터미널 ({key})', '1', 'Terminal', 'ターミナル'],
+    ['세션 ({key})', '1', 'Sessions', 'セッション'],
     ['도감 ({key})', '2', 'Pokédex', '図鑑'],
     ['박스 ({key})', '3', 'Box', 'ボックス'],
     ['기록 ({key})', '4', 'Log', '記録'],
     ['랭킹 ({key})', '5', 'Leaderboard', 'ランキング'],
   ]
+
+  it('the first view is 세션: the old 터미널 ({key}) tooltip key is gone', () => {
+    expect(widgetDicts.en).not.toHaveProperty('터미널 ({key})')
+    expect(widgetDicts.ja).not.toHaveProperty('터미널 ({key})')
+    expect(allDicts.en['세션']).toBe('Sessions')
+    expect(allDicts.ja['세션']).toBe('セッション')
+  })
 
   it('modCombo: Ctrl+1 on Windows, ⌘1 on macOS', () => {
     setPlatformForTest('win')
@@ -273,19 +281,22 @@ describe('tooltips name the platform\'s keys', () => {
       expect(fill(widgetDicts.en[ko], vars)).toBe(`${en} (Ctrl+${n})`)
       expect(fill(widgetDicts.ja[ko], vars)).toBe(`${ja} (Ctrl+${n})`)
     }
+    // the text-size control (TextSizeControl) and its 설정 row
     const vars = { mod: modLabel() }
-    expect(fill('글자 크기 ({mod}+휠로도 바꿀 수 있어요)', vars)).toBe('글자 크기 (Ctrl+휠로도 바꿀 수 있어요)')
-    expect(fill('글자 크기 · {mod}+휠, {mod}+= / {mod}+-', vars)).toBe('글자 크기 · Ctrl+휠, Ctrl+= / Ctrl+-')
-    expect(fill(widgetDicts.en['글자 크기 ({mod}+휠로도 바꿀 수 있어요)'], vars)).toBe('Text size (Ctrl+wheel works too)')
-    expect(fill(widgetDicts.en['글자 크기 · {mod}+휠, {mod}+= / {mod}+-'], vars)).toBe('Text size · Ctrl+wheel, Ctrl+= / Ctrl+-')
-    expect(fill(widgetDicts.ja['글자 크기 ({mod}+휠로도 바꿀 수 있어요)'], vars)).toBe('文字サイズ（Ctrl+ホイールでも変更できます）')
-    expect(fill(widgetDicts.ja['글자 크기 · {mod}+휠, {mod}+= / {mod}+-'], vars)).toBe('文字サイズ · Ctrl+ホイール、Ctrl+= / Ctrl+-')
+    const tip = '글자 크기 · 목록·패널·터미널 함께 ({mod}+= 크게 · {mod}+- 작게 · {mod}+0 보통 · {mod}+휠)'
+    const hint = '목록·패널·터미널이 함께 바뀌어요 · {mod}+= / {mod}+-'
+    expect(fill(tip, vars)).toBe('글자 크기 · 목록·패널·터미널 함께 (Ctrl+= 크게 · Ctrl+- 작게 · Ctrl+0 보통 · Ctrl+휠)')
+    expect(fill(allDicts.en[tip], vars)).toBe('Text size · lists, panels and the terminal together (Ctrl+= larger · Ctrl+- smaller · Ctrl+0 normal · Ctrl+wheel)')
+    expect(fill(allDicts.ja[tip], vars)).toBe('文字サイズ・リスト、パネル、ターミナルを一緒に(Ctrl+= 大きく・Ctrl+- 小さく・Ctrl+0 標準・Ctrl+ホイール)')
+    expect(fill(allDicts.en[hint], vars)).toBe('Lists, panels and the terminal change together · Ctrl+= / Ctrl+-')
+    expect(fill(allDicts.ja[hint], vars)).toBe('リスト、パネル、ターミナルが一緒に変わります・Ctrl+= / Ctrl+-')
   })
 
   it('macOS names ⌘', () => {
     setPlatformForTest('mac')
-    expect(fill(widgetDicts.en['터미널 ({key})'], { key: modCombo('1') })).toBe('Terminal (⌘1)')
-    expect(fill(widgetDicts.en['글자 크기 · {mod}+휠, {mod}+= / {mod}+-'], { mod: modLabel() })).toBe('Text size · ⌘+wheel, ⌘+= / ⌘+-')
+    expect(fill(widgetDicts.en['세션 ({key})'], { key: modCombo('1') })).toBe('Sessions (⌘1)')
+    expect(fill(allDicts.en['글자 크기 · 목록·패널·터미널 함께 ({mod}+= 크게 · {mod}+- 작게 · {mod}+0 보통 · {mod}+휠)'], { mod: modLabel() })).toBe('Text size · lists, panels and the terminal together (⌘+= larger · ⌘+- smaller · ⌘+0 normal · ⌘+wheel)')
+    expect(fill(allDicts.en['목록·패널·터미널이 함께 바뀌어요 · {mod}+= / {mod}+-'], { mod: modLabel() })).toBe('Lists, panels and the terminal change together · ⌘+= / ⌘+-')
   })
 })
 

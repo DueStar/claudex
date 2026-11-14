@@ -167,7 +167,7 @@ const PokedexView: React.FC = () => {
             <div className="dex-chips">
               {TIERS.map(k => (
                 <button key={k} className={`tier-${k}${tiers.includes(k) ? ' on' : ''}`} aria-pressed={tiers.includes(k)} onClick={() => toggleTier(k)}>
-                  {TIER_LABEL[k]}
+                  <i className="tdot" aria-hidden="true" />{TIER_LABEL[k]}
                 </button>
               ))}
             </div>
@@ -236,7 +236,7 @@ const PokedexView: React.FC = () => {
               <div className="dex-card-name">{dc && <img className="dex-card-icon" src={iconUrl(detail.id)} alt="" />}{dc || ds ? nameOf(detail) : '???'} {dc && lang !== 'en' && <span className="dex-card-en">{detail.en}</span>}</div>
               {(dc || ds) && (
                 <div className="dex-card-tags">
-                  <span className={`dex-tier tier-${detail.tier}`}>{TIER_LABEL[detail.tier ?? 'common']}</span>
+                  <span className={`dex-tier tier-${detail.tier}`}><i className="tdot" aria-hidden="true" />{TIER_LABEL[detail.tier ?? 'common']}</span>
                   {detail.types.map(t => <span key={t} className={`dex-type type-${t}`}>{TYPE_KO[t] ?? t}</span>)}
                 </div>
               )}

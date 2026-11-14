@@ -258,4 +258,16 @@ describe('the wiring (main.cjs, the page)', () => {
     expect(css).toContain('.is-mac .w-win-controls { display: none; }')
     expect(css).toMatch(/\.is-mac \.widget\.mode-window \.w-side \.w-head, \.is-mac \.widget\.mode-fullscreen \.w-side \.w-head \{ padding-left: 78px; \}/)
   })
+
+  it("the new controls in the window's drag areas still take a press: the panel's edge and the text size are no-drag", () => {
+    const css = readFileSync(join(ROOT, 'src/styles/widget-expanded.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const sel of ['.w-side-resize', '.w-textsize']) {
+      const esc = sel.replace(/[.]/g, '\\.')
+      const rule = css.match(new RegExp(`(?:^|\\})\\s*${esc}\\s*\\{([^}]*)\\}`))
+      expect(rule, `${sel}'s own rule`).not.toBeNull()
+      expect(rule![1], sel).toMatch(/-webkit-app-region:\s*no-drag/)
+    }
+    // the bar they sit in is the window's drag region (so the rule above is what lets them work)
+    expect(css).toMatch(/\.w-term-tabs\s*\{[^}]*-webkit-app-region:\s*drag/)
+  })
 })

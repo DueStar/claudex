@@ -10,33 +10,48 @@
   display: flex;
   flex-direction: column;
 }
-.widget.expanded .w-side { flex: 0 0 328px; width: 328px; }
+.widget.expanded .w-side { flex: 0 0 var(--side-w); width: var(--side-w); }
+/* Its right edge drags its width (240–420 on Windows, 300–420 on a Mac; remembered: src/sideWidth.ts): a 7px strip over the
+   border, its 1px centre line showing only on hover, focus and while dragging */
+.w-side-resize {
+  position: absolute; top: 0; bottom: 0; right: -4px; width: 7px; z-index: 6;
+  cursor: col-resize; touch-action: none; -webkit-app-region: no-drag; outline: none;
+}
+.w-side-resize::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px;
+  background: transparent;
+}
+.w-side-resize:hover::after, .widget.resizing .w-side-resize::after { background: rgba(255, 255, 255, 0.3); }
+/* focused from the keyboard: a line that reads (3:1 and more on the panel's grey) */
+.w-side-resize:focus-visible::after { background: var(--ink-3); }
+.widget.resizing, .widget.resizing * { cursor: col-resize !important; user-select: none !important; }
 
-/* ---------- Launcher card ---------- */
+/* ---------- Launcher: a plain text row (new session), then folder and resume as icons ---------- */
 .w-launch {
   grid-column: 1 / -1;
   display: flex;
-  gap: 6px;
+  gap: 2px;
   padding: 6px;
-  border-radius: 14px;
+  border-radius: var(--r-l);
 }
 .w-launch-main {
   flex: 1;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
+  justify-content: flex-start;
+  gap: 8px;
   font: inherit;
-  font-weight: 650;
-  font-size: 13px;
-  color: var(--accent-ink);
-  background: var(--accent);
+  font-weight: var(--w-body);
+  font-size: var(--t-ui);
+  color: var(--ink-2);
+  background: none;
   border: 0;
-  border-radius: 10px;
-  padding: 9px 12px;
+  border-radius: var(--r-s);
+  padding: 7px 8px;
+  /* the hit area the filled launcher had (34px tall, the side buttons 40px wide) */
+  min-height: 34px;
   cursor: pointer;
 }
-.w-launch-main:hover { filter: brightness(1.08); }
 .w-launch-alt {
   display: inline-flex;
   align-items: center;
@@ -45,32 +60,39 @@
   width: 40px;
   font: inherit;
   font-size: 14px;
-  color: var(--ink-2);
-  background: var(--card-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  border-radius: var(--r-s);
   cursor: pointer;
 }
-.w-launch-alt:hover { color: var(--ink); background: #232733; }
-.w-launch-alt.wide { width: auto; padding: 9px 14px; font-size: 13px; font-weight: 600; }
+.w-launch-main:hover, .w-launch-alt:hover { background: var(--hover); color: var(--ink); }
+/* one line: a narrow panel at a large step ends the words in an ellipsis */
+.w-launch-main { min-width: 0; }
+.w-launch-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Full (the session limit): the same row, quieter */
+.w-launch-main.full { color: var(--ink-3); }
+.w-launch-alt.wide { width: auto; padding: 9px 14px; font-size: var(--t-ui); font-weight: var(--w-body); }
 
 /* ---------- Party extras ---------- */
 .w-row { cursor: pointer; }
-.w-row:hover { --row-bg: #1f232d; }
-.w-pill.as-button { border: 0; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+/* 확인 필요 as a button: the same dot and words, a little brighter on hover */
+/* 1px above and below: 16px tall, main's target (the pill's 2px 7px drew a box; the words now sit bare) */
+.w-pill.as-button { border: 0; padding: 1px 0; background: none; font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); cursor: pointer; }
+.w-pill.as-button:hover { color: var(--ink); }
 .w-row-close {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--t-ui);
   line-height: 1;
   color: var(--ink-3);
   background: none;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-s);
   padding: 2px 5px;
   cursor: pointer;
 }
-.w-row-close:hover { color: var(--danger); background: rgba(255, 100, 100, 0.12); }
-.w-row-close.confirm { color: #fff; background: var(--danger); font-size: 11px; font-weight: 700; }
+.w-row-close:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.w-row-close.confirm { color: #fff; background: var(--danger); font-size: var(--t-meta); font-weight: var(--w-name); }
 
 /* ---------- Terminal card (expanded) ---------- */
 .w-term {
@@ -80,83 +102,61 @@
   flex-direction: column;
   padding: 0;
   overflow: hidden;
-  background: #101217;
+  background: var(--term-bg);
   margin-top: 6px;
 }
 .w-term-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 7px 8px;
+  gap: 2px;
+  height: var(--head-h);
+  box-sizing: border-box;
+  padding: 0 8px 0 10px;
   border-bottom: 1px solid var(--line);
-  background: var(--card);
+  background: var(--bg);
   -webkit-app-region: drag;
-  /* never a scrollbar: the views are icons, and the text-size switch goes first when it is narrow */
-  overflow: hidden;
+  /* never a scrollbar: the views drop to icons when it is narrow (viewsCompact measures scrollWidth);
+     visible, so the text-size menu can hang below the bar */
+  overflow: visible;
   min-width: 0;
   flex-shrink: 0;
 }
 .w-term-tabs > * { flex-shrink: 0; }
 .w-term-tabs > .w-term-spacer { flex: 1 1 0; min-width: 0; }
-.w-view-icons button.icon-only { padding: 5px 9px; position: relative; }
-.w-term-tabs::-webkit-scrollbar { height: 0; }
 
-/* ---------- Session tabs: a row of their own under the view bar, in the old tabs' look ---------- */
-/* The bar holds the scrolling tabs (with + right after the last one) and the
-   shell button pinned at the right end */
+/* ---------- The session header: the bar under the view bar names the open session ----------
+   (the session tabs are gone: the left list and the folded rail switch sessions) */
 .w-sess-bar {
-  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
-  padding: 6px 8px; border-bottom: 1px solid var(--line);
-  background: var(--card); -webkit-app-region: no-drag;
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0; min-width: 0;
+  height: var(--sess-bar-h); box-sizing: border-box;
+  padding: 0 8px 0 10px; border-bottom: 1px solid var(--line);
+  background: var(--bg); -webkit-app-region: no-drag;
 }
-.w-sess-tabs {
-  display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0;
-  overflow-x: auto; overflow-y: hidden;
+.w-sess-head { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; padding-left: 4px; }
+.w-sess-head-pic { flex: none; width: 22px; height: 22px; object-fit: contain; }
+.w-sess-head-shell, .w-sess-head-glyph {
+  display: inline-grid; place-items: center; box-sizing: border-box;
+  color: var(--ink-3); border: 1px solid var(--line); border-radius: var(--r-s);
 }
-.w-sess-tabs::-webkit-scrollbar { height: 0; }
-.w-sess-tab {
-  position: relative; flex: none;
-  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px;
-  font: inherit; font-size: 12px; color: var(--ink-2);
-  background: transparent; border: 1px solid transparent; border-radius: 10px;
-  cursor: pointer; user-select: none; touch-action: none; white-space: nowrap;
+.w-sess-head-shell { font: 500 10px/1 'Monaspace Neon Var', Consolas, monospace; font-weight: var(--w-mono); }
+.w-sess-head-name {
+  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink); cursor: default;
 }
-.w-sess-tab img { width: 20px; height: 20px; object-fit: contain; flex: none; }
-.w-sess-tab:hover { background: var(--card-2); color: var(--ink); }
-.w-sess-tab.on { background: var(--card-2); border-color: var(--line); color: var(--ink); }
-.w-sess-tab-name { font-weight: 650; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-.w-sess-tab-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
-.w-sess-tab.mood-working .w-sess-tab-dot { background: var(--green); }
-.w-sess-tab.mood-needs-you .w-sess-tab-dot { background: var(--amber); }
-.w-sess-tab.mood-error .w-sess-tab-dot { background: var(--danger); }
-.w-sess-tab.mood-ended { opacity: 0.45; }
-/* Dragging: the tab follows the pointer, the others slide aside */
-.w-sess-tab.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
-.w-sess-tab.dragging { transition: none; z-index: 2; background: var(--card-2); border-color: var(--line); color: var(--ink); cursor: grabbing; }
-.w-sess-new {
-  flex: none; margin-left: 2px; display: inline-grid; place-items: center;
-  width: 26px; height: 26px; border-radius: 8px; border: 0; background: none; color: var(--ink-3); cursor: pointer;
+.w-sess-head-rename {
+  flex: 0 1 260px; min-width: 60px; font: inherit; font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink);
+  background: var(--card); border: 1px solid var(--ink-3); border-radius: var(--r-s); padding: 2px 7px; outline: none;
 }
-.w-sess-new:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
-/* Hover a tab: its status dot gives way to a × in the same spot (the tab keeps its width) */
-.w-sess-tab-close {
-  display: none; flex: none; min-width: 14px; height: 14px; margin: 0 -4px 0 -4px; padding: 0 3px;
-  place-items: center; border-radius: 4px;
-  font-size: 12px; line-height: 1; color: var(--ink-3); cursor: pointer;
+.w-sess-head .w-sess-head-branch { flex: 0 1 auto; max-width: 220px; }
+.w-sess-head-proj { flex: none; font-size: var(--t-meta); color: var(--ink-3); white-space: nowrap; }
+.w-sess-head-spacer { flex: 1 1 0; min-width: 0; }
+.w-sess-head-close {
+  flex: none; display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0;
+  font: inherit; font-size: var(--t-big); line-height: 1; color: var(--ink-3);
+  background: none; border: 0; border-radius: var(--r-s); cursor: pointer;
 }
-.w-sess-tab:hover .w-sess-tab-dot, .w-sess-tab:has(.w-sess-tab-close.confirm) .w-sess-tab-dot { display: none; }
-.w-sess-tab:hover .w-sess-tab-close, .w-sess-tab-close.confirm { display: inline-grid; }
-.w-sess-tab.dragging .w-sess-tab-close { display: none; }
-.w-sess-tab.dragging .w-sess-tab-dot, .w-sess-tab.dragging:has(.w-sess-tab-close.confirm) .w-sess-tab-dot { display: inline-block; }
-.w-sess-tab-close:hover { color: var(--danger); background: rgba(255, 100, 100, 0.12); }
-.w-sess-tab-close.confirm { margin: 0 -6px 0 0; padding: 0 5px; color: #fff; background: var(--danger); font-size: 10px; font-weight: 700; }
-/* The shell button: pinned at the bar's right end, drawn as a button */
-.w-sess-shell-btn {
-  flex: none; height: 26px; padding: 0 10px; border-radius: 8px;
-  border: 1px solid var(--line); background: var(--card-2); color: var(--ink-2);
-  font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; cursor: pointer;
-}
-.w-sess-shell-btn:hover { color: var(--ink); background: rgba(255, 255, 255, 0.08); }
+.w-sess-head-close:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.w-sess-head-close.confirm { padding: 0 7px; color: #fff; background: var(--danger); font-size: var(--t-meta); font-weight: var(--w-name); }
 .w-term-spacer { flex: 1; }
 .w-term-tabs .w-icon { -webkit-app-region: no-drag; }
 .w-term-body { position: relative; flex: 1; min-height: 0; }
@@ -172,49 +172,54 @@
 }
 .w-term-empty p { margin: 0 0 6px; font-weight: 500; }
 .w-term .xterm-viewport::-webkit-scrollbar { width: 8px; }
-.w-term .xterm-viewport::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 4px; }
+.w-term .xterm-viewport::-webkit-scrollbar-thumb { background: #2c303b; border-radius: var(--r-s); }
 
 /* ---------- Resume picker (shared component, widget look) ---------- */
 .resume-backdrop {
   position: fixed; inset: 0; z-index: 50;
   background: rgba(6, 7, 10, 0.55);
   display: flex; align-items: center; justify-content: center;
-  border-radius: 16px;
+  border-radius: var(--r-l);
 }
 .resume-modal {
   width: min(520px, 94vw); max-height: 80vh;
   display: flex; flex-direction: column;
-  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-l);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
 .resume-head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 11px 14px; font-weight: 650; border-bottom: 1px solid var(--line);
+  padding: 11px 14px; font-size: var(--t-name); font-weight: var(--w-head); color: var(--ink); border-bottom: 1px solid var(--line);
 }
 .resume-head button { background: none; border: 0; color: var(--ink-2); font-size: 20px; cursor: pointer; }
+.resume-head button:hover { color: var(--ink); }
 .resume-list { overflow-y: auto; overflow-x: hidden; padding: 6px; }
 .resume-list::-webkit-scrollbar { width: 6px; }
-.resume-list::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 3px; }
+.resume-list::-webkit-scrollbar-thumb { background: #2c303b; border-radius: var(--r-xs); }
 .resume-empty { padding: 20px; text-align: center; color: var(--ink-3); }
+/* No card in the card: a quiet line each, a faint grey and a hairline when hovered */
 .resume-item {
   width: 100%; min-width: 0; text-align: left; display: flex; flex-direction: column; gap: 3px;
-  padding: 9px 11px; margin-bottom: 4px;
-  background: var(--card-2); border: 1px solid transparent; border-radius: 10px;
+  padding: 9px 11px; margin-bottom: 2px;
+  background: none; border: 1px solid transparent; border-radius: var(--r-s);
   color: inherit; font: inherit; cursor: pointer;
 }
-.resume-item:hover:not(:disabled) { border-color: rgba(255, 216, 74, 0.45); }
+.resume-item:hover:not(:disabled) { border-color: var(--line-hover); background: var(--hover); }
 .resume-item:disabled { opacity: 0.45; cursor: default; }
-.resume-title { display: block; max-width: 100%; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.resume-meta { display: flex; gap: 10px; color: var(--ink-3); font-size: 11px; align-items: center; }
+.resume-title { display: block; max-width: 100%; font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resume-meta { display: flex; gap: 10px; color: var(--ink-3); font-size: var(--t-meta); align-items: center; }
 .resume-project { color: var(--ink-2); }
-.resume-badge { background: rgba(116, 214, 139, 0.14); color: var(--green); padding: 0 7px; border-radius: 999px; }
-.resume-badge.run { background: rgba(255, 181, 74, 0.16); color: var(--amber); }
+/* A hairline tag; 실행 중 keeps its amber (opening it asks first) */
+.resume-badge { background: none; color: var(--ink-2); border: 1px solid var(--line); padding: 0 5px; border-radius: var(--r-xs); }
+.resume-badge.run { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 38%, transparent); }
 .resume-warn { padding: 14px 16px; line-height: 1.55; }
-.resume-warn code { background: var(--card-2); padding: 0 4px; border-radius: 4px; }
+.resume-warn code { background: none; border: 1px solid var(--line); padding: 0 4px; border-radius: var(--r-xs); }
 .resume-warn-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
-.resume-warn-actions button { background: var(--card-2); color: var(--ink); border: 0; border-radius: 9px; padding: 7px 13px; font: inherit; cursor: pointer; }
-.resume-warn-actions button.danger { background: var(--danger); color: #fff; }
+.resume-warn-actions button { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-s); padding: 7px 13px; font: inherit; font-weight: var(--w-name); cursor: pointer; }
+.resume-warn-actions button:hover { border-color: var(--line-hover); background: var(--hover); }
+/* A destructive confirm keeps its red */
+.resume-warn-actions button.danger, .resume-warn-actions button.danger:hover { background: var(--danger); border-color: transparent; color: #fff; }
 
 /* ---------- Resize grip: small, and clear of the rounded corner ---------- */
 .w-grip {
@@ -232,12 +237,12 @@
 /* ---------- Window and fullscreen modes: one opaque app, edge to edge ----------
    The widget floats with gaps that show the desktop; as a window the sidebar
    and the terminal fill the whole window with no transparent part. */
-.widget.mode-window, .widget.mode-fullscreen { background: #0b0c10; padding: 0; gap: 0; --head-h: 46px; }
+.widget.mode-window, .widget.mode-fullscreen { background: #0b0c10; padding: 0; gap: 0; }
 .widget.mode-window .w-side, .widget.mode-fullscreen .w-side {
-  background: #0e1015;
+  background: var(--side-bg);
   border-right: 1px solid var(--line);
   /* no side padding: the dividers between the sections run the panel's full width;
-     the sections pad their own content (14px) */
+     the sections pad their own content (16px) */
   padding: 0 0 8px;
   box-sizing: border-box;
   height: 100%;
@@ -249,7 +254,6 @@
   border-radius: 0;
   height: 100%;
 }
-.widget.mode-fullscreen .w-side { flex-basis: 360px; width: 360px; }
 .w-mode-switch { -webkit-app-region: no-drag; flex-shrink: 0; }
 .w-mode-switch button { font-size: 11px; }
 
@@ -257,11 +261,7 @@
 .ico { display: block; flex-shrink: 0; }
 .pokeball { display: block; flex-shrink: 0; object-fit: contain; image-rendering: auto; }
 .w-view-switch button { display: inline-flex; align-items: center; gap: 5px; }
-.w-view-switch button.icon-only { padding: 4px 7px; }
-/* the views and the text size: a little room between the tabs, and 2px off the left so a tab
-   that starts with an icon (or the "A" of Aa) does not look wider on its left side */
-.w-view-switch { gap: 2px; }
-.w-view-switch button:not(.icon-only) { padding-left: 9px; }
+.w-view-switch button.icon-only { padding: 5px 8px; }
 .w-icon { display: inline-flex; align-items: center; justify-content: center; }
 
 .w-grip:hover { opacity: 1; }
@@ -272,45 +272,89 @@
   border: 0;
   border-radius: 0;
   border-bottom: 1px solid var(--line);
-  padding-left: 14px;
-  padding-right: 14px;
+  padding: 10px 16px;
 }
 .widget.mode-window .w-side .w-card:last-child, .widget.mode-fullscreen .w-side .w-card:last-child { border-bottom: 0; }
 .widget.mode-window .w-bento, .widget.mode-fullscreen .w-bento { gap: 0; }
-.widget.mode-window .w-side .w-launch, .widget.mode-fullscreen .w-side .w-launch { padding: 10px 14px; }
-.widget.mode-window .w-side .w-compose textarea, .widget.mode-fullscreen .w-side .w-compose textarea { background: var(--card-2); }
+.widget.mode-window .w-side .w-limits, .widget.mode-fullscreen .w-side .w-limits { padding: 12px 16px; }
+.widget.mode-window .w-side .w-launch, .widget.mode-fullscreen .w-side .w-launch { padding: 6px 8px; }
+/* The Pokédex strip and the party strip read as one block: no line between them; the party's
+   line runs the panel's full width */
+.widget.mode-window .w-side .w-dex, .widget.mode-fullscreen .w-side .w-dex { padding-bottom: 6px; border-bottom: 0; }
+.widget.mode-window .w-side .w-party:has(> .w-party-head), .widget.mode-fullscreen .w-side .w-party:has(> .w-party-head) { padding-top: 0; }
+.widget.mode-window .w-party-head, .widget.mode-fullscreen .w-party-head { margin: 0 -16px 10px; padding: 0 16px 10px; }
+/* A row with no fill shows the panel */
+.widget.mode-window .w-row, .widget.mode-fullscreen .w-row { --row-base: var(--side-bg); }
+.widget.mode-window .w-side .w-compose textarea, .widget.mode-fullscreen .w-side .w-compose textarea { background: var(--card); }
 
 /* xterm's own scrollbar: quiet until hovered */
-.term-view .xterm .scrollbar > .slider { background: rgba(255, 255, 255, 0.08) !important; border-radius: 4px; }
+.term-view .xterm .scrollbar > .slider { background: rgba(255, 255, 255, 0.08) !important; border-radius: var(--r-s); }
 .term-view .xterm:hover .scrollbar > .slider { background: rgba(255, 255, 255, 0.16) !important; }
 .term-view .xterm .scrollbar.vertical { width: 8px !important; }
 
 /* ---------- Tab bar: new session right after the open sessions; window controls at the far right ---------- */
 .w-win-controls { display: flex; gap: 2px; margin-left: 4px; -webkit-app-region: no-drag; flex: none; }
 /* the widget toggle, apart from the window's own three */
-.w-widget-toggle { -webkit-app-region: no-drag; flex: none; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-left: 4px; }
-.w-widget-toggle:hover { background: var(--card-2); color: var(--ink); }
-.w-win-controls .w-icon { width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); }
-.w-win-controls .w-icon:hover { background: var(--card-2); color: var(--ink); }
-.w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
-/* the widget toggle sits left of the text size: 6px on either side of the text size */
-.w-view-switch.w-font-switch { margin: 0 2px 0 6px; }
-.w-font-switch button { font-family: 'W Uncut', 'Uncut Sans Variable', system-ui, 'Apple SD Gothic Neo', 'Hiragino Sans', sans-serif; letter-spacing: -0.02em; }
+.w-widget-toggle { -webkit-app-region: no-drag; flex: none; width: 30px; height: 28px; border-radius: var(--r-s); background: transparent; color: var(--ink-3); margin-left: 4px; }
+.w-widget-toggle:hover { background: var(--hover); color: var(--ink); }
+.w-win-controls .w-icon { width: 30px; height: 28px; border-radius: var(--r-s); background: transparent; color: var(--ink-3); }
+.w-win-controls .w-icon:hover { background: var(--hover); color: var(--ink); }
+.w-win-controls .w-win-close:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+/* ---------- The one text size: − 가 보통 +, and its menu of the four steps (TextSizeControl) ---------- */
+.w-textsize {
+  position: relative; z-index: 40; flex: none; display: inline-flex; align-items: center;
+  height: 28px; box-sizing: border-box; margin: 0 4px 0 6px;
+  border: 1px solid var(--line); border-radius: var(--r-m); -webkit-app-region: no-drag;
+}
+.w-textsize > button {
+  height: 26px; padding: 0; font: inherit; color: var(--ink-3); background: none; border: 0; cursor: pointer;
+}
+.w-textsize > .w-textsize-step { width: 24px; font-size: 14px; line-height: 1; }
+.w-textsize > button:hover:not(:disabled), .w-textsize-cur.open { color: var(--ink); background: var(--hover); }
+.w-textsize > button:disabled { opacity: 0.3; cursor: default; }
+.w-textsize > button:focus-visible { outline: 2px solid var(--ink-2); outline-offset: 1px; }
+.w-textsize > .w-textsize-cur {
+  display: inline-flex; align-items: center; gap: 5px; padding: 0 7px;
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  color: var(--ink-2); font-size: var(--t-meta); white-space: nowrap;
+}
+/* A narrow bar: one 가 button (no − / +, no name); it opens the same menu */
+.w-textsize.compact > .w-textsize-cur { border: 0; padding: 0 7px; min-width: 26px; justify-content: center; }
+/* 가 keeps one size, so the button shows the step by its name, not by growing */
+.w-textsize-g { font-family: 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 13px; line-height: 1; color: var(--ink); }
+.w-textsize-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); width: 220px; box-sizing: border-box; padding: 4px;
+  background: var(--card); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--r-l);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.w-textsize-title { padding: 6px 8px 4px; font-size: var(--t-meta); color: var(--ink-3); }
+.w-textsize-item {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  width: 100%; padding: 6px 8px; text-align: left; font: inherit; font-size: var(--t-ui); color: var(--ink-2);
+  background: none; border: 0; border-radius: var(--r-s); cursor: pointer;
+}
+.w-textsize-item:hover, .w-textsize-item.on { background: var(--sel-bg); }
+.w-textsize-item.on { color: var(--ink); }
+.w-textsize-item:focus-visible { outline: 2px solid var(--ink-2); outline-offset: -2px; }
+.w-textsize-ck { display: inline-grid; place-items: center; color: var(--ink); opacity: 0; }
+.w-textsize-item.on .w-textsize-ck { opacity: 1; }
+.w-textsize-item small { font-size: var(--t-meta); color: var(--ink-3); white-space: nowrap; }
+.w-textsize-foot { margin-top: 4px; padding: 6px 8px 3px; border-top: 1px solid var(--line); font-size: var(--t-micro); color: var(--ink-3); }
 
 /* ---------- Patch notes after an update (PatchNotes.tsx) ---------- */
-.w-notes-body { overflow-y: auto; padding: 4px 16px 8px; line-height: 1.55; font-size: 13px; }
+.w-notes-body { overflow-y: auto; padding: 4px 16px 8px; line-height: 1.55; font-size: var(--t-name); }
 .w-notes-body::-webkit-scrollbar { width: 6px; }
-.w-notes-body::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 3px; }
-.w-notes-body h3 { margin: 12px 0 4px; font-size: 12px; font-weight: 700; color: var(--accent); }
+.w-notes-body::-webkit-scrollbar-thumb { background: #2c303b; border-radius: var(--r-xs); }
+.w-notes-body h3 { margin: 12px 0 4px; font-size: var(--t-ui); font-weight: var(--w-head); color: var(--ink-2); }
 .w-notes-body ul { margin: 0; padding-left: 18px; color: var(--ink-2); }
 .w-notes-body li { margin: 3px 0; }
 .w-notes-body li::marker { color: var(--ink-3); }
 .w-notes-foot { display: flex; padding: 10px 16px 14px; border-top: 1px solid var(--line); }
 .w-notes-ok {
-  flex: 1; height: 36px; font: inherit; font-weight: 700; font-size: 13px;
-  border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+  flex: 1; height: 36px; font: inherit; font-weight: var(--w-name); font-size: var(--t-name);
+  border: 0; border-radius: var(--r-l); background: var(--ink); color: var(--accent-ink); cursor: pointer;
 }
-.w-notes-ok:hover { background: var(--accent-hover); }
+.w-notes-ok:hover { filter: brightness(1.08); }
 
 /* ---------- Window / fullscreen: the sidebar header and the tab bar share one height (--head-h) ---------- */
 .widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head,
@@ -322,7 +366,7 @@
 }
 /* The logo keeps its place when the left panel folds: the header's symbol is centred
    28px from the window's left edge, as in the 56px rail, at the same height */
-.widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 18px; padding-right: 16px; }
+.widget.mode-window .w-side .w-head, .widget.mode-fullscreen .w-side .w-head { padding-left: 18px; padding-right: 10px; gap: 4px; }
 
 /* ---------- macOS: the native traffic lights at the window's top-left (x 14, y 14) ---------- */
 /* They minimize, zoom and close, so the page's own three go; the widget toggle and the
@@ -333,40 +377,46 @@
 .is-mac .widget.expanded.side-hidden .w-rail { padding-top: 30px; }
 .is-mac .widget.expanded.side-hidden .w-term-tabs { padding-left: 22px; }
 
-/* ---------- 설정: categories on the left, items on the right; stacks in the narrow widget ---------- */
-.set-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: 16px; }
+/* ---------- 설정: categories on the left, items on the right; stacks in the narrow widget ----------
+   (calm: the selection a neutral grey, switches green when on, buttons hairlines; nothing yellow) */
+.set-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: var(--r-l); }
 .set-modal {
   width: min(760px, 100%); height: min(560px, 100%); display: flex; overflow: hidden;
-  background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-l); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
-.set-nav { flex: none; width: 150px; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line); background: rgba(255, 255, 255, 0.015); }
-.set-title { font-size: 14px; font-weight: 800; color: var(--ink); padding: 2px 10px 12px; letter-spacing: -0.01em; }
-.set-nav button { font: inherit; font-size: 13px; font-weight: 600; text-align: left; padding: 8px 10px; border-radius: 9px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
-.set-nav button:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
-.set-nav button.on { color: var(--accent); background: var(--accent-soft); }
-.set-version { margin-top: auto; padding: 0 10px; font-size: 11px; color: var(--ink-3); }
-.set-body { position: relative; flex: 1; min-width: 0; overflow-y: auto; padding: 18px 22px 22px; }
+.set-nav { flex: none; width: 148px; box-sizing: border-box; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line); background: none; }
+.set-title { font-size: var(--t-head); font-weight: var(--w-head); color: var(--ink); padding: 2px 10px 12px; letter-spacing: -0.01em; }
+/* min-height: the hit area the 13px buttons had */
+.set-nav button { font: inherit; font-size: var(--t-ui); font-weight: var(--w-body); text-align: left; min-height: 32px; padding: 7px 10px; border-radius: var(--r-s); border: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
+.set-nav button:hover { color: var(--ink); background: var(--hover); }
+.set-nav button.on { color: var(--ink); background: var(--sel-bg); }
+.set-version { margin-top: auto; padding: 0 10px; font-size: var(--t-meta); color: var(--ink-3); }
+.set-body { position: relative; flex: 1; min-width: 0; overflow-y: auto; padding: 20px 24px 24px; }
 .set-close { position: absolute; top: 12px; right: 12px; }
-.set-body h3 { margin: 0 0 4px; font-size: 16px; font-weight: 750; color: var(--ink); }
-.set-lead { margin: 0 0 12px; font-size: 12px; color: var(--ink-3); }
-.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.set-body h3 { margin: 0 0 4px; font-size: var(--t-head); font-weight: var(--w-head); color: var(--ink); }
+.set-lead { margin: 0 0 12px; font-size: var(--t-meta); color: var(--ink-3); }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .set-row.off { opacity: 0.45; }
 .set-sub { padding-left: 14px; }
 .set-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.set-text b { font-size: 13px; font-weight: 650; color: var(--ink); }
-.set-text small { font-size: 11px; color: var(--ink-3); line-height: 1.45; overflow-wrap: anywhere; }
+.set-text b { font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink); }
+.set-text small { font-size: var(--t-meta); color: var(--ink-3); line-height: 1.45; overflow-wrap: anywhere; }
 .set-actions { display: flex; gap: 6px; flex: none; }
-.set-btn { flex: none; font: inherit; font-size: 12px; font-weight: 650; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); cursor: pointer; white-space: nowrap; }
-.set-btn:hover { border-color: rgba(255, 255, 255, 0.25); }
+/* A hairline button; .primary is solid --ink (yellow is for the chosen session and send only) */
+.set-btn { flex: none; font: inherit; font-size: var(--t-ui); font-weight: var(--w-name); padding: 6px 12px; border-radius: var(--r-s); border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.set-btn:hover { border-color: var(--line-hover); background: var(--hover); }
 .set-btn.ghost { background: transparent; color: var(--ink-2); }
-.set-switch { flex: none; position: relative; width: 36px; height: 20px; padding: 0; border-radius: 999px; border: 0; background: #2c303b; cursor: pointer; transition: background 0.15s; }
-.set-switch i { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #c9cdd6; transition: transform 0.15s, background 0.15s; }
-.set-switch.on { background: var(--accent); }
-.set-switch.on i { transform: translateX(16px); background: var(--accent-ink); }
+.set-btn.ghost:hover { color: var(--ink); background: var(--hover); }
+/* 32×18, a 14px knob; on: the HP green with a dark knob */
+.set-switch { flex: none; position: relative; width: 32px; height: 18px; padding: 0; border-radius: 999px; border: 0; background: #2c303b; cursor: pointer; transition: background 0.15s; }
+.set-switch i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #c9cdd6; transition: transform 0.15s, background 0.15s; }
+.set-switch.on { background: var(--hp); }
+.set-switch.on i { transform: translateX(14px); background: var(--accent-ink); }
 .set-switch:disabled { cursor: default; }
-.set-times { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
-.set-times input { font: inherit; font-size: 12px; color: var(--ink); background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; color-scheme: dark; }
-.set-note { margin: 12px 0 0; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.set-times { display: flex; align-items: center; gap: 6px; font-size: var(--t-ui); color: var(--ink-2); }
+.set-times input { font: inherit; font-size: var(--t-ui); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-s); padding: 4px 6px; color-scheme: dark; }
+.set-times input:focus { outline: none; border-color: var(--ink-3); }
+.set-note { margin: 12px 0 0; font-size: var(--t-ui); color: var(--ink-2); overflow-wrap: anywhere; }
 .set-row .dex-seg { flex: none; }
 /* The narrow widget: the categories become a row of tabs above the items */
 @media (max-width: 560px) {
@@ -379,86 +429,96 @@
   .set-row { flex-wrap: wrap; gap: 8px; }
   .set-row:has(> .set-switch) { flex-wrap: nowrap; }
 }
-.set-btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
-.set-btn.primary:hover { filter: brightness(1.06); }
-.set-btn:disabled { opacity: 0.5; cursor: default; }
+.set-btn.primary { background: var(--ink); border-color: transparent; color: var(--accent-ink); }
+.set-btn.primary:hover { background: var(--ink); filter: brightness(1.08); }
+.set-btn:disabled { opacity: 0.45; cursor: default; }
+.set-btn:disabled:hover { border-color: var(--line); background: transparent; }
 /* 설정 › AI 도구 */
 .set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', 'Pretendard Variable', 'Apple SD Gothic Neo', 'SF Mono', Menlo, monospace; }
 /* A Mac: Menlo (on every Mac) before the proportional faces, as in the terminal (src/termFont.ts) */
 .is-mac .set-mono { font-family: 'Monaspace Neon Var', 'Monaspace Neon', Menlo, Monaco, 'Pretendard Variable', 'Apple SD Gothic Neo', monospace; }
-.set-tag { font-size: 11px; color: var(--ink-3); padding: 6px 4px; }
+.set-tag { font-size: var(--t-meta); color: var(--ink-3); padding: 6px 4px; }
 .set-tool-add { flex-direction: column; align-items: stretch; gap: 10px; }
 .set-presets { display: flex; gap: 6px; margin-top: 6px; }
-.set-presets .set-btn { padding: 3px 10px; font-size: 11px; }
+.set-presets .set-btn { padding: 3px 10px; font-size: var(--t-meta); }
 .set-tool-form { display: flex; gap: 6px; }
-.set-tool-form input { font: inherit; font-size: 12px; color: var(--ink); min-width: 0; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--card-2); }
+.set-tool-form input { font: inherit; font-size: var(--t-ui); color: var(--ink); min-width: 0; padding: 6px 9px; border-radius: var(--r-s); border: 1px solid var(--line); background: var(--card); }
 .set-tool-form input:first-child { width: 120px; flex: none; }
 .set-tool-form input.set-mono { flex: 1; }
-.set-tool-form input:focus { outline: none; border-color: rgba(242, 201, 76, 0.5); }
-.set-btn:disabled { opacity: 0.45; cursor: default; }
+.set-tool-form input:focus { outline: none; border-color: var(--ink-3); }
 .set-foot { margin-top: 12px; line-height: 1.5; }
 /* The left panel folded (window / fullscreen): a slim column of the essentials, the terminal takes the rest */
 .widget.expanded.side-hidden .w-side { display: none; }
+/* (calm: the panel's own grey, the chosen session marked by the yellow bar at the rail's left
+   edge, as in the open list; the buttons stay main's 38px, never a smaller target) */
 .w-rail {
   flex: 0 0 56px; width: 56px; box-sizing: border-box; height: 100%;
-  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 0 10px;
-  background: #0e1015; border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 0 10px;
+  background: var(--side-bg); border-right: 1px solid var(--line);
   -webkit-app-region: no-drag; user-select: none;
 }
 .w-rail-btn {
   position: relative; flex: none; display: grid; place-items: center;
-  width: 38px; height: 38px; border-radius: 10px; border: 0; background: transparent;
+  width: 38px; height: 38px; border-radius: var(--r-m); border: 0; background: transparent;
   color: var(--ink-3); cursor: pointer; font: inherit;
 }
-.w-rail-btn:hover { background: var(--card-2); color: var(--ink); }
+.w-rail-btn:hover { background: var(--hover); color: var(--ink); }
 .w-rail-btn.full { opacity: 0.45; }
 .w-rail-brand { width: 56px; height: var(--head-h, 46px); border-radius: 0; margin-bottom: 2px; }
 .w-rail-brand:hover { background: transparent; }
+/* 업무 모드: the ball's slot, kept empty */
+.w-rail-blank { cursor: default; pointer-events: none; }
 .w-rail-brand .w-rail-conn { right: calc(50% - 14px); bottom: calc(50% - 13px); }
-.w-rail-conn { position: absolute; right: 5px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px #0e1015; }
+.w-rail-conn { position: absolute; right: 5px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px var(--side-bg); }
 .w-rail-conn.off { background: var(--danger); }
-.w-rail-update { width: 30px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; }
+/* An update: a hairline mark, as the panel's update button */
+.w-rail-update { width: 30px; height: 22px; box-sizing: border-box; border-radius: var(--r-s); border: 1px solid var(--line); background: none; color: var(--ink); font-weight: var(--w-name); font-size: 13px; }
+.w-rail-update:hover { border-color: var(--line-hover); }
 /* Full width, like the open panel's dividers */
 .w-rail-sep { flex: none; align-self: stretch; height: 1px; margin: 4px 0; background: var(--line); }
 /* Open sessions: the Pokémon with its status dot; many of them scroll inside the column */
-.w-rail-sessions { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; overflow-y: auto; overflow-x: hidden; }
+/* (the full rail width, so the chosen one's bar at the rail's edge is not cut off) */
+.w-rail-sessions { flex: 1 1 auto; align-self: stretch; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 2px 0; overflow-y: auto; overflow-x: hidden; }
 .w-rail-sessions::-webkit-scrollbar { width: 0; }
-.w-rail-session img { width: 30px; height: 30px; object-fit: contain; }
-.w-rail-session.on { background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line); }
-.w-rail-shell { font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
-.w-rail-dot { position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px #0e1015; }
+.w-rail-session img { width: 26px; height: 26px; object-fit: contain; }
+.w-rail-session.on { background: rgba(255, 255, 255, 0.05); }
+.w-rail-session.on::before { content: ''; position: absolute; left: -9px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+/* A shell: the prompt mark in a hairline box, the picture's size */
+.w-rail-shell {
+  display: inline-grid; place-items: center; width: 26px; height: 26px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-s);
+  font: 500 10px/1 'Monaspace Neon Var', Consolas, monospace; font-weight: var(--w-mono); color: var(--ink-3);
+}
+/* A new shell (folded): the prompt mark, as the list header's >_ */
+.w-rail-newshell { font: 500 11px/1 'Monaspace Neon Var', Consolas, monospace; }
+.w-rail-dot { position: absolute; right: 4px; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--side-bg); }
 .w-rail-session.mood-working .w-rail-dot { background: var(--green); }
 .w-rail-session.mood-needs-you .w-rail-dot { background: var(--amber); }
 .w-rail-session.mood-error .w-rail-dot { background: var(--danger); }
 .w-rail-session.mood-ended { opacity: 0.45; }
 /* Usage: two thin bars filling from the bottom */
 .w-rail-usage { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; cursor: default; }
-.w-rail-bars { display: flex; gap: 4px; align-items: flex-end; height: 30px; }
-.w-rail-bar { position: relative; width: 4px; height: 100%; border-radius: 3px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
-.w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--green); }
-.w-rail-bar.mid i { background: var(--amber); }
-.w-rail-bar.high i { background: var(--danger); }
+.w-rail-bars { display: flex; gap: 4px; align-items: flex-end; height: 26px; }
+.w-rail-bar { position: relative; width: 3px; height: 100%; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 2px; background: var(--bar); }
+.w-rail-bar.warn i { background: var(--bar-warn); }
+.w-rail-bar.danger i { background: var(--bar-danger); }
 .w-rail-account .w-account { width: 26px; height: 26px; pointer-events: none; }
-.w-rail-signin { width: 46px; height: 28px; font-size: 11px; font-weight: 600; }
+.w-rail-signin { width: 46px; height: 28px; font-size: var(--t-meta); font-weight: var(--w-name); }
 .w-side-toggle { flex: none; -webkit-app-region: no-drag; }
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
 .w-row { position: relative; user-select: none; touch-action: none; }
 .w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
-.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; --row-bg: #1f232d; }
+.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; --row-tint: var(--hover); background: linear-gradient(var(--row-tint), var(--row-tint)), var(--row-base); }
 .w-row input, .w-row textarea { user-select: text; }
-/* A plain shell tab: a prompt mark where the Pokémon would be */
-.w-sess-shell { flex: none; width: 20px; text-align: center; font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
 /* ---------- 업무 모드 (src/workMode.ts): nothing Pokémon on screen. The pictures, the logo, the
    Pokédex card and the party are not drawn at all; this only fills their places ---------- */
 /* A plain session glyph in the Pokémon's box, the same size, so nothing moves */
-.w-row-glyph { display: inline-grid; place-items: center; color: var(--ink-3); border-radius: 6px; background: rgba(255, 255, 255, 0.05); }
-.w-sess-glyph { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--ink-3); }
-.w-rail-glyph { display: grid; place-items: center; width: 30px; height: 30px; color: var(--ink-3); }
-.w-rail-session.on .w-rail-glyph, .w-sess-tab.on .w-sess-glyph { color: var(--ink-2); }
+.w-row-glyph { display: inline-grid; place-items: center; box-sizing: border-box; color: var(--ink-3); border: 1px solid var(--line); border-radius: var(--r-s); background: none; }
+.w-rail-glyph { display: grid; place-items: center; width: 26px; height: 26px; color: var(--ink-3); }
+.w-rail-session.on .w-rail-glyph { color: var(--ink-2); }
 /* The header without the logo: the profile sits where the logo was (on Windows; on a Mac the
    traffic lights hold that corner), the connection dot after it, the rest stays on the right.
    The empty middle is still the window's drag region */
 .work-mode .w-head .w-conn { margin-right: auto; }
-/* The folded rail without the ball: the unfold button takes the ball's slot, the tab bar's height */
-.work-mode .w-rail > .w-side-toggle:first-child { width: 56px; height: var(--head-h, 46px); border-radius: 0; margin-bottom: 2px; }
-.work-mode .w-rail > .w-side-toggle:first-child:hover { background: transparent; color: var(--ink); }
+/* (the folded rail without the ball keeps its slot empty: .w-rail-blank, so nothing below moves) */

@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { playFor } from './sounds'
+import './styles/tokens.css'
 import './styles/widget.css'
 import './styles/toast.css'
 import { bridge } from './desktop'
@@ -57,7 +58,7 @@ export const ToastCard: React.FC<{ t: DexEvent; leaving?: boolean; waiting?: num
         <div className="w-toast-eyebrow">
           {t.attendance && <span className="w-toast-badge">{tr('오늘의 출석')}</span>}
           <span className="w-toast-kind">{KIND_LABEL[t.kind]?.[{ ko: 0, en: 1, ja: 2 }[lang()]] ?? ''}</span>
-          {t.tier && t.kind !== 'levelup' && <span className="w-toast-tier">{TIER_LABEL[t.tier]}</span>}
+          {t.tier && t.kind !== 'levelup' && <span className="w-toast-tier"><i className="tdot" aria-hidden="true" />{TIER_LABEL[t.tier]}</span>}
           {t.newSpecies && <span className="w-toast-new">NEW</span>}
           {waiting > 0 && <span className="w-toast-more">+{waiting}</span>}
         </div>

@@ -7,14 +7,17 @@
  */
 
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-// terminal.css first: widget-expanded.css restyles the resume picker's frame
+// tokens.css before every other stylesheet: the design values they read
+import './styles/tokens.css'
+// terminal.css next: widget-expanded.css restyles the resume picker's frame
 import './styles/terminal.css'
 import './styles/widget.css'
 import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import { useAgentSocket } from './hooks/useAgentSocket'
 import { serverWsUrl } from './serverUrl'
-import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, contextTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
+import { dispatchMeters, useMeters, formatClockTime, formatResetDay, formatResetFull, usageTone, limitNow, type SessionStatus, type CodexWindow } from './meters'
+import { hpTone, rowKeyAction, rowLabel, rowTooltip, sessionHeaderParts, setListMode, shellLabel, useListMode } from './sessionList'
 import { sessionTools, shownCodexLimits } from './features'
 import { bridge, useTerminals, type PastSession, type TerminalInfo, type WidgetMode, type UpdateState } from './desktop'
 import { castSession, sessionName, sessionSprite, useTheme, spriteUrl, iconUrl, pokemonById } from './theme'
@@ -27,8 +30,9 @@ import FeedbackPin from './components/FeedbackPin'
 import { changeSettings, useSettings, useWorkMode } from './settingsStore'
 import { autoPartner, hideTitleKey, sessionLabel, sessionRowParts, shouldToast, viewIn, visibleViews, VIEWS, type View } from './workMode'
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
-import { SessionTabs } from './components/SessionTabs'
+import { SessionHeader } from './components/SessionHeader'
 import { useDragOrder } from './useDragOrder'
+import { clampSideWidth, readSideWidth, sideMin, SIDE_DEFAULT, SIDE_MAX, writeSideWidth } from './sideWidth'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, MaximizeIcon, RestoreIcon, CloseIcon, FolderIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
@@ -50,11 +54,12 @@ function preloadViews() {
   if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2000 })
   else setTimeout(go, 500)
 }
-import { FONT_PRESETS, setTermFont, useTermFont } from './termFont'
+import { resetTextSize, stepTextSize, useTextStep } from './textSize'
+import { TextSizeControl } from './components/TextSizeControl'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
-import { appShortcut } from './keys'
-import { isMac, modCombo, modLabel, platformWord } from './platform'
+import { appShortcut, wheelFontStep } from './keys'
+import { isMac, modCombo, platformWord } from './platform'
 
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
@@ -136,9 +141,9 @@ function pct(n: number | null | undefined): string {
   return typeof n === 'number' ? String(Math.round(n)) : '—'
 }
 
-/** One limit row: label, bar, percent, when it resets */
+/** One limit row: label, bar, percent, when it resets (the bar grey, amber from 80 %, red from 90 %) */
 const Limit: React.FC<{ label: string; value: number | null | undefined; reset: string | null; resetAt?: number | null }> = ({ label, value, reset, resetAt }) => (
-  <div className={`w-limit tone-${contextTone(value)}${typeof value === 'number' ? '' : ' loading'}`}>
+  <div className={`w-limit tone-${usageTone(value)}${typeof value === 'number' ? '' : ' loading'}`}>
     <span className="w-label">{label}</span>
     <div className="w-bar" aria-hidden="true"><span style={{ width: `${typeof value === 'number' ? Math.max(2, Math.min(100, value)) : 0}%` }} /></div>
     <span className="w-limit-pct">{typeof value === 'number' ? <>{pct(value)}<small>%</small></> : <span className="w-limit-wait" />}</span>
@@ -163,6 +168,64 @@ const ResizeGrip: React.FC = () => {
   return <div className="w-grip" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} title={t('크기 조절')} aria-hidden="true" />
 }
 
+/**
+ * The left panel's right edge (window and full screen): drag it for a width of 240–420px (300–420 on a Mac),
+ * remembered (src/sideWidth.ts); double-click or Home for the default; ← / → 16px at a time.
+ * The terminal keeps its size while the edge moves and fits once it rests (TerminalPanel).
+ * While dragged the edge sets the app's --side-w itself (no re-render of the whole app per move);
+ * the width is committed, and remembered, on release. A cancelled drag (the system took the
+ * pointer) goes back to the width it started from, the one stored.
+ */
+const SideResize: React.FC<{ width: number; min: number; max: number; onWidth: (px: number | null, save: boolean) => void; onDragging: (on: boolean) => void }> = ({ width, min, max, onWidth, onDragging }) => {
+  const left = useRef<number | null>(null)
+  const app = useRef<HTMLElement | null>(null)
+  const at = (e: React.PointerEvent) => e.clientX - (left.current ?? 0)
+  const show = (px: number) => app.current?.style.setProperty('--side-w', `${px}px`)
+  const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    left.current = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().left
+    app.current = e.currentTarget.closest('.widget')
+    onDragging(true)
+  }
+  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (left.current === null) return
+    const w = clampSideWidth(at(e), window.innerWidth, min)
+    show(w)
+    e.currentTarget.setAttribute('aria-valuenow', String(w))
+  }
+  const onUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (left.current === null) return
+    // Shown here too: a release on the width already kept changes no state, so React would leave
+    // the last move's width on screen
+    const w = clampSideWidth(at(e), window.innerWidth, min)
+    show(w)
+    e.currentTarget.setAttribute('aria-valuenow', String(w))
+    onWidth(w, true)
+    left.current = null
+    onDragging(false)
+  }
+  const onCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (left.current === null) return
+    left.current = null
+    show(width)
+    e.currentTarget.setAttribute('aria-valuenow', String(width))
+    onDragging(false)
+  }
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); onWidth(width + (e.key === 'ArrowRight' ? 16 : -16), true) }
+    else if (e.key === 'Home') { e.preventDefault(); onWidth(null, true) }
+  }
+  return (
+    <div className="w-side-resize" role="separator" aria-orientation="vertical" tabIndex={0}
+      aria-valuemin={min} aria-valuemax={max} aria-valuenow={width}
+      title={t('끌어서 폭 조절 · 두 번 누르면 기본')} aria-label={t('왼쪽 패널 폭')}
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel} onLostPointerCapture={onCancel}
+      onDoubleClick={() => onWidth(null, true)} onKeyDown={onKey} />
+  )
+}
+
 const Widget: React.FC = () => {
   // The session cast's version: the rows below draw each session as its Pokémon
   const castVersion = useTheme()
@@ -177,7 +240,17 @@ const Widget: React.FC = () => {
     bridge?.update.get().then(setUpdate).catch(() => {})
     return bridge?.update.onState(setUpdate)
   }, [])
-  const [renaming, setRenaming] = useState<string | null>(null)
+  // The one rename field open: in a list row or in the session header (never both)
+  const [renaming, setRenaming] = useState<{ id: string; at: 'row' | 'header' } | null>(null)
+  const renamingRef = useRef(renaming)
+  const startRename = (id: string, at: 'row' | 'header') => { renamingRef.current = { id, at }; setRenaming({ id, at }) }
+  // A rename opened from the keyboard (F2 on a row): Enter or Esc puts the focus back on that row
+  const keyRename = useRef<string | null>(null)
+  const backToRow = (sid: string) => {
+    if (keyRename.current !== sid) return
+    keyRename.current = null
+    requestAnimationFrame(() => rowEls.current.get(sid)?.focus())
+  }
   const [notesOpen, setNotesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -197,7 +270,7 @@ const Widget: React.FC = () => {
     setView('dex')
     setExpanded(true)
   }), [])
-  // Ctrl+1–5 (⌘1–5 on macOS): 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
+  // Ctrl+1–5 (⌘1–5 on macOS): 세션 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
   // Ctrl+Alt+←/→ (⌘⌥←/→): the previous / next one (from the widget: opens the current one)
   // Ctrl+Tab, Ctrl+Shift+Tab / T / W (⌘⇧[ / ⌘⇧] / ⌘T / ⌘W): sessions (below). The map is src/keys.ts
   // Ctrl+Shift+H (⌘⇧H): 업무 모드 on and off (in 업무 모드 only the sessions view opens)
@@ -205,6 +278,14 @@ const Widget: React.FC = () => {
     const views = visibleViews(workMode)
     const onKey = (e: KeyboardEvent) => {
       const action = appShortcut(e)
+      // Ctrl+= / Ctrl+- / Ctrl+0 (⌘ on macOS): the one text size, anywhere in the window. Taken here,
+      // before the terminal's own handler sees it, so a press steps once
+      if (action === 'fontUp' || action === 'fontDown' || action === 'fontReset') {
+        e.preventDefault(); e.stopPropagation()
+        if (action === 'fontReset') resetTextSize()
+        else stepTextSize(action === 'fontUp' ? 1 : -1)
+        return
+      }
       if (action === 'workMode') {
         e.preventDefault(); e.stopPropagation()
         if (!e.repeat) void changeSettings({ app: { workMode: !workMode } })
@@ -247,9 +328,26 @@ const Widget: React.FC = () => {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
+  // Ctrl+wheel (⌘+wheel, or a trackpad pinch, on macOS): the text size anywhere in the window. Over
+  // a terminal the terminal takes it first (TerminalPanel, the same step), so it steps once
+  const widgetRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = widgetRef.current
+    if (!el) return
+    let lastPinchAt = 0
+    const onWheel = (e: WheelEvent) => {
+      if (e.defaultPrevented) return
+      const size = wheelFontStep(e, Date.now(), lastPinchAt)
+      if (!size) return
+      e.preventDefault()
+      lastPinchAt = size.pinchAt
+      if (size.step) stepTextSize(size.step)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
   // A new session name also becomes Claude Code's own name for it (/rename), sent when Claude is free
   const pendingRename = useRef(new Map<string, string>())
-  const termFont = useTermFont()
   const [mode, setModeState] = useState<WidgetMode>(modeFromUrl)
   const expanded = mode !== 'widget'
   const [viewState, setViewState] = useState<View>(() => readCarry().view ?? 'terminal')
@@ -359,6 +457,17 @@ const Widget: React.FC = () => {
       if (name && isFree(r)) { pendingRename.current.delete(r.terminal!.id); bridge?.terminals.send(r.terminal!.id, `/rename ${name}`) }
     }
   })
+  /**
+   * Closes the rename field: with a value it commits (Enter, or the field losing focus), without
+   * one it cancels (Esc). Once only: the field's blur as it goes away finds it already closed.
+   */
+  const endRename = (r: Row | undefined, value?: string) => {
+    const cur = renamingRef.current
+    if (!cur) return
+    renamingRef.current = null
+    setRenaming(null)
+    if (r && value !== undefined && cur.id === r.sessionId) commitRename(r, value)
+  }
   const withTerminal = rows.filter(r => r.terminal)
   const [target, setTarget] = useState<string | null>(() => readCarry().target ?? null)
   const [text, setText] = useState(() => readCarry().text ?? '')
@@ -411,27 +520,74 @@ const Widget: React.FC = () => {
   }
   // Full: the session limit is reached, or nobody is left to send (the party, then the box as helpers)
   const partyFull = freeSessionCount(dex) <= 0
-  // The top bar never scrolls: when it runs out of room the view buttons drop their names (icons
-  // only), and get them back once it is wide enough again for the width they needed
+  // The top bar never scrolls and never clips the window buttons: when it runs out of room it
+  // gives way a step at a time — 1: the view buttons drop their names (icons only); 2: the text
+  // size folds to one 가 button (the same step menu); 3: the widget toggle goes (the tray and the
+  // menu still reach the widget). Each step comes back once the bar is wide enough again for the
+  // width it needed
   const viewBarRef = useRef<HTMLDivElement>(null)
-  const [viewsCompact, setViewsCompact] = useState(false)
-  const namesWidth = useRef(0)
+  const [barLevel, setBarLevel] = useState(0)
+  const neededWidth = useRef<number[]>([])
+  const textStep = useTextStep()
+  // What is in the bar: when it changes (the view, 업무 모드's one view, the text step and the
+  // language the words are set in, the 도감 dot, the window's mode) the widths it needed before say
+  // nothing, so they are dropped and the bar is measured again from the top
+  const barContent = [expanded, mode, view, workMode, textStep, lang(), hasNew, update?.status ?? ''].join('|')
+  const barContentSeen = useRef(barContent)
   useLayoutEffect(() => {
     const bar = viewBarRef.current
+    if (barContentSeen.current !== barContent) {
+      barContentSeen.current = barContent
+      neededWidth.current = []
+      if (barLevel !== 0) { setBarLevel(0); return }
+    }
     if (!bar) return
+    // The width its parts need: from the bar's left edge to the end of the last one (its margin and
+    // the bar's own right padding included). Read from the parts' boxes, not scrollWidth, which
+    // rounds and does not count a part that runs into the padding
+    const measure = () => {
+      const r = bar.getBoundingClientRect()
+      let end = r.left
+      for (const kid of bar.children) {
+        const k = kid.getBoundingClientRect()
+        if (k.width) end = Math.max(end, k.right + (parseFloat(getComputedStyle(kid).marginRight) || 0))
+      }
+      return { need: end - r.left + (parseFloat(getComputedStyle(bar).paddingRight) || 0), have: r.width }
+    }
     const check = () => {
-      if (!viewsCompact) {
-        if (bar.scrollWidth > bar.clientWidth + 1) { namesWidth.current = bar.scrollWidth; setViewsCompact(true) }
-      } else if (bar.clientWidth >= namesWidth.current + 8) setViewsCompact(false)
+      const { need, have } = measure()
+      if (need > have + 0.5) {
+        if (barLevel < 3) { neededWidth.current[barLevel] = need; setBarLevel(barLevel + 1) }
+      } else if (barLevel > 0 && have >= neededWidth.current[barLevel - 1] + 8) setBarLevel(barLevel - 1)
     }
     check()
     const ro = new ResizeObserver(check)
     ro.observe(bar)
     return () => ro.disconnect()
-  }, [viewsCompact, expanded, view])
+  }, [barLevel, barContent])
+  const viewsCompact = barLevel >= 1
   // Window / fullscreen: the left panel folds away (remembered), leaving the terminal the whole width
   const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('spawn-side-hidden') === '1' } catch { return false } })
   const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('spawn-side-hidden', next ? '1' : '0') } catch {} ; return next })
+  // Its width (src/sideWidth.ts): the remembered one, fitted to the window (the terminal keeps 320px)
+  const [sideW, setSideW] = useState(() => { try { return readSideWidth(localStorage) } catch { return SIDE_DEFAULT } })
+  const [winW, setWinW] = useState(() => window.innerWidth)
+  useEffect(() => {
+    const onResize = () => setWinW(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  // (a Mac's narrowest is 300: its header sits 78px in, clear of the traffic lights)
+  const sideLow = sideMin(isMac())
+  const sideWidth = clampSideWidth(sideW, winW, sideLow)
+  const sideMax = clampSideWidth(SIDE_MAX, winW, sideLow)
+  const [sideDragging, setSideDragging] = useState(false)
+  const setSideWidth = (px: number | null, save: boolean) => {
+    if (px === null) { setSideW(SIDE_DEFAULT); writeSideWidth(null); return }
+    const w = clampSideWidth(px, window.innerWidth, sideLow)
+    setSideW(w)
+    if (save) writeSideWidth(w)
+  }
   // Party Pokémon whose session is open but resting (turn over or stopped): they may trade places with a box one
   // The same members give the same Set, so the (memoized) box does not re-render for nothing
   const restingKey = rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u).sort().join(',')
@@ -441,6 +597,20 @@ const Widget: React.FC = () => {
   // One line per chosen session, picked at random (not on every render)
   const askPick = useMemo(() => Math.floor(Math.random() * ASK_LINES.length), [chosen?.sessionId])
   const shown = withTerminal.find(r => r.sessionId === target) ?? chosen ?? withTerminal[0]
+  // The left list: 상세 or 간략 (src/sessionList.ts), and the open session's row kept in sight
+  const listMode = useListMode()
+  const compact = listMode === 'compact'
+  const rowEls = useRef(new Map<string, HTMLElement>())
+  // (also when the panel unfolds: a row picked from the rail while it was folded comes into sight)
+  useEffect(() => {
+    if (shown?.sessionId && !(expanded && sideHidden)) rowEls.current.get(shown.sessionId)?.scrollIntoView({ block: 'nearest' })
+  }, [shown?.sessionId, listMode, sideHidden, expanded])
+  // The header's rename field belongs to the session it opened on: another session shown (Ctrl+Tab,
+  // the rail, a close) drops it, so it cannot come back stale with the first one
+  useEffect(() => {
+    const cur = renamingRef.current
+    if (cur?.at === 'header' && cur.id !== shown?.sessionId) { renamingRef.current = null; setRenaming(null) }
+  }, [shown?.sessionId])
   // In widget mode, the first session waiting on a question (its own output, or the hooks' needs-you)
   const askRow = expanded ? undefined : withTerminal.find(r => r.terminal?.status === 'running' && (r.terminal.asking || r.mood === 'needs-you'))
 
@@ -526,16 +696,18 @@ const Widget: React.FC = () => {
 
   /** A plain shell tab (PowerShell): no Pokémon goes, so the party is not asked; at most MAX_SHELLS */
   const MAX_SHELLS = 3 // twelve sessions + three shells + the ask card stay within Chromium's ~16 WebGL contexts
-  const openShell = async () => {
-    if (!bridge) return
+  /** A new shell; true when one opened (at the limit or on an error it leaves a note and says false) */
+  const openShell = async (): Promise<boolean> => {
+    if (!bridge) return false
     if (terminals.filter(tm => tm.tool === 'shell' && tm.status === 'running').length >= MAX_SHELLS) {
-      setNote(t('셸 탭은 {n}개까지 열 수 있어요.', { n: MAX_SHELLS }))
-      return
+      setNote(t('셸은 {n}개까지 열 수 있어요.', { n: MAX_SHELLS }))
+      return false
     }
     const r = await bridge.terminals.create({ tool: 'shell' })
-    if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return }
+    if ('error' in r) { setNote(t('세션을 열 수 없어요: {error}', { error: r.error })); return false }
     setTarget(r.sessionId)
     setView('terminal')
+    return true
   }
 
   const resume = async (past: PastSession) => {
@@ -633,13 +805,14 @@ const Widget: React.FC = () => {
   ))
 
   return (
-    <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}`}>
+    <div ref={widgetRef} className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}${sideDragging ? ' resizing' : ''}`}
+      style={expanded ? { '--side-w': `${sideWidth}px` } as React.CSSProperties : undefined}>
       {/* The left panel folded: only the essentials, in one column (logo, new session,
           folder, resume, the open sessions, usage, settings) */}
       {expanded && sideHidden && (
         <nav className="w-rail" aria-label={t('왼쪽 패널 (접힘)')}>
-          {/* 업무 모드: no ball; the unfold button takes the top slot (CSS) */}
-          {!workMode && (
+          {/* 업무 모드: no ball, its slot kept empty (as the lab), so nothing below moves when the mode toggles */}
+          {workMode ? <span className="w-rail-btn w-rail-brand w-rail-blank" aria-hidden="true" /> : (
             <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
               <PokeBall size={20} />
               <span className={`w-rail-conn${connected ? '' : ' off'}`} />
@@ -655,6 +828,8 @@ const Widget: React.FC = () => {
           <button className={`w-rail-btn${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('새로운 세션 시작하기')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={16} /></button>
           <button className="w-rail-btn" onClick={() => launch(true)} title={t('다른 폴더에서 새 세션')} aria-label={t('다른 폴더에서 새 세션')}><FolderIcon /></button>
           <button className="w-rail-btn" onClick={() => setPicking(true)} title={t('예전 세션 골라서 이어하기')} aria-label={t('예전 세션 이어하기')}><SessionsIcon /></button>
+          {/* A new shell, as the list header's >_ does while the panel is open */}
+          <button className="w-rail-btn w-rail-newshell" onClick={() => { void openShell() }} title={t('셸 열기')} aria-label={t('셸 열기')}>&gt;_</button>
           <span className="w-rail-sep" />
           <div className="w-rail-sessions">
             {withTerminal.map(r => (
@@ -681,7 +856,8 @@ const Widget: React.FC = () => {
                 <div className="w-rail-bars">
                   {bars.map(b => {
                     const v = typeof b.value === 'number' ? Math.max(0, Math.min(100, b.value)) : 0
-                    return <span key={b.key} className={`w-rail-bar${v >= 90 ? ' high' : v >= 70 ? ' mid' : ''}`}><i style={{ height: `${v}%` }} /></span>
+                    const tone = usageTone(v)
+                    return <span key={b.key} className={`w-rail-bar${tone === 'ok' ? '' : ` ${tone}`}`}><i style={{ height: `${v}%` }} /></span>
                   })}
                 </div>
               </div>
@@ -797,7 +973,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
           <section className="w-card w-launch">
             <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('문서 폴더에서 새 Claude 세션')}>
-              <PlusIcon size={15} /> {t('새로운 세션 시작하기')}
+              <PlusIcon size={15} /><span className="w-launch-label">{t('새로운 세션 시작하기')}</span>
             </button>
             <button className="w-launch-alt" onClick={() => launch(true)} title={t('다른 폴더에서 새 세션')} aria-label={t('다른 폴더에서 새 세션')}><FolderIcon /></button>
             <button className="w-launch-alt" onClick={() => setPicking(true)} title={t('예전 세션 골라서 이어하기')} aria-label={t('예전 세션 이어하기')}><SessionsIcon /></button>
@@ -805,8 +981,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
           {/* 업무 모드: no Pokédex card and no party (not drawn, so no pictures are fetched) */}
           {!workMode && <button className="w-card w-dex" onClick={() => { setView('dex'); setExpanded(true) }} title={t('도감 열기')}>
-            <span className="w-label">{t('도감')}</span>
-            {hasNew && <span className="w-new-dot corner" aria-label={t('새로 잡은 포켓몬')} />}
+            <span className="w-label">{t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</span>
             <span className="w-dex-count"><b>{dex ? Object.keys(dex.caught).length : 0}</b><span> / {dex?.total ?? 1025}</span></span>
             <span className="w-dex-recent">
               {(dex?.log ?? []).filter(e => e.kind === 'catch').slice(-6).reverse().map((e, i) => (
@@ -840,60 +1015,124 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 })}
               </span>
             </div>}
+            {/* The list's header: how many, 간략 / 상세, a new shell, a new session */}
+            <div className="w-list-head">
+              <span className="w-list-count">{t('세션 {n}', { n: rows.length })}</span>
+              <span className="w-list-mode" role="group" aria-label={t('목록 보기')}>
+                <button className={compact ? 'on' : ''} aria-pressed={compact} onClick={() => setListMode('compact')} title={t('한 줄씩 (많이 보기)')}>{t('간략')}</button>
+                <button className={compact ? '' : 'on'} aria-pressed={!compact} onClick={() => setListMode('detail')} title={t('이름·상태·컨텍스트·모델까지')}>{t('상세')}</button>
+              </span>
+              <button className="w-list-btn w-list-shell" onClick={async () => { if (await openShell()) setExpanded(true) }}
+                title={workMode ? t('셸 열기') : t('셸 열기 (포켓몬 없이 {shell})', { shell: shellLabel(rows) })} aria-label={t('셸 열기')}>&gt;_</button>
+              <button className={`w-list-btn${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('새로운 세션 시작하기')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={13} /></button>
+            </div>
             {rows.length === 0 && <div className="w-empty">{t('새 세션을 열면 여기 나타나요')}</div>}
+            <div className={`w-rows${compact ? ' compact' : ''}`}>
             {rowOrder.shown.map((sid, i) => {
               const r = rowById.get(sid)!
               const drag = rowOrder.bind(sid, i, !!r.terminal)
               const mon = monOf(r.sessionId)
               const parts = sessionRowParts({ title: r.title, name: r.name, project: r.project, level: mon ? levelOf(mon) : null, helpers: (dex?.helpers?.[r.sessionId] ?? []).length, helperSession: isHelperSession(dex, r.sessionId), shell: r.shell }, workMode)
+              // What is left of the context window (the tick and the tooltip in 간략)
+              const ctxUsed = r.meter?.context.used
+              const ctxLeft = r.shell || typeof ctxUsed !== 'number' ? null : Math.max(0, Math.min(100, 100 - ctxUsed))
+              const picture = parts.picture === 'shell' ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span>
+                : parts.picture === 'glyph' ? <span className="w-row-mon w-row-glyph" aria-hidden="true"><TerminalIcon size={compact ? 14 : 18} /></span>
+                : <img className="w-row-mon" src={r.sprite} alt="" />
+              const nameEl = renaming?.id === r.sessionId && renaming.at === 'row' ? (
+                <input
+                  className="w-row-rename"
+                  autoFocus
+                  defaultValue={r.title ?? ''}
+                  placeholder={t('새 세션')}
+                  maxLength={40}
+                  onClick={e => e.stopPropagation()}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) { endRename(r, e.currentTarget.value); backToRow(sid) }
+                    if (e.key === 'Escape') { endRename(r); backToRow(sid) }
+                  }}
+                  onBlur={e => { keyRename.current = null; endRename(r, e.currentTarget.value) }}
+                />
+              ) : (
+                <span
+                  className="w-row-name"
+                  title={!compact && r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
+                  onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); startRename(r.sessionId, 'row') }}
+                >{r.title ?? t('새 세션')}</span>
+              )
+              // 확인 필요 is a button in 상세 (it opens the terminal); in 간략 a plain dot like the other
+              // moods (hovered, the × takes its place, so a button there could not be pressed): the row's
+              // own click opens the terminal instead
+              const pill = r.mood === 'needs-you' && r.terminal && !r.shell && !compact ? (
+                <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}><i className="w-pill-dot" /><span className="w-pill-text">{t('확인 필요')}</span></button>
+              ) : (
+                <span className={`w-pill mood-${r.mood}`}><i className="w-pill-dot" /><span className="w-pill-text">{t(MOOD_LABEL[r.mood])}</span></span>
+              )
+              const closeBtn = r.terminal && (
+                <button
+                  className={`w-row-close${closing === r.sessionId ? ' confirm' : ''}`}
+                  onClick={e => { e.stopPropagation(); closeSession(r) }}
+                  onMouseLeave={() => closing === r.sessionId && setClosing(null)}
+                  title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
+                  aria-label={t('세션 닫기')}
+                >{closing === r.sessionId ? t('닫기') : '×'}</button>
+              )
+              // A row's click (and Enter / Space on it, focused from the keyboard): open its session
+              const open = () => {
+                if (!r.terminal) return
+                setTarget(r.sessionId)
+                if (expanded) setView('terminal')
+                // 간략 in the widget: a session waiting on you opens its terminal, as 상세's 확인 필요 button does
+                else if (compact && r.mood === 'needs-you' && !r.shell) { setView('terminal'); setExpanded(true) }
+              }
               return (
               <div
                 key={r.sessionId}
-                ref={drag.ref}
+                ref={el => { drag.ref(el); if (el) rowEls.current.set(sid, el); else rowEls.current.delete(sid) }}
                 style={rowOrder.style(sid, i)}
                 onPointerDown={drag.onPointerDown}
                 onPointerMove={drag.onPointerMove}
                 onPointerUp={drag.onPointerUp}
                 onPointerCancel={drag.onPointerCancel}
                 className={`w-row${rowOrder.stateClass(sid)} mood-${r.mood}${r.terminal?.status === 'running' && r.terminal.asking ? ' asking' : ''}${shown?.sessionId === r.sessionId ? ' chosen' : ''}`}
-                onClick={rowOrder.click(() => { if (!r.terminal) return; setTarget(r.sessionId); if (expanded) setView('terminal') })}
-                title={r.terminal ? t('눌러서 이 세션 열기') : undefined}
+                onClick={rowOrder.click(open)}
+                // The keyboard and screen readers: a row is a button (Tab reaches it, Enter / Space
+                // open it, F2 renames it), the one in view is the current one, and its name says
+                // the session's name and status (간략 shows only the status's dot)
+                role={r.terminal ? 'button' : undefined}
+                tabIndex={r.terminal ? 0 : undefined}
+                aria-current={r.terminal && shown?.sessionId === r.sessionId ? 'true' : undefined}
+                aria-label={rowLabel({ title: r.title, mood: MOOD_LABEL[r.mood], left: ctxLeft, barLabel: parts.barLabel }, t)}
+                onKeyDown={e => {
+                  if (e.target !== e.currentTarget || !r.terminal) return
+                  const act = rowKeyAction(e.key, e.nativeEvent.isComposing)
+                  if (!act) return
+                  e.preventDefault()
+                  if (act === 'open') open()
+                  else { keyRename.current = sid; startRename(r.sessionId, 'row') }
+                }}
+                title={compact ? rowTooltip({ title: r.title, mood: MOOD_LABEL[r.mood], left: ctxLeft, barLabel: parts.barLabel, renamable: !!r.terminal }, t) : r.terminal ? t('눌러서 이 세션 열기') : undefined}
               >
-                {r.mood === 'working' && <span className="w-glint" aria-hidden="true" />}
+                {compact ? (
+                  // 간략: one line — picture, name, the context tick (colour only), the status dot;
+                  // hovered, the × takes the dot's place. The rest is in the tooltip
+                  <div className="w-row-head">
+                    {picture}
+                    <div className="w-row-line1">
+                      {nameEl}
+                      {!r.shell && <span className={`w-row-tick ${hpTone(ctxLeft)}`} aria-hidden="true" />}
+                      <span className="w-row-state">{pill}{closeBtn}</span>
+                    </div>
+                  </div>
+                ) : <>
                 {/* Line 1: the session's name and its status; line 2: Lv first, then folder, AI tool and
                     branch (the branch gives way first), helpers at the end. The buttons float over
                     line 2's end on hover instead of holding space the name needs */}
                 <div className="w-row-head">
-                  {parts.picture === 'shell' ? <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span>
-                    : parts.picture === 'glyph' ? <span className="w-row-mon w-row-glyph" aria-hidden="true"><TerminalIcon size={18} /></span>
-                    : <img className="w-row-mon" src={r.sprite} alt="" />}
+                  {picture}
                   <div className="w-row-line1">
-                    {renaming === r.sessionId ? (
-                      <input
-                        className="w-row-rename"
-                        autoFocus
-                        defaultValue={r.title ?? ''}
-                        placeholder={t('새 세션')}
-                        maxLength={40}
-                        onClick={e => e.stopPropagation()}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) { commitRename(r, e.currentTarget.value); setRenaming(null) }
-                          if (e.key === 'Escape') setRenaming(null)
-                        }}
-                        onBlur={e => { if (renaming === r.sessionId) commitRename(r, e.currentTarget.value); setRenaming(null) }}
-                      />
-                    ) : (
-                      <span
-                        className="w-row-name"
-                        title={r.terminal ? t('더블클릭해서 세션 이름 바꾸기') : undefined}
-                        onDoubleClick={e => { if (!r.terminal) return; e.stopPropagation(); setRenaming(r.sessionId) }}
-                      >{r.title ?? t('새 세션')}</span>
-                    )}
-                    {r.shell ? null : r.mood === 'needs-you' && r.terminal ? (
-                      <button className="w-pill mood-needs-you as-button" onClick={e => { e.stopPropagation(); setTarget(r.sessionId); setView('terminal'); setExpanded(true) }} title={t('터미널에서 열기')}>{t('확인 필요')}</button>
-                    ) : (
-                      <span className={`w-pill mood-${r.mood}`}>{t(MOOD_LABEL[r.mood])}</span>
-                    )}
+                    {nameEl}
+                    {r.shell ? null : pill}
                   </div>
                   <div className="w-row-line2">
                     {parts.level !== null && <span className="w-row-lv" title={t('함께 일한 시간으로 레벨이 올라요 (처음엔 20분, 높은 레벨은 60분마다)')}>Lv.{parts.level}</span>}
@@ -913,20 +1152,13 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     )}
                     {(r.terminal || monOf(r.sessionId)) && (
                       <span className="w-row-tools">
-                        {r.terminal && renaming !== r.sessionId && (
-                          <button className="w-row-edit" onClick={e => { e.stopPropagation(); setRenaming(r.sessionId) }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
+                        {r.terminal && renaming?.id !== r.sessionId && (
+                          <button className="w-row-edit" onClick={e => { e.stopPropagation(); startRename(r.sessionId, 'row') }} title={t('세션 이름 바꾸기')} aria-label={t('세션 이름 바꾸기')}>✎</button>
                         )}
                         {parts.swap && (
                           <button className="w-row-swap" onClick={e => { e.stopPropagation(); setSwapFor(r.sessionId) }} title={t('교체: 이 세션에서 일할 포켓몬을 바꿔요 (파티나 박스에서)')} aria-label={t('교체')}><SwapIcon size={13} /></button>
                         )}
-                        {r.terminal && (
-                          <button
-                            className={`w-row-close${closing === r.sessionId ? ' confirm' : ''}`}
-                            onClick={e => { e.stopPropagation(); closeSession(r) }}
-                            onMouseLeave={() => closing === r.sessionId && setClosing(null)}
-                            title={closing === r.sessionId ? t('한 번 더 누르면 세션을 닫아요') : t('세션 닫기')}
-                          >{closing === r.sessionId ? t('닫기') : '×'}</button>
-                        )}
+                        {closeBtn}
                       </span>
                     )}
                   </div>
@@ -934,7 +1166,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                 {!r.shell && <div className="w-row-bottom">
                   {(() => {
                     // The context window as the session's HP: what is left, draining like a Pokémon's
-                    // (green, yellow under half, red under a fifth); the number is the tokens left.
+                    // (green, amber at half and under, red at a fifth and under: hpTone); the number is the tokens left.
                     // 업무 모드: the same bar, labelled 컨텍스트
                     const used = r.meter?.context.used
                     const size = r.meter?.context.size ?? null
@@ -946,7 +1178,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     const m = modelLabel(r.meter?.model, r.session?.model)
                     return <>
                       <span className="w-hp-label" aria-hidden="true">{parts.barLabel === 'HP' ? 'HP' : t(parts.barLabel)}</span>
-                      <div className={`w-ctx w-hp ${left === null ? 'hp-full' : left <= 20 ? 'hp-red' : left <= 50 ? 'hp-yellow' : 'hp-green'}`} title={tip} role="meter" aria-valuenow={left ?? 100} aria-valuemin={0} aria-valuemax={100} aria-label={tip}>
+                      <div className={`w-ctx w-hp ${hpTone(left)}`} title={tip} role="meter" aria-valuenow={left ?? 100} aria-valuemin={0} aria-valuemax={100} aria-label={tip}>
                         <span style={{ width: `${left ?? 100}%` }} />
                       </div>
                       {m && <span className="w-row-model" title={r.meter?.modelId ?? r.session?.model}>{m}</span>}
@@ -979,8 +1211,10 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
                     </div>
                   )
                 })()}
+                </>}
               </div>
             ) })}
+            </div>
           </section>
 
           {/* A question Claude Code cannot go on without (folder trust, a permission):
@@ -1019,6 +1253,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             </div>
           </section>
         </div>
+        {expanded && !sideHidden && <SideResize width={sideWidth} min={sideLow} max={sideMax} onWidth={setSideWidth} onDragging={setSideDragging} />}
       </div>
 
       {expanded && (
@@ -1026,7 +1261,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
           <div className="w-term-tabs" ref={viewBarRef}>
             {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
             <div className={`w-view-switch w-view-tabs${viewsCompact ? ' w-view-icons' : ''}`}>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 ({key})', { key: modCombo('1') })} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('세션 ({key})', { key: modCombo('1') })} aria-label={t('세션')}><TerminalIcon size={14} />{!viewsCompact && t('세션')}</button>
               {/* 업무 모드: the sessions view alone (src/workMode.ts visibleViews) */}
               {!workMode && <>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 ({key})', { key: modCombo('2') })} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>
@@ -1036,15 +1271,12 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               </>}
             </div>
             <span className="w-term-spacer" />
-            {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size */}
-            <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
-            {view === 'terminal' && (
-              <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 ({mod}+휠로도 바꿀 수 있어요)', { mod: modLabel() })} title={t('글자 크기 · {mod}+휠, {mod}+= / {mod}+-', { mod: modLabel() })}>
-                {FONT_PRESETS.map(p => (
-                  <button key={p.label} className={termFont === p.size ? 'on' : ''} onClick={() => setTermFont(p.size)} style={{ fontSize: 9 + FONT_PRESETS.indexOf(p) * 2 }} title={t('글자 {size}', { size: t(p.label) })} aria-label={t('글자 크기 {size}', { size: t(p.label) })}>Aa</button>
-                ))}
-              </div>
-            )}
+            {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size.
+                The last thing to give way in a narrow window (the tray reaches the widget too) */}
+            {barLevel < 3 && <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>}
+            {/* The one text size (src/textSize.ts): lists, panels and the terminal together, on every view;
+                folded to one 가 button when the bar is narrow */}
+            <TextSizeControl compact={barLevel >= 2} />
             {/* As Windows users know them: minimize, maximize/restore (window ↔ full screen), close */}
             <div className="w-win-controls">
               <button className="w-icon" onClick={() => bridge?.widget.minimize()} title={t('최소화')} aria-label={t('최소화')}><MinimizeIcon size={14} /></button>
@@ -1054,21 +1286,25 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               <button className="w-icon w-win-close" onClick={() => bridge?.widget.hide()} title={isMac() ? t('닫기 ({tray} 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)', { tray: t(platformWord('tray', true)) }) : t('닫기 (트레이 아이콘을 누르면 다시 열려요. 세션은 계속 돌아가요)')} aria-label={t('닫기')}><CloseIcon size={14} /></button>
             </div>
           </div>
-          {/* The sessions: their own row of tabs under the view bar, reordered by dragging */}
+          {/* Which session is open (the left list or the rail switches them): its picture, name,
+              branch and project; rename and close here too. The bar keeps its height with none */}
           {view === 'terminal' && (
-            <SessionTabs
-              rows={withTerminal}
-              shownId={shown?.sessionId}
-              onSelect={setTarget}
-              onRename={setRenaming}
-              onMove={(id, index) => { void bridge?.terminals.move(id, index) }}
-              onNew={() => launch(false)}
-              onNewShell={openShell}
-              onClose={id => { const r = withTerminal.find(x => x.sessionId === id); if (r) closeSession(r) }}
-              closing={closing}
-              onCloseCancel={() => setClosing(null)}
-              workMode={workMode}
-            />
+            <div className="w-sess-bar">
+              {shown?.terminal && (
+                <SessionHeader
+                  parts={sessionHeaderParts(shown, workMode)}
+                  sprite={shown.sprite}
+                  cwd={shown.session?.cwd ?? shown.terminal.cwd}
+                  renaming={renaming?.id === shown.sessionId && renaming.at === 'header'}
+                  onRenameStart={() => startRename(shown.sessionId, 'header')}
+                  onRenameCommit={value => endRename(shown, value)}
+                  onRenameCancel={() => endRename(shown)}
+                  closing={closing === shown.sessionId}
+                  onClose={() => closeSession(shown)}
+                  onCloseCancel={() => setClosing(null)}
+                />
+              )}
+            </div>
           )}
           <Suspense fallback={null}>
             {view === 'dex' && <div className="w-dex-body"><PokedexView /></div>}

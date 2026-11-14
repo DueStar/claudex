@@ -40,6 +40,18 @@ export function t(ko: string, vars?: Record<string, string | number>): string {
   return fill(DICTS[l][ko] ?? DICTS.en[ko] ?? ko, vars)
 }
 
+/**
+ * `ko` in one sense, for a Korean word that needs two translations: '보통' is a text size (ja 標準)
+ * and a notification's display time (ja 普通). The dictionaries hold that sense as '<ko>#<sense>'
+ * ('보통#text-size'); without one the word's plain translation is used. Korean shows `ko` itself.
+ */
+export function tSense(ko: string, sense: string, vars?: Record<string, string | number>): string {
+  const l = lang()
+  if (l === 'ko') return fill(ko, vars)
+  const k = `${ko}#${sense}`
+  return fill(DICTS[l][k] ?? DICTS.en[k] ?? DICTS[l][ko] ?? DICTS.en[ko] ?? ko, vars)
+}
+
 /** For dates and numbers: ko-KR, en-US or ja-JP */
 export const locale = (): string => ({ ko: 'ko-KR', en: 'en-US', ja: 'ja-JP' } as const)[lang()]
 

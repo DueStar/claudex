@@ -1,19 +1,24 @@
 /**
  * QaPage (?qa) — every design that only shows up in a particular moment,
  * laid out at once for design QA: each kind of catch notification, flees,
- * evolutions, level-ups, the widget's question panel and update button.
+ * evolutions, level-ups, the widget's question panel and update button, the session
+ * rows in every mood (상세 and 간략) and the text-size control.
  * "띄우기" sends the same event to the real notification window.
  */
 
 import React from 'react'
+import './styles/tokens.css'
 import './styles/widget.css'
 import './styles/widget-expanded.css'
 import './styles/pokedex.css'
 import './styles/toast.css'
 import { bridge } from './desktop'
-import { pokemonById } from './theme'
+import { usageTone } from './meters'
+import { iconUrl, pokemonById } from './theme'
 import { ToastCard } from './Toast'
 import TodayLog from './components/TodayLog'
+import { TextSizeControl } from './components/TextSizeControl'
+import { hpTone } from './sessionList'
 import type { DexEvent, Tier } from './pokedexStore'
 
 const at = Date.now()
@@ -36,12 +41,72 @@ const SAMPLES: { title: string; note: string; e: DexEvent }[] = [
   { title: '포획 · 색이 다른 포켓몬', note: '✦ 빛나는', e: catchOf(25, 'common', { shiny: true, ball: 'luxury-ball', level: 22, gender: 'female', via: via('Edit(Widget.tsx)') }) },
   { title: '포획 · 출석 조우', note: '하루 첫 세션', e: catchOf(133, 'common', { attendance: true, place: 'spawn (오늘의 출석)', ball: 'great-ball', via: via('세션 시작'), level: 9 }) },
   { title: '포획 · 울트라비스트', note: '울트라볼', e: catchOf(793, 'sub', { ball: 'beast-ball', level: 55, gender: 'none', via: via('Grep 검색') }) },
+  { title: '포획 · 처음 보는 종', note: 'NEW · 긴 장소는 말줄임', e: catchOf(37, 'rare', { newSpecies: true, ball: 'great-ball', level: 11, gender: 'female', place: 'shop-web-checkout-service 깊은 동굴 안쪽의 숨은 샘터 (밤)' }) },
   { title: '포획 · 박스 가득', note: '박사님께 보냄', e: catchOf(19, 'common', { toProfessor: true, uid: undefined, level: 4 }) },
   { title: '도망 · 일반', note: '실루엣만', e: { kind: 'flee', id: 52, name: name(52), tier: 'common', shiny: false, place: 'spawn 풀숲', nature: 7, at } as DexEvent },
   { title: '도망 · 준전설', note: '실루엣만', e: { kind: 'flee', id: 145, name: name(145), tier: 'sub', shiny: false, place: 'spawn 하늘길', at } as DexEvent },
   { title: '진화', note: '레벨업 때', e: { kind: 'evolve', id: 5, from: 4, name: name(5), fromName: name(4), tier: undefined, shiny: false, at } as unknown as DexEvent },
   { title: '레벨업', note: '5초', e: { kind: 'levelup', id: 6, name: name(6), level: 36, shiny: false, at } as unknown as DexEvent },
 ]
+
+/** The session rows in each mood, as the left list draws them (Widget.tsx), and a shell */
+type QaMood = 'working' | 'needs-you' | 'idle' | 'error' | 'ended'
+const MOOD_WORDS: Record<QaMood, string> = { working: '일하는 중', 'needs-you': '확인 필요', idle: '쉬는 중', error: '오류', ended: '종료' }
+const ROWS: { mood: QaMood; title: string; dex: number; lv: number; project: string; branch: string; left: number; model: string; num: string }[] = [
+  { mood: 'working', title: 'README 영어 번역', dex: 120, lv: 12, project: 'docs', branch: 'main', left: 88, model: 'Sonnet 5.5', num: '176K' },
+  { mood: 'needs-you', title: '로그인 리다이렉트 고치기', dex: 27, lv: 17, project: 'shop-web', branch: 'fix/login-redirect', left: 62, model: 'Opus 5.5', num: '124K' },
+  { mood: 'idle', title: '타입 정리', dex: 74, lv: 21, project: 'shop-api', branch: 'main', left: 100, model: 'Opus 5.5', num: '200K' },
+  { mood: 'error', title: '이미지 최적화', dex: 41, lv: 11, project: 'shop-web', branch: 'perf/images', left: 34, model: 'Opus 5.5', num: '68K' },
+  { mood: 'ended', title: '아주아주 긴 한국어 세션 이름이 한 줄을 넘어가면 어떻게 되는지 보는 세션', dex: 129, lv: 6, project: 'infra', branch: 'feat/very-long-branch-name-for-layout', left: 14, model: 'Sonnet 5.5', num: '28K' },
+]
+const Pill: React.FC<{ mood: QaMood }> = ({ mood }) => <span className={`w-pill mood-${mood}`}><i className="w-pill-dot" /><span className="w-pill-text">{MOOD_WORDS[mood]}</span></span>
+
+const QaRows: React.FC<{ compact?: boolean }> = ({ compact = false }) => (
+  <section className="w-card w-party qa-rows">
+    <div className={`w-rows${compact ? ' compact' : ''}`}>
+      {ROWS.map((r, i) => (
+        <div key={r.mood} className={`w-row mood-${r.mood}${i === 0 ? ' chosen' : ''}`}>
+          <div className="w-row-head">
+            <img className="w-row-mon" src={iconUrl(r.dex)} alt="" />
+            {compact ? (
+              <div className="w-row-line1">
+                <span className="w-row-name">{r.title}</span>
+                <span className={`w-row-tick ${hpTone(r.left)}`} aria-hidden="true" />
+                <span className="w-row-state"><Pill mood={r.mood} /></span>
+              </div>
+            ) : <>
+              <div className="w-row-line1"><span className="w-row-name">{r.title}</span><Pill mood={r.mood} /></div>
+              <div className="w-row-line2">
+                <span className="w-row-lv">Lv.{r.lv}</span>
+                <span className="w-row-meta"><span className="w-row-project">{r.project}</span><span className="w-row-branch">{r.branch}</span></span>
+              </div>
+            </>}
+          </div>
+          {!compact && (
+            <div className="w-row-bottom">
+              <span className="w-hp-label" aria-hidden="true">HP</span>
+              <div className={`w-ctx w-hp ${hpTone(r.left)}`}><span style={{ width: `${r.left}%` }} /></div>
+              <span className="w-row-model">{r.model}</span>
+              <span className="w-row-num">{r.num}</span>
+            </div>
+          )}
+        </div>
+      ))}
+      {/* A plain shell: the prompt mark where the Pokémon would be, no context bar */}
+      <div className="w-row mood-idle">
+        <div className="w-row-head">
+          <span className="w-row-mon w-row-shell" aria-hidden="true">&gt;_</span>
+          {compact ? (
+            <div className="w-row-line1"><span className="w-row-name">새 세션</span><span className="w-row-state"><Pill mood="idle" /></span></div>
+          ) : <>
+            <div className="w-row-line1"><span className="w-row-name">새 세션</span></div>
+            <div className="w-row-line2"><span className="w-row-meta"><span className="w-row-project">shop-web</span><span className="w-row-tool">PowerShell</span><span className="w-row-branch">fix/login-redirect</span></span></div>
+          </>}
+        </div>
+      </div>
+    </div>
+  </section>
+)
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <section className="qa-section">
@@ -75,6 +140,24 @@ const QaPage: React.FC = () => (
       </div>
     </Section>
 
+    <Section title="세션 줄">
+      <div className="qa-item qa-narrow">
+        <div className="qa-label"><b>상세</b><span>일하는 중 · 확인 필요 · 쉬는 중 · 오류 · 종료 · 셸 (맨 위가 고른 세션)</span></div>
+        <QaRows />
+      </div>
+      <div className="qa-item qa-narrow">
+        <div className="qa-label"><b>간략</b><span>한 줄: 이름, 컨텍스트 눈금, 상태 점</span></div>
+        <QaRows compact />
+      </div>
+    </Section>
+
+    <Section title="글자 크기">
+      <div className="qa-item qa-row">
+        <TextSizeControl />
+        <span className="qa-label"><span>목록·패널·터미널이 함께 바뀌어요. 알림 카드는 고정 크기라 따라가지 않아요</span></span>
+      </div>
+    </Section>
+
     <Section title="위젯: 확인이 필요한 세션">
       <div className="qa-item qa-narrow">
         <section className="w-card w-ask" role="alert">
@@ -103,8 +186,9 @@ const QaPage: React.FC = () => (
       </div>
       <div className="qa-item qa-narrow">
         <section className="w-card w-limits">
-          {[['5시간', 43, 'ok', '↻ 15:20'], ['주간', 82, 'warn', '↻ 11/9 17:00']].map(([l, v, tone, r]) => (
-            <div key={l} className={`w-limit tone-${tone}`}><span className="w-label">{l}</span><div className="w-bar"><span style={{ width: `${v}%` }} /></div><span className="w-limit-pct">{v}<small>%</small></span><span className="w-limit-reset">{r}</span></div>
+          {/* the three tones: grey, amber from 80 %, red from 90 % (usageTone) */}
+          {([['5시간', 43, '↻ 15:20'], ['주간', 82, '↻ 11/9'], ['Codex 주간', 93, '↻ 11/12']] as const).map(([l, v, r]) => (
+            <div key={l} className={`w-limit tone-${usageTone(v)}`}><span className="w-label">{l}</span><div className="w-bar"><span style={{ width: `${v}%` }} /></div><span className="w-limit-pct">{v}<small>%</small></span><span className="w-limit-reset">{r}</span></div>
           ))}
         </section>
       </div>
