@@ -171,7 +171,10 @@
 /* A tier chip: the coloured dot and the word, no tier-coloured fill or border */
 .dex-chips { display: flex; gap: 2px; }
 .dex-chips button { color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; }
-.dex-seg button:hover, .dex-chips button:hover { color: var(--ink); background: var(--hover); }
+/* a chip is 24px tall, as on main (its 1px border is gone: the padding takes it) */
+.dex-chips button { padding-top: 5px; padding-bottom: 5px; }
+/* hovered: a quieter look than the chosen one (as the view tabs): the faint fill, the words stay --ink-2 */
+.dex-seg button:not(.on):hover, .dex-chips button:not(.on):hover { color: var(--ink-2); background: var(--hover); }
 .dex-seg button.on, .dex-chips button.on { background: var(--sel-bg); color: var(--ink); }
 .dex-fsearch { margin-left: auto; }
 .dex-fsearch input {
@@ -307,7 +310,8 @@
 /* ---------- Account (Google sign-in) ---------- */
 .w-signin {
   -webkit-app-region: no-drag;
-  font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); padding: 3px 6px; border-radius: var(--r-s); border: 0; white-space: nowrap;
+  /* 10px each side: the 400 weight sets narrower than main's 700, so this keeps main's target (ko, en and ja) */
+  font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); padding: 3px 10px; border-radius: var(--r-s); border: 0; white-space: nowrap;
   background: none; color: var(--ink-2); cursor: pointer;
 }
 .w-signin:hover { background: var(--hover); color: var(--ink); }

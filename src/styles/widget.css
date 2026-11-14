@@ -222,8 +222,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 
 /* ---------- Limits: two slim rows, hairline bars, grey until they matter ---------- */
 .w-limits { display: flex; flex-direction: column; gap: 7px; padding: 9px 12px; }
-.w-limit { display: grid; grid-template-columns: 36px minmax(0, 1fr) 30px 74px; align-items: center; gap: 10px; }
-/* the label never wraps ("5-hour", "Weekly" in English): the bar gives up the room */
+/* The rows share one set of columns (a subgrid), so the bars line up; the label column is as wide
+   as the longest label ("5-hour", "Weekly", 36px at least) at every text size and language: the
+   bar gives up the room, the label is never cut */
+.w-limits:not(.idle) { display: grid; grid-template-columns: minmax(36px, max-content) minmax(0, 1fr) 30px 74px; column-gap: 10px; row-gap: 7px; }
+.w-limit { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
 .w-limit > .w-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-limit-pct { text-align: right; font-weight: var(--w-body); font-size: var(--t-meta); color: var(--num-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .w-limit-pct small { font: inherit; color: inherit; margin: 0; }
@@ -234,7 +237,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-limit.tone-danger .w-limit-pct { color: var(--red-text); }
 
 /* ---------- Update: a hairline button; ready to apply, solid --ink ---------- */
-.w-update { -webkit-app-region: no-drag; font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 3px 8px; border-radius: var(--r-s); border: 1px solid var(--line); background: none; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+/* (3px 10px with the 1px border: main's 4px 10px target, ko, en and ja) */
+.w-update { -webkit-app-region: no-drag; font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 3px 10px; border-radius: var(--r-s); border: 1px solid var(--line); background: none; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .w-update:hover { border-color: var(--line-hover); color: var(--ink); }
 .w-update.downloading { border-color: var(--line); color: var(--ink-3); cursor: default; }
 .w-update.ready { border-color: transparent; background: var(--ink); color: var(--accent-ink); }
