@@ -85,7 +85,7 @@
   padding: 2px 5px;
   cursor: pointer;
 }
-.w-row-close:hover { color: var(--danger); background: rgba(255, 100, 100, 0.12); }
+.w-row-close:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .w-row-close.confirm { color: #fff; background: var(--danger); font-size: var(--t-meta); font-weight: var(--w-name); }
 
 /* ---------- Terminal card (expanded) ---------- */
@@ -150,7 +150,7 @@
   font: inherit; font-size: var(--t-big); line-height: 1; color: var(--ink-3);
   background: none; border: 0; border-radius: var(--r-s); cursor: pointer;
 }
-.w-sess-head-close:hover { color: var(--danger); background: rgba(255, 100, 100, 0.12); }
+.w-sess-head-close:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .w-sess-head-close.confirm { padding: 0 7px; color: #fff; background: var(--danger); font-size: var(--t-meta); font-weight: var(--w-name); }
 .w-term-spacer { flex: 1; }
 .w-term-tabs .w-icon { -webkit-app-region: no-drag; }
@@ -294,7 +294,7 @@
 .w-widget-toggle:hover { background: var(--hover); color: var(--ink); }
 .w-win-controls .w-icon { width: 30px; height: 28px; border-radius: var(--r-s); background: transparent; color: var(--ink-3); }
 .w-win-controls .w-icon:hover { background: var(--hover); color: var(--ink); }
-.w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
+.w-win-controls .w-win-close:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 /* ---------- The one text size: − 가 보통 +, and its menu of the four steps (TextSizeControl) ---------- */
 .w-textsize {
   position: relative; z-index: 40; flex: none; display: inline-flex; align-items: center;
@@ -504,7 +504,7 @@
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
 .w-row { position: relative; user-select: none; touch-action: none; }
 .w-row.sliding { transition: transform 0.15s cubic-bezier(.2, .8, .2, 1); }
-.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; --row-bg: color-mix(in srgb, #fff 4.5%, var(--row-base)); background: var(--row-bg); }
+.w-row.dragging { z-index: 3; transition: none; cursor: grabbing; --row-tint: var(--hover); background: linear-gradient(var(--row-tint), var(--row-tint)), var(--row-base); }
 .w-row input, .w-row textarea { user-select: text; }
 /* ---------- 업무 모드 (src/workMode.ts): nothing Pokémon on screen. The pictures, the logo, the
    Pokédex card and the party are not drawn at all; this only fills their places ---------- */

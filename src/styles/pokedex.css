@@ -163,7 +163,7 @@
 .dex-seg { display: flex; gap: 2px; padding: 0; border-radius: 0; background: none; border: 0; }
 .dex-seg button, .dex-chips button {
   font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); cursor: pointer; white-space: nowrap;
-  border: 0; background: transparent; color: var(--ink-3); padding: 3px 8px; border-radius: var(--r-s);
+  border: 0; background: transparent; color: var(--ink-3); padding: 4px 9px; border-radius: var(--r-s);
 }
 /* A tier chip: the coloured dot and the word, no tier-coloured fill or border */
 .dex-chips { display: flex; gap: 2px; }
@@ -251,7 +251,7 @@
 .dex-nature { font-size: var(--t-meta); color: var(--ink-2); white-space: nowrap; }
 .dex-owned-sub { font-size: var(--t-meta); color: var(--ink-3); margin-top: 2px; line-height: 1.45; }
 .dex-release { position: absolute; right: 0; bottom: 6px; font: inherit; font-size: var(--t-micro); font-weight: var(--w-name); padding: 2px 7px; border-radius: var(--r-s); border: 1px solid var(--line); background: transparent; color: var(--ink-3); cursor: pointer; }
-.dex-release:hover { color: var(--danger); border-color: rgba(255, 100, 100, 0.4); }
+.dex-release:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .dex-release.confirm { background: var(--danger); color: #fff; border-color: var(--danger); }
 
 /* ---------- Party lineup and swaps ---------- */
@@ -398,7 +398,7 @@
 .box-act { flex: 1; font: inherit; font-size: var(--t-ui); font-weight: var(--w-name); padding: 7px 0; border-radius: var(--r-s); border: 1px solid var(--line); background: none; color: var(--ink); cursor: pointer; }
 .box-act:hover { background: var(--hover); border-color: var(--line-hover); }
 .box-act.danger { color: var(--ink-3); }
-.box-act.danger:hover { color: var(--danger); border-color: rgba(255, 100, 100, 0.4); }
+.box-act.danger:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .box-act.danger.confirm { background: var(--danger); border-color: var(--danger); color: #fff; }
 .box-choose { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
 
@@ -413,7 +413,8 @@
 .today-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-radius: 0; }
 /* a very faint line between entries */
 .today-row + .today-row { border-top: 1px solid rgba(255, 255, 255, 0.045); }
-.today-time { width: 42px; flex: none; font-size: var(--t-meta); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* one line at every text step ("오후 02:12", "02:12 PM"): the column grows with the text */
+.today-time { width: 5.6em; flex: none; white-space: nowrap; font-size: var(--t-meta); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .today-row img.today-icon { width: 32px; height: 32px; object-fit: contain; flex: none; }
 /* Level-ups in a row: one small line, no big picture */
 .today-row.kind-levelups { padding: 8px 0; font-size: var(--t-meta); color: var(--ink-3); }

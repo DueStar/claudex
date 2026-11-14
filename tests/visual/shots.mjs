@@ -167,7 +167,7 @@ function labRef(surface, size) {
 // ---------------------------------------------------------------- arguments
 
 function parseArgs(argv) {
-  const o = { out: join(HOME, 'shots'), only: null, size: null, side: null, text: null,checks: new Set(), flows: [], sheets: [], help: false }
+  const o = { out: join(HOME, 'shots'), only: null, size: null, side: null, text: null, checks: new Set(), flows: [], sheets: [], help: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const val = () => { const v = argv[++i]; if (v === undefined || v.startsWith('--')) fail(`${a} needs a value`); return v }
@@ -972,10 +972,14 @@ async function fitProblems(page) {
       }
     }
     // One line each: a label that wraps (the header's 로그인, 기록's time) or a dot squeezed out of its row
-    const lineOf = el => { const cs = getComputedStyle(el); return parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3 }
+    // (the lines its text is laid out on: the distinct tops of its text's boxes)
+    const lines = el => { const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter(r => r.width).map(r => Math.round(r.top))).size }
     for (const el of document.querySelectorAll('.w-head .w-signin, .w-head .w-update, .today-time, .w-list-count, .w-sess-head-proj')) {
-      const r = el.getBoundingClientRect()
-      if (r.width && r.height > lineOf(el) * 1.6 + 6) bad.push(`${name(el)} wraps: ${r.height.toFixed(1)}px tall (${el.textContent.trim().slice(0, 20)})`)
+      if (el.getBoundingClientRect().width && lines(el) > 1) bad.push(`${name(el)} wraps onto ${lines(el)} lines (${el.textContent.trim().slice(0, 20)})`)
+    }
+    // A fixed column whose text must fit it (기록's time): not wider than the column
+    for (const el of document.querySelectorAll('.today-time')) {
+      if (el.scrollWidth > el.clientWidth + 0.5) bad.push(`${name(el)} is ${el.scrollWidth}px of text in a ${el.clientWidth}px column (${el.textContent.trim()})`)
     }
     for (const el of document.querySelectorAll('.w-head .w-conn, .w-row-tick, .w-pill-dot, .w-rail-dot')) {
       const r = el.getBoundingClientRect()

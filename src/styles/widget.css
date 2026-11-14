@@ -12,10 +12,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   overflow: hidden;
 }
 
-/* The design values live in tokens.css (on :root). --accent-soft is not a token: it stays here only
-   until the yellow-tinted selections that read it turn neutral (Task 14's guard removes it). */
+/* The design values live in tokens.css (on :root). */
 .widget {
-  --accent-soft: rgba(242, 201, 76, 0.14);
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -65,24 +63,25 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-brand { -webkit-app-region: no-drag; margin-right: auto; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; font-size: 17px; line-height: 1; letter-spacing: -0.02em; /* the wordmark: Uncut Sans 600, 17px, -2% */ color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 /* Lowercase sits low in its line box: the x-height's middle is 1.5px under the ball's, lifted 0.75 (by eye) */
 .w-brand-name { display: block; transform: translateY(-0.75px); }
-.w-brand:hover { color: var(--accent); }
 .w-brand .pokeball { display: block; }
 .w-brand:hover .pokeball { filter: brightness(1.1); }
 .w-conn { flex: none; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--green); }
 .w-conn.off { background: var(--ink-3); box-shadow: none; }
+/* An icon button: no fill until hovered (the neutral selection grey), as everywhere in the calm look.
+   The header, the top bar and 설정's × use it; each sets its own size */
 .w-icon {
   -webkit-app-region: no-drag;
   width: 24px;
   height: 22px;
-  border-radius: 8px;
+  border-radius: var(--r-s);
   border: 0;
-  background: var(--card-2);
+  background: transparent;
   color: var(--ink-2);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
 }
-.w-icon:hover { background: #262a35; color: var(--ink); }
+.w-icon:hover { background: var(--sel-bg); color: var(--ink); }
 /* The header's icons: no fill until hovered */
 .w-head .w-icon { width: 26px; height: 26px; border-radius: var(--r-s); background: transparent; color: var(--ink-3); }
 .w-head .w-icon:hover { background: var(--hover); color: var(--ink); }
@@ -127,18 +126,18 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   margin: 0 -8px;
   padding: 8px 8px 8px 10px;
   border-radius: var(--r-m);
-  /* --row-bg: the row's real background, also behind the hover buttons that float over line 2.
-     --row-base shows through a row with no fill: the card in the widget, the panel as a window
-     (widget-expanded.css). Hovered and chosen, the row is white 4.5 % (--hover) and 4 %
-     (--row-sel-bg) over it: --row-bg is that colour, mixed solid */
+  /* What shows through a row with no fill (--row-base: the card in the widget, the panel as a
+     window, widget-expanded.css) and the row's own tint over it (--row-tint: --hover hovered,
+     --row-sel-bg chosen). Where the row's colour must be solid (behind the hover buttons that
+     float over line 2, a dragged row) it is drawn as the tint layered over the base */
   --row-base: var(--card);
-  --row-bg: var(--row-base);
+  --row-tint: transparent;
   background: none;
   border: 0;
   cursor: pointer;
 }
-.w-row:hover { background: var(--hover); --row-bg: color-mix(in srgb, #fff 4.5%, var(--row-base)); }
-.w-row.chosen { background: var(--row-sel-bg); --row-bg: color-mix(in srgb, #fff 4%, var(--row-base)); }
+.w-row:hover { background: var(--hover); --row-tint: var(--hover); }
+.w-row.chosen { background: var(--row-sel-bg); --row-tint: var(--row-sel-bg); }
 .w-row.chosen::before { content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
 /* In a floating card (widget mode, the QA page) the card pads 12px, not 16: the bar sits at the
    card's inner left edge, inside the list's scroll box */
@@ -254,7 +253,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row-tools {
   position: absolute; right: -2px; top: 50%; transform: translateY(-50%);
   display: inline-flex; align-items: center; padding-left: 14px;
-  background: linear-gradient(to right, transparent, var(--row-bg) 12px);
+  background: linear-gradient(to right, transparent, var(--row-tint) 12px), linear-gradient(to right, transparent, var(--row-base) 12px);
   opacity: 0; pointer-events: none;
 }
 .w-row:hover .w-row-tools, .w-row-tools:focus-within, .w-row-tools:has(.confirm) { opacity: 1; pointer-events: auto; }
