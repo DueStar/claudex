@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
 const smoke = require('../electron/smoke.cjs')
-const { isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, prepare, fontVerdict, sameRect, STEPS, ECHO, ECHO_SEEN, ENV_ECHO } = smoke
+const { isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, prepare, fontVerdict, sameRect, STEPS, ECHO, ECHO_SEEN, ENV_ECHO, workModeVerdict, WORK_MODE_KEY_JS, WORK_MODE_READ_JS } = smoke
 const ROOT = join(__dirname, '..')
 
 describe('the flag', () => {
@@ -106,7 +106,36 @@ describe('helpers', () => {
   })
 
   it('the steps, in order', () => {
-    expect(STEPS).toEqual(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'quit'])
+    expect(STEPS).toEqual(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'work-mode', 'quit'])
+  })
+
+  it('work mode: ⌘⇧H as a keydown at the focused element, the page read as it is drawn', () => {
+    // both are plain expressions the page can run
+    expect(() => new Function(`return ${WORK_MODE_KEY_JS}`)).not.toThrow()
+    expect(() => new Function(`return ${WORK_MODE_READ_JS}`)).not.toThrow()
+    // the shortcut's own key, as src/keys.ts reads it on a Mac (by e.code, with ⌘ and ⇧)
+    expect(WORK_MODE_KEY_JS).toContain("new KeyboardEvent('keydown', { key: 'H', code: 'KeyH', metaKey: true, shiftKey: true, bubbles: true, cancelable: true })")
+    expect(WORK_MODE_READ_JS).toContain("root.classList.contains('work-mode')")
+    expect(WORK_MODE_READ_JS).toContain("includes('/sprites/')")
+  })
+
+  it('workModeVerdict: on, the class and no picture, logo or item under the traffic lights; off, the pictures back', () => {
+    const on = { workMode: true, mac: true, atLoad: false, pokemonImages: 0, logo: false, folded: false, headLeft: 90, railTop: null }
+    const off = { ...on, workMode: false, pokemonImages: 2, logo: true, headLeft: 92 }
+    expect(workModeVerdict(on, true)).toEqual({ ok: true, reason: null })
+    expect(workModeVerdict(off, false)).toEqual({ ok: true, reason: null })
+    expect(workModeVerdict({ ...on, workMode: false }, true).reason).toMatch(/no work-mode class/)
+    expect(workModeVerdict({ ...on, pokemonImages: 1 }, true).reason).toMatch(/1 picture\(s\) from \/sprites\/ still drawn/)
+    expect(workModeVerdict({ ...on, logo: true }, true).reason).toMatch(/logo/)
+    expect(workModeVerdict({ ...on, headLeft: 18 }, true).reason).toMatch(/starts at x 18, under the traffic lights/)
+    expect(workModeVerdict({ ...on, folded: true, railTop: 4 }, true).reason).toMatch(/rail starts at y 4/)
+    expect(workModeVerdict({ ...on, folded: true, railTop: 30 }, true).ok).toBe(true)
+    // the widget-like layout of another platform is not held to the Mac room
+    expect(workModeVerdict({ ...on, mac: false, headLeft: 18 }, true).ok).toBe(true)
+    // off with nothing found: the picture check would be blind
+    expect(workModeVerdict({ ...off, pokemonImages: 0 }, false).reason).toMatch(/the check would see nothing/)
+    expect(workModeVerdict({ ...off, workMode: true }, false).reason).toMatch(/still has the work-mode class/)
+    expect(workModeVerdict(null, true).ok).toBe(false)
   })
 
   it("the terminal's font: the bundled Monaspace loaded, its cell (0.55–0.68 em), the shell's output on screen", () => {
@@ -136,7 +165,7 @@ describe('helpers', () => {
 
 // A fake Electron: the app (paths, quit), one window per mode, terminals whose
 // output says spawn-42 once the echo is typed
-function fakeElectron({ shellError = null as string | null, windowShows = true, cellWidth = 8, fullscreenFilled = true, restoreTo = null as null | { x: number, y: number, width: number, height: number } } = {}) {
+function fakeElectron({ shellError = null as string | null, windowShows = true, cellWidth = 8, fullscreenFilled = true, restoreTo = null as null | { x: number, y: number, width: number, height: number }, workModeAtLoad = false, workModeLeaves = 0 } = {}) {
   const app = Object.assign(new EventEmitter(), {
     setPath: vi.fn(),
     getPath: vi.fn(() => '/fake/userData'),
@@ -148,6 +177,8 @@ function fakeElectron({ shellError = null as string | null, windowShows = true, 
   app.quit.mockImplementation(() => { setTimeout(() => app.emit('will-quit'), 0) })
   const dialog = { showErrorBox: vi.fn() }
   let output = ''
+  // 업무 모드 in the fake page: ⌘⇧H flips it; workModeLeaves pictures stay drawn while it is on
+  let workMode = workModeAtLoad
   const terms = {
     buffer: vi.fn(() => ({ data: output, seq: 1 })),
   }
@@ -162,6 +193,10 @@ function fakeElectron({ shellError = null as string | null, windowShows = true, 
     }
     if (js.includes('spawnFontStatus')) {
       return [{ face: 'Monaspace Neon Var', status: 'loaded', text: 'W0', supplied: true }, { face: 'W Uncut', status: 'loaded', text: 'Pokédex', supplied: true }, { face: 'W Pretendard', status: 'loaded', text: '가', supplied: true }]
+    }
+    if (js.includes('spawn-smoke:work-mode-key')) { workMode = !workMode; return true }
+    if (js.includes('spawn-smoke:work-mode-read')) {
+      return { workMode, mac: true, atLoad: workModeAtLoad, pokemonImages: workMode ? workModeLeaves : 3, logo: !workMode, folded: false, headLeft: workMode ? 90 : 120, railTop: null }
     }
     if (js.includes('terminals.write')) {
       if (js.includes('40+2')) output += 'echo spawn-$((40+2))\r\nspawn-42\r\nuser@mac ~ % '
@@ -222,7 +257,7 @@ describe('a smoke run (fake app)', () => {
     s.stop()
   })
 
-  it('all steps: a shell prints spawn-42, three pictures, the PATH and LANG it saw, then quits with 0', async () => {
+  it('all steps: a shell prints spawn-42, four pictures, the PATH and LANG it saw, work mode on and off, then quits with 0', async () => {
     const f = fakeElectron()
     const s = prepare({ app: f.app, dialog: f.dialog, env: envFor(), tmp: dir, log: quiet, timeoutMs: 10_000, settleMs: 0, typeDelayMs: 0 })
     await s.run(f.hooks)
@@ -241,6 +276,13 @@ describe('a smoke run (fake app)', () => {
     for (const m of ['window', 'widget', 'fullscreen']) {
       expect(readFileSync(join(dir, 'out', `${m}.png`), 'utf8')).toBe(`png-${m}`)
     }
+    // work mode, pictured in the window mode, switched on and off again by ⌘⇧H
+    expect(readFileSync(join(dir, 'out', 'work-mode.png'), 'utf8')).toBe('png-window')
+    expect(r.screenshots['work-mode']).toBe('work-mode.png')
+    expect(js.filter((c: string) => c.includes('spawn-smoke:work-mode-key'))).toHaveLength(2)
+    expect(r.workMode.before).toMatchObject({ workMode: false, atLoad: false, pokemonImages: 3 })
+    expect(r.workMode.on).toMatchObject({ workMode: true, pokemonImages: 0, logo: false })
+    expect(r.workMode.off).toMatchObject({ workMode: false, pokemonImages: 3 })
     expect(r.steps.find((x: { name: string }) => x.name === 'capture-fullscreen').detail).toMatchObject({ filled: true, fitsWorkArea: true, replayed: true })
     expect(r.steps.find((x: { name: string }) => x.name === 'capture-window').detail.replayed).toBe(true)
     expect(r.terminalFont).toMatchObject({ ratio: 0.615, measured: 'Monaspace Neon Var', fontSize: 13, cellWidth: 8 })
@@ -283,6 +325,26 @@ describe('a smoke run (fake app)', () => {
     await vi.waitFor(() => expect(f.app.exit).toHaveBeenCalled(), { timeout: 15_000 })
     expect(f.app.exit).toHaveBeenCalledWith(1)
     expect(readResult().failure).toMatch(/^capture-fullscreen: full screen is not the work area filled: filled false/)
+    s.stop()
+  }, 20_000)
+
+  it('a Pokémon picture left in work mode: the run fails at work-mode and says how many', async () => {
+    const f = fakeElectron({ workModeLeaves: 1 })
+    const s = prepare({ app: f.app, dialog: f.dialog, env: envFor(), tmp: dir, log: quiet, timeoutMs: 30_000, settleMs: 0, typeDelayMs: 0 })
+    await s.run(f.hooks)
+    await vi.waitFor(() => expect(f.app.exit).toHaveBeenCalled(), { timeout: 15_000 })
+    expect(f.app.exit).toHaveBeenCalledWith(1)
+    expect(readResult().failure).toMatch(/^work-mode: work mode on \(⌘⇧H\): 1 picture\(s\) from \/sprites\/ still drawn/)
+    s.stop()
+  }, 20_000)
+
+  it("the run's settings starting in work mode: the run fails at work-mode", async () => {
+    const f = fakeElectron({ workModeAtLoad: true })
+    const s = prepare({ app: f.app, dialog: f.dialog, env: envFor(), tmp: dir, log: quiet, timeoutMs: 30_000, settleMs: 0, typeDelayMs: 0 })
+    await s.run(f.hooks)
+    await vi.waitFor(() => expect(f.app.exit).toHaveBeenCalled(), { timeout: 15_000 })
+    expect(f.app.exit).toHaveBeenCalledWith(1)
+    expect(readResult().failure).toMatch(/^work-mode: the page did not start with work mode off/)
     s.stop()
   }, 20_000)
 

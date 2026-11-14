@@ -32,6 +32,12 @@
  *   capture-fullscreen  the window fills the work area (macWindow.cjs's fill,
  *                       and the bounds equal the work area as it is now)
  *   restore-window      back to the window mode: the bounds from before
+ *   work-mode           업무 모드 (src/workMode.ts) switched on by ⌘⇧H as the page's own
+ *                       key handler takes it (src/keys.ts → Widget): the run's settings
+ *                       start with it off; on, the root has the work-mode class, no
+ *                       Pokémon or ball picture (/sprites/) and no logo is drawn, and
+ *                       the header's first item sits right of the traffic lights (78px
+ *                       room); work-mode.png; ⌘⇧H again switches it off
  *   quit                the app's own quit sequence, to the end
  *
  * smoke.json in SPAWN_SMOKE_DIR is written after every step, so a run killed
@@ -46,7 +52,7 @@ const os = require('os')
 const path = require('path')
 
 const SMOKE_FLAG = '--smoke-test'
-const STEPS = Object.freeze(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'quit'])
+const STEPS = Object.freeze(['start', 'window', 'shell-open', 'shell-echo', 'shell-env', 'capture-window', 'terminal-font', 'capture-widget', 'capture-fullscreen', 'restore-window', 'work-mode', 'quit'])
 /** Monaspace Neon's cell is about 0.615 em (Menlo's measured 0.538 on the runner): outside this it is not the face drawing */
 const CELL_RATIO = Object.freeze({ min: 0.55, max: 0.68 })
 /** The terminal's face, shipped with the app */
@@ -59,6 +65,39 @@ const ECHO = 'echo spawn-$((40+2))\n'
 const ECHO_SEEN = 'spawn-42'
 const ENV_ECHO = 'echo "spawn-path-$((1+1))=$PATH"; echo "spawn-lang-$((1+1))=$LANG"\n'
 const DEFAULT_TIMEOUT_MS = 60_000
+/**
+ * ⌘⇧H as the keyboard hands it to the page: a keydown at the focused element, which the
+ * page's capture-phase handler (src/keys.ts appShortcut → 'workMode', Widget.tsx) takes and
+ * turns into the same settings change the shortcut makes
+ */
+const WORK_MODE_KEY_JS = `/* spawn-smoke:work-mode-key */ (() => {
+  const target = document.activeElement || document.body
+  target.dispatchEvent(new KeyboardEvent('keydown', { key: 'H', code: 'KeyH', metaKey: true, shiftKey: true, bubbles: true, cancelable: true }))
+  return true
+})()`
+/** What the page shows of 업무 모드 (read in the window mode) */
+const WORK_MODE_READ_JS = `/* spawn-smoke:work-mode-read */ (() => {
+  const root = document.documentElement
+  const shown = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
+  const head = document.querySelector('.w-side .w-head')
+  const items = head ? Array.from(head.children).filter(shown) : []
+  const rail = document.querySelector('.w-rail')
+  const railFirst = rail ? Array.from(rail.children).find(shown) : null
+  return {
+    workMode: root.classList.contains('work-mode'),
+    mac: root.classList.contains('is-mac'),
+    atLoad: (window.spawn && window.spawn.settings) ? window.spawn.settings.workModeAtLoad === true : null,
+    pokemonImages: Array.from(document.querySelectorAll('img')).filter((i) => (i.getAttribute('src') || '').includes('/sprites/')).length,
+    logo: !!document.querySelector('.w-brand, .w-rail-brand'),
+    folded: !!document.querySelector('.widget.side-hidden'),
+    headLeft: items.length ? Math.round(Math.min(...items.map((el) => el.getBoundingClientRect().left))) : null,
+    railTop: railFirst ? Math.round(railFirst.getBoundingClientRect().top) : null,
+  }
+})()`
+/** The macOS traffic lights end left of this (widget-expanded.css .is-mac: the header starts 78px in) */
+const TRAFFIC_LIGHTS_ROOM = 78
+/** ...and the folded rail starts below them (padding-top 30px) */
+const TRAFFIC_LIGHTS_DROP = 30
 // How long the app's own quit sequence may take before the run gives up on it
 const QUIT_TIMEOUT_MS = 20_000
 
@@ -146,6 +185,29 @@ function fontVerdict(m, seen = ECHO_SEEN) {
   }
   if (!String(m.text ?? '').includes(seen)) return { ok: false, ratio, reason: `the terminal in this window does not show ${seen} (its output was not replayed)` }
   return { ok: true, ratio, reason: null }
+}
+
+/**
+ * The page's 업무 모드 reading (WORK_MODE_READ_JS) against what it should show: off, the
+ * Pokémon as always (at least the logo's ball, so the picture check finds what it is for);
+ * on, the class, no picture from /sprites/, no logo, nothing under the traffic lights
+ */
+function workModeVerdict(r, on) {
+  if (!r) return { ok: false, reason: 'the page gave no reading' }
+  if (!on) {
+    if (r.workMode) return { ok: false, reason: 'the root still has the work-mode class' }
+    if (!(r.pokemonImages > 0)) return { ok: false, reason: `with work mode off no picture from /sprites/ was found (${r.pokemonImages}): the check would see nothing` }
+    return { ok: true, reason: null }
+  }
+  if (!r.workMode) return { ok: false, reason: 'the root has no work-mode class' }
+  if (r.pokemonImages !== 0) return { ok: false, reason: `${r.pokemonImages} picture(s) from /sprites/ still drawn` }
+  if (r.logo) return { ok: false, reason: 'the logo is still drawn' }
+  if (r.mac) {
+    if (r.folded ? !(r.railTop >= TRAFFIC_LIGHTS_DROP) : !(r.headLeft >= TRAFFIC_LIGHTS_ROOM)) {
+      return { ok: false, reason: r.folded ? `the folded rail starts at y ${r.railTop}, under the traffic lights` : `the header's first item starts at x ${r.headLeft}, under the traffic lights` }
+    }
+  }
+  return { ok: true, reason: null }
 }
 
 /** Bounds equal to the work area, edge for edge */
@@ -397,6 +459,37 @@ function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = cons
         return { bounds, filled }
       })
 
+      // 업무 모드 on and off by its shortcut (⌘⇧H), in the window mode
+      await step('work-mode', async () => {
+        const read = () => win().webContents.executeJavaScript(WORK_MODE_READ_JS, true)
+        const press = () => win().webContents.executeJavaScript(WORK_MODE_KEY_JS, true)
+        const until = async (on, what) => {
+          let r = null
+          try {
+            await waitFor(async () => { r = await read(); return workModeVerdict(r, on).ok }, 5_000, what)
+          } catch (err) {
+            if (ended) throw err
+            throw new Error(`${what}: ${workModeVerdict(r, on).reason} (${JSON.stringify(r)})`)
+          }
+          return r
+        }
+        const before = await read()
+        // The run's own userData starts with the defaults: work mode off, also for the preload
+        if (!before || before.atLoad !== false) throw new Error(`the page did not start with work mode off (${JSON.stringify(before)})`)
+        await until(false, 'work mode off at the start')
+        await press()
+        const on = await until(true, 'work mode on (⌘⇧H)')
+        await sleep(settleMs)
+        const image = await win().webContents.capturePage()
+        if (!image || image.isEmpty()) throw new Error('the capture came back empty')
+        fs.writeFileSync(path.join(dirs.out, 'work-mode.png'), image.toPNG())
+        result.screenshots['work-mode'] = 'work-mode.png'
+        await press()
+        const off = await until(false, 'work mode off again (⌘⇧H)')
+        result.workMode = { before, on, off }
+        return { file: 'work-mode.png', size: image.getSize(), on, off }
+      })
+
       current = 'quit'
       log.log('[smoke] quit …')
       save()
@@ -417,4 +510,4 @@ function prepare({ app, dialog, env = process.env, tmp = os.tmpdir(), log = cons
   return { dirs, result, run, fail, stop }
 }
 
-module.exports = { SMOKE_FLAG, DEFAULT_TIMEOUT_MS, QUIT_TIMEOUT_MS, smokeTimeoutMs, CELL_RATIO, TERMINAL_FACE, fontVerdict, sameRect, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }
+module.exports = { WORK_MODE_KEY_JS, WORK_MODE_READ_JS, TRAFFIC_LIGHTS_ROOM, TRAFFIC_LIGHTS_DROP, workModeVerdict, SMOKE_FLAG, DEFAULT_TIMEOUT_MS, QUIT_TIMEOUT_MS, smokeTimeoutMs, CELL_RATIO, TERMINAL_FACE, fontVerdict, sameRect, STEPS, CAPTURES, ECHO, ECHO_SEEN, ENV_ECHO, isSmokeRun, smokeDirs, sawEcho, shellEnvFrom, newResult, recordStep, verdict, readyWindow, prepare }
