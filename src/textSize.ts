@@ -15,8 +15,10 @@ import { useSyncExternalStore } from 'react'
 export const TEXT_STEPS = ['small', 'normal', 'large', 'xlarge'] as const
 export type TextStep = typeof TEXT_STEPS[number]
 
-/** The step's name (a Korean key for t()) */
+/** The step's name (a Korean key, read with tSense(…, TEXT_STEP_SENSE): '보통' is also 설정's display time) */
 export const TEXT_STEP_LABEL: Record<TextStep, string> = { small: '작게', normal: '보통', large: '크게', xlarge: '아주 크게' }
+/** The sense the step names are translated in (src/i18n.ts tSense; '보통#text-size' in the dictionaries) */
+export const TEXT_STEP_SENSE = 'text-size'
 /** The UI's name size per step (--t-name in tokens.css), as the owner reads it */
 export const UI_PX: Record<TextStep, number> = { small: 11, normal: 12, large: 13, xlarge: 14 }
 /** The terminal's font size per step */

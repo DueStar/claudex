@@ -185,7 +185,7 @@ const en: Record<string, string> = {
   // the one text size (src/textSize.ts, TextSizeControl)
   '글자 크기': 'Text size',
   '작게': 'Small',
-  '보통': 'Normal',
+  '보통#text-size': 'Normal',
   '크게': 'Large',
   '아주 크게': 'Extra large',
   '글자 작게': 'Smaller text',
@@ -457,7 +457,7 @@ const ja: Record<string, string> = {
   '랭킹': 'ランキング',
   '글자 크기': '文字サイズ',
   '작게': '小さく',
-  '보통': '標準',
+  '보통#text-size': '標準',
   '크게': '大きく',
   '아주 크게': '特大',
   '글자 작게': '文字を小さく',

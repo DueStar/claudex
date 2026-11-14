@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { nextStep, OLD_TERM_KEY, readInitialStep, stepFromTermPx, TERM_PX, TEXT_KEY, TEXT_STEP_LABEL, TEXT_STEPS, UI_PX } from '../src/textSize'
+import { nextStep, OLD_TERM_KEY, readInitialStep, stepFromTermPx, TERM_PX, TEXT_KEY, TEXT_STEP_LABEL, TEXT_STEP_SENSE, TEXT_STEPS, UI_PX } from '../src/textSize'
 
 const ROOT = join(__dirname, '..')
 const src = (p: string) => readFileSync(join(ROOT, p), 'utf8')
@@ -125,10 +125,48 @@ describe('the text-size control (source checks)', () => {
     const { default: WIDGET } = await import('../src/locales/widget')
     const { default: DICTS } = await import('../src/locales')
     for (const lang of ['en', 'ja'] as const) {
-      for (const k of ['글자 크기', '작게', '보통', '크게', '아주 크게', '글자 작게', '글자 크게', '화면 {ui} · 터미널 {term}']) expect(WIDGET[lang][k], `${lang} ${k}`).toBeTruthy()
+      for (const k of ['글자 크기', '작게', '보통#text-size', '크게', '아주 크게', '글자 작게', '글자 크게', '화면 {ui} · 터미널 {term}']) expect(WIDGET[lang][k], `${lang} ${k}`).toBeTruthy()
       for (const k of ['소', '중', '대', '글자 {size}', '글자 크기 {size}']) expect(WIDGET[lang][k], `${lang} ${k}`).toBeUndefined()
     }
     // the merged dictionaries read the step names as the control does
-    expect([DICTS.en['보통'], DICTS.ja['보통'], DICTS.ja['아주 크게']]).toEqual(['Normal', '標準', '特大'])
+    expect([DICTS.en['보통#text-size'], DICTS.ja['보통#text-size'], DICTS.ja['아주 크게']]).toEqual(['Normal', '標準', '特大'])
+  })
+
+  it("'보통' has two senses: the text size (ja 標準) and 설정's display time (ja 普通, as on main) — final review M5", async () => {
+    const { default: DICTS } = await import('../src/locales')
+    const { default: SETTINGS } = await import('../src/locales/settings')
+    const { default: WIDGET } = await import('../src/locales/widget')
+    expect([DICTS.en['보통'], DICTS.ja['보통']]).toEqual(['Normal', '普通'])
+    expect([SETTINGS.en['보통'], SETTINGS.ja['보통']]).toEqual(['Normal', '普通'])
+    // the plain word lives once, in settings.ts (as on main); the text size has its own sense key
+    expect([WIDGET.en['보통'], WIDGET.ja['보통']]).toEqual([undefined, undefined])
+    expect(TEXT_STEP_SENSE).toBe('text-size')
+    // the step names are read in their sense, the display time plainly (Korean shows 보통 in both)
+    for (const f of ['src/components/TextSizeControl.tsx', 'src/components/SettingsView.tsx']) {
+      expect(src(f), f).not.toMatch(/t\(TEXT_STEP_LABEL/)
+      expect(src(f), f).toContain('tSense(TEXT_STEP_LABEL[')
+    }
+    expect(src('src/components/SettingsView.tsx')).toContain("['normal', t('보통')]")
+    expect(src('src/i18n.ts')).toContain('const k = `${ko}#${sense}`')
+  })
+
+  it('the menu works from the keyboard: it opens on the checked step, arrows / Home / End move, Esc and Tab close it (final review M7)', async () => {
+    const { menuKeyIndex } = await import('../src/menuKeys')
+    expect(menuKeyIndex('ArrowDown', 0, 4)).toBe(1)
+    expect(menuKeyIndex('ArrowDown', 3, 4)).toBe(0)
+    expect(menuKeyIndex('ArrowUp', 0, 4)).toBe(3)
+    expect(menuKeyIndex('ArrowUp', 2, 4)).toBe(1)
+    expect(menuKeyIndex('ArrowDown', -1, 4)).toBe(0)
+    expect(menuKeyIndex('ArrowUp', -1, 4)).toBe(3)
+    expect(menuKeyIndex('Home', 2, 4)).toBe(0)
+    expect(menuKeyIndex('End', 1, 4)).toBe(3)
+    expect(menuKeyIndex('Enter', 1, 4)).toBeNull()
+    expect(menuKeyIndex('ArrowDown', 0, 0)).toBeNull()
+    const c = src('src/components/TextSizeControl.tsx')
+    expect(c).toContain('role="menu"')
+    expect(c).toContain("box.current?.querySelector<HTMLElement>('.w-textsize-item.on')?.focus()")
+    expect(c).toContain('menuKeyIndex(e.key, at, items.length)')
+    expect(c).toMatch(/if \(e\.key === 'Tab'\) \{ setOpen\(false\); cur\.current\?\.focus\(\); return \}/)
+    expect(c).toMatch(/e\.key === 'Escape'[\s\S]{0,120}cur\.current\?\.focus\(\)/)
   })
 })
