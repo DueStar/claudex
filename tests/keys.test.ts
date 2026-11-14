@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { appShortcut, clipboardAction, keptFromPty, PINCH_STEP_MS, wheelFontStep } from '../src/keys'
 import { modCombo, modLabel, setPlatformForTest } from '../src/platform'
 import widgetDicts from '../src/locales/widget'
+import allDicts from '../src/locales'
 
 const require = createRequire(import.meta.url)
 const { menuTemplate } = require('../electron/menu.cjs')
@@ -249,12 +250,19 @@ describe('wheelFontStep', () => {
 describe('tooltips name the platform\'s keys', () => {
   const fill = (s: string, vars: Record<string, string>) => s.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m)
   const views: [string, string, string, string][] = [
-    ['터미널 ({key})', '1', 'Terminal', 'ターミナル'],
+    ['세션 ({key})', '1', 'Sessions', 'セッション'],
     ['도감 ({key})', '2', 'Pokédex', '図鑑'],
     ['박스 ({key})', '3', 'Box', 'ボックス'],
     ['기록 ({key})', '4', 'Log', '記録'],
     ['랭킹 ({key})', '5', 'Leaderboard', 'ランキング'],
   ]
+
+  it('the first view is 세션: the old 터미널 ({key}) tooltip key is gone', () => {
+    expect(widgetDicts.en).not.toHaveProperty('터미널 ({key})')
+    expect(widgetDicts.ja).not.toHaveProperty('터미널 ({key})')
+    expect(allDicts.en['세션']).toBe('Sessions')
+    expect(allDicts.ja['세션']).toBe('セッション')
+  })
 
   it('modCombo: Ctrl+1 on Windows, ⌘1 on macOS', () => {
     setPlatformForTest('win')
@@ -284,7 +292,7 @@ describe('tooltips name the platform\'s keys', () => {
 
   it('macOS names ⌘', () => {
     setPlatformForTest('mac')
-    expect(fill(widgetDicts.en['터미널 ({key})'], { key: modCombo('1') })).toBe('Terminal (⌘1)')
+    expect(fill(widgetDicts.en['세션 ({key})'], { key: modCombo('1') })).toBe('Sessions (⌘1)')
     expect(fill(widgetDicts.en['글자 크기 · {mod}+휠, {mod}+= / {mod}+-'], { mod: modLabel() })).toBe('Text size · ⌘+wheel, ⌘+= / ⌘+-')
   })
 })

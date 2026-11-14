@@ -36,34 +36,39 @@
 .w-dex-recent img { width: var(--w-icon); height: var(--w-icon); object-fit: contain; flex: none; }
 .w-dex-recent img:nth-child(n+5) { display: none; }
 
-/* ---------- Expanded card: view switch (selected: a soft yellow; solid yellow is for 보내기 only) ---------- */
+/* ---------- Expanded card: the view tabs (calm: no box around them; the selected view is a
+   light grey box with primary-ink text; yellow is for the chosen session and 보내기 only) ---------- */
 .w-view-switch {
   -webkit-app-region: no-drag;
   display: inline-flex;
-  padding: 3px;
+  gap: 2px;
+  padding: 0;
   margin-right: 6px;
-  border-radius: 10px;
-  background: var(--card-2);
-  border: 1px solid var(--line);
+  background: none;
+  border: 0;
   flex-shrink: 0;
 }
 .w-view-switch button {
   position: relative;
   font: inherit;
-  font-size: 12px;
-  font-weight: 650;
-  padding: 4px 11px;
+  font-size: var(--t-ui);
+  font-weight: var(--w-body);
+  padding: 5px 9px 5px 8px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--r-s);
   background: transparent;
   color: var(--ink-3);
   cursor: pointer;
 }
-/* hover: the views, the text size and the screen mode switches alike */
+/* hover: the views and the text size switch alike */
 .w-view-switch button { transition: background-color .12s, color .12s; }
-.w-view-switch button:not(.on):hover { background: rgba(255, 255, 255, 0.06); color: var(--ink-2); }
-.w-view-switch button.on:hover { filter: brightness(1.12); }
-.w-view-switch button.on { background: var(--accent-soft); color: var(--accent); }
+.w-view-switch button:not(.on):hover { background: var(--hover); color: var(--ink-2); }
+.w-view-switch button.on { background: var(--sel-bg); color: var(--ink); }
+/* The text-size trio (Aa Aa Aa) keeps its old boxed look until the text-size control replaces it */
+.w-font-switch { padding: 3px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); }
+.w-font-switch button { border-radius: 7px; }
+.w-font-switch button.on { background: var(--accent-soft); color: var(--accent); }
+.w-font-switch button.on:hover { filter: brightness(1.12); }
 .w-dex-body { flex: 1; min-height: 0; display: flex; }
 .w-sess-tab img { object-fit: contain; }
 
@@ -73,7 +78,7 @@
   background: #ff4d4f; box-shadow: 0 0 0 2px var(--card);
 }
 .dex-new { position: absolute; right: 6px; top: 6px; }
-.w-view-switch .w-new-dot { position: absolute; top: 2px; right: 3px; width: 6px; height: 6px; }
+.w-view-switch .w-new-dot { position: absolute; top: 4px; right: 3px; width: 5px; height: 5px; box-shadow: none; }
 /* In the dex strip: small, right after the label */
 .w-dex .w-new-dot { display: inline-block; width: 5px; height: 5px; margin-left: 4px; vertical-align: 2px; box-shadow: none; }
 

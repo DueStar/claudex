@@ -200,7 +200,7 @@ const Widget: React.FC = () => {
     setView('dex')
     setExpanded(true)
   }), [])
-  // Ctrl+1–5 (⌘1–5 on macOS): 터미널 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
+  // Ctrl+1–5 (⌘1–5 on macOS): 세션 / 도감 / 박스 / 기록 / 랭킹 (opens the window view from the widget too)
   // Ctrl+Alt+←/→ (⌘⌥←/→): the previous / next one (from the widget: opens the current one)
   // Ctrl+Tab, Ctrl+Shift+Tab / T / W (⌘⇧[ / ⌘⇧] / ⌘T / ⌘W): sessions (below). The map is src/keys.ts
   // Ctrl+Shift+H (⌘⇧H): 업무 모드 on and off (in 업무 모드 only the sessions view opens)
@@ -1028,7 +1028,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
           <div className="w-term-tabs" ref={viewBarRef}>
             {/* The views: icon and name, the names dropped only while the bar is too narrow for them */}
             <div className={`w-view-switch w-view-tabs${viewsCompact ? ' w-view-icons' : ''}`}>
-              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('터미널 ({key})', { key: modCombo('1') })} aria-label={t('터미널')}><TerminalIcon size={14} />{!viewsCompact && t('터미널')}</button>
+              <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'terminal' ? ' on' : ''}`} onClick={() => setView('terminal')} title={t('세션 ({key})', { key: modCombo('1') })} aria-label={t('세션')}><TerminalIcon size={14} />{!viewsCompact && t('세션')}</button>
               {/* 업무 모드: the sessions view alone (src/workMode.ts visibleViews) */}
               {!workMode && <>
               <button className={`${viewsCompact ? 'icon-only' : ''}${view === 'dex' ? ' on' : ''}`} onClick={() => setView('dex')} title={t('도감 ({key})', { key: modCombo('2') })} aria-label={t('도감')}><DexIcon size={14} />{!viewsCompact && t('도감')}{hasNew && <span className="w-new-dot" aria-label={t('새로 잡은 포켓몬')} />}</button>

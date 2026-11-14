@@ -167,8 +167,7 @@ const en: Record<string, string> = {
   '거절하거나 그만둬요 (Esc)': 'Decline or cancel (Esc)',
 
   // window view
-  '터미널 ({key})': 'Terminal ({key})',
-  '터미널': 'Terminal',
+  '세션 ({key})': 'Sessions ({key})',
   '도감 ({key})': 'Pokédex ({key})',
   '박스 ({key})': 'Box ({key})',
   '박스': 'Box',
@@ -432,8 +431,7 @@ const ja: Record<string, string> = {
   '거절하거나 그만둬요 (Esc)': '拒否するか、やめます (Esc)',
 
   // window view
-  '터미널 ({key})': 'ターミナル ({key})',
-  '터미널': 'ターミナル',
+  '세션 ({key})': 'セッション ({key})',
   '도감 ({key})': '図鑑 ({key})',
   '박스 ({key})': 'ボックス ({key})',
   '박스': 'ボックス',

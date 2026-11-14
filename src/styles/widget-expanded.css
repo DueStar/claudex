@@ -82,16 +82,18 @@
   flex-direction: column;
   padding: 0;
   overflow: hidden;
-  background: #101217;
+  background: var(--term-bg);
   margin-top: 6px;
 }
 .w-term-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 7px 8px;
+  gap: 2px;
+  height: var(--head-h);
+  box-sizing: border-box;
+  padding: 0 8px 0 10px;
   border-bottom: 1px solid var(--line);
-  background: var(--card);
+  background: var(--bg);
   -webkit-app-region: drag;
   /* never a scrollbar: the views are icons, and the text-size switch goes first when it is narrow */
   overflow: hidden;
@@ -100,7 +102,6 @@
 }
 .w-term-tabs > * { flex-shrink: 0; }
 .w-term-tabs > .w-term-spacer { flex: 1 1 0; min-width: 0; }
-.w-view-icons button.icon-only { padding: 5px 9px; position: relative; }
 .w-term-tabs::-webkit-scrollbar { height: 0; }
 
 /* ---------- Session tabs: a row of their own under the view bar, in the old tabs' look ---------- */
@@ -259,11 +260,9 @@
 .ico { display: block; flex-shrink: 0; }
 .pokeball { display: block; flex-shrink: 0; object-fit: contain; image-rendering: auto; }
 .w-view-switch button { display: inline-flex; align-items: center; gap: 5px; }
-.w-view-switch button.icon-only { padding: 4px 7px; }
-/* the views and the text size: a little room between the tabs, and 2px off the left so a tab
-   that starts with an icon (or the "A" of Aa) does not look wider on its left side */
-.w-view-switch { gap: 2px; }
-.w-view-switch button:not(.icon-only) { padding-left: 9px; }
+.w-view-switch button.icon-only { padding: 5px 8px; }
+/* the text size trio, unchanged until the text-size control replaces it */
+.w-font-switch button:not(.icon-only) { padding-left: 9px; }
 .w-icon { display: inline-flex; align-items: center; justify-content: center; }
 
 .w-grip:hover { opacity: 1; }
@@ -297,10 +296,10 @@
 /* ---------- Tab bar: new session right after the open sessions; window controls at the far right ---------- */
 .w-win-controls { display: flex; gap: 2px; margin-left: 4px; -webkit-app-region: no-drag; flex: none; }
 /* the widget toggle, apart from the window's own three */
-.w-widget-toggle { -webkit-app-region: no-drag; flex: none; width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); margin-left: 4px; }
-.w-widget-toggle:hover { background: var(--card-2); color: var(--ink); }
-.w-win-controls .w-icon { width: 30px; height: 28px; border-radius: 8px; background: transparent; color: var(--ink-3); }
-.w-win-controls .w-icon:hover { background: var(--card-2); color: var(--ink); }
+.w-widget-toggle { -webkit-app-region: no-drag; flex: none; width: 30px; height: 28px; border-radius: var(--r-s); background: transparent; color: var(--ink-3); margin-left: 4px; }
+.w-widget-toggle:hover { background: var(--hover); color: var(--ink); }
+.w-win-controls .w-icon { width: 30px; height: 28px; border-radius: var(--r-s); background: transparent; color: var(--ink-3); }
+.w-win-controls .w-icon:hover { background: var(--hover); color: var(--ink); }
 .w-win-controls .w-win-close:hover { background: rgba(255, 100, 100, 0.16); color: var(--danger); }
 /* the widget toggle sits left of the text size: 6px on either side of the text size */
 .w-view-switch.w-font-switch { margin: 0 2px 0 6px; }
