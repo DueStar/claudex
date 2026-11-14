@@ -55,7 +55,8 @@ Before: npx vite build   (the harness reads dist/, it never builds)
                    the files end in -ts-<step> (--only dex --text xlarge → dex-1440x900-ts-xlarge.png)
   --check fit      in every shot page: no sideways page scroll, and no child of
                    .w-term-tabs / .w-list-head / .w-sess-bar / .w-row, or of a row in 도감 / 박스 /
-                   기록 / 랭킹 (numbers, filters, toolbars, list rows), ends past its parent
+                   기록 / 랭킹 (numbers, filters, toolbars, list rows), ends past its parent;
+                   the instruction box's field is not a box drawn inside another box
   --check work     in every -work shot: no img[src*="/sprites/pokemon"], no Pokémon word in
                    the visible text, titles or aria-labels, and the first .w-row has the same
                    left and width as in the same surface without 업무 모드 (shot too if needed);
@@ -1133,6 +1134,18 @@ async function fitProblems(page) {
       const r = el.getBoundingClientRect()
       const cs = getComputedStyle(el)
       if (cs.display !== 'none' && el.offsetParent && r.width < parseFloat(cs.height) - 0.5) bad.push(`${name(el)} squeezed to ${r.width.toFixed(1)}px wide`)
+    }
+    // The instruction box is one box (the lab's widget): its field is not a bordered box drawn
+    // inside another bordered box (a card around it)
+    const boxed = el => {
+      const cs = getComputedStyle(el)
+      return ['Top', 'Right', 'Bottom', 'Left'].every(s => parseFloat(cs[`border${s}Width`]) > 0 && !/,\s*0\)$/.test(cs[`border${s}Color`]))
+    }
+    for (const field of document.querySelectorAll('.w-compose textarea')) {
+      if (!field.getBoundingClientRect().width || !boxed(field)) continue
+      for (let a = field.parentElement; a && !a.classList.contains('widget'); a = a.parentElement) {
+        if (boxed(a)) { bad.push(`${name(field)} is a box inside the box ${name(a)} (the instruction box is one box)`); break }
+      }
     }
     return bad
   })

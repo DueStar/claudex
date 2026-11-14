@@ -159,6 +159,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 
 /* The instruction box: the note sits above it, 보내기 inside it */
 .w-compose { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+/* Widget mode: the field is the box (as the lab draws it), not a field inside a card */
+.widget.mode-widget .w-card.w-compose { background: none; border: 0; padding: 0; }
 /* The textarea takes the full width; 보내기 is a small icon button inside it, bottom right */
 .w-input { position: relative; display: flex; }
 .w-input textarea {
