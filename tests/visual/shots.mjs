@@ -15,6 +15,7 @@
 
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as fixture from './fixture.mjs'
@@ -25,8 +26,9 @@ const DIST = join(ROOT, 'dist')
 const HOME = join(HERE, '.home')
 const PORT = 3397
 const BASE = `http://127.0.0.1:${PORT}`
-const PLAYWRIGHT = process.env.PLAYWRIGHT_CORE ?? 'C:/Users/hoo20/Documents/spawn-promo/video/node_modules/playwright-core'
-const LAB = process.env.LAB_SHOTS ?? 'C:/Users/hoo20/Documents/spawn-site-lab/calm-lab/shots-v5'
+// Both outside the repo, beside it in the user's Documents (no absolute path in a tracked file)
+const PLAYWRIGHT = process.env.PLAYWRIGHT_CORE ?? join(homedir(), 'Documents', 'spawn-promo', 'video', 'node_modules', 'playwright-core')
+const LAB = process.env.LAB_SHOTS ?? join(homedir(), 'Documents', 'spawn-site-lab', 'calm-lab', 'shots-v5')
 const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version
 
 /** What the Electron window paints behind the page (electron/main.cjs): window #0b0c10; the widget is see-through, so a desktop grey */
@@ -56,7 +58,8 @@ Before: npx vite build   (the harness reads dist/, it never builds)
   --check fit      in every shot page: no sideways page scroll, and no child of
                    .w-term-tabs / .w-list-head / .w-sess-bar / .w-row, or of a row in 도감 / 박스 /
                    기록 / 랭킹 (numbers, filters, toolbars, list rows), ends past its parent;
-                   the instruction box's field is not a box drawn inside another box
+                   the instruction box's field is not a box drawn inside another box; the usage
+                   labels are not cut
   --check work     in every -work shot: no img[src*="/sprites/pokemon"], no Pokémon word in
                    the visible text, titles or aria-labels, and the first .w-row has the same
                    left and width as in the same surface without 업무 모드 (shot too if needed);
@@ -66,7 +69,8 @@ Before: npx vite build   (the harness reads dist/, it never builds)
   --flow <name>    an interaction flow (exits non-zero when it finds a problem):
                    tabs-gone  close / rename / drag in 상세, 간략 and folded, the list header's
                               >_ + 간략 상세, the rail's >_, switching by rail and Ctrl+Tab, the
-                              chosen row in sight among twelve, 업무 모드's header
+                              chosen row in sight among twelve, 업무 모드's header, an ended 간략
+                              row dimmed, the widget's >_ that opens no shell (no window, a note)
                    side-resize  the left panel's edge: drag (clamped 240–420, remembered, the
                               terminal refits once), double-click and Home reset, ← / →,
                               a narrow window, hidden when folded and in widget mode
@@ -74,6 +78,13 @@ Before: npx vite build   (the harness reads dist/, it never builds)
                               terminal size), its class, the terminal's px; Ctrl/⌘ += - 0 once per
                               press, the wheel, − 가 + and its menu, 설정's row (with --out: a
                               picture of the open menu, flow-text-size-menu.png)
+                   hit-areas  every control the restyle touched, measured against its size on main (0dbb6c9):
+                              none smaller, each with its own floor; 로그인 and the update button in
+                              ko, en and ja (with --out: hit-areas.json)
+                   keyboard   the list's rows from the keyboard (Tab, Enter, Space, F2, their buttons,
+                              the focus ring, their names for a screen reader) in 상세 and 간략, and
+                              the text-size menu's keys
+                   seg-hover  a hovered option looks unlike the chosen one (도감, 박스, 랭킹, 설정)
                    narrow     560 and 640 wide, Windows and Mac, the panel open and folded: the top
                               bar fits (the window buttons whole, the text size folded to 가 when it
                               must, its menu inside the window), the Mac's 78px room, the fit check
@@ -227,7 +238,9 @@ const FLOWS = {
    * opens exactly one field and Enter sends one terminals.rename; a drag sends one
    * terminals.move. Also: the list header's >_ / + / 간략·상세, the rail's >_, switching by the
    * rail and by Ctrl+Tab / Ctrl+Shift+Tab (the header follows), the chosen row kept in sight
-   * among twelve, and 업무 모드's header with no picture.
+   * among twelve, and 업무 모드's header with no picture. And (the final review's M1, M2): an
+   * ended session's 간략 row is dimmed; the widget's >_ that opens no shell keeps the widget and
+   * its note.
    */
   'tabs-gone': async ({ browser }) => {
     const problems = []
@@ -354,6 +367,22 @@ const FLOWS = {
       await sleep(200)
       if (!(await page.locator('.widget.mode-window').count())) bad('a click on the needs-you row did not open the window')
       else if (!(await page.locator('.w-sess-bar .w-sess-head').count())) bad('the window opened, but not on the sessions view')
+    })
+    // 간략: an ended session is dimmed, as the rail does (its dot alone would read as 쉬는 중)
+    await run('간략 종료', { ended: 3, local: { 'spawn-list-mode': 'compact' } }, async ({ page }, bad) => {
+      const o = await page.evaluate(() => [...document.querySelectorAll('.w-rows.compact .w-row')].map(r => ({ ended: r.classList.contains('mood-ended'), opacity: parseFloat(getComputedStyle(r).opacity) })))
+      if (!o[3]?.ended) { bad('row 4 is not drawn as ended (the fixture marks its terminal exited)'); return }
+      if (o[3].opacity > 0.6) bad(`an ended 간략 row is not dimmed (opacity ${o[3].opacity})`)
+      if (o.some((r, i) => i !== 3 && r.opacity < 1)) bad('a live 간략 row is dimmed')
+    })
+    // The widget's >_ when no shell opens (here the bridge refuses: no pty; also at the limit): the
+    // widget stays a widget and its note says why (the window would be built anew and lose it)
+    await run('위젯 >_', { mode: 'widget', size: [340, 820] }, async ({ page }, bad) => {
+      await page.locator('.w-list-head .w-list-shell').click()
+      await sleep(400)
+      if (await page.locator('.widget.expanded, .widget.mode-window').count()) bad('a refused >_ opened the window')
+      const note = await page.locator('.w-note').textContent().catch(() => null)
+      if (!note?.includes('세션을 열 수 없어요')) bad(`no note says the shell did not open (note: ${JSON.stringify(note)})`)
     })
     // 업무 모드, folded: the header shows a glyph, no picture
     await run('업무 모드', { work: true, local: { 'spawn-side-hidden': '1' } }, async ({ page }, bad) => {
@@ -662,20 +691,24 @@ const FLOWS = {
   },
 
   /**
-   * Hit areas (calm-style plan, Task 14): the size of every control the restyle touched, at 1440×900
-   * 보통, against the sizes before the plan (measured on the pre-plan build, 4f002fa, with this
-   * same flow: HIT_BEFORE) — none smaller, apart from the rail's buttons (38 → 36, as the lab);
-   * a control new in the restyle is at least 22px each way. With --out: hit-areas.json.
+   * Hit areas (calm-style plan, Task 14; the final review's C1): the size of every control the
+   * restyle touched, at 1440×900 보통, against the sizes on main before the plan (0dbb6c9, measured
+   * with this same flow: HIT_BEFORE_RUN=1 on that build) — none smaller. Each control has its own
+   * floor (the 도감 segments and the tier chips apart); the header's 로그인 and update button are
+   * also measured in English and Japanese. A control new in the restyle is at least 22px each way.
+   * With --out: hit-areas.json.
    */
   'hit-areas': async ({ browser, opts }) => {
     const problems = []
-    // The smallest width and height each control had before the plan (px; measured on the 4f002fa build
-    // with this flow, HIT_BEFORE_RUN=1). The rail: 38 → 36, as the lab (the plan's one allowed shrink).
-    // The launcher's main button is measured with the panel at the pre-plan 328px, so the two compare
+    // The smallest width and height each control had on main (px; measured on the 0dbb6c9 build
+    // with this flow, HIT_BEFORE_RUN=1). The launcher's main button is measured with the panel at
+    // main's 328px, so the two compare
     const BEFORE = {
       'view tab': [59.8, 23], 'window button': [30, 28], 'widget toggle': [30, 28], 'header icon': [24, 22],
       'launcher main (panel 328)': [207, 34], 'launcher side': [40, 34], 'row rename ✎': [21, 19], 'row swap': [19, 19], 'row close ×': [17.2, 16],
-      'rail button': [36, 36], 'rail session': [36, 36], 'dex segment': [25.2, 22],
+      'rail button': [38, 38], 'rail session': [38, 38], 'dex segment': [25.2, 22], 'tier chip': [39, 24],
+      '확인 필요 button': [50.6, 16], 'header 로그인': [46.5, 20], 'header 로그인 (en)': [52.1, 20], 'header 로그인 (ja)': [59.3, 20],
+      'update button': [58, 22], 'update button (en)': [58.1, 22], 'update button (ja)': [81.9, 22],
     }
     // Named exceptions: a control that cannot meet its pre-plan floor, with why and the floor it is held to
     const EXCEPTIONS = {
@@ -699,20 +732,28 @@ const FLOWS = {
     }, [sel, hitAfter])
     const got = {}
     const take = async (page, name, sel, o) => { const m = await measure(page, sel, o); if (m) got[name] = m; else got[name] ??= null }
+    // An update on offer, so the header shows its button (as a user sees it)
+    const update = { status: 'available', latest: '9.9.9' }
     let app
     try {
-      app = await openApp(browser, {})
+      app = await openApp(browser, { update })
       const { page } = app
+      // (the account's state comes with the server's snapshot, a moment after the rows)
+      await page.waitForSelector('.w-side .w-head .w-signin', { timeout: 10_000 })
       await take(page, 'view tab', '.w-view-tabs button')
       await take(page, 'window button', '.w-win-controls .w-icon')
       await take(page, 'widget toggle', '.w-widget-toggle')
       await take(page, 'header icon', '.w-side .w-head .w-icon')
+      await take(page, 'header 로그인', '.w-side .w-head .w-signin')
+      await take(page, 'update button', '.w-side .w-head .w-update')
       await take(page, 'launcher main', '.w-side .w-launch-main')
       await take(page, 'launcher side', '.w-side .w-launch-alt')
       await take(page, 'list mode', '.w-list-mode button', { hitAfter: true })
       await take(page, 'list button', '.w-list-btn')
       await take(page, 'session header ×', '.w-sess-head-close')
       await take(page, 'text size', '.w-term-tabs .w-textsize > button')
+      // 상세's 확인 필요: the needs-you row's status is a button that opens its terminal
+      await take(page, '확인 필요 button', '.w-party .w-row .w-pill.as-button')
       const row = page.locator('.w-party .w-row').nth(1)
       await row.hover()
       await sleep(150)
@@ -721,8 +762,22 @@ const FLOWS = {
       await take(page, 'row close ×', '.w-row:hover .w-row-tools .w-row-close')
       await page.locator('.w-view-tabs button').nth(1).click()
       await page.waitForSelector('.dex-seg button', { timeout: 10_000 })
-      await take(page, 'dex segment', '.dex-seg button, .dex-chips button')
+      // the segments and the tier chips apart (one minimum over both hid the chips' loss)
+      await take(page, 'dex segment', '.dex-seg button')
+      await take(page, 'tier chip', '.dex-chips button')
       await app.ctx.close()
+      // English and Japanese: 로그인 as most see it (no update on offer: on main a Japanese header
+      // with both wrapped 로그인 onto two lines), then the update button
+      for (const lang of ['en', 'ja']) {
+        app = await openApp(browser, { lang })
+        await app.page.waitForSelector('.w-side .w-head .w-signin', { timeout: 10_000 })
+        await take(app.page, `header 로그인 (${lang})`, '.w-side .w-head .w-signin')
+        await app.ctx.close()
+        app = await openApp(browser, { update, lang })
+        await app.page.waitForSelector('.w-side .w-head .w-update', { timeout: 10_000 })
+        await take(app.page, `update button (${lang})`, '.w-side .w-head .w-update')
+        await app.ctx.close()
+      }
       app = await openApp(browser, { local: { 'spawn-side-hidden': '1' } })
       await take(app.page, 'rail button', '.w-rail > .w-rail-btn:not(.w-rail-brand):not(.w-rail-update):not(.w-rail-signin)')
       await take(app.page, 'rail session', '.w-rail-session')
@@ -737,7 +792,7 @@ const FLOWS = {
     } catch (err) {
       problems.push(String(err.message).split('\n')[0])
     } finally {
-      if (app) await app.ctx.close()
+      if (app) await app.ctx.close().catch(() => {})
     }
     for (const [name, m] of Object.entries(got)) {
       const ex = EXCEPTIONS[name]
@@ -749,6 +804,204 @@ const FLOWS = {
       if (want && (m[0] < want[0] - 0.05 || m[1] < want[1] - 0.05)) problems.push(`${name}: ${m[0]} × ${m[1]}, smaller than ${want[0]} × ${want[1]}`)
     }
     if (opts?.out) writeFileSync(join(opts.out, 'hit-areas.json'), JSON.stringify(got, null, 2))
+    return problems
+  },
+
+  /**
+   * The keyboard and screen readers (the final review's I2 and M7). In 상세 and in 간략: Tab
+   * reaches the rows (after the list header's buttons), each row is a button whose name says the
+   * session's name and status (간략 too, where only the dot shows), the one in view is
+   * aria-current; a focused row shows a quiet hairline ring (no yellow) and a click shows none;
+   * Enter and Space open a row (the session header follows); F2 opens one rename field, Enter
+   * renames once and the focus comes back to the row; Tab from a row reaches its × (in 간략 the ×
+   * shows on keyboard focus) and, in 상세, its ✎. The text-size menu: Enter opens it on the
+   * checked step, ↓ ↑ Home End move (wrapping), Esc closes it with the focus back on the button,
+   * Enter on a step picks it.
+   */
+  keyboard: async ({ browser }) => {
+    const problems = []
+    const run = async (label, setup, steps) => {
+      let app
+      try {
+        app = await openApp(browser, setup)
+        await steps(app, m => problems.push(`${label}: ${m}`))
+      } catch (err) {
+        problems.push(`${label}: ${String(err.message).split('\n')[0]}`)
+      } finally {
+        if (app) await app.ctx.close()
+      }
+    }
+    // What has the focus: its class, and the index of its row (-1: not in a row)
+    const focus = page => page.evaluate(() => {
+      const el = document.activeElement
+      const row = el?.closest('.w-party .w-row')
+      return { cls: el?.className ?? '', tag: el?.tagName ?? '', row: row ? [...document.querySelectorAll('.w-party .w-row')].indexOf(row) : -1, isRow: !!el?.matches('.w-row'), visible: !!el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).opacity !== '0' }
+    })
+    for (const [label, local] of [['상세', {}], ['간략', { 'spawn-list-mode': 'compact' }]]) {
+      await run(label, { local }, async ({ page, shot }, bad) => {
+        const titles = shot.terminals.map(t => t.title ?? '새 세션')
+        const rows = page.locator('.w-party .w-row')
+        // Every row: a focusable button; its name has the session's name and its status word
+        const a11y = await page.evaluate(() => [...document.querySelectorAll('.w-party .w-row')].map(r => ({
+          role: r.getAttribute('role'), tab: r.getAttribute('tabindex'), current: r.getAttribute('aria-current'),
+          label: r.getAttribute('aria-label') ?? '',
+          // the status word for its mood (Widget.tsx MOOD_LABEL); a shell's 상세 row draws none, its name still says it
+          status: { working: '일하는 중', idle: '쉬는 중', 'needs-you': '확인 필요', error: '오류', ended: '종료' }[[...r.classList].find(c => c.startsWith('mood-'))?.slice(5)] ?? '',
+        })))
+        a11y.forEach((r, i) => {
+          if (r.role !== 'button' || r.tab !== '0') bad(`row ${i + 1}: role ${r.role}, tabindex ${r.tab} (want button, 0)`)
+          if (!r.label.includes(titles[i])) bad(`row ${i + 1}: its name "${r.label}" lacks the session's name "${titles[i]}"`)
+          if (!r.status || !r.label.includes(r.status)) bad(`row ${i + 1}: its name "${r.label}" lacks the status "${r.status}"`)
+          if ((r.current === 'true') !== (i === 0)) bad(`row ${i + 1}: aria-current ${r.current} (the session in view is row 1)`)
+        })
+        // A click focuses no ring
+        await rows.nth(2).click({ position: { x: 60, y: 8 } })
+        await sleep(100)
+        const clicked = await page.evaluate(() => { const r = document.querySelectorAll('.w-party .w-row')[2]; return { ring: r.matches(':focus-visible'), outline: getComputedStyle(r).outlineStyle } })
+        if (clicked.ring || clicked.outline !== 'none') bad(`a click on a row shows a focus ring (${clicked.outline})`)
+        // From the list header's + button, Tab reaches row 1
+        await rows.nth(0).click({ position: { x: 60, y: 8 } })
+        await page.locator('.w-list-head .w-list-btn:not(.w-list-shell)').focus()
+        await page.keyboard.press('Tab')
+        let f = await focus(page)
+        if (!f.isRow || f.row !== 0) bad(`Tab from the list header's + lands on ${f.tag}.${f.cls} (row ${f.row + 1}), not row 1`)
+        const ring = await page.evaluate(() => { const r = document.activeElement; const cs = getComputedStyle(r); return { fv: r.matches(':focus-visible'), style: cs.outlineStyle, width: cs.outlineWidth, color: cs.outlineColor } })
+        if (!ring.fv || ring.style === 'none' || ring.width === '0px') bad(`a row focused from the keyboard shows no ring (${JSON.stringify(ring)})`)
+        if (/255,\s*2[01]\d,\s*[0-9]{1,2}\b|ffd84a/i.test(ring.color)) bad(`the row's ring is yellow (${ring.color})`)
+        // Tab within row 1: its buttons (상세: 확인 필요, ✎, swap, ×; 간략: the × only), each visible
+        const inside = []
+        for (let k = 0; k < 6; k++) {
+          await page.keyboard.press('Tab')
+          f = await focus(page)
+          if (f.row !== 0 || f.isRow) break
+          inside.push(f.cls.split(' ')[0])
+          if (!f.visible) bad(`Tab reaches ${f.cls} in row 1, but it is not shown`)
+        }
+        const want = label === '간략' ? ['w-row-close'] : ['w-pill', 'w-row-edit', 'w-row-swap', 'w-row-close']
+        if (inside.join(',') !== want.join(',')) bad(`Tab inside row 1 reaches [${inside.join(', ')}], want [${want.join(', ')}]`)
+        if (!f.isRow || f.row !== 1) bad(`Tab after row 1's buttons lands on ${f.tag}.${f.cls} (row ${f.row + 1}), not row 2`)
+        // Enter on row 2 opens it; Space on row 3
+        const head = () => page.locator('.w-sess-head .w-sess-head-name').textContent()
+        await page.keyboard.press('Enter')
+        await sleep(100)
+        if (await head() !== titles[1]) bad(`Enter on row 2: the header reads "${await head()}", not "${titles[1]}"`)
+        if (await rows.nth(1).getAttribute('aria-current') !== 'true' || await rows.nth(0).getAttribute('aria-current')) bad('Enter on row 2: aria-current did not move to it')
+        await rows.nth(2).focus()
+        await page.keyboard.press('Space')
+        await sleep(100)
+        if (await head() !== titles[2]) bad(`Space on row 3: the header reads "${await head()}", not "${titles[2]}"`)
+        // F2 on row 4: one field, in that row; Enter renames once and the focus is back on the row
+        await rows.nth(3).focus()
+        await page.keyboard.press('F2')
+        await sleep(80)
+        const fields = await page.locator('input.w-row-rename').count()
+        if (fields !== 1 || !(await rows.nth(3).locator('input.w-row-rename').count())) bad(`F2 on row 4 opened ${fields} field(s)${fields === 1 ? ' (in another row)' : ''}`)
+        else {
+          await renameOnce(page, rows.nth(3).locator('input.w-row-rename'), shot.terminals[3].id, '키보드 이름', bad)
+          await sleep(100)
+          f = await focus(page)
+          if (!f.isRow || f.row !== 3) bad(`after Enter in the rename field the focus is on ${f.tag}.${f.cls} (row ${f.row + 1}), not row 4`)
+          // Esc cancels: no rename, the focus back on the row
+          const before = (await calls(page)).filter(c => c.fn === 'rename').length
+          await page.keyboard.press('F2')
+          await page.locator('input.w-row-rename').fill('버릴 이름')
+          await page.keyboard.press('Escape')
+          await sleep(100)
+          f = await focus(page)
+          if ((await calls(page)).filter(c => c.fn === 'rename').length !== before) bad('Esc in the rename field renamed the session')
+          if (!f.isRow || f.row !== 3) bad(`after Esc in the rename field the focus is on ${f.tag}.${f.cls}, not row 4`)
+        }
+        // 간략: the × shows only for the keyboard (a click leaves the dot)
+        if (label === '간략') {
+          await rows.nth(4).click({ position: { x: 60, y: 8 } })
+          await page.mouse.move(700, 600)
+          await sleep(100)
+          const shown = await rows.nth(4).locator('.w-row-close').isVisible()
+          if (shown) bad('a click on a 간략 row left its × showing after the mouse went away')
+        }
+      })
+    }
+    // The text-size menu from the keyboard
+    await run('글자 크기 메뉴', {}, async ({ page }, bad) => {
+      const cur = page.locator('.w-term-tabs .w-textsize-cur')
+      const item = () => page.evaluate(() => document.activeElement?.closest('.w-textsize-item')?.querySelector('.w-textsize-item-name')?.textContent ?? `(${document.activeElement?.className})`)
+      await cur.focus()
+      await page.keyboard.press('Enter')
+      await sleep(80)
+      if (!(await page.locator('.w-textsize-menu').count())) { bad('Enter on 가 opened no menu'); return }
+      if (await item() !== '보통') bad(`the menu opened with the focus on ${await item()}, not the checked 보통`)
+      for (const [key, want] of [['ArrowDown', '크게'], ['ArrowDown', '아주 크게'], ['ArrowDown', '작게'], ['ArrowUp', '아주 크게'], ['Home', '작게'], ['End', '아주 크게']]) {
+        await page.keyboard.press(key)
+        if (await item() !== want) bad(`${key}: the focus is on ${await item()}, want ${want}`)
+      }
+      await page.keyboard.press('Escape')
+      await sleep(80)
+      if (await page.locator('.w-textsize-menu').count()) bad('Esc did not close the menu')
+      if (!(await page.evaluate(() => document.activeElement?.classList.contains('w-textsize-cur')))) bad('after Esc the focus is not back on the button')
+      // Open again (↓ on the button), move to 크게, pick it with Enter
+      await page.keyboard.press('ArrowDown')
+      await sleep(80)
+      if (!(await page.locator('.w-textsize-menu').count())) { bad('↓ on 가 opened no menu'); return }
+      await page.keyboard.press('ArrowDown')
+      await page.keyboard.press('Enter')
+      await sleep(80)
+      const step = await page.evaluate(() => localStorage.getItem('spawn-text-size'))
+      if (step !== 'large') bad(`Enter on 크게 left the step at ${step}`)
+      if (await page.locator('.w-textsize-menu').count()) bad('the menu stayed open after Enter on a step')
+      if (!(await page.evaluate(() => document.activeElement?.classList.contains('w-textsize-cur')))) bad('after a pick the focus is not back on the button')
+    })
+    return problems
+  },
+
+  /**
+   * Hovered is not chosen (the final review's M4): in 도감 (filters, tier chips), 박스 (sort),
+   * 랭킹 (boards) and 설정 (a choice), a hovered option's words differ from the chosen one's, and
+   * hovering the chosen one leaves it as it was.
+   */
+  'seg-hover': async ({ browser }) => {
+    const problems = []
+    let app
+    try {
+      app = await openApp(browser, {})
+      const { page } = app
+      const look = el => el.evaluate(b => { const cs = getComputedStyle(b); return `${cs.color} on ${cs.backgroundColor}` })
+      const check = async (where, group) => {
+        const on = group.locator('button.on').first()
+        const off = group.locator('button:not(.on)').first()
+        if (!(await on.count()) || !(await off.count())) { problems.push(`${where}: no chosen and plain option to compare`); return }
+        await page.mouse.move(2, 2)
+        await sleep(200)
+        const chosen = await look(on)
+        await off.hover()
+        await sleep(200)
+        const hovered = await look(off)
+        const hc = hovered.split(' on ')[0], cc = chosen.split(' on ')[0]
+        if (hc === cc) problems.push(`${where}: a hovered option (${hovered}) has the chosen one's words (${chosen})`)
+        await on.hover()
+        await sleep(200)
+        if (await look(on) !== chosen) problems.push(`${where}: hovering the chosen option changes it (${chosen} → ${await look(on)})`)
+        console.log(`      ${where}: chosen ${chosen} · hovered ${hovered}`)
+      }
+      await page.locator('.w-view-tabs button').nth(1).click()
+      await page.waitForSelector('.dex-seg button', { timeout: 10_000 })
+      await check('도감 filter', page.locator('.dex-seg').first())
+      // a tier chip on (the chips start all off): pick the first, compare with the second
+      await page.locator('.dex-chips button').first().click()
+      await check('도감 tier chip', page.locator('.dex-chips'))
+      await page.locator('.w-view-tabs button').nth(2).click()
+      await page.waitForSelector('.box-toolbar .dex-seg button', { timeout: 10_000 })
+      await check('박스 sort', page.locator('.box-toolbar .dex-seg').first())
+      await page.locator('.w-view-tabs button').nth(4).click()
+      await page.waitForSelector('.rank-boards button', { timeout: 10_000 })
+      await check('랭킹 board', page.locator('.rank-boards'))
+      await page.locator('.w-head .w-icon[aria-label="설정"]').click()
+      await page.locator('.set-nav button', { hasText: /^앱$/ }).click()
+      await check('설정 choice', page.locator('.set-row', { hasText: '글자 크기' }).locator('.dex-seg'))
+    } catch (err) {
+      problems.push(String(err.message).split('\n')[0])
+    } finally {
+      if (app) await app.ctx.close()
+    }
     return problems
   },
 
@@ -930,10 +1183,15 @@ async function renameOnce(page, field, terminalId, value, bad) {
 const flowPageErrors = []
 
 /** The app with the fixture in a page of its own, for a flow (window mode) */
-async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false, mode = 'window', commits = false } = {}) {
+/**
+ * A page of the app with the fixture. lang: 'en' / 'ja' (the page's locale); update: the bridge's
+ * update state (an update on offer); ended: the index of a terminal that has exited (its session ended)
+ */
+async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false, mode = 'window', commits = false, lang = null, update = null, ended = null } = {}) {
+  const base = twelve ? fixture.terminals12 : fixture.terminals
   const shot = {
-    mode, workMode: work, version: VERSION,
-    terminals: twelve ? fixture.terminals12 : fixture.terminals,
+    mode, workMode: work, version: VERSION, update,
+    terminals: ended === null ? base : base.map((t, i) => i === ended ? { ...t, status: 'exited' } : t),
     board: fixture.board, branches: fixture.branches, history: fixture.history,
     transcript: fixture.transcript, shellTranscript: fixture.shellTranscript,
   }
@@ -944,7 +1202,7 @@ async function openApp(browser, { local = {}, twelve = false, size = [1440, 900]
     ...local,
   }
   const ctx = await browser.newContext({
-    viewport: { width: size[0], height: size[1] }, deviceScaleFactor: 1, locale: 'ko-KR', timezoneId: 'Asia/Seoul',
+    viewport: { width: size[0], height: size[1] }, deviceScaleFactor: 1, locale: LOCALE[lang] ?? 'ko-KR', timezoneId: 'Asia/Seoul',
     colorScheme: 'dark', bypassCSP: true,
   })
   try {
@@ -974,7 +1232,8 @@ async function openApp(browser, { local = {}, twelve = false, size = [1440, 900]
     // &smoke: the page offers window.spawnTermMetrics() (src/termMetrics.ts): each terminal's font size and columns
     await page.goto(`${BASE}/?widget&mode=${mode}${smoke ? '&smoke' : ''}`)
     await page.waitForFunction(n => document.querySelectorAll('.w-party .w-row').length === n, shot.terminals.length, { timeout: 15_000 })
-    if (mode !== 'widget') await page.waitForSelector('.w-sess-head', { timeout: 15_000 })
+    // (HIT_BEFORE_RUN: the hit-areas flow measuring the pre-plan build, which has no session header)
+    if (mode !== 'widget' && !process.env.HIT_BEFORE_RUN) await page.waitForSelector('.w-sess-head', { timeout: 15_000 })
     return { ctx, page, shot }
   } catch (err) {
     await ctx.close()
@@ -1129,6 +1388,10 @@ async function fitProblems(page) {
     // A fixed column whose text must fit it (기록's time): not wider than the column
     for (const el of document.querySelectorAll('.today-time')) {
       if (el.scrollWidth > el.clientWidth + 0.5) bad.push(`${name(el)} is ${el.scrollWidth}px of text in a ${el.clientWidth}px column (${el.textContent.trim()})`)
+    }
+    // The usage labels ("5-hour", "Weekly", 5時間) are never cut, at any text size or language
+    for (const el of document.querySelectorAll('.w-limit > .w-label')) {
+      if (el.getBoundingClientRect().width && el.scrollWidth > el.clientWidth + 0.5) bad.push(`the usage label "${el.textContent.trim()}" is cut: ${el.scrollWidth}px of text in ${el.clientWidth}px`)
     }
     for (const el of document.querySelectorAll('.w-head .w-conn, .w-row-tick, .w-pill-dot, .w-rail-dot')) {
       const r = el.getBoundingClientRect()

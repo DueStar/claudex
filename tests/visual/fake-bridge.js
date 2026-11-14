@@ -4,7 +4,7 @@
  * tests/visual/shots.mjs with page.addInitScript before the app's code runs.
  *
  * It reads window.__SHOT__ = { mode, workMode, terminals, board, branches,
- * history, transcript, shellTranscript, version } (set by an earlier init script) and
+ * history, transcript, shellTranscript, version, update } (set by an earlier init script) and
  * answers every bridge call from it. Nothing touches the network or a disk; no
  * pty. Calls that would change something (terminals.move / close / rename /
  * create / send / write / resize) do nothing but are recorded, in order, in
@@ -31,7 +31,8 @@
   const terminals = (shot.terminals || []).map(t => Object.assign({}, t))
   let mode = shot.mode || 'window'
   const modeListeners = new Set()
-  const update = { status: 'idle', current: shot.version || '0.0.0', latest: null, notes: '', progress: 0, error: null, needsFull: false, page: '' }
+  // shot.update: an update on offer (e.g. { status: 'available', latest: '9.9.9' }) for the header's button
+  const update = Object.assign({ status: 'idle', current: shot.version || '0.0.0', latest: null, notes: '', progress: 0, error: null, needsFull: false, page: '' }, shot.update || {})
 
   window.spawn = {
     isDesktop: true,
