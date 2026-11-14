@@ -28,3 +28,6 @@ tools/_cache/
 # Poké Ball artwork (Bulbagarden Archives, Nintendo IP): fetched at build time by
 # tools/fetch-balls.mjs, shipped inside the app, never committed
 public/sprites/balls/
+
+# The screenshot harness's own server home (tests/visual/shots.mjs)
+tests/visual/.home/
