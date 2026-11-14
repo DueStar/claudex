@@ -239,6 +239,18 @@ describe('the wiring (main.cjs, the page)', () => {
     expect(main).not.toContain('sleep(2000)]) : ending')
   })
 
+  it("work mode's synchronous IPC is there before the Mac start gate opens any window; a smoke run's userData is set before it is read", () => {
+    const at = (s: string) => { const i = main.indexOf(s); expect(i, s).toBeGreaterThan(-1); return i }
+    const ipc = at("ipcMain.on('settings:work-mode', (event) => {")
+    // registered at the top level, so before app.whenReady, the start gate and every BrowserWindow
+    expect(ipc).toBeLessThan(at('const envGate = createStartGate()'))
+    expect(ipc).toBeLessThan(at('app.whenReady().then('))
+    expect(ipc).toBeLessThan(at('new BrowserWindow('))
+    // the smoke run moves userData first; the settings store is made on first use, after that
+    expect(at('const smoke = isSmokeRun() ? prepareSmoke({ app, dialog }) : null')).toBeLessThan(at('const settingsFile = () =>'))
+    expect(at("ipcMain.on('settings:work-mode'")).toBe(main.lastIndexOf("ipcMain.on('settings:work-mode'"))
+  })
+
   it('the page marks a Mac with is-mac; the Mac rules live under .is-mac', () => {
     const entry = readFileSync(join(ROOT, 'src/main.tsx'), 'utf8')
     expect(entry).toContain("if (isMac()) document.documentElement.classList.add('is-mac')")
