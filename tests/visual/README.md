@@ -10,6 +10,8 @@ Shots of the real built UI (`dist/`) with fixture sessions, to compare each rest
     node tests/visual/shots.mjs --only dex --text xlarge --check fit --out <dir>   # at a text step (files end in -ts-xlarge)
     node tests/visual/shots.mjs --flow side-resize              # drag / double-click / keys on the left panel's edge
     node tests/visual/shots.mjs --flow text-size [--out <dir>]  # the text step: migration, keys, wheel, − 가 +, its menu, 설정
+    node tests/visual/shots.mjs --flow narrow [--out <dir>]     # 560 / 640 wide, Windows and Mac, panel open and folded: the top bar fits
+    node tests/visual/shots.mjs --flow hit-areas [--out <dir>]  # every touched control's size vs the pre-plan build (HIT_BEFORE_RUN=1: measure only)
     node tests/visual/shots.mjs --only resume,throw,swap,notes,find --out <dir>   # dialogs opened by a click
     node tests/visual/shots.mjs --help                          # every option and surface id
 
