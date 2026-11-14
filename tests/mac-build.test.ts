@@ -168,8 +168,15 @@ describe('workflows', () => {
   const mac = yaml.load(readFileSync(join(ROOT, '.github', 'workflows', 'mac.yml'), 'utf8'))
   const ci = yaml.load(readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8'))
 
-  it('mac.yml: on a push to mac-port, and by hand with a version', () => {
-    expect(mac.on.push.branches).toEqual(['mac-port'])
+  it('mac.yml: on a push to main (and mac-port until it is merged) that touches the Mac build, and by hand with a version', () => {
+    expect(mac.on.push.branches).toEqual(['main', 'mac-port'])
+    expect(mac.on.push.paths).toEqual([
+      'electron/**', 'src/**', 'server/**', 'scripts/mac-build.mjs', 'scripts/smoke-mac.mjs',
+      'package.json', 'package-lock.json', '.github/workflows/mac.yml',
+    ])
+    // no other trigger (no pull_request, no tags: a release dispatches it on its tag)
+    expect(Object.keys(mac.on).sort()).toEqual(['push', 'workflow_dispatch'])
+    expect(mac.on.push.tags).toBeUndefined()
     expect(mac.on.workflow_dispatch.inputs.version).toBeTruthy()
   })
 

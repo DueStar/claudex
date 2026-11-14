@@ -3,12 +3,24 @@ name: Mac build
 # spawn.app for Apple Silicon (arm64) and Intel (x64): tests, the build, an ad-hoc
 # signature (no Apple Developer ID yet), one launch of the built app with
 # --smoke-test (scripts/smoke-mac.mjs: a shell session must print spawn-42, then a
-# picture of the window, widget and full-screen modes), and the zips as artifacts
-# (scripts/mac-build.mjs). Nothing is published here.
+# picture of the window, widget and full-screen modes, then work mode on and off),
+# and the zips as artifacts (scripts/mac-build.mjs). Nothing is published here.
+#
+# A push runs it only when it touches what the Mac build is made of (main; mac-port
+# until it is merged); a release runs it by hand on its tag (scripts/release-mac.mjs).
 
 on:
   push:
-    branches: [mac-port]
+    branches: [main, mac-port]
+    paths:
+      - 'electron/**'
+      - 'src/**'
+      - 'server/**'
+      - 'scripts/mac-build.mjs'
+      - 'scripts/smoke-mac.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mac.yml'
   workflow_dispatch:
     inputs:
       version:
