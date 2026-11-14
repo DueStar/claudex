@@ -12,16 +12,18 @@ Shots of the real built UI (`dist/`) with fixture sessions, to compare each rest
     node tests/visual/shots.mjs --flow text-size [--out <dir>]  # the text step: migration, keys, wheel, − 가 +, its menu, 설정
     node tests/visual/shots.mjs --only log --lang ja --check fit --out <dir>     # in English or Japanese (files end in -en / -ja)
     node tests/visual/shots.mjs --flow narrow [--out <dir>]     # 560 / 640 wide, Windows and Mac, panel open and folded: the top bar fits; a step change re-measures
-    node tests/visual/shots.mjs --flow hit-areas [--out <dir>]  # every touched control's size vs the pre-plan build (HIT_BEFORE_RUN=1: measure only)
+    node tests/visual/shots.mjs --flow hit-areas [--out <dir>]  # every touched control's size vs main's (0dbb6c9), each its own floor (HIT_BEFORE_RUN=1: measure only)
+    node tests/visual/shots.mjs --flow keyboard                 # the list's rows and the text-size menu from the keyboard; the rows' names for a screen reader
+    node tests/visual/shots.mjs --flow seg-hover                # a hovered option looks unlike the chosen one (도감, 박스, 랭킹, 설정)
     node tests/visual/shots.mjs --only resume,throw,swap,notes,find --out <dir>   # dialogs opened by a click
     node tests/visual/shots.mjs --help                          # every option and surface id
 
 - `fixture.mjs` — the four lab sessions + a shell (and a twelve-session set), usage 46 % / 82 %, the game,
   and five past sessions for 이어하기 (one open in the app, one running elsewhere). `snapshotPlain` is the same
   with nobody waiting: the `widget-plain` surface (no question card), compared with the lab's widget.
-- `fake-bridge.js` — `window.spawn` for the page; records `move/close/rename/create/send/write` in `window.__CALLS__`.
+- `fake-bridge.js` — `window.spawn` for the page (an update on offer with `shot.update`); records `move/close/rename/create/send/write` in `window.__CALLS__`.
 - The repo's server runs on port 3397 with `SPAWN_HOME=tests/visual/.home` (git-ignored) only to serve `dist/` and
   the Pokémon pictures (fetched once, cached there). The page's WebSocket is answered with the fixture, never the server.
-- playwright-core comes from `PLAYWRIGHT_CORE` (default: the spawn-promo copy); the browser is its Chromium, else Edge, else Chrome (`SHOTS_BROWSER` = an executable overrides).
+- playwright-core comes from `PLAYWRIGHT_CORE` (default: the spawn-promo copy in the user's Documents); the browser is its Chromium, else Edge, else Chrome (`SHOTS_BROWSER` = an executable overrides).
 - Pages run at 2026-11-14 14:30 Seoul time, `ko-KR`, with a seeded `Math.random`: a rerun gives the same pictures.
 - Exit code 0 only when every shot was written and every check passed. No Electron, nothing of the owner's is read.
