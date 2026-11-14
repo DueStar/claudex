@@ -194,6 +194,8 @@ const TWELVE = [...BASE, ...MORE]
 
 export const snapshot = snapshotOf(BASE)
 export const terminals = [...BASE.map(terminalOf), shellTerminal]
+/** The same four with nobody waiting (session 1 working): the widget opens no question card, as in the lab's widget */
+export const snapshotPlain = snapshotOf(BASE.map(s => s.mood === 'needs-you' ? { ...s, mood: 'working' } : s))
 export const snapshot12 = snapshotOf(TWELVE)
 export const terminals12 = [...TWELVE.map(terminalOf), shellTerminal]
 

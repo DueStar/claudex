@@ -34,10 +34,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-bento { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 .w-bento > .w-card { flex: none; }
 .w-bento > .w-party { flex: 1 1 auto; min-height: 0; }
+/* Widget mode: the cards float over the desktop (it shows between them), quiet and only a little round */
 .w-card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--r-l);
   padding: 10px 12px;
   min-width: 0;
   /* no drop shadow: the widget's window is transparent and ends at the cards, so a shadow was cut off square at its edge */
@@ -54,8 +55,11 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px 7px 12px;
-  border-radius: 14px;
+  /* the widget's header card: 42px tall (as a window: --head-h, widget-expanded.css) */
+  height: 42px;
+  box-sizing: border-box;
+  padding: 6px 8px 6px 12px;
+  border-radius: var(--r-l);
   -webkit-app-region: drag;
 }
 .w-brand { -webkit-app-region: no-drag; margin-right: auto; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; font-size: 17px; line-height: 1; letter-spacing: -0.02em; /* the wordmark: Uncut Sans 600, 17px, -2% */ color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -136,6 +140,9 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-row:hover { background: var(--hover); --row-bg: color-mix(in srgb, #fff 4.5%, var(--row-base)); }
 .w-row.chosen { background: var(--row-sel-bg); --row-bg: color-mix(in srgb, #fff 4%, var(--row-base)); }
 .w-row.chosen::before { content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+/* In a floating card (widget mode, the QA page) the card pads 12px, not 16: the bar sits at the
+   card's inner left edge, inside the list's scroll box */
+.widget.mode-widget .w-row.chosen::before, .qa-rows .w-row.chosen::before { left: -4px; }
 .w-row-name { font-size: var(--t-name); font-weight: var(--w-name); color: var(--ink-2); }
 .w-row.chosen .w-row-name { color: var(--ink); }
 .w-row-project { color: var(--ink-3); font-size: var(--t-meta); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

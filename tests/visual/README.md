@@ -14,7 +14,8 @@ Shots of the real built UI (`dist/`) with fixture sessions, to compare each rest
     node tests/visual/shots.mjs --help                          # every option and surface id
 
 - `fixture.mjs` — the four lab sessions + a shell (and a twelve-session set), usage 46 % / 82 %, the game,
-  and five past sessions for 이어하기 (one open in the app, one running elsewhere).
+  and five past sessions for 이어하기 (one open in the app, one running elsewhere). `snapshotPlain` is the same
+  with nobody waiting: the `widget-plain` surface (no question card), compared with the lab's widget.
 - `fake-bridge.js` — `window.spawn` for the page; records `move/close/rename/create/send/write` in `window.__CALLS__`.
 - The repo's server runs on port 3397 with `SPAWN_HOME=tests/visual/.home` (git-ignored) only to serve `dist/` and
   the Pokémon pictures (fetched once, cached there). The page's WebSocket is answered with the fixture, never the server.

@@ -76,8 +76,8 @@ Before: npx vite build   (the harness reads dist/, it never builds)
 Surfaces (each at 1440x900 and 1100x720 unless noted):
   session session-compact session-12 session-12-compact size-small size-xlarge dex box log rank settings rail
   resume throw swap notes find   (opened by a click: 이어하기, 던지기, 교체, 패치노트, the terminal's find bar)
-  widget widget-xlarge (340x820)   toast qa (full page, 1440 wide)   status-card (300x96)
-  -work: session-work session-compact-work rail-work widget-work settings-work
+  widget widget-plain widget-xlarge (340x820; widget-plain: nobody waiting, no question card, as the lab)   toast qa (full page, 1440 wide)   status-card (300x96)
+  -work: session-work session-compact-work rail-work widget-work widget-plain-work settings-work
   -mac:  session-mac rail-mac
 
 Files: <surface>-<W>x<H>.png (qa and toast: the PNG's real size, e.g. toast-1342x1630.png).
@@ -124,12 +124,14 @@ const SURFACES = {
   },
   rail: { view: 'terminal', local: { 'spawn-side-hidden': '1' } },
   widget: { mode: 'widget', sizes: [[340, 820]] },
+  // The lab's widget has no session waiting: no question card over the lower rows (the plain widget above keeps one)
+  'widget-plain': { mode: 'widget', sizes: [[340, 820]], plain: true },
   'widget-xlarge': { mode: 'widget', sizes: [[340, 820]], local: { 'spawn-text-size': 'xlarge', 'spawn-term-font': '17' } },
   toast: { page: 'qa', clip: '.qa-section', sizes: [[1440, 900]] },
   qa: { page: 'qa', fullPage: true, sizes: [[1440, 900]] },
   'status-card': { page: 'status-card', sizes: [[300, 96]] },
 }
-const WORK = ['session', 'session-compact', 'rail', 'widget', 'settings']
+const WORK = ['session', 'session-compact', 'rail', 'widget', 'widget-plain', 'settings']
 const MAC = ['session', 'rail']
 const SIZES = [[1440, 900], [1100, 720]]
 
@@ -149,7 +151,7 @@ const LAB_REF = {
   session: 's2-session-terminal.png', 'session-compact': 's2-chat-compact.png', 'session-12-compact': 's2-chat-compact.png', 'session-work': 's2-work-terminal.png',
   'size-small': 's2-size-smallest-terminal.png', 'size-xlarge': 's2-size-largest-terminal.png',
   dex: 'dex-calm2.png', box: 'box-calm2.png', log: 'log-calm2.png', rank: 'rank-calm2.png', settings: 'settings-calm2.png', toast: 'toast-calm2.png',
-  widget: 'widget-calm2.png', 'widget-work': 'widget-calm2-work.png', rail: 'rail-calm2.png', 'rail-work': 'rail-calm2-work.png',
+  widget: 'widget-calm2.png', 'widget-work': 'widget-calm2-work.png', 'widget-plain': 'widget-calm2.png', 'widget-plain-work': 'widget-calm2-work.png', rail: 'rail-calm2.png', 'rail-work': 'rail-calm2-work.png',
 }
 const LAB_1100 = new Set(['session', 'session-compact', 'session-12', 'session-12-compact', 'session-mac'])
 function labRef(surface, size) {
@@ -857,7 +859,7 @@ async function shoot(browser, s, [W, H], opts, report) {
     board: fixture.board, branches: fixture.branches, history: fixture.history,
     transcript: fixture.transcript, shellTranscript: fixture.shellTranscript,
   }
-  const snapshot = twelve ? fixture.snapshot12 : fixture.snapshot
+  const snapshot = twelve ? fixture.snapshot12 : s.plain ? fixture.snapshotPlain : fixture.snapshot
   const local = {
     'spawn-carry': JSON.stringify({ view: s.view ?? 'terminal', target: shot.terminals[0].sessionId }),
     'spawn-side-hidden': '0',

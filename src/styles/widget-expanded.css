@@ -30,7 +30,7 @@
   display: flex;
   gap: 2px;
   padding: 6px;
-  border-radius: 14px;
+  border-radius: var(--r-l);
 }
 .w-launch-main {
   flex: 1;
@@ -172,7 +172,7 @@
   position: fixed; inset: 0; z-index: 50;
   background: rgba(6, 7, 10, 0.55);
   display: flex; align-items: center; justify-content: center;
-  border-radius: 16px;
+  border-radius: var(--r-l);
 }
 .resume-modal {
   width: min(520px, 94vw); max-height: 80vh;
@@ -370,7 +370,7 @@
 
 /* ---------- 설정: categories on the left, items on the right; stacks in the narrow widget ----------
    (calm: the selection a neutral grey, switches green when on, buttons hairlines; nothing yellow) */
-.set-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: 16px; }
+.set-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: var(--r-l); }
 .set-modal {
   width: min(760px, 100%); height: min(560px, 100%); display: flex; overflow: hidden;
   background: var(--card); border: 1px solid var(--line); border-radius: var(--r-l); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
@@ -440,49 +440,60 @@
 .set-foot { margin-top: 12px; line-height: 1.5; }
 /* The left panel folded (window / fullscreen): a slim column of the essentials, the terminal takes the rest */
 .widget.expanded.side-hidden .w-side { display: none; }
+/* (calm: the panel's own grey, 36px buttons, the chosen session marked by the yellow bar at the
+   rail's left edge, as in the open list) */
 .w-rail {
   flex: 0 0 56px; width: 56px; box-sizing: border-box; height: 100%;
-  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 0 10px;
-  background: #0e1015; border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 0 10px;
+  background: var(--side-bg); border-right: 1px solid var(--line);
   -webkit-app-region: no-drag; user-select: none;
 }
 .w-rail-btn {
   position: relative; flex: none; display: grid; place-items: center;
-  width: 38px; height: 38px; border-radius: 10px; border: 0; background: transparent;
+  width: 36px; height: 36px; border-radius: var(--r-m); border: 0; background: transparent;
   color: var(--ink-3); cursor: pointer; font: inherit;
 }
-.w-rail-btn:hover { background: var(--card-2); color: var(--ink); }
+.w-rail-btn:hover { background: var(--hover); color: var(--ink); }
 .w-rail-btn.full { opacity: 0.45; }
 .w-rail-brand { width: 56px; height: var(--head-h, 46px); border-radius: 0; margin-bottom: 2px; }
 .w-rail-brand:hover { background: transparent; }
 .w-rail-brand .w-rail-conn { right: calc(50% - 14px); bottom: calc(50% - 13px); }
-.w-rail-conn { position: absolute; right: 5px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px #0e1015; }
+.w-rail-conn { position: absolute; right: 5px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px var(--side-bg); }
 .w-rail-conn.off { background: var(--danger); }
-.w-rail-update { width: 30px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; }
+/* An update: a hairline mark, as the panel's update button */
+.w-rail-update { width: 30px; height: 22px; box-sizing: border-box; border-radius: var(--r-s); border: 1px solid var(--line); background: none; color: var(--ink); font-weight: var(--w-name); font-size: 13px; }
+.w-rail-update:hover { border-color: var(--line-hover); }
 /* Full width, like the open panel's dividers */
 .w-rail-sep { flex: none; align-self: stretch; height: 1px; margin: 4px 0; background: var(--line); }
 /* Open sessions: the Pokémon with its status dot; many of them scroll inside the column */
-.w-rail-sessions { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; overflow-y: auto; overflow-x: hidden; }
+/* (the full rail width, so the chosen one's bar at the rail's edge is not cut off) */
+.w-rail-sessions { flex: 1 1 auto; align-self: stretch; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 2px 0; overflow-y: auto; overflow-x: hidden; }
 .w-rail-sessions::-webkit-scrollbar { width: 0; }
-.w-rail-session img { width: 30px; height: 30px; object-fit: contain; }
-.w-rail-session.on { background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line); }
-.w-rail-shell { font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
+.w-rail-session img { width: 26px; height: 26px; object-fit: contain; }
+.w-rail-session.on { background: rgba(255, 255, 255, 0.05); }
+.w-rail-session.on::before { content: ''; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+/* A shell: the prompt mark in a hairline box, the picture's size */
+.w-rail-shell {
+  display: inline-grid; place-items: center; width: 26px; height: 26px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-s);
+  font: 500 10px/1 'Monaspace Neon Var', Consolas, monospace; font-weight: var(--w-mono); color: var(--ink-3);
+}
 /* A new shell (folded): the prompt mark, as the list header's >_ */
 .w-rail-newshell { font: 500 11px/1 'Monaspace Neon Var', Consolas, monospace; }
-.w-rail-dot { position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px #0e1015; }
+.w-rail-dot { position: absolute; right: 4px; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--side-bg); }
 .w-rail-session.mood-working .w-rail-dot { background: var(--green); }
 .w-rail-session.mood-needs-you .w-rail-dot { background: var(--amber); }
 .w-rail-session.mood-error .w-rail-dot { background: var(--danger); }
 .w-rail-session.mood-ended { opacity: 0.45; }
 /* Usage: two thin bars filling from the bottom */
 .w-rail-usage { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; cursor: default; }
-.w-rail-bars { display: flex; gap: 4px; align-items: flex-end; height: 30px; }
-.w-rail-bar { position: relative; width: 4px; height: 100%; border-radius: 3px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
-.w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--bar); }
+.w-rail-bars { display: flex; gap: 4px; align-items: flex-end; height: 26px; }
+.w-rail-bar { position: relative; width: 3px; height: 100%; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.w-rail-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 2px; background: var(--bar); }
 .w-rail-bar.warn i { background: var(--bar-warn); }
 .w-rail-bar.danger i { background: var(--bar-danger); }
 .w-rail-account .w-account { width: 26px; height: 26px; pointer-events: none; }
-.w-rail-signin { width: 46px; height: 28px; font-size: 11px; font-weight: 600; }
+.w-rail-signin { width: 46px; height: 28px; font-size: var(--t-meta); font-weight: var(--w-name); }
 .w-side-toggle { flex: none; -webkit-app-region: no-drag; }
 /* Left panel rows reorder by dragging (useDragOrder): the row follows the pointer, the others slide */
 .w-row { position: relative; user-select: none; touch-action: none; }
@@ -493,7 +504,7 @@
    Pokédex card and the party are not drawn at all; this only fills their places ---------- */
 /* A plain session glyph in the Pokémon's box, the same size, so nothing moves */
 .w-row-glyph { display: inline-grid; place-items: center; box-sizing: border-box; color: var(--ink-3); border: 1px solid var(--line); border-radius: var(--r-s); background: none; }
-.w-rail-glyph { display: grid; place-items: center; width: 30px; height: 30px; color: var(--ink-3); }
+.w-rail-glyph { display: grid; place-items: center; width: 26px; height: 26px; color: var(--ink-3); }
 .w-rail-session.on .w-rail-glyph { color: var(--ink-2); }
 /* The header without the logo: the profile sits where the logo was (on Windows; on a Mac the
    traffic lights hold that corner), the connection dot after it, the rest stays on the right.
