@@ -55,7 +55,8 @@ Before: npx vite build   (the harness reads dist/, it never builds)
                    기록 / 랭킹 (numbers, filters, toolbars, list rows), ends past its parent
   --check work     in every -work shot: no img[src*="/sprites/pokemon"], no Pokémon word in
                    the visible text, titles or aria-labels, and the first .w-row has the same
-                   left and width as in the same surface without 업무 모드 (shot too if needed)
+                   left and width as in the same surface without 업무 모드 (shot too if needed);
+                   folded, every rail item keeps its place and size (the ball's slot stays, empty)
                    (both checks may be given: --check fit --check work, or --check fit,work;
                    --check work refuses a run with no -work surface in it)
   --flow <name>    an interaction flow (exits non-zero when it finds a problem):
@@ -943,13 +944,34 @@ async function workProblems(page) {
   }, GAME.source)
 }
 
+/**
+ * Where things sit, to compare a -work shot with its plain twin: the first row's left and width,
+ * and with the panel folded every rail item's box (the first slot is the ball, or the empty slot
+ * kept for it in 업무 모드), the open sessions one by one
+ */
 async function firstRowBox(page) {
   return page.evaluate(() => {
     const row = document.querySelector('.w-row')
-    if (!row) return null
-    const r = row.getBoundingClientRect()
-    return { left: r.left, width: r.width }
+    const r = row?.getBoundingClientRect()
+    const rail = document.querySelector('.w-rail')
+    const items = rail ? [...rail.children].flatMap(el => el.classList.contains('w-rail-sessions') ? [el, ...el.children] : [el]) : []
+    return {
+      left: r?.left ?? null, width: r?.width ?? null,
+      rail: rail ? items.map(el => { const b = el.getBoundingClientRect(); return { name: el.className.split(' ').filter(c => c !== 'w-rail-btn' && !c.startsWith('mood-')).join('.') || el.tagName, top: b.top, left: b.left, w: b.width, h: b.height } }) : null,
+    }
   })
+}
+
+/** Rail items that moved or changed size between the plain shot and its -work twin (the first slot's content may differ, not its box) */
+function railMoves(plain, work) {
+  if (!plain || !work) return []
+  if (plain.length !== work.length) return [`the rail has ${work.length} items in 업무 모드, ${plain.length} without`]
+  const out = []
+  plain.forEach((a, i) => {
+    const b = work[i]
+    if (['top', 'left', 'w', 'h'].some(k => Math.abs(a[k] - b[k]) > 0.5)) out.push(`rail item ${i} (${a.name} → ${b.name}) moved: ${a.left},${a.top} ${a.w}×${a.h} → ${b.left},${b.top} ${b.w}×${b.h}`)
+  })
+  return out
 }
 
 async function shoot(browser, s, [W, H], opts, report) {
@@ -1199,10 +1221,13 @@ async function main() {
     for (const r of report.filter(x => parseId(x.id)?.work)) {
       const twin = report.find(x => x.id === r.id.replace(/-work(-mac)?$/, '$1') && x.size === r.size)
       if (!r.row || !twin?.row) continue
+      const moved = railMoves(twin.row.rail, r.row.rail).map(m => `work: ${m}`)
       if (Math.abs(r.row.left - twin.row.left) > 0.5 || Math.abs(r.row.width - twin.row.width) > 0.5) {
-        const p = `work: the first row moved: left ${twin.row.left} → ${r.row.left}, width ${twin.row.width} → ${r.row.width}`
-        r.problems.push(p)
-        console.log(`BAD ${r.id} ${r.size}\n      ${p}`)
+        moved.unshift(`work: the first row moved: left ${twin.row.left} → ${r.row.left}, width ${twin.row.width} → ${r.row.width}`)
+      }
+      if (moved.length) {
+        r.problems.push(...moved)
+        console.log(`BAD ${r.id} ${r.size}\n      ${moved.join('\n      ')}`)
       }
     }
   }

@@ -459,6 +459,8 @@
 .w-rail-btn.full { opacity: 0.45; }
 .w-rail-brand { width: 56px; height: var(--head-h, 46px); border-radius: 0; margin-bottom: 2px; }
 .w-rail-brand:hover { background: transparent; }
+/* 업무 모드: the ball's slot, kept empty */
+.w-rail-blank { cursor: default; pointer-events: none; }
 .w-rail-brand .w-rail-conn { right: calc(50% - 14px); bottom: calc(50% - 13px); }
 .w-rail-conn { position: absolute; right: 5px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px var(--side-bg); }
 .w-rail-conn.off { background: var(--danger); }
@@ -512,6 +514,4 @@
    traffic lights hold that corner), the connection dot after it, the rest stays on the right.
    The empty middle is still the window's drag region */
 .work-mode .w-head .w-conn { margin-right: auto; }
-/* The folded rail without the ball: the unfold button takes the ball's slot, the tab bar's height */
-.work-mode .w-rail > .w-side-toggle:first-child { width: 56px; height: var(--head-h, 46px); border-radius: 0; margin-bottom: 2px; }
-.work-mode .w-rail > .w-side-toggle:first-child:hover { background: transparent; color: var(--ink); }
+/* (the folded rail without the ball keeps its slot empty: .w-rail-blank, so nothing below moves) */

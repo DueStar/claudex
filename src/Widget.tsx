@@ -763,8 +763,8 @@ const Widget: React.FC = () => {
           folder, resume, the open sessions, usage, settings) */}
       {expanded && sideHidden && (
         <nav className="w-rail" aria-label={t('왼쪽 패널 (접힘)')}>
-          {/* 업무 모드: no ball; the unfold button takes the top slot (CSS) */}
-          {!workMode && (
+          {/* 업무 모드: no ball, its slot kept empty (as the lab), so nothing below moves when the mode toggles */}
+          {workMode ? <span className="w-rail-btn w-rail-brand w-rail-blank" aria-hidden="true" /> : (
             <button className="w-rail-btn w-rail-brand" onClick={() => setNotesOpen(true)} title={t('spawn {version} · 눌러서 패치노트 보기', { version: update?.current ?? '' })}>
               <PokeBall size={20} />
               <span className={`w-rail-conn${connected ? '' : ' off'}`} />
