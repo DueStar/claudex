@@ -125,7 +125,7 @@ const TodayLog: React.FC = () => {
               </span>
               {(e.kind === 'catch' || e.kind === 'flee') && (
                 <span className="today-sub">
-                  {e.tier && <span className={`w-toast-tier tier-${e.tier}`}>{TIER_LABEL[e.tier]}</span>}
+                  {e.tier && <span className={`w-toast-tier tier-${e.tier}`}><i className="tdot" aria-hidden="true" />{TIER_LABEL[e.tier]}</span>}
                   {e.kind === 'catch' && e.ball && <span className="today-ball"><PokeBall ball={e.ball} size={13} />{ballName(e.ball)}</span>}
                   <span>{placeText(e.place)}</span>
                   {e.via && <span>· {sourceText(e.via)}</span>}

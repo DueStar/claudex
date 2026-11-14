@@ -114,6 +114,10 @@ describe('tokens.css', () => {
     expect(chip![1]).toMatch(/<i className="tdot" aria-hidden="true" \/>\s*\{TIER_LABEL\[k\]\}/)
     // The detail card's tier: the dot and the word, too
     expect(dex).toMatch(/className=\{`dex-tier tier-[^`]*`\}><i className="tdot" aria-hidden="true" \/>\{TIER_LABEL\[/)
+    // 박스's card and 기록's lines name the tier the same way
+    for (const f of ['BoxView.tsx', 'TodayLog.tsx']) {
+      expect(read('src', 'components', f), f).toMatch(/className=\{`w-toast-tier tier-[^`]*`\}><i className="tdot" aria-hidden="true" \/>\{TIER_LABEL\[/)
+    }
   })
 
   it('no other stylesheet defines the tokens or the tier colours', () => {

@@ -213,7 +213,7 @@ const BoxView: React.FC<{ resting?: Set<string> }> = ({ resting }) => {
               <div className="dex-card-name">
                 <img className="dex-card-icon" src={iconUrl(picked.dex)} alt="" />
                 <b>{picked.shiny ? '✦ ' : ''}{nameOf(p)}{genderMark(picked.gender)}</b>
-                <span className={`w-toast-tier tier-${tierOf(picked.dex)}`}>{TIER_LABEL[tierOf(picked.dex)]}</span>
+                <span className={`w-toast-tier tier-${tierOf(picked.dex)}`}><i className="tdot" aria-hidden="true" />{TIER_LABEL[tierOf(picked.dex)]}</span>
               </div>
               <div className="dex-facts">
                 <div><span>{t('레벨')}</span><b>Lv.{levelOf(picked)}{levelOf(picked) > (picked.metLevel ?? 5) ? <small> · {t('함께 +{n}', { n: levelOf(picked) - (picked.metLevel ?? 5) })}</small> : null}</b></div>
