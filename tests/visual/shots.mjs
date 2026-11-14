@@ -368,7 +368,7 @@ const FLOWS = {
     const problems = []
     let app
     try {
-      app = await openApp(browser, { smoke: true })
+      app = await openApp(browser, { smoke: true, commits: true })
       const { page, shot } = app
       const bad = m => problems.push(m)
       const id = shot.terminals[0].id
@@ -383,16 +383,41 @@ const FLOWS = {
       await sleep(400)
       const cols0 = await termCols(page, id)
       if (!cols0) bad('no terminal metrics (spawnTermMetrics)')
-      const drag = async (toX, check) => {
+      const commits = () => page.evaluate(() => window.__COMMITS__ ?? null)
+      const drag = async (toX, check, { cancel = false } = {}) => {
         const b = await handle.boundingBox()
         const x = b.x + b.width / 2, y = b.y + 300
         await page.mouse.move(x, y)
         await page.mouse.down()
+        await sleep(50)
+        const c0 = await commits()
         for (let k = 1; k <= 8; k++) await page.mouse.move(x + ((toX - x) * k) / 8, y)
+        // The page is not drawn again for each move: the edge sets the width itself and React hears once, on release
+        const during = (await commits()) - c0
+        if (c0 !== null && during > 2) bad(`dragging re-rendered the app ${during} times for 8 moves`)
         if (check) await check()
+        // A cancelled drag (the system took the pointer): the panel goes back to the stored width
+        if (cancel) await handle.evaluate(el => el.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1, bubbles: true })))
         await page.mouse.up()
         await sleep(400)
       }
+      await drag(350, null, { cancel: true })
+      if (await page.locator('.widget.resizing').count()) bad('.widget.resizing stayed after a cancelled drag')
+      if (!near(await width(), 300) || await stored() !== null) bad(`a cancelled drag: the panel is ${await width()}px, stored ${await stored()} (want 300, none: the screen as stored)`)
+      // Focused (keyboard), the edge's line is visible: 3:1 against the panel beside it
+      await handle.focus()
+      const focusLine = await page.evaluate(() => {
+        const lum = c => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+        const line = getComputedStyle(document.querySelector('.w-side-resize'), '::after').backgroundColor
+        const side = getComputedStyle(document.querySelector('.w-side')).backgroundColor
+        const a = Number((line.match(/[\d.]+/g) ?? [])[3] ?? 1)
+        const [l, s] = [line, side].map(c => c.match(/[\d.]+/g).slice(0, 3).map(Number))
+        const mixed = `rgb(${l.map((v, i) => Math.round(v * a + s[i] * (1 - a))).join(',')})`
+        const x = lum(mixed), y = lum(side)
+        return { line, ratio: (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) }
+      })
+      if (focusLine.ratio < 3) bad(`the focused edge's line (${focusLine.line}) is ${focusLine.ratio.toFixed(2)}:1 on the panel, under 3:1`)
+      await handle.blur()
       const before = (await calls(page)).length
       await drag(380, async () => {
         if (!(await page.locator('.widget.resizing').count())) bad('no .widget.resizing while dragging')
@@ -766,7 +791,7 @@ async function renameOnce(page, field, terminalId, value, bad) {
 const flowPageErrors = []
 
 /** The app with the fixture in a page of its own, for a flow (window mode) */
-async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false, mode = 'window' } = {}) {
+async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false, mode = 'window', commits = false } = {}) {
   const shot = {
     mode, workMode: work, version: VERSION,
     terminals: twelve ? fixture.terminals12 : fixture.terminals,
@@ -789,6 +814,18 @@ async function openApp(browser, { local = {}, twelve = false, size = [1440, 900]
     // A page error during a flow fails the flow (main reads this list after each one)
     page.on('pageerror', err => flowPageErrors.push(`page error: ${String(err.message).split('\n')[0]}`))
     await page.addInitScript(pageSetup, { shot, local: all, mac, origin: BASE })
+    // commits: React's commits counted in window.__COMMITS__ (a stand-in for the DevTools hook,
+    // which React calls on every commit, production build included)
+    if (commits) {
+      await page.addInitScript(() => {
+        window.__COMMITS__ = 0
+        window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+          isDisabled: false, supportsFiber: true, renderers: new Map(),
+          inject() { return 1 }, checkDCE() {},
+          onCommitFiberRoot() { window.__COMMITS__++ }, onCommitFiberUnmount() {}, onPostCommitFiberRoot() {}, onScheduleFiberRoot() {},
+        }
+      })
+    }
     await page.addInitScript({ path: join(HERE, 'fake-bridge.js') })
     await page.routeWebSocket(/\/ws$/, ws => {
       const send = () => ws.send(JSON.stringify(snapshot))

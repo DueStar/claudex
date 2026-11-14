@@ -172,25 +172,42 @@ const ResizeGrip: React.FC = () => {
  * The left panel's right edge (window and full screen): drag it for a width of 240–420px,
  * remembered (src/sideWidth.ts); double-click or Home for the default; ← / → 16px at a time.
  * The terminal keeps its size while the edge moves and fits once it rests (TerminalPanel).
+ * While dragged the edge sets the app's --side-w itself (no re-render of the whole app per move);
+ * the width is committed, and remembered, on release. A cancelled drag (the system took the
+ * pointer) goes back to the width it started from, the one stored.
  */
 const SideResize: React.FC<{ width: number; min: number; max: number; onWidth: (px: number | null, save: boolean) => void; onDragging: (on: boolean) => void }> = ({ width, min, max, onWidth, onDragging }) => {
   const left = useRef<number | null>(null)
+  const app = useRef<HTMLElement | null>(null)
   const at = (e: React.PointerEvent) => e.clientX - (left.current ?? 0)
+  const show = (px: number) => app.current?.style.setProperty('--side-w', `${px}px`)
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
     left.current = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().left
+    app.current = e.currentTarget.closest('.widget')
     onDragging(true)
   }
-  const onMove = (e: React.PointerEvent) => { if (left.current !== null) onWidth(at(e), false) }
+  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (left.current === null) return
+    const w = clampSideWidth(at(e), window.innerWidth, min)
+    show(w)
+    e.currentTarget.setAttribute('aria-valuenow', String(w))
+  }
   const onUp = (e: React.PointerEvent) => {
     if (left.current === null) return
     onWidth(at(e), true)
     left.current = null
     onDragging(false)
   }
-  const onCancel = () => { if (left.current === null) return; left.current = null; onDragging(false) }
+  const onCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (left.current === null) return
+    left.current = null
+    show(width)
+    e.currentTarget.setAttribute('aria-valuenow', String(width))
+    onDragging(false)
+  }
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); onWidth(width + (e.key === 'ArrowRight' ? 16 : -16), true) }
     else if (e.key === 'Home') { e.preventDefault(); onWidth(null, true) }
