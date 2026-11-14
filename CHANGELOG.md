@@ -2,6 +2,15 @@
 
 ## spawn
 
+### Unreleased
+- 앱 전체가 차분한 모습으로 바뀌었어요. 글자가 한 단계 작아지고, 노란색은 지금 고른 세션·칸과 보내기 버튼에만 남았어요. 상태는 작은 점과 글자로 보여요. 포켓몬, 등급 색, 알림 카드의 NEW는 그대로예요.
+- 첫 탭 이름이 "세션"이 됐어요. 위쪽 세션 탭 줄이 없어지고, 세션을 고르고 이름을 바꾸고 닫는 일은 왼쪽 목록에서 해요. 터미널 위에는 지금 세션의 이름이 보여요.
+- 왼쪽 세션 목록을 상세(기본)와 간략(한 줄씩) 중에서 골라 볼 수 있어요.
+- 왼쪽 패널 오른쪽 끝을 끌어서 너비를 바꿀 수 있어요. 두 번 누르면 원래 너비로 돌아와요.
+- 글자 크기 조절이 하나(− 가 +)로 합쳐졌어요. 목록·패널·터미널이 함께 바뀌어요. Ctrl+= / Ctrl+- / Ctrl+0, Ctrl+휠, 설정 › 앱에서도 바꿀 수 있어요. 터미널 글자를 아주 크게 해 두었다면 '아주 크게'로 맞춰져요.
+- 사용량 막대는 평소엔 회색이고, 80%부터 주황, 90%부터 빨강이에요.
+- 패널을 접었을 때 보이는 세로 줄에 새 셸 버튼(>_)이 생겼어요. 패널을 접은 동안에는 세션 순서를 끌어서 바꿀 수 없어요. 펼쳐서 바꿔 주세요.
+
 ### 1.3.52
 - 업무 모드가 생겼어요. 설정 › 앱에서 켜거나 Ctrl+Shift+H를 누르면 포켓몬 그림과 이름, 로고, 도감·박스 탭, 포획 알림이 모두 숨겨져요. 걸음과 포획은 뒤에서 계속되고, 끄면 그대로 돌아와요.
 - 주간 사용량이 다시 차는 때를 날짜만 보여줘요. 그날이 되면 시간만 보여요. 전체 날짜와 시간은 마우스를 올리면 나와요.
@@ -354,6 +363,15 @@
 
 ## spawn (English)
 
+### Unreleased
+- The whole app has a calmer look. Text is a step smaller, and yellow is left only on the chosen session or cell and the send button. Status shows as a small dot and a word. Pokémon, tier colours and the NEW on catch cards are as they were.
+- The first tab is now called "Sessions". The row of session tabs at the top is gone: choose, rename and close sessions in the list on the left. The open session's name sits above the terminal.
+- The session list on the left can be Detailed (the default) or Compact (one line each).
+- Drag the left panel's right edge to change its width. Double-click it for the default width.
+- One text size control (− 가 +) for everything: the list, the panel and the terminal change together. Ctrl+= / Ctrl+- / Ctrl+0, Ctrl+wheel and Settings › App change it too. A very large terminal text size becomes Extra large.
+- Usage bars are grey, amber from 80 % and red from 90 %.
+- With the panel folded, the narrow strip has a new shell button (>_). While the panel is folded, sessions can't be dragged into a new order; unfold it to reorder.
+
 ### 1.3.52
 - Work mode: turn it on under Settings › App or press Ctrl+Shift+H, and the Pokémon pictures and names, the logo, the Pokédex and box tabs and the catch notifications are all hidden. Steps and catches go on underneath; turn it off and everything is back.
 - The weekly limit now shows only the date it resets, and on that day only the time. Hover for the full date and time.
@@ -569,6 +587,15 @@
 - Data: see your cloud sync status and export your Pokédex as a backup file.
 
 ## spawn (日本語)
+
+### Unreleased
+- アプリ全体が落ち着いた見た目になりました。文字が一段小さくなり、黄色は選んでいるセッション・マスと送信ボタンだけに残りました。状態は小さな点と文字で表示します。ポケモン、ランクの色、ゲット通知の NEW はそのままです。
+- 最初のタブの名前が「セッション」になりました。上のセッションタブの列はなくなり、セッションを選ぶ・名前を変える・閉じるのは左のリストで行います。ターミナルの上には今のセッションの名前が表示されます。
+- 左のセッションリストを詳細(標準)とコンパクト(1行ずつ)から選べます。
+- 左パネルの右端をドラッグすると幅を変えられます。ダブルクリックで元の幅に戻ります。
+- 文字サイズの調整がひとつ(− 가 +)にまとまりました。リスト・パネル・ターミナルが一緒に変わります。Ctrl+= / Ctrl+- / Ctrl+0、Ctrl+ホイール、設定 › アプリでも変えられます。ターミナルの文字をとても大きくしていた場合は「特大」になります。
+- 使用量のバーは普段は灰色で、80%からオレンジ、90%から赤になります。
+- パネルを畳んだときの縦の列に新しいシェルボタン(>_)ができました。パネルを畳んでいる間はセッションの順番をドラッグで変えられません。広げてから変えてください。
 
 ### 1.3.52
 - 仕事モードができました。設定 › アプリでオンにするか Ctrl+Shift+H を押すと、ポケモンの絵と名前、ロゴ、図鑑・ボックスのタブ、ゲットの通知がすべて隠れます。歩数やゲットは裏で続き、オフにすると元に戻ります。
