@@ -7,7 +7,7 @@
  * transcript, shellTranscript, version } (set by an earlier init script) and
  * answers every bridge call from it. Nothing touches the network or a disk; no
  * pty. Calls that would change something (terminals.move / close / rename /
- * create / send / write) do nothing but are recorded, in order, in
+ * create / send / write / resize) do nothing but are recorded, in order, in
  * window.__CALLS__ as { fn, args } so a harness flow can assert on them.
  */
 (() => {
@@ -47,7 +47,7 @@
         return Promise.resolve({ data: (t && t.tool === 'shell' ? shot.shellTranscript : shot.transcript) || '', seq: 1 })
       },
       write: (id, data) => record('write', [id, data]),
-      resize: noop,
+      resize: (id, cols, rows) => record('resize', [id, cols, rows]),
       send: (id, text) => { record('send', [id, text]); return ok() },
       close: (id) => { record('close', [id]); return Promise.resolve() },
       rename: (id, title) => { record('rename', [id, title]); return Promise.resolve(true) },

@@ -10,7 +10,19 @@
   display: flex;
   flex-direction: column;
 }
-.widget.expanded .w-side { flex: 0 0 328px; width: 328px; }
+.widget.expanded .w-side { flex: 0 0 var(--side-w); width: var(--side-w); }
+/* Its right edge drags its width (240–420, remembered: src/sideWidth.ts): a 7px strip over the
+   border, its 1px centre line showing only on hover, focus and while dragging */
+.w-side-resize {
+  position: absolute; top: 0; bottom: 0; right: -4px; width: 7px; z-index: 6;
+  cursor: col-resize; touch-action: none; -webkit-app-region: no-drag; outline: none;
+}
+.w-side-resize::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px;
+  background: transparent;
+}
+.w-side-resize:hover::after, .w-side-resize:focus-visible::after, .widget.resizing .w-side-resize::after { background: rgba(255, 255, 255, 0.3); }
+.widget.resizing, .widget.resizing * { cursor: col-resize !important; user-select: none !important; }
 
 /* ---------- Launcher: a plain text row (new session), then folder and resume as icons ---------- */
 .w-launch {
@@ -229,7 +241,6 @@
   border-radius: 0;
   height: 100%;
 }
-.widget.mode-fullscreen .w-side { flex-basis: 360px; width: 360px; }
 .w-mode-switch { -webkit-app-region: no-drag; flex-shrink: 0; }
 .w-mode-switch button { font-size: 11px; }
 

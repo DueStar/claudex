@@ -39,7 +39,7 @@ const GAME = /포켓몬|몬스터볼|도감|박스|잡았|포획|파티|트레�
 const USAGE = `
 Screenshots of the built UI (dist/) with fixture sessions.
 
-  node tests/visual/shots.mjs [--out <dir>] [--only a,b] [--size WxH] [--check fit|work] [--flow <name>]
+  node tests/visual/shots.mjs [--out <dir>] [--only a,b] [--size WxH] [--side <px>] [--check fit|work] [--flow <name>]
   node tests/visual/shots.mjs --sheet <surface>[,<surface>] [--size WxH] --out <dir>
 
 Before: npx vite build   (the harness reads dist/, it never builds)
@@ -47,6 +47,7 @@ Before: npx vite build   (the harness reads dist/, it never builds)
   --out <dir>      where the PNGs go (default tests/visual/.home/shots). Made if missing.
   --only a,b       only these surface ids (default: all of them, below)
   --size WxH       only this size (1440x900 or 1100x720); with --sheet, the size to compare
+  --side <px>      the left panel at this width (seeds spawn-side-w); the files end in -side<px>
   --check fit      in every shot page: no sideways page scroll, and no child of
                    .w-term-tabs / .w-list-head / .w-sess-bar / .w-row ends past its parent
   --check work     in every -work shot: no img[src*="/sprites/pokemon"], no Pokémon word in
@@ -58,6 +59,9 @@ Before: npx vite build   (the harness reads dist/, it never builds)
                    tabs-gone  close / rename / drag in 상세, 간략 and folded, the list header's
                               >_ + 간략 상세, the rail's >_, switching by rail and Ctrl+Tab, the
                               chosen row in sight among twelve, 업무 모드's header
+                   side-resize  the left panel's edge: drag (clamped 240–420, remembered, the
+                              terminal refits once), double-click and Home reset, ← / →,
+                              a narrow window, hidden when folded and in widget mode
   --sheet <s>      no shots: writes <out>/sheet-<s>[-WxH].png = before (<out>/../00-before/),
                    the lab reference, after (<out>), side by side or stacked
   --help           this
@@ -136,7 +140,7 @@ function labRef(surface, size) {
 // ---------------------------------------------------------------- arguments
 
 function parseArgs(argv) {
-  const o = { out: join(HOME, 'shots'), only: null, size: null, checks: new Set(), flows: [], sheets: [], help: false }
+  const o = { out: join(HOME, 'shots'), only: null, size: null, side: null, checks: new Set(), flows: [], sheets: [], help: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const val = () => { const v = argv[++i]; if (v === undefined || v.startsWith('--')) fail(`${a} needs a value`); return v }
@@ -144,6 +148,7 @@ function parseArgs(argv) {
     else if (a === '--out') o.out = resolve(val())
     else if (a === '--only') o.only = val().split(',').map(s => s.trim()).filter(Boolean)
     else if (a === '--size') o.size = val()
+    else if (a === '--side') o.side = val()
     else if (a === '--check') for (const c of val().split(',')) o.checks.add(c.trim())
     else if (a === '--flow') o.flows.push(val())
     else if (a === '--sheet') o.sheets.push(...val().split(',').map(s => s.trim()).filter(Boolean))
@@ -151,6 +156,7 @@ function parseArgs(argv) {
   }
   for (const c of o.checks) if (c !== 'fit' && c !== 'work') fail(`unknown check "${c}": fit or work`)
   if (o.size && !/^\d+x\d+$/.test(o.size)) fail(`--size wants WxH, e.g. 1100x720`)
+  if (o.side !== null && !/^\d+$/.test(o.side)) fail(`--side wants a width in px, e.g. 240`)
   for (const id of [...(o.only ?? []), ...o.sheets]) if (!parseId(id)) fail(`unknown surface "${id}". Surfaces: ${ALL_IDS.join(' ')}`)
   for (const f of o.flows) if (!FLOWS[f]) fail(`unknown flow "${f}". Flows: ${Object.keys(FLOWS).join(' ')}`)
   return o
@@ -279,10 +285,108 @@ const FLOWS = {
     })
     return problems
   },
+
+  /**
+   * The left panel's right edge (calm-style plan, Task 6): 300px at first, dragged to a width
+   * clamped to 240–420 and remembered (spawn-side-w), the terminal fitted again once it rests
+   * (fewer columns, and the session told the new size); double-click and Home go back to 300
+   * and forget it; ← / → move 16px; a window too narrow keeps the terminal 320px; no edge
+   * when the panel is folded or in widget mode. The centre line shows only while dragged or hovered.
+   */
+  'side-resize': async ({ browser }) => {
+    const problems = []
+    let app
+    try {
+      app = await openApp(browser, { smoke: true })
+      const { page, shot } = app
+      const bad = m => problems.push(m)
+      const id = shot.terminals[0].id
+      const width = () => page.evaluate(() => document.querySelector('.w-side').getBoundingClientRect().width)
+      const stored = () => page.evaluate(() => localStorage.getItem('spawn-side-w'))
+      const line = () => page.evaluate(() => getComputedStyle(document.querySelector('.w-side-resize'), '::after').backgroundColor)
+      const near = (a, b) => Math.abs(a - b) <= 1
+      const handle = page.locator('.w-side-resize')
+      if ((await handle.count()) !== 1) { bad(`${await handle.count()} resize edge(s)`); return problems }
+      if (!near(await width(), 300)) bad(`the panel starts at ${await width()}px, not 300`)
+      if ((await line()) !== 'rgba(0, 0, 0, 0)') bad(`the edge's line shows at rest (${await line()})`)
+      await sleep(400)
+      const cols0 = await termCols(page, id)
+      if (!cols0) bad('no terminal metrics (spawnTermMetrics)')
+      const drag = async (toX, check) => {
+        const b = await handle.boundingBox()
+        const x = b.x + b.width / 2, y = b.y + 300
+        await page.mouse.move(x, y)
+        await page.mouse.down()
+        for (let k = 1; k <= 8; k++) await page.mouse.move(x + ((toX - x) * k) / 8, y)
+        if (check) await check()
+        await page.mouse.up()
+        await sleep(400)
+      }
+      const before = (await calls(page)).length
+      await drag(380, async () => {
+        if (!(await page.locator('.widget.resizing').count())) bad('no .widget.resizing while dragging')
+        if ((await line()) === 'rgba(0, 0, 0, 0)') bad("the edge's line is hidden while dragging")
+        if (!near(await width(), 380)) bad(`while dragging to 380 the panel is ${await width()}px`)
+      })
+      if (await page.locator('.widget.resizing').count()) bad('.widget.resizing stayed after the drag')
+      if (!near(await width(), 380)) bad(`dragged to 380: the panel is ${await width()}px`)
+      if (await stored() !== '380') bad(`dragged to 380: spawn-side-w is ${await stored()}`)
+      const cols1 = await termCols(page, id)
+      if (!(cols1 < cols0)) bad(`the terminal did not fit again: ${cols0} → ${cols1} columns`)
+      const sizes = (await calls(page)).slice(before).filter(c => c.fn === 'resize' && c.args[0] === id)
+      if (sizes.length !== 1 || sizes[0].args[1] !== cols1) bad(`the session was not told ${cols1} columns once: ${JSON.stringify(sizes)}`)
+      await drag(900)
+      if (!near(await width(), 420) || await stored() !== '420') bad(`dragged far right: ${await width()}px, stored ${await stored()} (want 420)`)
+      await drag(40)
+      if (!near(await width(), 240) || await stored() !== '240') bad(`dragged far left: ${await width()}px, stored ${await stored()} (want 240)`)
+      await handle.dblclick()
+      await sleep(100)
+      if (!near(await width(), 300) || await stored() !== null) bad(`double-click: ${await width()}px, stored ${await stored()} (want 300, none)`)
+      await handle.focus()
+      await page.keyboard.press('ArrowRight')
+      if (!near(await width(), 316) || await stored() !== '316') bad(`→: ${await width()}px, stored ${await stored()} (want 316)`)
+      await page.keyboard.press('ArrowLeft')
+      await page.keyboard.press('ArrowLeft')
+      if (!near(await width(), 284) || await stored() !== '284') bad(`← twice: ${await width()}px, stored ${await stored()} (want 284)`)
+      if (await handle.getAttribute('aria-valuenow') !== '284') bad(`aria-valuenow ${await handle.getAttribute('aria-valuenow')}, not 284`)
+      await page.keyboard.press('Home')
+      if (!near(await width(), 300) || await stored() !== null) bad(`Home: ${await width()}px, stored ${await stored()} (want 300, none)`)
+      // A narrow window: the terminal keeps 320px, the panel never under 240
+      for (let k = 0; k < 10; k++) await page.keyboard.press('ArrowRight')
+      if (await stored() !== '420') bad(`→ ten times: stored ${await stored()} (want 420)`)
+      await page.setViewportSize({ width: 700, height: 720 })
+      await sleep(200)
+      if (!near(await width(), 380)) bad(`420 in a 700px window: the panel is ${await width()}px, not 380`)
+      await page.setViewportSize({ width: 560, height: 720 })
+      await sleep(200)
+      if (!near(await width(), 240)) bad(`in a 560px window: the panel is ${await width()}px, not 240`)
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await sleep(200)
+      if (!near(await width(), 420)) bad(`back to 1440: the panel is ${await width()}px, not the remembered 420`)
+      // Folded and widget mode: no edge
+      await page.locator('.w-head .w-side-toggle').click()
+      if (await handle.count()) bad('an edge while the panel is folded')
+      await page.locator('.w-rail .w-side-toggle').click()
+      if ((await handle.count()) !== 1) bad('no edge after unfolding')
+      await page.locator('.w-widget-toggle').click()
+      await sleep(200)
+      if (!(await page.locator('.widget.mode-widget').count())) bad('the widget toggle did not switch to widget mode')
+      if (await handle.count()) bad('an edge in widget mode')
+    } catch (err) {
+      problems.push(String(err.message).split('\n')[0])
+    } finally {
+      if (app) await app.ctx.close()
+    }
+    return problems
+  },
 }
 
 /** The bridge calls the page made so far (fake-bridge.js) */
 const calls = page => page.evaluate(() => window.__CALLS__)
+
+/** A terminal's metrics (src/termMetrics.ts; the page opened with &smoke): its font size and columns */
+const termInfo = (page, id) => page.evaluate(i => (window.spawnTermMetrics?.() ?? []).find(m => m.id === i) ?? null, id)
+const termCols = async (page, id) => (await termInfo(page, id))?.cols ?? null
 
 /** ×: the first click asks (닫기, nothing closed), leaving clears it, two clicks close it once */
 async function closeAsksThenCloses(page, hoverOn, x, terminalId, bad) {
@@ -315,7 +419,7 @@ async function renameOnce(page, field, terminalId, value, bad) {
 }
 
 /** The app with the fixture in a page of its own, for a flow (window mode) */
-async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false } = {}) {
+async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false } = {}) {
   const shot = {
     mode: 'window', workMode: work, version: VERSION,
     terminals: twelve ? fixture.terminals12 : fixture.terminals,
@@ -335,14 +439,15 @@ async function openApp(browser, { local = {}, twelve = false, size = [1440, 900]
   try {
     await ctx.clock.setFixedTime(fixture.NOW)
     const page = await ctx.newPage()
-    await page.addInitScript(pageSetup, { shot, local: all, mac: false, origin: BASE })
+    await page.addInitScript(pageSetup, { shot, local: all, mac, origin: BASE })
     await page.addInitScript({ path: join(HERE, 'fake-bridge.js') })
     await page.routeWebSocket(/\/ws$/, ws => {
       const send = () => ws.send(JSON.stringify(snapshot))
       send()
       ws.onMessage(send)
     })
-    await page.goto(`${BASE}/?widget&mode=window`)
+    // &smoke: the page offers window.spawnTermMetrics() (src/termMetrics.ts): each terminal's font size and columns
+    await page.goto(`${BASE}/?widget&mode=window${smoke ? '&smoke' : ''}`)
     await page.waitForFunction(n => document.querySelectorAll('.w-party .w-row').length === n, shot.terminals.length, { timeout: 15_000 })
     await page.waitForSelector('.w-sess-head', { timeout: 15_000 })
     return { ctx, page, shot }
@@ -543,6 +648,7 @@ async function shoot(browser, s, [W, H], opts, report) {
     'spawn-seen-version': VERSION,
     'spawn-dex-viewed': JSON.stringify(fixture.VIEWED),
     ...(s.local ?? {}),
+    ...(opts.side ? { 'spawn-side-w': opts.side } : {}),
   }
   const ctx = await browser.newContext({
     viewport: { width: W, height: H }, deviceScaleFactor: 1, locale: 'ko-KR', timezoneId: 'Asia/Seoul',
@@ -622,7 +728,7 @@ async function shoot(browser, s, [W, H], opts, report) {
     if (s.clip) buf = await page.locator(s.clip).first().screenshot({ animations: 'disabled', caret: 'hide' })
     else buf = await page.screenshot({ fullPage: !!s.fullPage, animations: 'disabled', caret: 'hide' })
     const { w, h } = pngSize(buf)
-    const file = join(opts.out, `${s.id}-${s.clip || s.fullPage ? `${w}x${h}` : sizeName}.png`)
+    const file = join(opts.out, `${s.id}-${s.clip || s.fullPage ? `${w}x${h}` : sizeName}${opts.side ? `-side${opts.side}` : ''}.png`)
     writeFileSync(file, buf)
     result.file = file
 

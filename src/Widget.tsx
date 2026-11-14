@@ -32,6 +32,7 @@ import { autoPartner, hideTitleKey, sessionLabel, sessionRowParts, shouldToast, 
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionHeader } from './components/SessionHeader'
 import { useDragOrder } from './useDragOrder'
+import { clampSideWidth, readSideWidth, SIDE_DEFAULT, SIDE_MAX, SIDE_MIN, writeSideWidth } from './sideWidth'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, MaximizeIcon, RestoreIcon, CloseIcon, FolderIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
@@ -164,6 +165,42 @@ const ResizeGrip: React.FC = () => {
   }
   const onUp = () => { start.current = null }
   return <div className="w-grip" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} title={t('크기 조절')} aria-hidden="true" />
+}
+
+/**
+ * The left panel's right edge (window and full screen): drag it for a width of 240–420px,
+ * remembered (src/sideWidth.ts); double-click or Home for the default; ← / → 16px at a time.
+ * The terminal keeps its size while the edge moves and fits once it rests (TerminalPanel).
+ */
+const SideResize: React.FC<{ width: number; max: number; onWidth: (px: number | null, save: boolean) => void; onDragging: (on: boolean) => void }> = ({ width, max, onWidth, onDragging }) => {
+  const left = useRef<number | null>(null)
+  const at = (e: React.PointerEvent) => e.clientX - (left.current ?? 0)
+  const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    left.current = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().left
+    onDragging(true)
+  }
+  const onMove = (e: React.PointerEvent) => { if (left.current !== null) onWidth(at(e), false) }
+  const onUp = (e: React.PointerEvent) => {
+    if (left.current === null) return
+    onWidth(at(e), true)
+    left.current = null
+    onDragging(false)
+  }
+  const onCancel = () => { if (left.current === null) return; left.current = null; onDragging(false) }
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); onWidth(width + (e.key === 'ArrowRight' ? 16 : -16), true) }
+    else if (e.key === 'Home') { e.preventDefault(); onWidth(null, true) }
+  }
+  return (
+    <div className="w-side-resize" role="separator" aria-orientation="vertical" tabIndex={0}
+      aria-valuemin={SIDE_MIN} aria-valuemax={max} aria-valuenow={width}
+      title={t('끌어서 폭 조절 · 두 번 누르면 기본')} aria-label={t('왼쪽 패널 폭')}
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel} onLostPointerCapture={onCancel}
+      onDoubleClick={() => onWidth(null, true)} onKeyDown={onKey} />
+  )
 }
 
 const Widget: React.FC = () => {
@@ -449,6 +486,23 @@ const Widget: React.FC = () => {
   // Window / fullscreen: the left panel folds away (remembered), leaving the terminal the whole width
   const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('spawn-side-hidden') === '1' } catch { return false } })
   const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('spawn-side-hidden', next ? '1' : '0') } catch {} ; return next })
+  // Its width (src/sideWidth.ts): the remembered one, fitted to the window (the terminal keeps 320px)
+  const [sideW, setSideW] = useState(() => { try { return readSideWidth(localStorage) } catch { return SIDE_DEFAULT } })
+  const [winW, setWinW] = useState(() => window.innerWidth)
+  useEffect(() => {
+    const onResize = () => setWinW(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const sideWidth = clampSideWidth(sideW, winW)
+  const sideMax = clampSideWidth(SIDE_MAX, winW)
+  const [sideDragging, setSideDragging] = useState(false)
+  const setSideWidth = (px: number | null, save: boolean) => {
+    if (px === null) { setSideW(SIDE_DEFAULT); writeSideWidth(null); return }
+    const w = clampSideWidth(px, window.innerWidth)
+    setSideW(w)
+    if (save) writeSideWidth(w)
+  }
   // Party Pokémon whose session is open but resting (turn over or stopped): they may trade places with a box one
   // The same members give the same Set, so the (memoized) box does not re-render for nothing
   const restingKey = rows.filter(r => r.mood === 'idle' || r.mood === 'error').map(r => dex?.assign?.[r.sessionId]).filter((u): u is string => !!u).sort().join(',')
@@ -657,7 +711,8 @@ const Widget: React.FC = () => {
   ))
 
   return (
-    <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}`}>
+    <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}${sideDragging ? ' resizing' : ''}`}
+      style={expanded ? { '--side-w': `${sideWidth}px` } as React.CSSProperties : undefined}>
       {/* The left panel folded: only the essentials, in one column (logo, new session,
           folder, resume, the open sessions, usage, settings) */}
       {expanded && sideHidden && (
@@ -1078,6 +1133,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             </div>
           </section>
         </div>
+        {expanded && !sideHidden && <SideResize width={sideWidth} max={sideMax} onWidth={setSideWidth} onDragging={setSideDragging} />}
       </div>
 
       {expanded && (
