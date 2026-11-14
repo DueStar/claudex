@@ -448,3 +448,17 @@
 .w-row input, .w-row textarea { user-select: text; }
 /* A plain shell tab: a prompt mark where the Pokémon would be */
 .w-sess-shell { flex: none; width: 20px; text-align: center; font: 700 10px/1 'Monaspace Neon Var', Consolas, monospace; color: var(--ink-3); }
+/* ---------- 업무 모드 (src/workMode.ts): nothing Pokémon on screen. The pictures, the logo, the
+   Pokédex card and the party are not drawn at all; this only fills their places ---------- */
+/* A plain session glyph in the Pokémon's box, the same size, so nothing moves */
+.w-row-glyph { display: inline-grid; place-items: center; color: var(--ink-3); border-radius: 6px; background: rgba(255, 255, 255, 0.05); }
+.w-sess-glyph { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--ink-3); }
+.w-rail-glyph { display: grid; place-items: center; width: 30px; height: 30px; color: var(--ink-3); }
+.w-rail-session.on .w-rail-glyph, .w-sess-tab.on .w-sess-glyph { color: var(--ink-2); }
+/* The header without the logo: the profile sits where the logo was (on Windows; on a Mac the
+   traffic lights hold that corner), the connection dot after it, the rest stays on the right.
+   The empty middle is still the window's drag region */
+.work-mode .w-head .w-conn { margin-right: auto; }
+/* The folded rail without the ball: the unfold button takes the ball's slot, the tab bar's height */
+.work-mode .w-rail > .w-side-toggle:first-child { width: 56px; height: var(--head-h, 46px); border-radius: 0; margin-bottom: 2px; }
+.work-mode .w-rail > .w-side-toggle:first-child:hover { background: transparent; color: var(--ink); }

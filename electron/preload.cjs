@@ -49,6 +49,9 @@ contextBridge.exposeInMainWorld('spawn', {
     set: (patch) => ipcRenderer.invoke('settings:set', patch),
     onChange: (fn) => on('settings:changed', fn),
     onOpen: (fn) => on('settings:open', fn),
+    // 업무 모드 as the page starts, asked once and synchronously so the first paint
+    // already hides the Pokémon (main.cjs answers it at once, before any window loads)
+    workModeAtLoad: (() => { try { return ipcRenderer.sendSync('settings:work-mode') === true } catch { return false } })(),
   },
   board: {
     get: (board) => ipcRenderer.invoke('board:get', String(board)),

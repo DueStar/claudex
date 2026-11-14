@@ -8,7 +8,7 @@
 
 import React, { useLayoutEffect, useRef } from 'react'
 import type { TerminalInfo } from '../desktop'
-import { PlusIcon } from './Icons'
+import { PlusIcon, TerminalIcon } from './Icons'
 import { t } from '../i18n'
 import { isMac, platformWord } from '../platform'
 import { useDragOrder } from '../useDragOrder'
@@ -49,7 +49,9 @@ export const SessionTabs: React.FC<{
   /** The tab whose × waits for a second click ("닫기") */
   closing?: string | null
   onCloseCancel?: () => void
-}> = ({ rows, shownId, onSelect, onRename, onMove, onNew, onNewShell, onClose, closing, onCloseCancel }) => {
+  /** 업무 모드 (src/workMode.ts): no Pokémon pictures or names */
+  workMode?: boolean
+}> = ({ rows, shownId, onSelect, onRename, onMove, onNew, onNewShell, onClose, closing, onCloseCancel, workMode = false }) => {
   const bySession = new Map(rows.map(r => [r.sessionId, r]))
   const order = useDragOrder(rows.map(r => r.sessionId), 'x', (id, to) => {
     const term = bySession.get(id)?.terminal
@@ -85,7 +87,10 @@ export const SessionTabs: React.FC<{
             onPointerCancel={drag.onPointerCancel}
             onClick={order.click(() => onSelect(id))}
           >
-            {r.shell ? <span className="w-sess-shell" aria-hidden="true">&gt;_</span> : <img src={r.sprite} alt={r.name} title={r.name} draggable={false} />}
+            {r.shell ? <span className="w-sess-shell" aria-hidden="true">&gt;_</span>
+              // 업무 모드: a plain session glyph in the picture's 20px, and no Pokémon name
+              : workMode ? <span className="w-sess-glyph" aria-hidden="true"><TerminalIcon size={14} /></span>
+              : <img src={r.sprite} alt={r.name} title={r.name} draggable={false} />}
             <span className="w-sess-tab-name" onDoubleClick={() => r.terminal && onRename(id)}>{r.title ?? t('새 세션')}</span>
             <span className="w-sess-tab-dot" />
             {onClose && r.terminal && (
@@ -108,7 +113,7 @@ export const SessionTabs: React.FC<{
       <button className="w-sess-new" onClick={onNew} title={t('새로운 세션 시작하기 (문서 폴더)')} aria-label={t('새로운 세션 시작하기')}><PlusIcon size={14} /></button>
       </div>
       {/* The shell button stays at the right end, outside the scrolling tabs */}
-      {onNewShell && <button className="w-sess-shell-btn" onClick={onNewShell} title={t('셸 탭 열기 (포켓몬 없이 {shell})', { shell: shellLabel(rows) })} aria-label={t('셸 탭 열기')}>&gt;_</button>}
+      {onNewShell && <button className="w-sess-shell-btn" onClick={onNewShell} title={workMode ? t('셸 탭 열기') : t('셸 탭 열기 (포켓몬 없이 {shell})', { shell: shellLabel(rows) })} aria-label={t('셸 탭 열기')}>&gt;_</button>}
     </div>
   )
 }

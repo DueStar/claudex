@@ -13,7 +13,7 @@ import { TIER_LABEL, genderMark, sourceText, placeText, ballName, NATURE_BY_ID, 
 import { t as tr, nameOf, lang } from './i18n'
 import { PokeBall } from './components/Icons'
 import { admit } from './toastQueue'
-import { useSettings } from './settingsStore'
+import { getSettings, useSettings } from './settingsStore'
 
 /** 설정 › 알림 › 표시 시간 */
 const DURATION_SCALE = { short: 0.6, normal: 1, long: 1.6 } as const
@@ -91,6 +91,7 @@ const Toast: React.FC = () => {
   const left = useRef(0)
   const settings = useSettings() // also redraws the card when the privacy setting changes
   const scale = DURATION_SCALE[settings.notify.duration] ?? 1
+  const workMode = settings.app.workMode === true
 
   // The card on screen, known at once (state is only set later): an arriving event must not be
   // counted as waiting when it is the one about to be shown
@@ -107,6 +108,7 @@ const Toast: React.FC = () => {
 
   useEffect(() => {
     const off = bridge?.toast.onEvent((e: DexEvent) => {
+      if (getSettings().app.workMode) return // one sent just before the switch
       const r = admit(queue.current, shown.current, e)
       shown.current = r.shown
       setCurrent(r.shown)
@@ -115,6 +117,17 @@ const Toast: React.FC = () => {
     bridge?.toast.ready() // events wait in main until the page listens
     return off
   }, [])
+
+  // 업무 모드: the card on screen and those waiting go, and are not shown when it ends
+  // (they are in the Pokédex and the log); main sends no new ones meanwhile
+  useEffect(() => {
+    if (!workMode) return
+    queue.current = []
+    shown.current = null
+    setWaiting(0)
+    setCurrent(null)
+    bridge?.toast.done()
+  }, [workMode])
 
   useEffect(() => {
     if (!current) return

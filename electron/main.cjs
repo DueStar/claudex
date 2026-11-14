@@ -146,6 +146,12 @@ let settingsStore = null
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json')
 const appSettings = () => (settingsStore ??= createSettingsStore(settingsFile())).get()
 useLanguage(() => appSettings().app.language, () => app.getLocale()) // 설정 › 앱 › 언어
+// 업무 모드 for a page's preload, synchronously, so the page's first paint already hides the
+// Pokémon (src/workMode.ts). Registered here, before any window exists, and always answered:
+// an unanswered sendSync would hang the page. Only a yes/no, so no window check is needed.
+ipcMain.on('settings:work-mode', (event) => {
+  try { event.returnValue = appSettings().app.workMode === true } catch { event.returnValue = false }
+})
 let toastWin = null  // catch notifications (?toast)
 // The toast page says when it listens (toast:ready); events before that wait here.
 // Sent at did-finish-load they were lost (the page loads its code after that), and
@@ -459,6 +465,8 @@ function changeSettings(patch) {
     widgetWin.setAlwaysOnTop(next.app.widgetOnTop, 'floating')
   }
   if (next.app.language !== before.app.language) refreshMenus()
+  // 업무 모드 on: a catch card on screen, and those waiting for the card page, go now (never replayed)
+  if (next.app.workMode && !before.app.workMode) { toastPending = []; hideToast() }
   for (const w of [widgetWin, toastWin]) if (w && !w.isDestroyed()) w.webContents.send('settings:changed', next)
   return next
 }
@@ -1159,7 +1167,8 @@ function registerTerminalIpc() {
   }))
   ipcMain.handle('terminals:pick-folder', guard(async () => {
     const parent = widgetWin && !widgetWin.isDestroyed() ? widgetWin : undefined
-    const r = await dialog.showOpenDialog(parent, { title: t('포켓몬이 일할 폴더 선택'), defaultPath: app.getPath('documents'), properties: ['openDirectory'] })
+    const title = appSettings().app.workMode ? t('세션 폴더 선택') : t('포켓몬이 일할 폴더 선택') // 업무 모드: no Pokémon words
+    const r = await dialog.showOpenDialog(parent, { title, defaultPath: app.getPath('documents'), properties: ['openDirectory'] })
     return r.canceled ? null : r.filePaths[0]
   }))
   ipcMain.handle('sessions:history', guard(() => {

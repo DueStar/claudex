@@ -13,6 +13,7 @@ import { t, locale } from '../i18n'
 import { isMac, platformWord } from '../platform'
 import { termFontLabel } from '../termFont'
 import { settingsSections } from '../features'
+import { workModeKeyLabel } from '../workMode'
 
 type Section = 'notify' | 'privacy' | 'session' | 'tools' | 'app' | 'data'
 
@@ -98,8 +99,8 @@ const ToolsSection: React.FC<{ s: AppSettings; set: (part: Partial<AppSettings['
   </>
 }
 
-const Toggle: React.FC<{ label: string; hint?: string; on: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ label, hint, on, onChange, disabled }) => (
-  <label className={`set-row${disabled ? ' off' : ''}`}>
+const Toggle: React.FC<{ label: string; hint?: string; title?: string; on: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ label, hint, title, on, onChange, disabled }) => (
+  <label className={`set-row${disabled ? ' off' : ''}`} title={title}>
     <span className="set-text"><b>{label}</b>{hint && <small>{hint}</small>}</span>
     <button type="button" role="switch" aria-checked={on} disabled={disabled} className={`set-switch${on ? ' on' : ''}`} onClick={() => onChange(!on)}><i /></button>
   </label>
@@ -192,6 +193,9 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback
 
           {section === 'app' && <>
             <h3>{t('앱')}</h3>
+            {/* First in 앱, so it is found at once (src/workMode.ts) */}
+            <Toggle label={t('업무 모드')} hint={t('포켓몬 그림과 이름, 도감·박스·기록·랭킹, 포획 알림을 숨겨서 평범한 세션 도구처럼 보여요. 게임은 그대로 계속돼요. 단축키 {key}', { key: workModeKeyLabel() })}
+              title={t('업무 모드 켜고 끄기 ({key})', { key: workModeKeyLabel() })} on={s.app.workMode} onChange={v => set('app', { workMode: v })} />
             <Choice label={t('언어')} hint={s.app.language === 'auto' ? t('시스템 언어를 따라요') : undefined} value={s.app.language} options={[['auto', t('자동')], ['ko', '한국어'], ['en', 'English'], ['ja', '日本語']]} onChange={v => set('app', { language: v })} />
             <Toggle label={t(platformWord('startup', isMac()))} on={s.app.openAtLogin} onChange={v => set('app', { openAtLogin: v })} />
             <Toggle label={isMac() ? t('시작 시 {tray}로 최소화', { tray: t(platformWord('tray', true)) }) : t('시작 시 트레이로 최소화')} hint={isMac() ? t('창을 띄우지 않고 시작해요. {tray}의 몬스터볼로 열 수 있어요', { tray: t(platformWord('tray', true)) }) : t('창을 띄우지 않고 시작해요. 작업 표시줄 트레이의 몬스터볼로 열 수 있어요')} on={s.app.startHidden} onChange={v => set('app', { startHidden: v })} />

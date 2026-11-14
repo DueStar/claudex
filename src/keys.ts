@@ -3,10 +3,12 @@
  *
  * Windows: Ctrl, as it has always been — Ctrl+1–5 views, Ctrl+Alt+←/→ the previous / next
  * view, Ctrl+Tab / Ctrl+Shift+Tab sessions, Ctrl+Shift+T / W new and close (Ctrl+T and
- * Ctrl+W stay Claude Code's), Ctrl+F find, Ctrl+= / - / 0 text size, Ctrl+V paste, Ctrl+C
- * copy when text is selected (else it is ^C for Claude).
+ * Ctrl+W stay Claude Code's), Ctrl+Shift+H 업무 모드 (src/workMode.ts), Ctrl+F find,
+ * Ctrl+= / - / 0 text size, Ctrl+V paste, Ctrl+C copy when text is selected (else it is ^C
+ * for Claude).
  *
- * macOS: ⌘, as Mac apps do — ⌘1–5, ⌘⌥←/→, ⌘⇧[ / ⌘⇧], ⌘T / ⌘W, ⌘F, ⌘= / - / 0, ⌘V, ⌘C.
+ * macOS: ⌘, as Mac apps do — ⌘1–5, ⌘⌥←/→, ⌘⇧[ / ⌘⇧], ⌘T / ⌘W, ⌘⇧H, ⌘F, ⌘= / - / 0, ⌘V,
+ * ⌘C. (⌘⇧H is free: the menu has ⌘H hide and ⌥⌘H hide others, not ⌘⇧H.)
  * Every Ctrl key there is the session's: Ctrl+C is always the interrupt, Ctrl+V reaches
  * Claude Code (it pastes a screenshot with it).
  *
@@ -19,6 +21,7 @@ export type AppShortcut =
   | 'view1' | 'view2' | 'view3' | 'view4' | 'view5'
   | 'prevView' | 'nextView'
   | 'prevTab' | 'nextTab' | 'newTab' | 'closeTab'
+  | 'workMode'
   | 'find' | 'fontUp' | 'fontDown' | 'fontReset'
 
 type Keys = Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'>
@@ -29,6 +32,9 @@ export function appShortcut(e: Keys): AppShortcut | null {
   // ⌃⌘ combinations are the system's (⌃⌘F full screen)
   if (isMac() && e.ctrlKey) return null
   const { altKey: alt, shiftKey: shift } = e
+  // 업무 모드 on and off, by the key's place (a Korean or Japanese input on still matches).
+  // Windows: Ctrl+Shift+H with no ⊞ key, exactly as 1.3.52 (src/workMode.ts had it); macOS: ⌘⇧H
+  if (shift && !alt && e.code === 'KeyH' && (isMac() || !e.metaKey)) return 'workMode'
   if (alt && !shift && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return e.key === 'ArrowLeft' ? 'prevView' : 'nextView'
   if (isMac()) {
     if (shift && !alt && e.code === 'BracketLeft') return 'prevTab'

@@ -219,6 +219,8 @@ export const TerminalView: React.FC<{ term: TerminalInfo; active: boolean; focus
         // session, Ctrl+Shift+T a new one, Ctrl+Shift+W close (Ctrl+T and Ctrl+W stay Claude Code's)
         case 'view1': case 'view2': case 'view3': case 'view4': case 'view5':
         case 'prevTab': case 'nextTab': case 'newTab': case 'closeTab':
+        // Ctrl+Shift+H (⌘⇧H): 업무 모드 on and off (the app's, src/workMode.ts), never the session's
+        case 'workMode':
           return false
         // Ctrl+F: find in the output
         case 'find': openSearchRef.current(); return false

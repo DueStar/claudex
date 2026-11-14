@@ -6,8 +6,9 @@
 import widget from './widget'
 import dex from './dex'
 import settings from './settings'
+import workMode from './workMode'
 
-const parts = [widget, dex, settings]
+const parts = [widget, dex, settings, workMode]
 const merge = (lang: 'en' | 'ja') => Object.assign({}, ...parts.map(p => p[lang])) as Record<string, string>
 
 const DICTS = { en: merge('en'), ja: merge('ja') }

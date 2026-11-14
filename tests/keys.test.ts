@@ -65,6 +65,12 @@ describe('appShortcut on Windows (as it has always been)', () => {
     ['Ctrl+V is not a shortcut', key('v', 'KeyV', C), null],
     ['Ctrl+C is not a shortcut', key('c', 'KeyC', C), null],
     ['⌘ means nothing on Windows', key('1', 'Digit1', M), null],
+    ['Ctrl+Shift+H (work mode)', key('H', 'KeyH', CS), 'workMode'],
+    ['Ctrl+Shift+H on a Korean layout', key('ㅗ', 'KeyH', CS), 'workMode'],
+    ["Ctrl+H stays the session's (backspace)", key('h', 'KeyH', C), null],
+    ['Ctrl+Alt+Shift+H', key('H', 'KeyH', { ...CS, alt: true }), null],
+    ['Ctrl+Shift+⊞+H', key('H', 'KeyH', { ...CS, meta: true }), null],
+    ['⌘⇧H means nothing on Windows', key('H', 'KeyH', MS), null],
   ]
   it.each(cases)('%s', (_name, e, want) => {
     setPlatformForTest('win')
@@ -72,9 +78,11 @@ describe('appShortcut on Windows (as it has always been)', () => {
   })
 })
 
-describe('Windows: the same answer as the handlers before src/keys.ts, for every key and modifier', () => {
-  // The conditions as they stood in Widget.tsx and TerminalPanel.tsx, in their order
+describe('Windows: the same answer as the 1.3.52 handlers (before src/keys.ts), for every key and modifier', () => {
+  // The conditions as they stood in Widget.tsx and TerminalPanel.tsx in 1.3.52, in their order
+  // (work mode's key first, as Widget checked it: src/workMode.ts isWorkModeKey)
   const before = (e: KeyboardEvent): string | null => {
+    if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && e.code === 'KeyH') return 'workMode'
     if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return e.key === 'ArrowRight' ? 'nextView' : 'prevView'
     if (e.ctrlKey && !e.altKey && e.key === 'Tab') return e.shiftKey ? 'prevTab' : 'nextTab'
     if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.code === 'KeyW')) return e.code === 'KeyT' ? 'newTab' : 'closeTab'
@@ -93,7 +101,7 @@ describe('Windows: the same answer as the handlers before src/keys.ts, for every
   const keys: [string, string][] = [
     ...'0123456789'.split('').map(d => [d, `Digit${d}`] as [string, string]),
     ...'abcdefghijklmnopqrstuvwxyz'.split('').flatMap(c => [[c, `Key${c.toUpperCase()}`], [c.toUpperCase(), `Key${c.toUpperCase()}`]] as [string, string][]),
-    ['ㅅ', 'KeyT'], ['ㅈ', 'KeyW'], ['ㄹ', 'KeyF'], ['ㅍ', 'KeyV'], ['ㅊ', 'KeyC'], ['!', 'Digit1'], [')', 'Digit0'],
+    ['ㅅ', 'KeyT'], ['ㅈ', 'KeyW'], ['ㄹ', 'KeyF'], ['ㅍ', 'KeyV'], ['ㅊ', 'KeyC'], ['ㅗ', 'KeyH'], ['く', 'KeyH'], ['!', 'Digit1'], [')', 'Digit0'],
     ['=', 'Equal'], ['+', 'Equal'], ['+', 'NumpadAdd'], ['-', 'Minus'], ['-', 'NumpadSubtract'], ['_', 'Minus'],
     ['Tab', 'Tab'], ['ArrowLeft', 'ArrowLeft'], ['ArrowRight', 'ArrowRight'], ['ArrowUp', 'ArrowUp'],
     ['Enter', 'Enter'], ['Process', 'Enter'], ['[', 'BracketLeft'], ['{', 'BracketLeft'], [']', 'BracketRight'],
@@ -144,6 +152,14 @@ describe('appShortcut on macOS', () => {
     ['Ctrl+Alt+→', key('ArrowRight', 'ArrowRight', CA), null],
     // ⌃⌘F is the system's full screen
     ['⌃⌘F', key('f', 'KeyF', { meta: true, ctrl: true }), null],
+    // work mode: ⌘⇧H (⌘H is the app menu's Hide, ⌥⌘H Hide Others)
+    ['⌘⇧H (work mode)', key('H', 'KeyH', MS), 'workMode'],
+    ['⌘⇧H on a Korean layout', key('ㅗ', 'KeyH', MS), 'workMode'],
+    ["⌘H stays the menu's Hide", key('h', 'KeyH', M), null],
+    ['⌥⌘H stays Hide Others', key('h', 'KeyH', MA), null],
+    ['⌥⌘⇧H', key('H', 'KeyH', { ...MS, alt: true }), null],
+    ['⌃⌘⇧H', key('H', 'KeyH', { ...MS, ctrl: true }), null],
+    ["Ctrl+Shift+H is the session's", key('H', 'KeyH', CS), null],
   ]
   it.each(cases)('%s', (_name, e, want) => {
     setPlatformForTest('mac')
@@ -186,6 +202,7 @@ describe('keptFromPty: ⌘ keys never reach the session on macOS', () => {
     expect(keptFromPty(key('k', 'KeyK', M))).toBe(true)
     expect(keptFromPty(key('Enter', 'Enter', M))).toBe(true)
     expect(keptFromPty(key('c', 'KeyC', M))).toBe(true)
+    expect(keptFromPty(key('H', 'KeyH', MS))).toBe(true)
     expect(keptFromPty(key('a', 'KeyA', M))).toBe(false)
     expect(keptFromPty(key('c', 'KeyC', C))).toBe(false)
     expect(keptFromPty(key('v', 'KeyV', C))).toBe(false)
@@ -299,5 +316,16 @@ describe('application menu (electron/menu.cjs)', () => {
     expect(tpl[3].label).toBe('창')
     expect(tpl[3].role).toBe('window')
     expect(roles(tpl[3].submenu)).toEqual(['minimize', 'zoom', 'separator', 'close'])
+  })
+
+  it('macOS: no menu item takes ⌘⇧H (work mode) or names the game; no menu item opens a view', () => {
+    const tpl = menuTemplate({ platform: 'darwin', appName: 'spawn', t, toggleWidget })
+    const items: { label?: string; role?: string; accelerator?: string; submenu?: unknown }[] = []
+    const walk = (list: typeof items) => { for (const i of list) { items.push(i); if (Array.isArray(i.submenu)) walk(i.submenu as typeof items) } }
+    walk(tpl)
+    // appMenu's own items (about, services, hide ⌘H, hide others ⌥⌘H, show all, quit ⌘Q) come from
+    // its role; none of the template's own items carries an accelerator
+    expect(items.filter(i => i.accelerator)).toEqual([])
+    expect(items.map(i => i.label).filter(Boolean)).toEqual(['spawn', '보이기/숨기기', '편집', '창'])
   })
 })
