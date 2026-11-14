@@ -10,8 +10,9 @@ import { useSettings, changeSettings } from '../settingsStore'
 import { cloudErrorText, useCloud } from '../cloudStore'
 import { CloseIcon } from './Icons'
 import { t, locale } from '../i18n'
-import { isMac, platformWord } from '../platform'
+import { isMac, modLabel, platformWord } from '../platform'
 import { termFontLabel } from '../termFont'
+import { setTextStep, TEXT_STEP_LABEL, TEXT_STEPS, useTextStep, type TextStep } from '../textSize'
 import { settingsSections } from '../features'
 import { workModeKeyLabel } from '../workMode'
 
@@ -120,6 +121,7 @@ function Choice<T extends string>({ label, hint, value, options, onChange }: { l
 const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback?: () => void }> = ({ onClose, version, onFeedback }) => {
   const s = useSettings()
   const cloud = useCloud()
+  const textStep = useTextStep()
   const [section, setSection] = useState<Section>('notify')
   const [note, setNote] = useState<string | null>(null)
   const set = <G extends keyof AppSettings>(group: G, part: Partial<AppSettings[G]>) => { changeSettings({ [group]: part } as SettingsPatch) }
@@ -196,6 +198,9 @@ const SettingsView: React.FC<{ onClose: () => void; version?: string; onFeedback
             {/* First in 앱, so it is found at once (src/workMode.ts) */}
             <Toggle label={t('업무 모드')} hint={t('포켓몬 그림과 이름, 도감·박스·기록·랭킹, 포획 알림을 숨겨서 평범한 세션 도구처럼 보여요. 게임은 그대로 계속돼요. 단축키 {key}', { key: workModeKeyLabel() })}
               title={t('업무 모드 켜고 끄기 ({key})', { key: workModeKeyLabel() })} on={s.app.workMode} onChange={v => set('app', { workMode: v })} />
+            {/* The one text size (src/textSize.ts): kept per PC in the page, as the header's − 가 + */}
+            <Choice<TextStep> label={t('글자 크기')} hint={t('목록·패널·터미널이 함께 바뀌어요 · {mod}+= / {mod}+-', { mod: modLabel() })} value={textStep}
+              options={TEXT_STEPS.map(v => [v, t(TEXT_STEP_LABEL[v])])} onChange={setTextStep} />
             <Choice label={t('언어')} hint={s.app.language === 'auto' ? t('시스템 언어를 따라요') : undefined} value={s.app.language} options={[['auto', t('자동')], ['ko', '한국어'], ['en', 'English'], ['ja', '日本語']]} onChange={v => set('app', { language: v })} />
             <Toggle label={t(platformWord('startup', isMac()))} on={s.app.openAtLogin} onChange={v => set('app', { openAtLogin: v })} />
             <Toggle label={isMac() ? t('시작 시 {tray}로 최소화', { tray: t(platformWord('tray', true)) }) : t('시작 시 트레이로 최소화')} hint={isMac() ? t('창을 띄우지 않고 시작해요. {tray}의 몬스터볼로 열 수 있어요', { tray: t(platformWord('tray', true)) }) : t('창을 띄우지 않고 시작해요. 작업 표시줄 트레이의 몬스터볼로 열 수 있어요')} on={s.app.startHidden} onChange={v => set('app', { startHidden: v })} />

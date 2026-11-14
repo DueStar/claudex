@@ -64,11 +64,6 @@
 .w-view-switch button { transition: background-color .12s, color .12s; }
 .w-view-switch button:not(.on):hover { background: var(--hover); color: var(--ink-2); }
 .w-view-switch button.on { background: var(--sel-bg); color: var(--ink); }
-/* The text-size trio (Aa Aa Aa) keeps its old boxed look until the text-size control replaces it */
-.w-font-switch { padding: 3px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); }
-.w-font-switch button { border-radius: 7px; }
-.w-font-switch button.on { background: var(--accent-soft); color: var(--accent); }
-.w-font-switch button.on:hover { filter: brightness(1.12); }
 .w-dex-body { flex: 1; min-height: 0; display: flex; }
 
 /* ---------- "New": a caught Pokémon whose entry was never opened ---------- */
@@ -443,8 +438,6 @@
 .w-ask-quick:hover { color: var(--ink); border-color: var(--line-hover); }
 .w-ask-quick.yes { color: var(--ink); border-color: var(--line-hover); }
 
-/* ---------- Text size switch (터미널) ---------- */
-.w-font-switch button { padding: 3px 8px; font-weight: 700; line-height: 1; min-width: 26px; justify-content: center; }
 
 /* ---------- Window / fullscreen: a bigger instruction box ---------- */
 .widget.mode-window .w-input textarea, .widget.mode-fullscreen .w-input textarea { min-height: 96px; }

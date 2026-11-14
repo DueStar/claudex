@@ -102,3 +102,28 @@ describe('the terminal follows the step (source checks)', () => {
     expect(tf).toMatch(/TERM_PX\[getTextStep\(\)\]/)
   })
 })
+
+describe('the text-size control (source checks)', () => {
+  it('the header has − 가 + in place of the Aa trio', () => {
+    const w = src('src/Widget.tsx')
+    expect(w).toMatch(/<TextSizeControl \/>/)
+    expect(w).not.toMatch(/w-font-switch/)
+    expect(w).not.toMatch(/Aa<\/button>/)
+    for (const css of ['src/styles/pokedex.css', 'src/styles/widget-expanded.css']) expect(src(css)).not.toMatch(/w-font-switch/)
+  })
+
+  it('설정 › 앱 has a 글자 크기 row', () => {
+    expect(src('src/components/SettingsView.tsx')).toContain("t('글자 크기')")
+  })
+
+  it('the words in English and Japanese; the trio\'s words are gone', async () => {
+    const { default: WIDGET } = await import('../src/locales/widget')
+    const { default: DICTS } = await import('../src/locales')
+    for (const lang of ['en', 'ja'] as const) {
+      for (const k of ['글자 크기', '작게', '보통', '크게', '아주 크게', '글자 작게', '글자 크게', '화면 {ui} · 터미널 {term}']) expect(WIDGET[lang][k], `${lang} ${k}`).toBeTruthy()
+      for (const k of ['소', '중', '대', '글자 {size}', '글자 크기 {size}']) expect(WIDGET[lang][k], `${lang} ${k}`).toBeUndefined()
+    }
+    // the merged dictionaries read the step names as the control does
+    expect([DICTS.en['보통'], DICTS.ja['보통'], DICTS.ja['아주 크게']]).toEqual(['Normal', '標準', '特大'])
+  })
+})

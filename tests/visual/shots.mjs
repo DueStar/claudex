@@ -62,6 +62,10 @@ Before: npx vite build   (the harness reads dist/, it never builds)
                    side-resize  the left panel's edge: drag (clamped 240–420, remembered, the
                               terminal refits once), double-click and Home reset, ← / →,
                               a narrow window, hidden when folded and in widget mode
+                   text-size  the one text step: where a page starts (migration from the old
+                              terminal size), its class, the terminal's px; Ctrl/⌘ += - 0 once per
+                              press, the wheel, − 가 + and its menu, 설정's row (with --out: a
+                              picture of the open menu, flow-text-size-menu.png)
   --sheet <s>      no shots: writes <out>/sheet-<s>[-WxH].png = before (<out>/../00-before/),
                    the lab reference, after (<out>), side by side or stacked
   --help           this
@@ -386,7 +390,7 @@ const FLOWS = {
    * nothing written), its <html> class, the terminal's px, the UI's name size, the lockup the
    * same at every step, and the terminal's rows inside its box (measured with the bundled face).
    */
-  'text-size': async ({ browser }) => {
+  'text-size': async ({ browser, opts }) => {
     const problems = []
     const cases = [
       ['nothing stored', {}, 'normal'],
@@ -417,6 +421,124 @@ const FLOWS = {
         lockup ??= got.lockup
         if (JSON.stringify(got.lockup) !== JSON.stringify(lockup)) bad(`the lockup changed: ${JSON.stringify(got.lockup)} vs ${JSON.stringify(lockup)}`)
         console.log(`      ${label}: ${got.cls || '(보통)'} · terminal ${got.term?.fontSize}px ${got.term?.cols}×${got.term?.rows} · --t-name ${got.name} · lockup ${got.lockup.font} ${got.lockup.w}px`)
+      } catch (err) {
+        bad(String(err.message).split('\n')[0])
+      } finally {
+        if (app) await app.ctx.close()
+      }
+    }
+    // Task 8: the keys, the wheel and the − 가 + control move the same step, once per press
+    for (const mac of [false, true]) {
+      let app
+      const label = mac ? 'Mac' : 'Windows'
+      const bad = m => problems.push(`${label}: ${m}`)
+      const mod = mac ? 'Meta' : 'Control'
+      try {
+        app = await openApp(browser, { smoke: true, mac })
+        const { page, shot } = app
+        const id = shot.terminals[0].id
+        const cls = async () => (await textState(page, id)).cls || '(보통)'
+        const expectStep = async (want, after) => {
+          await sleep(350)
+          const got = await textState(page, id)
+          const c = got.cls || '(보통)'
+          if (c !== want) bad(`${after}: <html> is ${c}, want ${want}`)
+          const step = want === '(보통)' ? 'normal' : want.slice(3)
+          if (got.term?.fontSize !== TERM[step]) bad(`${after}: the terminal is ${got.term?.fontSize}px, want ${TERM[step]}`)
+          if (!got.fits) bad(`${after}: the terminal's rows overflow its box ${JSON.stringify(got.box)}`)
+        }
+        const control = page.locator('.w-term-tabs .w-textsize')
+        if ((await control.count()) !== 1) bad(`${await control.count()} text-size control(s) in the bar`)
+        const curText = async () => (await control.locator('.w-textsize-cur').textContent()).trim()
+        if (await curText() !== '가보통') bad(`the control reads "${await curText()}", not 가 보통`)
+        const tip = await control.locator('.w-textsize-cur').getAttribute('title')
+        if (!tip.includes(mac ? '⌘+=' : 'Ctrl+=') || (mac && tip.includes('Ctrl'))) bad(`the tooltip names the wrong key: ${tip}`)
+        // Keys with the terminal focused: one step per press, the terminal's own handler never doubles it
+        await page.locator('.w-term-body .xterm-helper-textarea').first().focus()
+        await page.keyboard.press(`${mod}+Equal`)
+        await expectStep('ts-large', `${mod}+= once in the terminal`)
+        await page.keyboard.press(`${mod}+Equal`)
+        await expectStep('ts-xlarge', `${mod}+= twice in the terminal`)
+        if (await curText() !== '가아주 크게') bad(`at 아주 크게 the control reads "${await curText()}"`)
+        if (!(await control.locator('.w-textsize-step').last().isDisabled())) bad('+ is not disabled at 아주 크게')
+        // Another view: the keys still act (held at the top)
+        await page.locator('.w-view-tabs button').nth(1).click()
+        await page.waitForSelector('.w-dex-body', { timeout: 10_000 })
+        await page.keyboard.press(`${mod}+Equal`)
+        if (await cls() !== 'ts-xlarge') bad(`${mod}+= on 도감 at the top: ${await cls()}`)
+        await page.keyboard.press(`${mod}+Minus`)
+        if (await cls() !== 'ts-large') bad(`${mod}+- on 도감: ${await cls()}, want ts-large`)
+        await page.keyboard.press(`${mod}+Digit0`)
+        if (await cls() !== '(보통)') bad(`${mod}+0 on 도감: ${await cls()}, want no ts- class`)
+        await page.locator('.w-view-tabs button').nth(0).click()
+        await sleep(200)
+        // The wheel with the modifier: over the list (the window's listener) and over the terminal (the terminal's), once each
+        await page.locator('.w-party .w-row').first().hover()
+        await page.keyboard.down(mod)
+        await page.mouse.wheel(0, -100)
+        await page.keyboard.up(mod)
+        await expectStep('ts-large', `${mod}+wheel up over the list`)
+        await page.locator('.w-term-body .term-view').first().hover({ position: { x: 200, y: 200 } })
+        await page.keyboard.down(mod)
+        await page.mouse.wheel(0, 100)
+        await page.keyboard.up(mod)
+        await expectStep('(보통)', `${mod}+wheel down over the terminal`)
+        // A plain wheel is a scroll, not a step
+        await page.locator('.w-party .w-row').first().hover()
+        await page.mouse.wheel(0, -100)
+        await expectStep('(보통)', 'a plain wheel')
+        // The control: − / +, the menu (pick, Esc, outside press)
+        await control.locator('.w-textsize-step').first().click()
+        await expectStep('ts-small', '− once')
+        if (!(await control.locator('.w-textsize-step').first().isDisabled())) bad('− is not disabled at 작게')
+        await control.locator('.w-textsize-step').last().click()
+        await expectStep('(보통)', '+ once')
+        await control.locator('.w-textsize-cur').click()
+        const menu = control.locator('.w-textsize-menu')
+        if (!(await menu.count())) bad('the middle button did not open the menu')
+        else {
+          const items = await menu.locator('.w-textsize-item').allTextContents()
+          if (items.join('|') !== '작게화면 11 · 터미널 12|보통화면 12 · 터미널 13|크게화면 13 · 터미널 15|아주 크게화면 14 · 터미널 17') bad(`the menu rows: ${items.join(' | ')}`)
+          if ((await menu.locator('.w-textsize-item.on').textContent()).indexOf('보통') !== 0) bad('보통 is not the checked row')
+          const mb = await menu.boundingBox(), term = await page.locator('.w-term').boundingBox()
+          if (mb.x + mb.width > term.x + term.width + 0.5 || mb.width !== 220) bad(`the menu is ${mb.width}px wide, ends at ${mb.x + mb.width} (card ${term.x + term.width})`)
+          const top = await page.evaluate(() => { const m = document.querySelector('.w-textsize-menu').getBoundingClientRect(); const el = document.elementFromPoint(m.left + 20, m.bottom - 12); return !!el?.closest('.w-textsize-menu') })
+          if (!top) bad('the menu is covered by something (the terminal?)')
+          // A picture of the open menu, for the record
+          if (opts?.out) await page.screenshot({ path: join(opts.out, `flow-text-size-menu${mac ? '-mac' : ''}.png`), animations: 'disabled', caret: 'hide' })
+          await menu.locator('.w-textsize-item', { hasText: '아주 크게' }).click()
+          await expectStep('ts-xlarge', 'picking 아주 크게')
+          if (await menu.count()) bad('the menu stayed open after a pick')
+        }
+        await control.locator('.w-textsize-cur').click()
+        await page.keyboard.press('Escape')
+        if (await menu.count()) bad('Esc did not close the menu')
+        await control.locator('.w-textsize-cur').click()
+        await page.mouse.click(700, 500)
+        if (await menu.count()) bad('a press outside did not close the menu')
+        if (await page.evaluate(() => localStorage.getItem('spawn-text-size')) !== 'xlarge') bad('the step was not remembered')
+        // The bar never scrolls: at 아주 크게 the views drop to icons when it is narrow
+        await page.setViewportSize({ width: 900, height: 700 })
+        await sleep(300)
+        const bar = await page.evaluate(() => { const b = document.querySelector('.w-term-tabs'); return { sw: b.scrollWidth, cw: b.clientWidth, icons: !!b.querySelector('.w-view-icons') } })
+        if (bar.sw > bar.cw + 1) bad(`at 900px the bar overflows: ${bar.sw} > ${bar.cw}`)
+        console.log(`      ${label}: keys, wheel, − 가 + and the menu checked; at 900px the bar is ${bar.cw}px, views ${bar.icons ? 'icons only' : 'named'}`)
+        // Narrower still: the views must drop to icons (viewsCompact reads scrollWidth, the bar is overflow: visible).
+        // (Near the window's 560px minimum with the panel open, the bar's fixed parts alone are wider than
+        // it, as they were with the Aa trio: the card clips the end. Noted, not failed here.)
+        await page.setViewportSize({ width: 640, height: 700 })
+        await sleep(400)
+        const narrow = await page.evaluate(() => { const b = document.querySelector('.w-term-tabs'); return { sw: b.scrollWidth, cw: b.clientWidth, icons: !!b.querySelector('.w-view-icons'), kids: [...b.children].map(c => `${c.className.split(' ')[0]}:${Math.round(c.getBoundingClientRect().width)}`).join(' ') } })
+        if (!narrow.icons) bad(`at 640px the views kept their names: bar ${narrow.sw} / ${narrow.cw} (${narrow.kids})`)
+        console.log(`      ${label}: at 640px the bar is ${narrow.cw}px, views ${narrow.icons ? 'icons only' : 'named'}; content ${narrow.sw}px (${narrow.kids})`)
+        // 설정 › 앱: the 글자 크기 row follows and sets the same step
+        await page.setViewportSize({ width: 1440, height: 900 })
+        await page.locator('.w-head .w-icon[aria-label="설정"]').click()
+        await page.locator('.set-nav button', { hasText: /^앱$/ }).click()
+        const row = page.locator('.set-row', { hasText: '글자 크기' })
+        if ((await row.locator('button.on').textContent()) !== '아주 크게') bad(`설정 shows ${await row.locator('button.on').textContent()}, not 아주 크게`)
+        await row.locator('button', { hasText: /^작게$/ }).click()
+        if (await cls() !== 'ts-small') bad(`설정's 작게: ${await cls()}`)
       } catch (err) {
         bad(String(err.message).split('\n')[0])
       } finally {

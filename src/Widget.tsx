@@ -54,11 +54,12 @@ function preloadViews() {
   if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2000 })
   else setTimeout(go, 500)
 }
-import { setTextStep, useTextStep, type TextStep } from './textSize'
+import { resetTextSize, stepTextSize } from './textSize'
+import { TextSizeControl } from './components/TextSizeControl'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
-import { appShortcut } from './keys'
-import { isMac, modCombo, modLabel, platformWord } from './platform'
+import { appShortcut, wheelFontStep } from './keys'
+import { isMac, modCombo, platformWord } from './platform'
 
 
 type Mood = 'working' | 'idle' | 'needs-you' | 'error' | 'ended'
@@ -248,6 +249,14 @@ const Widget: React.FC = () => {
     const views = visibleViews(workMode)
     const onKey = (e: KeyboardEvent) => {
       const action = appShortcut(e)
+      // Ctrl+= / Ctrl+- / Ctrl+0 (⌘ on macOS): the one text size, anywhere in the window. Taken here,
+      // before the terminal's own handler sees it, so a press steps once
+      if (action === 'fontUp' || action === 'fontDown' || action === 'fontReset') {
+        e.preventDefault(); e.stopPropagation()
+        if (action === 'fontReset') resetTextSize()
+        else stepTextSize(action === 'fontUp' ? 1 : -1)
+        return
+      }
       if (action === 'workMode') {
         e.preventDefault(); e.stopPropagation()
         if (!e.repeat) void changeSettings({ app: { workMode: !workMode } })
@@ -290,9 +299,26 @@ const Widget: React.FC = () => {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
+  // Ctrl+wheel (⌘+wheel, or a trackpad pinch, on macOS): the text size anywhere in the window. Over
+  // a terminal the terminal takes it first (TerminalPanel, the same step), so it steps once
+  const widgetRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = widgetRef.current
+    if (!el) return
+    let lastPinchAt = 0
+    const onWheel = (e: WheelEvent) => {
+      if (e.defaultPrevented) return
+      const size = wheelFontStep(e, Date.now(), lastPinchAt)
+      if (!size) return
+      e.preventDefault()
+      lastPinchAt = size.pinchAt
+      if (size.step) stepTextSize(size.step)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
   // A new session name also becomes Claude Code's own name for it (/rename), sent when Claude is free
   const pendingRename = useRef(new Map<string, string>())
-  const textStep = useTextStep()
   const [mode, setModeState] = useState<WidgetMode>(modeFromUrl)
   const expanded = mode !== 'widget'
   const [viewState, setViewState] = useState<View>(() => readCarry().view ?? 'terminal')
@@ -711,7 +737,7 @@ const Widget: React.FC = () => {
   ))
 
   return (
-    <div className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}${sideDragging ? ' resizing' : ''}`}
+    <div ref={widgetRef} className={`widget${expanded ? ' expanded' : ''} mode-${mode}${expanded && sideHidden ? ' side-hidden' : ''}${sideDragging ? ' resizing' : ''}`}
       style={expanded ? { '--side-w': `${sideWidth}px` } as React.CSSProperties : undefined}>
       {/* The left panel folded: only the essentials, in one column (logo, new session,
           folder, resume, the open sessions, usage, settings) */}
@@ -1153,13 +1179,8 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             <span className="w-term-spacer" />
             {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size */}
             <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
-            {view === 'terminal' && (
-              <div className="w-view-switch w-font-switch" role="group" aria-label={t('글자 크기 ({mod}+휠로도 바꿀 수 있어요)', { mod: modLabel() })} title={t('글자 크기 · {mod}+휠, {mod}+= / {mod}+-', { mod: modLabel() })}>
-                {([['소', 'normal'], ['중', 'large'], ['대', 'xlarge']] as const).map(([label, step]: readonly [string, TextStep], i) => (
-                  <button key={label} className={textStep === step ? 'on' : ''} onClick={() => setTextStep(step)} style={{ fontSize: 9 + i * 2 }} title={t('글자 {size}', { size: t(label) })} aria-label={t('글자 크기 {size}', { size: t(label) })}>Aa</button>
-                ))}
-              </div>
-            )}
+            {/* The one text size (src/textSize.ts): lists, panels and the terminal together, on every view */}
+            <TextSizeControl />
             {/* As Windows users know them: minimize, maximize/restore (window ↔ full screen), close */}
             <div className="w-win-controls">
               <button className="w-icon" onClick={() => bridge?.widget.minimize()} title={t('최소화')} aria-label={t('최소화')}><MinimizeIcon size={14} /></button>

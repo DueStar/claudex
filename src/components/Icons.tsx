@@ -90,6 +90,10 @@ export const HelperIcon: React.FC<P> = (p) => (
 export const CloseIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M4 4l8 8M12 4l-8 8" /></Svg>
 )
+/** ✓ : the chosen one in a menu */
+export const CheckIcon: React.FC<P> = (p) => (
+  <Svg {...p}><path d="M3 8.5l3.2 3L13 4.5" /></Svg>
+)
 /** A paper plane: send the instruction */
 export const SendIcon: React.FC<P> = (p) => (
   <Svg {...p}><path d="M14 2L7 9M14 2l-4.5 12-2.5-5-5-2.5z" /></Svg>
