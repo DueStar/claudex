@@ -17,12 +17,7 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
   background: transparent;
 }
 
-/* tier colours (the widget's pokedex.css is not loaded here) */
-.tier-common { --tier: #a4a9b6; }
-.tier-rare { --tier: #6cb6ff; }
-.tier-sub { --tier: #c08bff; }
-.tier-legendary { --tier: #ffc94a; }
-.tier-mythical { --tier: #ff7ad9; }
+/* tier colours: tokens.css (imported first by Toast.tsx) */
 
 /* ---------- The card alone: the waiting ones are a "+N" on it (cards peeking out below read as
    another small window behind, and the window's edge cut their shadows off square) ---------- */

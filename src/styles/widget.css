@@ -12,22 +12,10 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   overflow: hidden;
 }
 
+/* The design values live in tokens.css (on :root). --accent-soft is not a token: it stays here only
+   until the yellow-tinted selections that read it turn neutral (Task 14's guard removes it). */
 .widget {
-  --card: #14161c;
-  --card-2: #1b1e26;
-  /* behind every Pokémon picture (dex, box, cards): one neutral grey, no tier tint or glow */
-  --mon-bg: #16181d;
-  --line: rgba(255, 255, 255, 0.07);
-  --ink: #f1f2f5;
-  --ink-2: #a4a9b6;
-  --ink-3: #6e7381;
-  --accent: #f2c94c;
-  --accent-hover: #f7d76c;
-  --accent-ink: #16171b;
   --accent-soft: rgba(242, 201, 76, 0.14);
-  --green: #74d68b;
-  --amber: #ffb54a;
-  --danger: #ff6464;
   height: 100vh;
   display: flex;
   flex-direction: column;

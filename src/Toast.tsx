@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { playFor } from './sounds'
+import './styles/tokens.css'
 import './styles/widget.css'
 import './styles/toast.css'
 import { bridge } from './desktop'

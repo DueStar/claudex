@@ -232,7 +232,7 @@
 /* ---------- Window and fullscreen modes: one opaque app, edge to edge ----------
    The widget floats with gaps that show the desktop; as a window the sidebar
    and the terminal fill the whole window with no transparent part. */
-.widget.mode-window, .widget.mode-fullscreen { background: #0b0c10; padding: 0; gap: 0; --head-h: 46px; }
+.widget.mode-window, .widget.mode-fullscreen { background: #0b0c10; padding: 0; gap: 0; }
 .widget.mode-window .w-side, .widget.mode-fullscreen .w-side {
   background: #0e1015;
   border-right: 1px solid var(--line);

@@ -6,6 +6,7 @@
  */
 
 import React from 'react'
+import './styles/tokens.css'
 import './styles/widget.css'
 import './styles/widget-expanded.css'
 import './styles/pokedex.css'

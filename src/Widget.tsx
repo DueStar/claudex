@@ -7,7 +7,9 @@
  */
 
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-// terminal.css first: widget-expanded.css restyles the resume picker's frame
+// tokens.css before every other stylesheet: the design values they read
+import './styles/tokens.css'
+// terminal.css next: widget-expanded.css restyles the resume picker's frame
 import './styles/terminal.css'
 import './styles/widget.css'
 import './styles/widget-expanded.css'

@@ -3,12 +3,7 @@
 .w-side { position: relative; }
 .widget { --w-icon: 28px; --w-icon-gap: 6px; }
 
-/* tier colours, shared */
-.tier-common { --tier: #a4a9b6; }
-.tier-rare { --tier: #6cb6ff; }
-.tier-sub { --tier: #c08bff; }
-.tier-legendary { --tier: #ffc94a; }
-.tier-mythical { --tier: #ff7ad9; }
+/* tier colours: tokens.css */
 /* A tier's name in its colour (box card, log) */
 .w-toast-tier { color: var(--tier); font-weight: 700; }
 
