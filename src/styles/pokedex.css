@@ -5,7 +5,7 @@
 
 /* tier colours: tokens.css */
 /* A tier's name in its colour (box card, log) */
-.w-toast-tier { color: var(--tier); font-weight: 700; }
+.w-toast-tier { color: var(--tier); font-weight: var(--w-name); }
 
 /* ---------- Modern artwork (Pokémon HOME): smooth scaling, not pixel art ---------- */
 .dex-cell img, .dex-card-art img,
@@ -53,7 +53,7 @@
   font: inherit;
   font-size: var(--t-ui);
   font-weight: var(--w-body);
-  padding: 5px 9px 5px 8px;
+  padding: 5px 9px;
   border: 0;
   border-radius: var(--r-s);
   background: transparent;
@@ -95,7 +95,7 @@
   align-content: start;
 }
 .dex-grid::-webkit-scrollbar, .dex-detail::-webkit-scrollbar { width: 8px; }
-.dex-grid::-webkit-scrollbar-thumb, .dex-detail::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 4px; }
+.dex-grid::-webkit-scrollbar-thumb, .dex-detail::-webkit-scrollbar-thumb { background: #2c303b; border-radius: var(--r-s); }
 /* No border: the picture box's grey is the cell; the picked one gets the 1px yellow line */
 .dex-cell {
   position: relative;
@@ -352,7 +352,7 @@
   display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; align-content: start;
 }
 .box-grid::-webkit-scrollbar { width: 8px; }
-.box-grid::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 4px; }
+.box-grid::-webkit-scrollbar-thumb { background: #2c303b; border-radius: var(--r-s); }
 .box-cell {
   position: relative; width: 96px; height: 96px; padding: 16px; border-radius: var(--r-m);
   border: 0; background: var(--mon-bg); cursor: pointer; display: grid; place-items: center;
@@ -462,6 +462,8 @@
 .w-row.mood-needs-you .w-row-mon, .w-row.asking .w-row-mon { animation: wMonHop 1.2s cubic-bezier(.3, .7, .4, 1) infinite; transform-origin: 50% 100%; }
 @keyframes wMonHop { 0%, 60%, 100% { transform: none; } 20% { transform: translateY(-4px); } 40% { transform: translateY(0) scale(1.04, 0.96); } }
 @media (prefers-reduced-motion: reduce) { .w-row.mood-needs-you .w-row-mon, .w-row.asking .w-row-mon { animation: none; } }
+/* and the question card's dot stays lit, without the pulse */
+@media (prefers-reduced-motion: reduce) { .w-ask-dot { animation: none; } }
 .w-row-ask-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .w-row-ask-actions .w-ask-hint { margin-left: auto; }
 .w-ask-quick { font: inherit; font-size: var(--t-meta); font-weight: var(--w-name); padding: 3px 10px; border-radius: var(--r-xs); border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
@@ -476,7 +478,7 @@
 /* ---------- Scrollbars: thin and dark everywhere, not the system ones ---------- */
 .widget ::-webkit-scrollbar { width: 8px; height: 8px; }
 .widget ::-webkit-scrollbar-track { background: transparent; }
-.widget ::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+.widget ::-webkit-scrollbar-thumb { background: #2c303b; border-radius: var(--r-s); border: 2px solid transparent; background-clip: padding-box; }
 .widget ::-webkit-scrollbar-thumb:hover { background: #3a3f4c; background-clip: padding-box; }
 .widget ::-webkit-scrollbar-corner { background: transparent; }
 .widget textarea::-webkit-scrollbar-thumb { border-width: 2px; }

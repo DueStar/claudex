@@ -264,6 +264,29 @@ describe('the words', () => {
     }
   })
 
+  // The words the calm restyle added (Tasks 5–8, 14) that show in 업무 모드: the list header, the
+  // session header and rows, the panel's edge, the text size control and its menu
+  const NEW_SESSION_UI = [
+    '간략', '상세', '목록 보기', '한 줄씩 (많이 보기)', '이름·상태·컨텍스트·모델까지', '세션 {n}', '셸 열기', '세션 ({key})',
+    '세션 닫기', '한 번 더 누르면 세션을 닫아요', '세션 이름 바꾸기', '더블클릭해서 세션 이름 바꾸기',
+    '끌어서 폭 조절 · 두 번 누르면 기본', '왼쪽 패널 폭',
+    '글자 크기', '작게', '보통', '크게', '아주 크게', '글자 작게', '글자 크게',
+    '글자 크기 · 목록·패널·터미널 함께 ({mod}+= 크게 · {mod}+- 작게 · {mod}+0 보통 · {mod}+휠)', '화면 {ui} · 터미널 {term}',
+  ]
+  it("the restyle's new words in the session UI: in ko / en / ja, none names the game", () => {
+    for (const ko of NEW_SESSION_UI) {
+      expect(DICTS.en[ko], `en: ${ko}`).toBeTruthy()
+      expect(DICTS.ja[ko], `ja: ${ko}`).toBeTruthy()
+      for (const text of [ko, DICTS.en[ko], DICTS.ja[ko]]) expect(text, text).not.toMatch(GAME)
+    }
+    // and 설정's 글자 크기 row
+    const hint = '목록·패널·터미널이 함께 바뀌어요 · {mod}+= / {mod}+-'
+    for (const text of [hint, DICTS.en[hint], DICTS.ja[hint]]) {
+      expect(text, hint).toBeTruthy()
+      expect(text).not.toMatch(GAME)
+    }
+  })
+
   it('the game-word check itself catches the words it is for', () => {
     for (const w of ['Lv.17 모래두지', 'HP 12', '도감', 'Pokédex', 'ポケモン', '포켓몬을 잡았어요']) expect(w).toMatch(GAME)
     expect('컨텍스트').not.toMatch(GAME)

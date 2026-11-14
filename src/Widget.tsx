@@ -949,7 +949,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
 
           <section className="w-card w-launch">
             <button className={`w-launch-main${partyFull ? ' full' : ''}`} onClick={() => launch(false)} title={partyFull ? FULL_NOTE : t('문서 폴더에서 새 Claude 세션')}>
-              <PlusIcon size={15} /> {t('새로운 세션 시작하기')}
+              <PlusIcon size={15} /><span className="w-launch-label">{t('새로운 세션 시작하기')}</span>
             </button>
             <button className="w-launch-alt" onClick={() => launch(true)} title={t('다른 폴더에서 새 세션')} aria-label={t('다른 폴더에서 새 세션')}><FolderIcon /></button>
             <button className="w-launch-alt" onClick={() => setPicking(true)} title={t('예전 세션 골라서 이어하기')} aria-label={t('예전 세션 이어하기')}><SessionsIcon /></button>

@@ -208,11 +208,13 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
   animation: wNoteIn 0.2s ease-out both;
 }
 @keyframes wNoteIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+/* Less motion asked for by the system: the note just appears */
+@media (prefers-reduced-motion: reduce) { .w-note { animation: none; } }
 
 /* Thin scrollbars that sit inside the cards */
 .w-party::-webkit-scrollbar { width: 6px; }
 .w-party::-webkit-scrollbar-track { background: transparent; }
-.w-party::-webkit-scrollbar-thumb { background: #2c303b; border-radius: 3px; }
+.w-party::-webkit-scrollbar-thumb { background: #2c303b; border-radius: var(--r-xs); }
 .w-party::-webkit-scrollbar-thumb:hover { background: #3a3f4c; }
 .w-party::-webkit-scrollbar-button { display: none; height: 0; }
 
@@ -281,7 +283,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-rows.compact .w-row:hover .w-row-state > .w-row-close, .w-row-state > .w-row-close.confirm { display: inline-grid; place-items: center; }
 .w-rows.compact .w-row.dragging .w-row-state > .w-row-close { display: none; }
 .w-rows.compact .w-row.dragging .w-row-state > .w-pill { display: inline-flex; }
-.w-rows.compact .w-row-close { padding: 0 4px; min-width: 18px; height: 18px; }
+/* the × a 22px target; the negative margins keep the line as it was (the dot's 14px slot, the 20px line) */
+.w-rows.compact .w-row-close { padding: 0 4px; min-width: 22px; height: 22px; margin: -2px -4px; }
 .w-rows.compact .w-row-close.confirm { padding: 0 6px; }
 
 /* ---------- Limits while nothing has reported yet: a quiet shimmer, same widths ---------- */
@@ -296,6 +299,8 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-limit-wait { display: inline-block; width: 26px; height: 10px; border-radius: var(--r-s); background: var(--track); vertical-align: middle; animation: wLimitPulse 1.4s ease-in-out infinite; }
 @keyframes wLimitShimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @keyframes wLimitPulse { 50% { opacity: 0.45; } }
+/* Less motion asked for: the waiting bars stand still */
+@media (prefers-reduced-motion: reduce) { .w-limit.loading .w-bar::after, .w-limit-wait { animation: none; } }
 
 /* Limits: a hint before any session */
 .w-limits.idle { flex-direction: row; align-items: center; gap: 10px; padding: 11px 12px; }

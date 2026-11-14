@@ -640,6 +640,85 @@ const FLOWS = {
   },
 
   /**
+   * Hit areas (calm-style plan, Task 14): the size of every control the restyle touched, at 1440×900
+   * 보통, against the sizes before the plan (measured on the pre-plan build, 4f002fa, with this
+   * same flow: HIT_BEFORE) — none smaller, apart from the rail's buttons (38 → 36, as the lab);
+   * a control new in the restyle is at least 22px each way. With --out: hit-areas.json.
+   */
+  'hit-areas': async ({ browser, opts }) => {
+    const problems = []
+    // The smallest width and height each control had before the plan (px; measured on the 4f002fa build
+    // with this flow, HIT_BEFORE_RUN=1). Width null: a button sized by its word, which the plan changed
+    // (터미널 → 세션; 600 → 400 weight): its height is held, its padding kept. The rail: 38 → 36, as the lab
+    const BEFORE = {
+      'view tab': [null, 23], 'window button': [30, 28], 'widget toggle': [30, 28], 'header icon': [24, 22],
+      'launcher main': [null, 34], 'launcher side': [40, 34], 'row rename ✎': [21, 19], 'row swap': [19, 19], 'row close ×': [17.2, 16],
+      'rail button': [36, 36], 'rail session': [36, 36], 'dex segment': [null, 22],
+    }
+    const NEW = ['list mode', 'list button', 'session header ×', 'text size', '간략 row ×']
+    const measure = (page, sel, { hitAfter = false } = {}) => page.evaluate(([s, after]) => {
+      const els = [...document.querySelectorAll(s)].filter(el => { const r = el.getBoundingClientRect(); return r.width && r.height && getComputedStyle(el).visibility !== 'hidden' })
+      if (!els.length) return null
+      let w = Infinity, h = Infinity
+      for (const el of els) {
+        const r = el.getBoundingClientRect()
+        // a ::after that reaches further (the list mode's 22px hit strip) counts
+        const a = after ? parseFloat(getComputedStyle(el, '::after').height) || 0 : 0
+        w = Math.min(w, r.width); h = Math.min(h, Math.max(r.height, a))
+      }
+      return [Math.round(w * 10) / 10, Math.round(h * 10) / 10, els.length]
+    }, [sel, hitAfter])
+    const got = {}
+    const take = async (page, name, sel, o) => { const m = await measure(page, sel, o); if (m) got[name] = m; else got[name] ??= null }
+    let app
+    try {
+      app = await openApp(browser, {})
+      const { page } = app
+      await take(page, 'view tab', '.w-view-tabs button')
+      await take(page, 'window button', '.w-win-controls .w-icon')
+      await take(page, 'widget toggle', '.w-widget-toggle')
+      await take(page, 'header icon', '.w-side .w-head .w-icon')
+      await take(page, 'launcher main', '.w-side .w-launch-main')
+      await take(page, 'launcher side', '.w-side .w-launch-alt')
+      await take(page, 'list mode', '.w-list-mode button', { hitAfter: true })
+      await take(page, 'list button', '.w-list-btn')
+      await take(page, 'session header ×', '.w-sess-head-close')
+      await take(page, 'text size', '.w-term-tabs .w-textsize > button')
+      const row = page.locator('.w-party .w-row').nth(1)
+      await row.hover()
+      await sleep(150)
+      await take(page, 'row rename ✎', '.w-row:hover .w-row-edit')
+      await take(page, 'row swap', '.w-row:hover .w-row-swap')
+      await take(page, 'row close ×', '.w-row:hover .w-row-tools .w-row-close')
+      await page.locator('.w-view-tabs button').nth(1).click()
+      await page.waitForSelector('.dex-seg button', { timeout: 10_000 })
+      await take(page, 'dex segment', '.dex-seg button, .dex-chips button')
+      await app.ctx.close()
+      app = await openApp(browser, { local: { 'spawn-side-hidden': '1' } })
+      await take(app.page, 'rail button', '.w-rail > .w-rail-btn:not(.w-rail-brand):not(.w-rail-update):not(.w-rail-signin)')
+      await take(app.page, 'rail session', '.w-rail-session')
+      await app.ctx.close()
+      app = await openApp(browser, { local: { 'spawn-list-mode': 'compact' } })
+      await app.page.locator('.w-party .w-row').nth(1).hover()
+      await sleep(150)
+      await take(app.page, '간략 row ×', '.w-rows.compact .w-row:hover .w-row-close')
+    } catch (err) {
+      problems.push(String(err.message).split('\n')[0])
+    } finally {
+      if (app) await app.ctx.close()
+    }
+    for (const [name, m] of Object.entries(got)) {
+      const want = BEFORE[name] ?? (NEW.includes(name) ? [22, 22] : null)
+      console.log(`      ${name.padEnd(18)} ${m ? `${m[0]} × ${m[1]}  (${m[2]})` : 'none'}${want ? `   before / floor ${want[0] ?? '–'} × ${want[1]}` : ''}`)
+      if (process.env.HIT_BEFORE_RUN) continue // measuring the pre-plan build: no judging
+      if (!m) { problems.push(`${name}: not found`); continue }
+      if (want && ((want[0] !== null && m[0] < want[0] - 0.5) || m[1] < want[1] - 0.5)) problems.push(`${name}: ${m[0]} × ${m[1]}, smaller than ${want[0] ?? '(any)'} × ${want[1]}`)
+    }
+    if (opts?.out) writeFileSync(join(opts.out, 'hit-areas.json'), JSON.stringify(got, null, 2))
+    return problems
+  },
+
+  /**
    * A narrow window (calm-style plan, Task 14): at 560 (the window's minimum) and 640 wide, on
    * Windows and on a Mac, the left panel open and folded, the top bar fits its card — nothing
    * past the bar's end, the window buttons whole and on top (Windows), the text size still
@@ -955,7 +1034,7 @@ async function fitProblems(page) {
     const name = el => `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : ''}`
     const sw = document.documentElement.scrollWidth
     if (sw > innerWidth) bad.push(`the page scrolls sideways: scrollWidth ${sw} > ${innerWidth}`)
-    const ROWS = '.w-head, .w-term-tabs, .w-list-head, .w-sess-bar, .w-row, ' +
+    const ROWS = '.w-head, .w-launch, .w-term-tabs, .w-list-head, .w-sess-bar, .w-row, ' +
       // the views: 도감's numbers and filters, 박스's bars, 기록's summary and rows, 랭킹's rows
       '.dex-stats, .dex-stat, .dex-tiers, .dex-tiercol, .dex-filterbar, .dex-fgroup, .dex-card-tags, .dex-owned-top, ' +
       '.box-party, .box-party-row, .box-toolbar, .box-tools, .box-actions, .today-sum, .today-row, .today-text, ' +
@@ -972,9 +1051,19 @@ async function fitProblems(page) {
       }
     }
     // One line each: a label that wraps (the header's 로그인, 기록's time) or a dot squeezed out of its row
-    // (the lines its text is laid out on: the distinct tops of its text's boxes)
-    const lines = el => { const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter(r => r.width).map(r => Math.round(r.top))).size }
-    for (const el of document.querySelectorAll('.w-head .w-signin, .w-head .w-update, .today-time, .w-list-count, .w-sess-head-proj')) {
+    // (the lines its words are laid out on: the distinct tops of its text's boxes, icons left out)
+    const lines = el => {
+      const tops = new Set()
+      const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+        if (!n.textContent.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(n)
+        for (const r of range.getClientRects()) if (r.width) tops.add(Math.round(r.top))
+      }
+      return tops.size
+    }
+    for (const el of document.querySelectorAll('.w-head .w-signin, .w-head .w-update, .w-launch-main, .today-time, .w-list-count, .w-sess-head-proj')) {
       if (el.getBoundingClientRect().width && lines(el) > 1) bad.push(`${name(el)} wraps onto ${lines(el)} lines (${el.textContent.trim().slice(0, 20)})`)
     }
     // A fixed column whose text must fit it (기록's time): not wider than the column

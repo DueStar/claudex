@@ -106,3 +106,5 @@ html.toast-mode, html.toast-mode body, html.toast-mode #root {
 
 @keyframes toastIn { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes toastOut { to { transform: translateY(16px); opacity: 0; } }
+/* Less motion asked for by the system: the card appears and goes without sliding */
+@media (prefers-reduced-motion: reduce) { .toast-host .w-toast, .toast-host .w-toast.leaving { animation: none; } }
