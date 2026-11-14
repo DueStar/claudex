@@ -122,7 +122,6 @@
 }
 .w-term-tabs > * { flex-shrink: 0; }
 .w-term-tabs > .w-term-spacer { flex: 1 1 0; min-width: 0; }
-.w-term-tabs::-webkit-scrollbar { height: 0; }
 
 /* ---------- The session header: the bar under the view bar names the open session ----------
    (the session tabs are gone: the left list and the folded rail switch sessions) */

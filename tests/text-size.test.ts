@@ -101,6 +101,10 @@ describe('the terminal follows the step (source checks)', () => {
     expect(tf).not.toMatch(/FONT_PRESETS|\bsetTermFont\b|spawn-term-font/)
     expect(tf).toMatch(/TERM_PX\[getTextStep\(\)\]/)
   })
+
+  it('no unused hook is left (useTermFont had no caller: final review M6)', () => {
+    expect(src('src/termFont.ts')).not.toMatch(/useTermFont|useSyncExternalStore/)
+  })
 })
 
 describe('the text-size control (source checks)', () => {

@@ -3,7 +3,6 @@
  * one text step (src/textSize.ts).
  */
 
-import { useSyncExternalStore } from 'react'
 import type { TerminalFont } from './desktop'
 import { isMac } from './platform'
 import { getTextStep, resetTextSize, stepTextSize, subscribeTextStep, TERM_PX } from './textSize'
@@ -64,7 +63,3 @@ export const getTermFont = (): number => TERM_PX[getTextStep()]
 export const subscribeTermFont = subscribeTextStep
 export function stepTermFont(delta: number) { if (delta) stepTextSize(delta > 0 ? 1 : -1) }
 export const resetTermFont = resetTextSize
-
-export function useTermFont(): number {
-  return useSyncExternalStore(subscribeTermFont, getTermFont, getTermFont)
-}
