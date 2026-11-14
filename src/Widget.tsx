@@ -169,7 +169,7 @@ const ResizeGrip: React.FC = () => {
 }
 
 /**
- * The left panel's right edge (window and full screen): drag it for a width of 240–420px,
+ * The left panel's right edge (window and full screen): drag it for a width of 240–420px (300–420 on a Mac),
  * remembered (src/sideWidth.ts); double-click or Home for the default; ← / → 16px at a time.
  * The terminal keeps its size while the edge moves and fits once it rests (TerminalPanel).
  * While dragged the edge sets the app's --side-w itself (no re-render of the whole app per move);
@@ -195,9 +195,14 @@ const SideResize: React.FC<{ width: number; min: number; max: number; onWidth: (
     show(w)
     e.currentTarget.setAttribute('aria-valuenow', String(w))
   }
-  const onUp = (e: React.PointerEvent) => {
+  const onUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (left.current === null) return
-    onWidth(at(e), true)
+    // Shown here too: a release on the width already kept changes no state, so React would leave
+    // the last move's width on screen
+    const w = clampSideWidth(at(e), window.innerWidth, min)
+    show(w)
+    e.currentTarget.setAttribute('aria-valuenow', String(w))
+    onWidth(w, true)
     left.current = null
     onDragging(false)
   }
@@ -517,8 +522,18 @@ const Widget: React.FC = () => {
   const [barLevel, setBarLevel] = useState(0)
   const neededWidth = useRef<number[]>([])
   const textStep = useTextStep()
+  // What is in the bar: when it changes (the view, 업무 모드's one view, the text step and the
+  // language the words are set in, the 도감 dot, the window's mode) the widths it needed before say
+  // nothing, so they are dropped and the bar is measured again from the top
+  const barContent = [expanded, mode, view, workMode, textStep, lang(), hasNew, update?.status ?? ''].join('|')
+  const barContentSeen = useRef(barContent)
   useLayoutEffect(() => {
     const bar = viewBarRef.current
+    if (barContentSeen.current !== barContent) {
+      barContentSeen.current = barContent
+      neededWidth.current = []
+      if (barLevel !== 0) { setBarLevel(0); return }
+    }
     if (!bar) return
     // The width its parts need: from the bar's left edge to the end of the last one (its margin and
     // the bar's own right padding included). Read from the parts' boxes, not scrollWidth, which
@@ -542,7 +557,7 @@ const Widget: React.FC = () => {
     const ro = new ResizeObserver(check)
     ro.observe(bar)
     return () => ro.disconnect()
-  }, [barLevel, expanded, view, workMode, textStep])
+  }, [barLevel, barContent])
   const viewsCompact = barLevel >= 1
   // Window / fullscreen: the left panel folds away (remembered), leaving the terminal the whole width
   const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('spawn-side-hidden') === '1' } catch { return false } })

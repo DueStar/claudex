@@ -11,7 +11,7 @@
   flex-direction: column;
 }
 .widget.expanded .w-side { flex: 0 0 var(--side-w); width: var(--side-w); }
-/* Its right edge drags its width (240–420, remembered: src/sideWidth.ts): a 7px strip over the
+/* Its right edge drags its width (240–420 on Windows, 300–420 on a Mac; remembered: src/sideWidth.ts): a 7px strip over the
    border, its 1px centre line showing only on hover, focus and while dragging */
 .w-side-resize {
   position: absolute; top: 0; bottom: 0; right: -4px; width: 7px; z-index: 6;

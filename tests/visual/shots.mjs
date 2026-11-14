@@ -32,6 +32,8 @@ const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).ver
 /** What the Electron window paints behind the page (electron/main.cjs): window #0b0c10; the widget is see-through, so a desktop grey */
 const WINDOW_BG = '#0b0c10'
 const DESKTOP_BG = '#23252b'
+/** --lang: the page's locale (설정's 언어 is 자동, so the app follows it) */
+const LOCALE = { en: 'en-US', ja: 'ja-JP' }
 
 /** No Pokémon word, name, level or "HP" in 업무 모드 — copied from tests/work-mode.test.ts (GAME) */
 const GAME = /포켓몬|몬스터볼|도감|박스|잡았|포획|파티|트레이너|Lv\.|\bHP\b|Pok[eé]|Poké|Pokédex|ポケモン|図鑑|ボックス|ゲット|トレーナー|モンスターボール/i
@@ -48,6 +50,7 @@ Before: npx vite build   (the harness reads dist/, it never builds)
   --only a,b       only these surface ids (default: all of them, below)
   --size WxH       only this size (1440x900 or 1100x720); with --sheet, the size to compare
   --side <px>      the left panel at this width (seeds spawn-side-w); the files end in -side<px>
+  --lang <en|ja>   every shot in this language (the page's locale: 설정's 언어 is 자동); files end in -en / -ja
   --text <step>    every shot at this text step: small, large or xlarge (seeds spawn-text-size);
                    the files end in -ts-<step> (--only dex --text xlarge → dex-1440x900-ts-xlarge.png)
   --check fit      in every shot page: no sideways page scroll, and no child of
@@ -167,7 +170,7 @@ function labRef(surface, size) {
 // ---------------------------------------------------------------- arguments
 
 function parseArgs(argv) {
-  const o = { out: join(HOME, 'shots'), only: null, size: null, side: null, text: null, checks: new Set(), flows: [], sheets: [], help: false }
+  const o = { out: join(HOME, 'shots'), only: null, size: null, side: null, text: null, lang: null, checks: new Set(), flows: [], sheets: [], help: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const val = () => { const v = argv[++i]; if (v === undefined || v.startsWith('--')) fail(`${a} needs a value`); return v }
@@ -177,6 +180,7 @@ function parseArgs(argv) {
     else if (a === '--size') o.size = val()
     else if (a === '--side') o.side = val()
     else if (a === '--text') o.text = val()
+    else if (a === '--lang') o.lang = val()
     else if (a === '--check') for (const c of val().split(',')) o.checks.add(c.trim())
     else if (a === '--flow') o.flows.push(val())
     else if (a === '--sheet') o.sheets.push(...val().split(',').map(s => s.trim()).filter(Boolean))
@@ -186,6 +190,7 @@ function parseArgs(argv) {
   if (o.size && !/^\d+x\d+$/.test(o.size)) fail(`--size wants WxH, e.g. 1100x720`)
   if (o.side !== null && !/^\d+$/.test(o.side)) fail(`--side wants a width in px, e.g. 240`)
   if (o.text !== null && !['small', 'large', 'xlarge'].includes(o.text)) fail(`--text wants small, large or xlarge`)
+  if (o.lang !== null && !['en', 'ja'].includes(o.lang)) fail(`--lang wants en or ja`)
   for (const id of [...(o.only ?? []), ...o.sheets]) if (!parseId(id)) fail(`unknown surface "${id}". Surfaces: ${ALL_IDS.join(' ')}`)
   for (const f of o.flows) if (!FLOWS[f]) fail(`unknown flow "${f}". Flows: ${Object.keys(FLOWS).join(' ')}`)
   return o
@@ -404,6 +409,22 @@ const FLOWS = {
       await drag(350, null, { cancel: true })
       if (await page.locator('.widget.resizing').count()) bad('.widget.resizing stayed after a cancelled drag')
       if (!near(await width(), 300) || await stored() !== null) bad(`a cancelled drag: the panel is ${await width()}px, stored ${await stored()} (want 300, none: the screen as stored)`)
+      // Released where it started (the last move showed 350, the release lands on the width it
+      // already had): the panel shows the width it keeps, and says so
+      {
+        const b = await handle.boundingBox()
+        const x = b.x + b.width / 2, y = b.y + 300
+        await page.mouse.move(x, y)
+        await page.mouse.down()
+        await page.mouse.move(x + 50, y)
+        await handle.evaluate((el, cx) => el.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true, clientX: cx, clientY: 300, button: 0, pointerType: 'mouse' })), x)
+        await page.mouse.up()
+        await sleep(300)
+        const now = await handle.getAttribute('aria-valuenow')
+        if (!near(await width(), 300) || now !== '300') bad(`released back at 300 after showing 350: the panel is ${await width()}px, aria-valuenow ${now} (want 300)`)
+        await handle.dblclick()
+        await sleep(100)
+      }
       // Focused (keyboard), the edge's line is visible: 3:1 against the panel beside it
       await handle.focus()
       const focusLine = await page.evaluate(() => {
@@ -648,12 +669,19 @@ const FLOWS = {
   'hit-areas': async ({ browser, opts }) => {
     const problems = []
     // The smallest width and height each control had before the plan (px; measured on the 4f002fa build
-    // with this flow, HIT_BEFORE_RUN=1). Width null: a button sized by its word, which the plan changed
-    // (터미널 → 세션; 600 → 400 weight): its height is held, its padding kept. The rail: 38 → 36, as the lab
+    // with this flow, HIT_BEFORE_RUN=1). The rail: 38 → 36, as the lab (the plan's one allowed shrink).
+    // The launcher's main button is measured with the panel at the pre-plan 328px, so the two compare
     const BEFORE = {
-      'view tab': [null, 23], 'window button': [30, 28], 'widget toggle': [30, 28], 'header icon': [24, 22],
-      'launcher main': [null, 34], 'launcher side': [40, 34], 'row rename ✎': [21, 19], 'row swap': [19, 19], 'row close ×': [17.2, 16],
-      'rail button': [36, 36], 'rail session': [36, 36], 'dex segment': [null, 22],
+      'view tab': [59.8, 23], 'window button': [30, 28], 'widget toggle': [30, 28], 'header icon': [24, 22],
+      'launcher main (panel 328)': [207, 34], 'launcher side': [40, 34], 'row rename ✎': [21, 19], 'row swap': [19, 19], 'row close ×': [17.2, 16],
+      'rail button': [36, 36], 'rail session': [36, 36], 'dex segment': [25.2, 22],
+    }
+    // Named exceptions: a control that cannot meet its pre-plan floor, with why and the floor it is held to
+    const EXCEPTIONS = {
+      'launcher main': {
+        floor: [199, 34],
+        why: 'at the plan\'s 300px default panel (ruling 1; pre-plan 328px) the row is 28px narrower; at 328 it is held to 207 above',
+      },
     }
     const NEW = ['list mode', 'list button', 'session header ×', 'text size', '간략 row ×']
     const measure = (page, sel, { hitAfter = false } = {}) => page.evaluate(([s, after]) => {
@@ -702,17 +730,22 @@ const FLOWS = {
       await app.page.locator('.w-party .w-row').nth(1).hover()
       await sleep(150)
       await take(app.page, '간략 row ×', '.w-rows.compact .w-row:hover .w-row-close')
+      await app.ctx.close()
+      app = await openApp(browser, { local: { 'spawn-side-w': '328' } })
+      await take(app.page, 'launcher main (panel 328)', '.w-side .w-launch-main')
     } catch (err) {
       problems.push(String(err.message).split('\n')[0])
     } finally {
       if (app) await app.ctx.close()
     }
     for (const [name, m] of Object.entries(got)) {
-      const want = BEFORE[name] ?? (NEW.includes(name) ? [22, 22] : null)
-      console.log(`      ${name.padEnd(18)} ${m ? `${m[0]} × ${m[1]}  (${m[2]})` : 'none'}${want ? `   before / floor ${want[0] ?? '–'} × ${want[1]}` : ''}`)
+      const ex = EXCEPTIONS[name]
+      const want = ex?.floor ?? BEFORE[name] ?? (NEW.includes(name) ? [22, 22] : null)
+      console.log(`      ${name.padEnd(26)} ${m ? `${m[0]} × ${m[1]}  (${m[2]})` : 'none'}${want ? `   floor ${want[0]} × ${want[1]}` : ''}${ex ? `   (exception: ${ex.why})` : ''}`)
       if (process.env.HIT_BEFORE_RUN) continue // measuring the pre-plan build: no judging
       if (!m) { problems.push(`${name}: not found`); continue }
-      if (want && ((want[0] !== null && m[0] < want[0] - 0.5) || m[1] < want[1] - 0.5)) problems.push(`${name}: ${m[0]} × ${m[1]}, smaller than ${want[0] ?? '(any)'} × ${want[1]}`)
+      // (the numbers are rounded to 0.1px)
+      if (want && (m[0] < want[0] - 0.05 || m[1] < want[1] - 0.05)) problems.push(`${name}: ${m[0]} × ${m[1]}, smaller than ${want[0]} × ${want[1]}`)
     }
     if (opts?.out) writeFileSync(join(opts.out, 'hit-areas.json'), JSON.stringify(got, null, 2))
     return problems
@@ -793,6 +826,32 @@ const FLOWS = {
         for (const p of await fitProblems(page)) bad(`fit: ${p}`)
         if (opts?.out) await page.screenshot({ path: join(opts.out, `flow-narrow-${mac ? 'mac' : 'win'}-${folded ? 'folded' : 'open'}-${width}.png`), animations: 'disabled', caret: 'hide' })
         console.log(`      ${label}: panel ${Math.round(got.sideW)}px, bar ${got.cw}px (content ${got.sw}), views ${got.views}, text size ${got.textsize}, widget toggle ${got.toggle ? 'shown' : 'hidden'}${got.close ? `, close at ${got.close.left.toFixed(0)}–${got.close.right.toFixed(0)}` : ''}`)
+      } catch (err) {
+        bad(String(err.message).split('\n')[0])
+      } finally {
+        if (app) await app.ctx.close()
+      }
+    }
+    // The bar measures again when what is in it changes: stepped down from 아주 크게 to 작게, it gives
+    // back what a page opened at 작게 shows (the widths it needed at 아주 크게 are not kept)
+    const level = page => page.evaluate(() => (document.querySelector('.w-view-icons') ? 1 : 0)
+      + (document.querySelector('.w-term-tabs .w-textsize.compact') ? 1 : 0) + (document.querySelector('.w-term-tabs .w-widget-toggle') ? 0 : 1))
+    for (const width of [640, 700, 760, 820, 900]) {
+      const bad = m => problems.push(`stepping at ${width}: ${m}`)
+      let app
+      try {
+        app = await openApp(browser, { size: [width, 720], local: { 'spawn-text-size': 'small' } })
+        await sleep(300)
+        const fresh = await level(app.page)
+        await app.ctx.close()
+        app = await openApp(browser, { size: [width, 720], local: { 'spawn-text-size': 'xlarge' } })
+        await sleep(300)
+        const big = await level(app.page)
+        for (let k = 0; k < 3; k++) await app.page.keyboard.press('Control+Minus')
+        await sleep(400)
+        const stepped = await level(app.page)
+        if (stepped !== fresh) bad(`at 작게 after stepping down the bar is at level ${stepped}, a page opened at 작게 at ${fresh}`)
+        console.log(`      stepping at ${width}: 아주 크게 level ${big} → 작게 ${stepped} (fresh 작게 ${fresh})`)
       } catch (err) {
         bad(String(err.message).split('\n')[0])
       } finally {
@@ -1168,7 +1227,7 @@ async function shoot(browser, s, [W, H], opts, report) {
     ...(opts.text ? { 'spawn-text-size': opts.text } : {}),
   }
   const ctx = await browser.newContext({
-    viewport: { width: W, height: H }, deviceScaleFactor: 1, locale: 'ko-KR', timezoneId: 'Asia/Seoul',
+    viewport: { width: W, height: H }, deviceScaleFactor: 1, locale: LOCALE[opts.lang] ?? 'ko-KR', timezoneId: 'Asia/Seoul',
     colorScheme: 'dark', bypassCSP: true, reducedMotion: 'no-preference',
   })
   const result = { id: s.id, size: sizeName, file: null, problems: [], warnings: [], row: null }
@@ -1249,12 +1308,17 @@ async function shoot(browser, s, [W, H], opts, report) {
     if (s.clip) buf = await page.locator(s.clip).first().screenshot({ animations: 'disabled', caret: 'hide' })
     else buf = await page.screenshot({ fullPage: !!s.fullPage, animations: 'disabled', caret: 'hide' })
     const { w, h } = pngSize(buf)
-    const file = join(opts.out, `${s.id}-${s.clip || s.fullPage ? `${w}x${h}` : sizeName}${opts.side ? `-side${opts.side}` : ''}${opts.text ? `-ts-${opts.text}` : ''}.png`)
+    const file = join(opts.out, `${s.id}-${s.clip || s.fullPage ? `${w}x${h}` : sizeName}${opts.side ? `-side${opts.side}` : ''}${opts.text ? `-ts-${opts.text}` : ''}${opts.lang ? `-${opts.lang}` : ''}.png`)
     writeFileSync(file, buf)
     result.file = file
 
     // The checks, in the same page
     if (opts.checks.has('fit')) result.problems.push(...(await fitProblems(page)).map(p => `fit: ${p}`))
+    // 기록's time column: the widest time against the column (a note, for the record)
+    if (opts.checks.has('fit')) {
+      const col = await page.evaluate(() => { const els = [...document.querySelectorAll('.today-time')]; if (!els.length) return null; const range = document.createRange(); let w = 0, text = ''; for (const el of els) { range.selectNodeContents(el); const r = range.getBoundingClientRect().width; if (r > w) { w = r; text = el.textContent.trim() } } return { text, w: Math.round(w * 10) / 10, col: els[0].clientWidth } })
+      if (col) result.notes = [`기록's time: widest "${col.text}" ${col.w}px in a ${col.col}px column`]
+    }
     if (opts.checks.has('work') && s.work) result.problems.push(...(await workProblems(page)).map(p => `work: ${p}`))
     if (opts.checks.has('work')) result.row = await firstRowBox(page)
   } catch (err) {
@@ -1267,6 +1331,7 @@ async function shoot(browser, s, [W, H], opts, report) {
   console.log(`${mark} ${label}${result.file ? `  → ${result.file}` : ''}`)
   for (const p of result.problems) console.log(`      ${p}`)
   for (const wmsg of [...new Set(result.warnings)]) console.log(`      (warning) ${wmsg}`)
+  for (const n of result.notes ?? []) console.log(`      (note) ${n}`)
 }
 
 // ---------------------------------------------------------------- sheets

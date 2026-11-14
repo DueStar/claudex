@@ -1,6 +1,6 @@
 /**
  * The left panel's width (window and full screen): dragged by its right edge between
- * 240 and 420px, one remembered width for both modes, kept per PC in page storage.
+ * 240 and 420px (300 and 420 on a Mac: sideMin), one remembered width for both modes, kept per PC in page storage.
  * Double-click the edge (or Home on it) for the 300px default.
  */
 
@@ -23,7 +23,7 @@ export function clampSideWidth(px: number, windowWidth: number, min: number = SI
   return Math.round(Math.max(min, Math.min(px, SIDE_MAX, windowWidth - TERM_MIN)))
 }
 
-/** The remembered width: a number 240–420, else the default */
+/** The remembered width: a number 240–420, else the default (on a Mac the caller's clamp lifts 240–299 to 300) */
 export function readSideWidth(store: Pick<Storage, 'getItem'> | null | undefined): number {
   try {
     const raw = store?.getItem(SIDE_KEY)

@@ -53,7 +53,8 @@
   font: inherit;
   font-size: var(--t-ui);
   font-weight: var(--w-body);
-  padding: 5px 9px;
+  /* the pre-plan 11px each side (the hit area the tabs had), 5px tall (25px: not below the old 23) */
+  padding: 5px 11px;
   border: 0;
   border-radius: var(--r-s);
   background: transparent;
@@ -164,6 +165,8 @@
 .dex-seg button, .dex-chips button {
   font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); cursor: pointer; white-space: nowrap;
   border: 0; background: transparent; color: var(--ink-3); padding: 4px 9px; border-radius: var(--r-s);
+  /* the 400 weight sets narrower than the old 600: the shortest one keeps its old 25.2px width */
+  min-width: 26px;
 }
 /* A tier chip: the coloured dot and the word, no tier-coloured fill or border */
 .dex-chips { display: flex; gap: 2px; }

@@ -194,6 +194,8 @@ const RULES = SHEETS.flatMap(s => rulesOf(s.file, s.text)).filter(r => !r.at?.st
 const values = (r: Rule, prop: string) => [...r.body.matchAll(new RegExp(String.raw`(?:^|[;\s{])${prop}\s*:\s*([^;]+)`, 'g'))].map(m => m[1].trim())
 const parts = (sel: string) => sel.split(',').map(s => s.trim())
 const where = (r: Rule) => `${r.file}: ${r.sel}`
+/** A selector part names this selector exactly: not as the start of a longer class (.picked, not .picked-x) */
+const names = (part: string, sel: string) => new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(part)
 
 describe('the guards: what the calm look allows', () => {
   it('(a) no old greys and no --accent-soft left', () => {
@@ -203,17 +205,20 @@ describe('the guards: what the calm look allows', () => {
     }
   })
 
-  const HEADINGS = ['.w-brand', '.set-title', '.set-body h3', '.dex-card-name', '.w-toast-title', '.resume-head', '.w-setup-title', '.w-notes-body h3', '.qa-']
+  // (exact names; .qa- is the QA page's prefix: any class under it)
+  const HEADINGS = ['.w-brand', '.set-title', '.set-body h3', '.dex-card-name', '.w-toast-title', '.resume-head', '.w-setup-title', '.w-notes-body h3']
+  const isHeading = (p: string) => HEADINGS.some(h => names(p, h)) || /\.qa-[\w-]/.test(p)
   it('(b) weights are 380 / 400 / 500 / 600 or a token; 600 only on the wordmark and headings', () => {
     const seen: string[] = []
     for (const r of RULES) {
-      // font-weight, and a weight at the start of the font shorthand (font: 500 10px/1 …)
-      const weights = [...values(r, 'font-weight'), ...values(r, 'font').map(v => v.match(/^(\d{3})\s/)?.[1]).filter((w): w is string => !!w)]
+      // font-weight, and a weight in the font shorthand: a number first (font: 500 10px/1 …) or a keyword
+      const short = values(r, 'font').map(v => v.match(/^(\d{3})\s/)?.[1] ?? v.match(/(?:^|\s)(bold|bolder|lighter)(?=\s)/)?.[1]).filter((w): w is string => !!w)
+      const weights = [...values(r, 'font-weight'), ...short]
       for (const w of weights) {
         seen.push(w)
         expect(['380', '400', '500', '600', 'inherit'].includes(w) || /^var\(--w-[\w-]+\)$/.test(w), `${where(r)}: font-weight ${w}`).toBe(true)
         if (w === '600' || w === 'var(--w-head)') {
-          for (const p of parts(r.sel)) expect(HEADINGS.some(h => p.includes(h)), `${r.file}: ${p} is not a heading but weighs ${w}`).toBe(true)
+          for (const p of parts(r.sel)) expect(isHeading(p), `${r.file}: ${p} is not a heading but weighs ${w}`).toBe(true)
         }
       }
     }
@@ -223,12 +228,13 @@ describe('the guards: what the calm look allows', () => {
   it('(c) radii only from the tokens, 0 / 1px / 2px and 50 %; 999px in the switch and the toast badges', () => {
     const seen: string[] = []
     for (const r of RULES) {
-      for (const v of values(r, 'border-radius')) {
+      // border-radius and its four longhands (border-top-left-radius …)
+      for (const v of values(r, 'border(?:-(?:top|bottom)-(?:left|right))?-radius')) {
         seen.push(v)
         const terms = v.replace(/calc\(|\)|[-+*/]\s/g, ' ').split(/\s+/).filter(Boolean)
         for (const term of terms) {
           if (term === '999px') {
-            for (const p of parts(r.sel)) expect(p.includes('.set-switch') || /\.w-toast-(new|badge)\b/.test(p), `${where(r)}: 999px outside the switch and the toast badges`).toBe(true)
+            for (const p of parts(r.sel)) expect(names(p, '.set-switch') || /\.w-toast-(new|badge)(?![\w-])/.test(p), `${where(r)}: 999px outside the switch and the toast badges`).toBe(true)
             continue
           }
           expect(['0', '1px', '2px', '50%'].includes(term) || /^var\(--r-[\w-]+$/.test(term) || /^var\(--r-[\w-]+\)$/.test(term), `${where(r)}: border-radius ${v}`).toBe(true)
@@ -238,13 +244,14 @@ describe('the guards: what the calm look allows', () => {
     expect(seen.length).toBeGreaterThan(50)
   })
 
-  const YELLOW = ['.w-row.chosen', '.w-rail-session.on', '.picked', '.drop', '.ins-before', '.ins-after', '.w-send', 'focus-visible']
+  // (each matched exactly: .picked, not .picked-x)
+  const YELLOW = ['.w-row.chosen', '.w-rail-session.on', '.picked', '.drop', '.ins-before', '.ins-after', '.w-send', ':focus-visible']
   it('(d) yellow only on the chosen session, the picked cell (and its drop / insert marks), send and focus rings', () => {
     let uses = 0
     for (const r of RULES) {
       if (!/var\(--accent\)/.test(r.body)) continue
       uses++
-      for (const p of parts(r.sel)) expect(YELLOW.some(y => p.includes(y)), `${r.file}: ${p} is yellow`).toBe(true)
+      for (const p of parts(r.sel)) expect(YELLOW.some(y => names(p, y)), `${r.file}: ${p} is yellow`).toBe(true)
     }
     expect(uses).toBeGreaterThan(3)
     // the wordmark's hover went neutral (the lockup's own rules are untouched)
@@ -256,11 +263,12 @@ describe('the guards: what the calm look allows', () => {
       expect(s.text, s.file).not.toMatch(/\.w-glint|w-spin/)
     }
     for (const f of ['Widget.tsx', 'QaPage.tsx']) expect(read('src', f), f).not.toMatch(/w-glint|w-spin/)
-    const reduced = new Set(RULES.filter(r => r.at?.includes('prefers-reduced-motion') && /animation\s*:\s*none/.test(r.body)).flatMap(r => parts(r.sel)))
+    const reduced = new Set(RULES.filter(r => r.at?.includes('prefers-reduced-motion') && /animation(?:-name)?\s*:\s*none/.test(r.body)).flatMap(r => parts(r.sel)))
     let animated = 0
     for (const r of RULES) {
       if (r.at?.includes('prefers-reduced-motion')) continue
-      const anim = values(r, 'animation').filter(v => v !== 'none')
+      // the shorthand and animation-name
+      const anim = values(r, 'animation(?:-name)?').filter(v => v !== 'none')
       if (!anim.length) continue
       animated++
       for (const p of parts(r.sel)) expect(reduced.has(p), `${r.file}: ${p} animates (${anim[0]}) with no reduced-motion rule`).toBe(true)
