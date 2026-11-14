@@ -311,6 +311,8 @@
   border-left: 1px solid var(--line); border-right: 1px solid var(--line);
   color: var(--ink-2); font-size: var(--t-meta); white-space: nowrap;
 }
+/* A narrow bar: one 가 button (no − / +, no name); it opens the same menu */
+.w-textsize.compact > .w-textsize-cur { border: 0; padding: 0 7px; min-width: 26px; justify-content: center; }
 /* 가 keeps one size, so the button shows the step by its name, not by growing */
 .w-textsize-g { font-family: 'W Pretendard', 'Pretendard Variable', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 13px; line-height: 1; color: var(--ink); }
 .w-textsize-menu {

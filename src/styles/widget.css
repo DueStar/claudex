@@ -68,7 +68,7 @@ html.widget-mode, html.widget-mode body, html.widget-mode #root {
 .w-brand:hover { color: var(--accent); }
 .w-brand .pokeball { display: block; }
 .w-brand:hover .pokeball { filter: brightness(1.1); }
-.w-conn { width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--green); }
+.w-conn { flex: none; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--green); }
 .w-conn.off { background: var(--ink-3); box-shadow: none; }
 .w-icon {
   -webkit-app-region: no-drag;

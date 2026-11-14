@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { clampSideWidth, readSideWidth, SIDE_DEFAULT, SIDE_KEY, SIDE_MAX, SIDE_MIN, TERM_MIN } from '../src/sideWidth'
+import { clampSideWidth, readSideWidth, sideMin, SIDE_DEFAULT, SIDE_KEY, SIDE_MAX, SIDE_MIN, SIDE_MIN_MAC, TERM_MIN } from '../src/sideWidth'
 
 describe('clampSideWidth', () => {
   it('the limits', () => {
@@ -27,6 +27,17 @@ describe('clampSideWidth', () => {
 
   it('rounds to whole pixels', () => {
     expect(clampSideWidth(300.6, 1440)).toBe(301)
+  })
+
+  it('a Mac: never under 300 (its header starts 78px in, clear of the traffic lights; at 240 it does not fit)', () => {
+    expect(SIDE_MIN_MAC).toBe(300)
+    expect(sideMin(true)).toBe(300)
+    expect(sideMin(false)).toBe(SIDE_MIN)
+    expect(clampSideWidth(240, 1440, sideMin(true))).toBe(300)
+    expect(clampSideWidth(360, 1440, sideMin(true))).toBe(360)
+    expect(clampSideWidth(420, 560, sideMin(true))).toBe(300)
+    // Windows as before
+    expect(clampSideWidth(240, 1440, sideMin(false))).toBe(240)
   })
 })
 

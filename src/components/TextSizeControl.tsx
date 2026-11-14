@@ -11,7 +11,8 @@ import { t } from '../i18n'
 import { modCombo, modLabel } from '../platform'
 import { CheckIcon } from './Icons'
 
-export const TextSizeControl: React.FC = () => {
+/** compact: a narrow top bar — one 가 button that opens the same menu (no − / + and no step name) */
+export const TextSizeControl: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const step = useTextStep()
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
@@ -37,15 +38,15 @@ export const TextSizeControl: React.FC = () => {
   const name = t(TEXT_STEP_LABEL[step])
   const tip = t('글자 크기 · 목록·패널·터미널 함께 ({mod}+= 크게 · {mod}+- 작게 · {mod}+0 보통 · {mod}+휠)', { mod: modLabel() })
   return (
-    <div className="w-textsize" ref={box}>
-      <button className="w-textsize-step" onClick={() => stepTextSize(-1)} disabled={at <= 0}
-        title={`${t('글자 작게')} (${modCombo('-')})`} aria-label={t('글자 작게')}>−</button>
+    <div className={`w-textsize${compact ? ' compact' : ''}`} ref={box}>
+      {!compact && <button className="w-textsize-step" onClick={() => stepTextSize(-1)} disabled={at <= 0}
+        title={`${t('글자 작게')} (${modCombo('-')})`} aria-label={t('글자 작게')}>−</button>}
       <button ref={cur} className={`w-textsize-cur${open ? ' open' : ''}`} onClick={() => setOpen(o => !o)}
-        title={tip} aria-label={`${t('글자 크기')}: ${name}`} aria-haspopup="menu" aria-expanded={open}>
-        <span className="w-textsize-g" aria-hidden="true">가</span><span className="w-textsize-name">{name}</span>
+        title={compact ? `${name} · ${tip}` : tip} aria-label={`${t('글자 크기')}: ${name}`} aria-haspopup="menu" aria-expanded={open}>
+        <span className="w-textsize-g" aria-hidden="true">가</span>{!compact && <span className="w-textsize-name">{name}</span>}
       </button>
-      <button className="w-textsize-step" onClick={() => stepTextSize(1)} disabled={at >= TEXT_STEPS.length - 1}
-        title={`${t('글자 크게')} (${modCombo('=')})`} aria-label={t('글자 크게')}>+</button>
+      {!compact && <button className="w-textsize-step" onClick={() => stepTextSize(1)} disabled={at >= TEXT_STEPS.length - 1}
+        title={`${t('글자 크게')} (${modCombo('=')})`} aria-label={t('글자 크게')}>+</button>}
       {open && (
         <div className="w-textsize-menu" role="menu" aria-label={t('글자 크기')}>
           <div className="w-textsize-title">{t('글자 크기')}</div>

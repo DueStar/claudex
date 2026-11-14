@@ -64,6 +64,8 @@
 .w-view-switch button { transition: background-color .12s, color .12s; }
 .w-view-switch button:not(.on):hover { background: var(--hover); color: var(--ink-2); }
 .w-view-switch button.on { background: var(--sel-bg); color: var(--ink); }
+/* Icons only (a narrow bar): the gap after them is the spacer's; every px goes to the window buttons */
+.w-view-switch.w-view-icons { margin-right: 2px; }
 /* The pane under 도감 / 박스 / 기록 / 랭킹: the page's own background (calm: --bg, as the lab) */
 .w-dex-body { flex: 1; min-height: 0; display: flex; background: var(--bg); }
 
@@ -302,7 +304,7 @@
 /* ---------- Account (Google sign-in) ---------- */
 .w-signin {
   -webkit-app-region: no-drag;
-  font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); padding: 3px 6px; border-radius: var(--r-s); border: 0;
+  font: inherit; font-size: var(--t-meta); font-weight: var(--w-body); padding: 3px 6px; border-radius: var(--r-s); border: 0; white-space: nowrap;
   background: none; color: var(--ink-2); cursor: pointer;
 }
 .w-signin:hover { background: var(--hover); color: var(--ink); }

@@ -69,6 +69,10 @@ Before: npx vite build   (the harness reads dist/, it never builds)
                               terminal size), its class, the terminal's px; Ctrl/⌘ += - 0 once per
                               press, the wheel, − 가 + and its menu, 설정's row (with --out: a
                               picture of the open menu, flow-text-size-menu.png)
+                   narrow     560 and 640 wide, Windows and Mac, the panel open and folded: the top
+                              bar fits (the window buttons whole, the text size folded to 가 when it
+                              must, its menu inside the window), the Mac's 78px room, the fit check
+                              (with --out: flow-narrow-<win|mac>-<open|folded>-<width>.png)
   --sheet <s>      no shots: writes <out>/sheet-<s>[-WxH].png = before (<out>/../00-before/),
                    the lab reference, after (<out>), side by side or stacked
   --help           this
@@ -379,13 +383,13 @@ const FLOWS = {
       for (let k = 0; k < 10; k++) await page.keyboard.press('ArrowRight')
       if (await stored() !== '420') bad(`→ ten times: stored ${await stored()} (want 420)`)
       await page.setViewportSize({ width: 700, height: 720 })
-      await sleep(200)
+      await sleep(400)
       if (!near(await width(), 380)) bad(`420 in a 700px window: the panel is ${await width()}px, not 380`)
       await page.setViewportSize({ width: 560, height: 720 })
-      await sleep(200)
+      await sleep(400)
       if (!near(await width(), 240)) bad(`in a 560px window: the panel is ${await width()}px, not 240`)
       await page.setViewportSize({ width: 1440, height: 900 })
-      await sleep(200)
+      await sleep(400)
       if (!near(await width(), 420)) bad(`back to 1440: the panel is ${await width()}px, not the remembered 420`)
       // Folded and widget mode: no edge
       await page.locator('.w-head .w-side-toggle').click()
@@ -543,9 +547,8 @@ const FLOWS = {
         const bar = await page.evaluate(() => { const b = document.querySelector('.w-term-tabs'); return { sw: b.scrollWidth, cw: b.clientWidth, icons: !!b.querySelector('.w-view-icons') } })
         if (bar.sw > bar.cw + 1) bad(`at 900px the bar overflows: ${bar.sw} > ${bar.cw}`)
         console.log(`      ${label}: keys, wheel, − 가 + and the menu checked; at 900px the bar is ${bar.cw}px, views ${bar.icons ? 'icons only' : 'named'}`)
-        // Narrower still: the views must drop to icons (viewsCompact reads scrollWidth, the bar is overflow: visible).
-        // (Near the window's 560px minimum with the panel open, the bar's fixed parts alone are wider than
-        // it, as they were with the Aa trio: the card clips the end. Noted, not failed here.)
+        // Narrower still: the views must drop to icons (the bar's level reads scrollWidth, the bar is overflow: visible).
+        // (Near the window's 560px minimum the text size folds and the widget toggle goes: --flow narrow)
         await page.setViewportSize({ width: 640, height: 700 })
         await sleep(400)
         const narrow = await page.evaluate(() => { const b = document.querySelector('.w-term-tabs'); return { sw: b.scrollWidth, cw: b.clientWidth, icons: !!b.querySelector('.w-view-icons'), kids: [...b.children].map(c => `${c.className.split(' ')[0]}:${Math.round(c.getBoundingClientRect().width)}`).join(' ') } })
@@ -559,6 +562,90 @@ const FLOWS = {
         if ((await row.locator('button.on').textContent()) !== '아주 크게') bad(`설정 shows ${await row.locator('button.on').textContent()}, not 아주 크게`)
         await row.locator('button', { hasText: /^작게$/ }).click()
         if (await cls() !== 'ts-small') bad(`설정's 작게: ${await cls()}`)
+      } catch (err) {
+        bad(String(err.message).split('\n')[0])
+      } finally {
+        if (app) await app.ctx.close()
+      }
+    }
+    return problems
+  },
+
+  /**
+   * A narrow window (calm-style plan, Task 14): at 560 (the window's minimum) and 640 wide, on
+   * Windows and on a Mac, the left panel open and folded, the top bar fits its card — nothing
+   * past the bar's end, the window buttons whole and on top (Windows), the text size still
+   * reachable (folded to one 가 button when it must, its menu inside the window), the traffic
+   * lights' 78px left room kept (Mac), and the page's own fit check.
+   */
+  narrow: async ({ browser, opts }) => {
+    const problems = []
+    for (const mac of [false, true]) for (const folded of [false, true]) for (const width of [560, 640]) {
+      const label = `${mac ? 'Mac' : 'Windows'} ${folded ? 'folded' : 'open'} ${width}`
+      const bad = m => problems.push(`${label}: ${m}`)
+      let app
+      try {
+        app = await openApp(browser, { mac, size: [width, 720], local: { 'spawn-side-hidden': folded ? '1' : '0' } })
+        const { page } = app
+        await sleep(400)
+        const got = await page.evaluate(() => {
+          const bar = document.querySelector('.w-term-tabs')
+          const card = document.querySelector('.w-term').getBoundingClientRect()
+          const br = bar.getBoundingClientRect()
+          const past = []
+          // inside the bar's right padding too (8px: the close button never touches the window's edge)
+          const end = Math.min(card.right, br.right - parseFloat(getComputedStyle(bar).paddingRight), innerWidth)
+          for (const el of bar.querySelectorAll('button, .w-textsize, .w-win-controls, .w-view-switch')) {
+            const cs = getComputedStyle(el)
+            const r = el.getBoundingClientRect()
+            if (cs.display === 'none' || !r.width) continue
+            if (r.right > end + 0.5) past.push(`${el.className || el.tagName} ends at ${r.right.toFixed(1)} (bar content ends ${end.toFixed(1)}, card ${card.right.toFixed(1)})`)
+          }
+          const close = document.querySelector('.w-win-close')
+          const cr = close && getComputedStyle(close.parentElement).display !== 'none' ? close.getBoundingClientRect() : null
+          const onTop = cr ? document.elementFromPoint(cr.left + cr.width / 2, cr.top + cr.height / 2)?.closest('.w-win-close') === close : null
+          const ts = document.querySelector('.w-term-tabs .w-textsize')
+          const first = folded => {
+            const host = folded ? bar : document.querySelector('.w-side .w-head')
+            const kid = [...host.children].find(c => getComputedStyle(c).display !== 'none' && c.getBoundingClientRect().width)
+            return kid ? kid.getBoundingClientRect().left : null
+          }
+          return {
+            sw: bar.scrollWidth, cw: bar.clientWidth, past,
+            close: cr ? { left: cr.left, right: cr.right, w: cr.width, h: cr.height } : null, onTop,
+            textsize: ts ? (ts.classList.contains('compact') ? 'compact' : 'full') : 'none',
+            toggle: !!document.querySelector('.w-term-tabs .w-widget-toggle'),
+            views: document.querySelector('.w-view-icons') ? 'icons' : 'named',
+            firstOpen: first(false), firstFolded: first(true),
+            sideW: document.querySelector('.w-side').getBoundingClientRect().width,
+          }
+        }, folded)
+        if (got.sw > got.cw + 1) bad(`the bar's content is ${got.sw}px in a ${got.cw}px bar`)
+        for (const p of got.past) bad(p)
+        if (!mac) {
+          if (!got.close) bad('no window close button')
+          else {
+            if (got.close.w < 30 - 0.5 || got.close.h < 28 - 0.5) bad(`the close button is ${got.close.w}×${got.close.h}, not 30×28`)
+            if (!got.onTop) bad('the close button is covered at its centre')
+          }
+        } else if (got.close) bad('a Mac shows the page\'s own window buttons')
+        if (got.textsize === 'none') bad('no text-size control')
+        // Mac: nothing under the traffic lights (x 14–68): the panel's header starts 78px in; folded, the bar 78px in
+        if (mac && !folded && got.firstOpen !== null && got.firstOpen < 78 - 0.5) bad(`the panel header's first item starts at ${got.firstOpen}, under the traffic lights`)
+        if (mac && folded && got.firstFolded !== null && got.firstFolded < 78 - 0.5) bad(`the bar's first item starts at ${got.firstFolded}, under the traffic lights`)
+        // The text size still works: the menu opens inside the window and sets a step
+        await page.locator('.w-term-tabs .w-textsize-cur').click()
+        const mb = await page.locator('.w-textsize-menu').boundingBox()
+        if (!mb) bad('the text-size menu did not open')
+        else {
+          if (mb.x < -0.5 || mb.x + mb.width > width + 0.5) bad(`the text-size menu runs out of the window: ${mb.x.toFixed(1)}–${(mb.x + mb.width).toFixed(1)}`)
+          await page.locator('.w-textsize-item', { hasText: '크게' }).first().click()
+          const cls = await page.evaluate(() => document.documentElement.className)
+          if (!/ts-large/.test(cls)) bad(`picking 크게 in the menu left <html class="${cls}">`)
+        }
+        for (const p of await fitProblems(page)) bad(`fit: ${p}`)
+        if (opts?.out) await page.screenshot({ path: join(opts.out, `flow-narrow-${mac ? 'mac' : 'win'}-${folded ? 'folded' : 'open'}-${width}.png`), animations: 'disabled', caret: 'hide' })
+        console.log(`      ${label}: panel ${Math.round(got.sideW)}px, bar ${got.cw}px (content ${got.sw}), views ${got.views}, text size ${got.textsize}, widget toggle ${got.toggle ? 'shown' : 'hidden'}${got.close ? `, close at ${got.close.left.toFixed(0)}–${got.close.right.toFixed(0)}` : ''}`)
       } catch (err) {
         bad(String(err.message).split('\n')[0])
       } finally {
@@ -632,6 +719,9 @@ async function renameOnce(page, field, terminalId, value, bad) {
   if (await page.locator('input.w-row-rename, input.w-sess-head-rename').count()) bad('the rename field stayed open after Enter')
 }
 
+/** Page errors seen by the flows' pages (openApp) */
+const flowPageErrors = []
+
 /** The app with the fixture in a page of its own, for a flow (window mode) */
 async function openApp(browser, { local = {}, twelve = false, size = [1440, 900], work = false, mac = false, smoke = false } = {}) {
   const shot = {
@@ -653,6 +743,8 @@ async function openApp(browser, { local = {}, twelve = false, size = [1440, 900]
   try {
     await ctx.clock.setFixedTime(fixture.NOW)
     const page = await ctx.newPage()
+    // A page error during a flow fails the flow (main reads this list after each one)
+    page.on('pageerror', err => flowPageErrors.push(`page error: ${String(err.message).split('\n')[0]}`))
     await page.addInitScript(pageSetup, { shot, local: all, mac, origin: BASE })
     await page.addInitScript({ path: join(HERE, 'fake-bridge.js') })
     await page.routeWebSocket(/\/ws$/, ws => {
@@ -783,7 +875,7 @@ async function fitProblems(page) {
     const name = el => `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : ''}`
     const sw = document.documentElement.scrollWidth
     if (sw > innerWidth) bad.push(`the page scrolls sideways: scrollWidth ${sw} > ${innerWidth}`)
-    const ROWS = '.w-term-tabs, .w-list-head, .w-sess-bar, .w-row, ' +
+    const ROWS = '.w-head, .w-term-tabs, .w-list-head, .w-sess-bar, .w-row, ' +
       // the views: 도감's numbers and filters, 박스's bars, 기록's summary and rows, 랭킹's rows
       '.dex-stats, .dex-stat, .dex-tiers, .dex-tiercol, .dex-filterbar, .dex-fgroup, .dex-card-tags, .dex-owned-top, ' +
       '.box-party, .box-party-row, .box-toolbar, .box-tools, .box-actions, .today-sum, .today-row, .today-text, ' +
@@ -798,6 +890,17 @@ async function fitProblems(page) {
         if (!r.width && !r.height) continue
         if (r.right > pr.right + 0.5) bad.push(`${name(child)} ends at ${r.right.toFixed(1)}, past its parent ${name(parent)} (${pr.right.toFixed(1)})`)
       }
+    }
+    // One line each: a label that wraps (the header's 로그인, 기록's time) or a dot squeezed out of its row
+    const lineOf = el => { const cs = getComputedStyle(el); return parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3 }
+    for (const el of document.querySelectorAll('.w-head .w-signin, .w-head .w-update, .today-time, .w-list-count, .w-sess-head-proj')) {
+      const r = el.getBoundingClientRect()
+      if (r.width && r.height > lineOf(el) * 1.6 + 6) bad.push(`${name(el)} wraps: ${r.height.toFixed(1)}px tall (${el.textContent.trim().slice(0, 20)})`)
+    }
+    for (const el of document.querySelectorAll('.w-head .w-conn, .w-row-tick, .w-pill-dot, .w-rail-dot')) {
+      const r = el.getBoundingClientRect()
+      const cs = getComputedStyle(el)
+      if (cs.display !== 'none' && el.offsetParent && r.width < parseFloat(cs.height) - 0.5) bad.push(`${name(el)} squeezed to ${r.width.toFixed(1)}px wide`)
     }
     return bad
   })
@@ -1079,7 +1182,9 @@ async function main() {
     console.log(`spawn ${VERSION} · ${name} · ${BASE} · ${jobs.length} shot(s) → ${opts.out}`)
     for (const [s, size] of jobs) await shoot(browser, s, size, opts, report)
     for (const f of opts.flows) {
+      flowPageErrors.length = 0
       const problems = await FLOWS[f]({ browser, opts, fixture, BASE })
+      problems.push(...new Set(flowPageErrors))
       report.push({ id: `flow ${f}`, size: '', file: 'flow', problems, warnings: [] })
       console.log(`${problems.length ? 'BAD' : 'ok '} flow ${f}`)
       for (const p of problems) console.log(`      ${p}`)

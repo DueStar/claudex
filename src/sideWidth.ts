@@ -11,9 +11,16 @@ export const SIDE_KEY = 'spawn-side-w'
 /** The terminal keeps at least this much of the window */
 export const TERM_MIN = 320
 
-/** A width the panel may take in a window this wide: 240–420, leaving the terminal 320px, never under 240 */
-export function clampSideWidth(px: number, windowWidth: number): number {
-  return Math.round(Math.max(SIDE_MIN, Math.min(px, SIDE_MAX, windowWidth - TERM_MIN)))
+/**
+ * A Mac's narrowest panel: its header starts 78px in (clear of the traffic lights) instead of 18,
+ * so the logo, the connection dot, 로그인, 설정 and the fold button need these 60px more
+ */
+export const SIDE_MIN_MAC = 300
+export const sideMin = (mac: boolean): number => (mac ? SIDE_MIN_MAC : SIDE_MIN)
+
+/** A width the panel may take in a window this wide: min–420, leaving the terminal 320px, never under min (240; a Mac 300) */
+export function clampSideWidth(px: number, windowWidth: number, min: number = SIDE_MIN): number {
+  return Math.round(Math.max(min, Math.min(px, SIDE_MAX, windowWidth - TERM_MIN)))
 }
 
 /** The remembered width: a number 240–420, else the default */

@@ -106,7 +106,8 @@ describe('the terminal follows the step (source checks)', () => {
 describe('the text-size control (source checks)', () => {
   it('the header has − 가 + in place of the Aa trio', () => {
     const w = src('src/Widget.tsx')
-    expect(w).toMatch(/<TextSizeControl \/>/)
+    // (folded to one 가 button when the bar is narrow: the bar's level 2)
+    expect(w).toMatch(/<TextSizeControl compact=\{barLevel >= 2\} \/>/)
     expect(w).not.toMatch(/w-font-switch/)
     expect(w).not.toMatch(/Aa<\/button>/)
     for (const css of ['src/styles/pokedex.css', 'src/styles/widget-expanded.css']) expect(src(css)).not.toMatch(/w-font-switch/)

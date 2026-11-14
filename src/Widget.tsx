@@ -32,7 +32,7 @@ import { autoPartner, hideTitleKey, sessionLabel, sessionRowParts, shouldToast, 
 import { SwapPicker, ThrowPicker } from './components/PartyPickers'
 import { SessionHeader } from './components/SessionHeader'
 import { useDragOrder } from './useDragOrder'
-import { clampSideWidth, readSideWidth, SIDE_DEFAULT, SIDE_MAX, SIDE_MIN, writeSideWidth } from './sideWidth'
+import { clampSideWidth, readSideWidth, sideMin, SIDE_DEFAULT, SIDE_MAX, writeSideWidth } from './sideWidth'
 import { modeFromUrl, readCarry, writeCarry } from './carry'
 import { BoxIcon, HelperIcon, SwapIcon, SidePanelIcon, TodayIcon, DexIcon, GearIcon, RankIcon, MinimizeIcon, MaximizeIcon, RestoreIcon, CloseIcon, FolderIcon, PlusIcon, PokeBall, SendIcon, SessionsIcon, TerminalIcon, WidgetModeIcon } from './components/Icons'
 // The views and the terminal (xterm) are their own chunks: the widget's first
@@ -54,7 +54,7 @@ function preloadViews() {
   if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2000 })
   else setTimeout(go, 500)
 }
-import { resetTextSize, stepTextSize } from './textSize'
+import { resetTextSize, stepTextSize, useTextStep } from './textSize'
 import { TextSizeControl } from './components/TextSizeControl'
 import type { SessionInfo } from './types'
 import { t, josa, nameOf, locale, lang } from './i18n'
@@ -173,7 +173,7 @@ const ResizeGrip: React.FC = () => {
  * remembered (src/sideWidth.ts); double-click or Home for the default; ← / → 16px at a time.
  * The terminal keeps its size while the edge moves and fits once it rests (TerminalPanel).
  */
-const SideResize: React.FC<{ width: number; max: number; onWidth: (px: number | null, save: boolean) => void; onDragging: (on: boolean) => void }> = ({ width, max, onWidth, onDragging }) => {
+const SideResize: React.FC<{ width: number; min: number; max: number; onWidth: (px: number | null, save: boolean) => void; onDragging: (on: boolean) => void }> = ({ width, min, max, onWidth, onDragging }) => {
   const left = useRef<number | null>(null)
   const at = (e: React.PointerEvent) => e.clientX - (left.current ?? 0)
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -197,7 +197,7 @@ const SideResize: React.FC<{ width: number; max: number; onWidth: (px: number | 
   }
   return (
     <div className="w-side-resize" role="separator" aria-orientation="vertical" tabIndex={0}
-      aria-valuemin={SIDE_MIN} aria-valuemax={max} aria-valuenow={width}
+      aria-valuemin={min} aria-valuemax={max} aria-valuenow={width}
       title={t('끌어서 폭 조절 · 두 번 누르면 기본')} aria-label={t('왼쪽 패널 폭')}
       onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel} onLostPointerCapture={onCancel}
       onDoubleClick={() => onWidth(null, true)} onKeyDown={onKey} />
@@ -491,24 +491,42 @@ const Widget: React.FC = () => {
   }
   // Full: the session limit is reached, or nobody is left to send (the party, then the box as helpers)
   const partyFull = freeSessionCount(dex) <= 0
-  // The top bar never scrolls: when it runs out of room the view buttons drop their names (icons
-  // only), and get them back once it is wide enough again for the width they needed
+  // The top bar never scrolls and never clips the window buttons: when it runs out of room it
+  // gives way a step at a time — 1: the view buttons drop their names (icons only); 2: the text
+  // size folds to one 가 button (the same step menu); 3: the widget toggle goes (the tray and the
+  // menu still reach the widget). Each step comes back once the bar is wide enough again for the
+  // width it needed
   const viewBarRef = useRef<HTMLDivElement>(null)
-  const [viewsCompact, setViewsCompact] = useState(false)
-  const namesWidth = useRef(0)
+  const [barLevel, setBarLevel] = useState(0)
+  const neededWidth = useRef<number[]>([])
+  const textStep = useTextStep()
   useLayoutEffect(() => {
     const bar = viewBarRef.current
     if (!bar) return
+    // The width its parts need: from the bar's left edge to the end of the last one (its margin and
+    // the bar's own right padding included). Read from the parts' boxes, not scrollWidth, which
+    // rounds and does not count a part that runs into the padding
+    const measure = () => {
+      const r = bar.getBoundingClientRect()
+      let end = r.left
+      for (const kid of bar.children) {
+        const k = kid.getBoundingClientRect()
+        if (k.width) end = Math.max(end, k.right + (parseFloat(getComputedStyle(kid).marginRight) || 0))
+      }
+      return { need: end - r.left + (parseFloat(getComputedStyle(bar).paddingRight) || 0), have: r.width }
+    }
     const check = () => {
-      if (!viewsCompact) {
-        if (bar.scrollWidth > bar.clientWidth + 1) { namesWidth.current = bar.scrollWidth; setViewsCompact(true) }
-      } else if (bar.clientWidth >= namesWidth.current + 8) setViewsCompact(false)
+      const { need, have } = measure()
+      if (need > have + 0.5) {
+        if (barLevel < 3) { neededWidth.current[barLevel] = need; setBarLevel(barLevel + 1) }
+      } else if (barLevel > 0 && have >= neededWidth.current[barLevel - 1] + 8) setBarLevel(barLevel - 1)
     }
     check()
     const ro = new ResizeObserver(check)
     ro.observe(bar)
     return () => ro.disconnect()
-  }, [viewsCompact, expanded, view])
+  }, [barLevel, expanded, view, workMode, textStep])
+  const viewsCompact = barLevel >= 1
   // Window / fullscreen: the left panel folds away (remembered), leaving the terminal the whole width
   const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem('spawn-side-hidden') === '1' } catch { return false } })
   const toggleSide = () => setSideHidden(v => { const next = !v; try { localStorage.setItem('spawn-side-hidden', next ? '1' : '0') } catch {} ; return next })
@@ -520,12 +538,14 @@ const Widget: React.FC = () => {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
-  const sideWidth = clampSideWidth(sideW, winW)
-  const sideMax = clampSideWidth(SIDE_MAX, winW)
+  // (a Mac's narrowest is 300: its header sits 78px in, clear of the traffic lights)
+  const sideLow = sideMin(isMac())
+  const sideWidth = clampSideWidth(sideW, winW, sideLow)
+  const sideMax = clampSideWidth(SIDE_MAX, winW, sideLow)
   const [sideDragging, setSideDragging] = useState(false)
   const setSideWidth = (px: number | null, save: boolean) => {
     if (px === null) { setSideW(SIDE_DEFAULT); writeSideWidth(null); return }
-    const w = clampSideWidth(px, window.innerWidth)
+    const w = clampSideWidth(px, window.innerWidth, sideLow)
     setSideW(w)
     if (save) writeSideWidth(w)
   }
@@ -1159,7 +1179,7 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
             </div>
           </section>
         </div>
-        {expanded && !sideHidden && <SideResize width={sideWidth} max={sideMax} onWidth={setSideWidth} onDragging={setSideDragging} />}
+        {expanded && !sideHidden && <SideResize width={sideWidth} min={sideLow} max={sideMax} onWidth={setSideWidth} onDragging={setSideDragging} />}
       </div>
 
       {expanded && (
@@ -1177,10 +1197,12 @@ ${t('오류: {error}', { error: update.error })}` : ''}`}
               </>}
             </div>
             <span className="w-term-spacer" />
-            {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size */}
-            <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>
-            {/* The one text size (src/textSize.ts): lists, panels and the terminal together, on every view */}
-            <TextSizeControl />
+            {/* The widget on and off: here it turns the widget on (the widget's ⇤ turns it off again); left of the text size.
+                The last thing to give way in a narrow window (the tray reaches the widget too) */}
+            {barLevel < 3 && <button className="w-icon w-widget-toggle" onClick={() => setMode('widget')} title={t('위젯으로 작게 (항상 위)')} aria-label={t('위젯 모드 켜기')}><WidgetModeIcon size={15} /></button>}
+            {/* The one text size (src/textSize.ts): lists, panels and the terminal together, on every view;
+                folded to one 가 button when the bar is narrow */}
+            <TextSizeControl compact={barLevel >= 2} />
             {/* As Windows users know them: minimize, maximize/restore (window ↔ full screen), close */}
             <div className="w-win-controls">
               <button className="w-icon" onClick={() => bridge?.widget.minimize()} title={t('최소화')} aria-label={t('최소화')}><MinimizeIcon size={14} /></button>
