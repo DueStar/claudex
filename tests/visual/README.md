@@ -11,6 +11,6 @@ Shots of the real built UI (`dist/`) with fixture sessions, to compare each rest
 - `fake-bridge.js` — `window.spawn` for the page; records `move/close/rename/create/send/write` in `window.__CALLS__`.
 - The repo's server runs on port 3397 with `SPAWN_HOME=tests/visual/.home` (git-ignored) only to serve `dist/` and
   the Pokémon pictures (fetched once, cached there). The page's WebSocket is answered with the fixture, never the server.
-- playwright-core comes from `PLAYWRIGHT_CORE` (default: the spawn-promo copy); the browser is its Chromium, else Edge, else Chrome.
+- playwright-core comes from `PLAYWRIGHT_CORE` (default: the spawn-promo copy); the browser is its Chromium, else Edge, else Chrome (`SHOTS_BROWSER` = an executable overrides).
 - Pages run at 2026-11-14 14:30 Seoul time, `ko-KR`, with a seeded `Math.random`: a rerun gives the same pictures.
 - Exit code 0 only when every shot was written and every check passed. No Electron, nothing of the owner's is read.

@@ -14,7 +14,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as fixture from './fixture.mjs'
@@ -52,7 +52,8 @@ Before: npx vite build   (the harness reads dist/, it never builds)
   --check work     in every -work shot: no img[src*="/sprites/pokemon"], no Pokémon word in
                    the visible text, titles or aria-labels, and the first .w-row has the same
                    left and width as in the same surface without 업무 모드 (shot too if needed)
-                   (both checks may be given: --check fit --check work, or --check fit,work)
+                   (both checks may be given: --check fit --check work, or --check fit,work;
+                   --check work refuses a run with no -work surface in it)
   --flow <name>    an interaction flow (none yet; tabs-gone arrives with the session header)
   --sheet <s>      no shots: writes <out>/sheet-<s>[-WxH].png = before (<out>/../00-before/),
                    the lab reference, after (<out>), side by side or stacked
@@ -68,6 +69,7 @@ Files: <surface>-<W>x<H>.png (qa and toast: the PNG's real size, e.g. toast-1342
 Exit code 0 only when every requested shot was written and every requested check passed.
 
 Environment: PLAYWRIGHT_CORE (path to playwright-core, default the spawn-promo copy),
+SHOTS_BROWSER (a browser executable to use instead of Chromium / Edge / Chrome),
 LAB_SHOTS (the lab's reference folder, default calm-lab/shots-v5).
 Uses port ${PORT} and tests/visual/.home only.
 `
@@ -150,8 +152,22 @@ function parseArgs(argv) {
   return o
 }
 
+/** The server child while it runs: killed on every way out (a child outlives process.exit on Windows) */
+let serverChild = null
+function stopServer() {
+  if (serverChild && serverChild.exitCode === null) { try { serverChild.kill() } catch { /* already gone */ } }
+  serverChild = null
+}
+process.on('exit', stopServer)
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+  process.on(sig, () => { stopServer(); process.exit(130) })
+}
+process.on('uncaughtException', err => { console.error(err); stopServer(); process.exit(1) })
+process.on('unhandledRejection', err => { console.error(err); stopServer(); process.exit(1) })
+
 function fail(msg) {
   console.error(`shots: ${msg}`)
+  stopServer()
   process.exit(2)
 }
 
@@ -177,16 +193,21 @@ async function loadPlaywright() {
   }
 }
 
-/** Playwright's own Chromium when its revision is installed, else the installed Edge, else Chrome */
+/**
+ * Playwright's own Chromium when its revision is installed, else the installed Edge, else Chrome;
+ * SHOTS_BROWSER (a browser executable) is tried alone when set
+ */
 async function launchBrowser(chromium) {
-  const tries = [{}, { channel: 'msedge' }, { channel: 'chrome' }]
+  const tries = process.env.SHOTS_BROWSER
+    ? [{ executablePath: process.env.SHOTS_BROWSER }]
+    : [{}, { channel: 'msedge' }, { channel: 'chrome' }]
   const errors = []
   for (const opts of tries) {
     try {
       const browser = await chromium.launch({ headless: true, ...opts })
-      return { browser, name: opts.channel ?? 'chromium' }
+      return { browser, name: opts.executablePath ?? opts.channel ?? 'chromium' }
     } catch (err) {
-      errors.push(`${opts.channel ?? 'chromium'}: ${String(err.message).split('\n')[0]}`)
+      errors.push(`${opts.executablePath ?? opts.channel ?? 'chromium'}: ${String(err.message).split('\n')[0]}`)
     }
   }
   fail(`no browser could start:\n  ${errors.join('\n  ')}`)
@@ -214,6 +235,7 @@ async function startServer() {
   }
   for (const k of Object.keys(env)) if (k.startsWith('CLAUDEX_')) delete env[k]
   const child = spawn(process.execPath, [join(ROOT, 'server', 'index.js')], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] })
+  serverChild = child
   let output = ''
   child.stdout.on('data', d => { output += d })
   child.stderr.on('data', d => { output += d })
@@ -225,7 +247,6 @@ async function startServer() {
     if (await answers(`${BASE}/`)) return { child, log: () => output }
     await sleep(200)
   }
-  child.kill()
   fail(`the server did not answer on ${BASE} within 20 s:\n${output}`)
 }
 
@@ -291,8 +312,15 @@ async function workProblems(page) {
   return page.evaluate((src) => {
     const GAME = new RegExp(src, 'i')
     const bad = []
+    // The mode is really on: without the class the checks below would pass for nothing
+    if (!document.documentElement.classList.contains('work-mode')) bad.push('<html> has no work-mode class: 업무 모드 is not on')
     const pics = document.querySelectorAll('img[src*="/sprites/pokemon"]')
     if (pics.length) bad.push(`${pics.length} Pokémon picture(s), first ${pics[0].getAttribute('src')}`)
+    // A session drawn as a picture at all (a Pokémon, or the stand-in ball while it has none)
+    const sessionPics = document.querySelectorAll('img.w-row-mon, .w-row img, .w-rail-session img, .w-sess-tab img, .w-sess-head img, .w-party img')
+    if (sessionPics.length) bad.push(`${sessionPics.length} picture(s) in session rows / tabs / rail / party, first ${sessionPics[0].getAttribute('src')}`)
+    const balls = [...document.querySelectorAll('img[src*="/sprites/spawn-ball"]')].filter(i => { const r = i.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+    if (balls.length) bad.push(`${balls.length} visible Poké Ball stand-in picture(s)`)
     const dialogs = [...document.querySelectorAll('.set-backdrop')]
     const was = dialogs.map(d => d.style.display)
     dialogs.forEach(d => { d.style.display = 'none' })
@@ -485,6 +513,22 @@ async function sheet(browser, surface, opts) {
 
 // ---------------------------------------------------------------- main
 
+/** The newest modification time of any file under dir (0 when there is none) */
+function newestIn(dir) {
+  let newest = 0
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name)
+    newest = Math.max(newest, entry.isDirectory() ? newestIn(p) : statSync(p).mtimeMs)
+  }
+  return newest
+}
+
+/** dist/ built before the last change under src/: the shots would show the old UI */
+function warnIfStale() {
+  const built = statSync(join(DIST, 'index.html')).mtimeMs
+  if (newestIn(join(ROOT, 'src')) > built) console.warn('shots: (warning) stale dist: src/ changed after the last build — run npx vite build')
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
   if (opts.help) { console.log(USAGE); return 0 }
@@ -513,12 +557,19 @@ async function main() {
     const s = parseId(id)
     for (const size of s.sizes ?? SIZES) if (!opts.size || opts.size === `${size[0]}x${size[1]}` || s.sizes) jobs.push([s, size])
   }
+  // A work check with no 업무 모드 shot would check nothing and pass
+  if (opts.checks.has('work') && !jobs.some(([s]) => s.work)) {
+    fail(`--check work needs at least one -work surface (${ALL_IDS.filter(id => id.includes('-work')).join(' ')}); none is in this run`)
+  }
+  warnIfStale()
 
-  const server = await startServer()
+  // The browser first: if none starts, no server was started to leave behind
   const { browser, name } = await launchBrowser(chromium)
-  console.log(`spawn ${VERSION} · ${name} · ${BASE} · ${jobs.length} shot(s) → ${opts.out}`)
+  let server = null
   const report = []
   try {
+    server = await startServer()
+    console.log(`spawn ${VERSION} · ${name} · ${BASE} · ${jobs.length} shot(s) → ${opts.out}`)
     for (const [s, size] of jobs) await shoot(browser, s, size, opts, report)
     for (const f of opts.flows) {
       const problems = await FLOWS[f]({ browser, opts, fixture, BASE })
@@ -527,8 +578,8 @@ async function main() {
       for (const p of problems) console.log(`      ${p}`)
     }
   } finally {
-    await browser.close()
-    server.child.kill()
+    stopServer()
+    await browser.close().catch(() => {})
   }
 
   // 업무 모드 keeps the rows where they were
